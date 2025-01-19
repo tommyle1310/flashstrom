@@ -1,30 +1,34 @@
+import { MongooseModule } from '@nestjs/mongoose';
 import { Schema, Document } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 
 // Enum for UserType
 export enum Enum_UserType {
-  DRIVER = 'Driver',
-  ADMIN = 'Admin',
-  CUSTOMER = 'Customer',
-  RESTAURANT_OWNER = 'Restaurant Owner',
-  CUSTOMER_CARE_REPRESENTATIVE = 'Customer Care Representative',
+  DRIVER = 'DRIVER',
+  ADMIN = 'ADMIN',
+  CUSTOMER = 'CUSTOMER',
+  RESTAURANT_OWNER = 'RESTAURANT_OWNER',
+  CUSTOMER_CARE_REPRESENTATIVE = 'CUSTOMER_CARE_REPRESENTATIVE'
 }
 
 // Define the User Schema
 export const UserSchema = new Schema({
-  _id: { type: String }, // Custom _id field with the 'USR_' prefix
-  first_name: { type: String, required: true },
-  last_name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
+  _id: { type: String }, // Custom _id field with 'USR_' prefix
+  first_name: { type: String, required: false },
+  last_name: { type: String, required: false },
+  password: {type: String, required: true},
+  email: { type: String, required: false, unique: true },
   phone: { type: String, required: true },
-  user_type: { type: String, enum: Object.values(Enum_UserType), required: true },
-  address: { type: [String], required: true }, // Array of address book IDs
-  created_at: { type: Number, required: true }, // Unix timestamp
-  updated_at: { type: Number, required: true }, // Unix timestamp
-  last_login: { type: Number, required: true }, // Unix timestamp
-  avatar: { type: { url: String, key: String }, required: false }, // Avatar with URL and key
+  user_type: { type: [String], enum: Object.values(Enum_UserType), required: true },  // Multiple roles
+  address: { type: [String], required: false }, // Array of address book IDs
+  created_at: { type: Number, required: false }, // Unix timestamp
+  updated_at: { type: Number, required: false }, // Unix timestamp
+  last_login: { type: Number, required: false }, // Unix timestamp
+  avatar: { type: { url: String, key: String }, required: false },
   is_verified: { type: Boolean, default: false }, // Verification status
 });
+
+
 
 // Pre-save hook to generate a custom ID with 'USR_' prefix and unique random part
 UserSchema.pre('save', function (next) {
@@ -45,12 +49,16 @@ export interface User extends Document {
   first_name: string;
   last_name: string;
   email: string;
+  password: string;
   phone: string;
-  user_type: Enum_UserType;
+  user_type: Enum_UserType[];
   address: string[]; // Array of address book IDs
-  created_at: number; // Unix timestamp
-  updated_at: number; // Unix timestamp
-  last_login: number; // Unix timestamp
-  avatar: { url: string, key: string }; // Avatar object with url and key
-  is_verified: boolean; // Whether the user is verified
+  created_at: number;
+  updated_at: number;
+  last_login: number;
+  avatar: { url: string, key: string };
+  is_verified: boolean;
 }
+
+
+export const UserModel = MongooseModule.forFeature([{ name: 'User', schema: UserSchema }]);
