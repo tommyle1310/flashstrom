@@ -19,37 +19,58 @@ export class AuthService {
     const { email, password, first_name, last_name, phone } = userData;
 
     // Validate input fields
-    if (!phone || !password) {
+    if (!email || !password) {
       return createResponse(
         'InvalidFormatInput',
         null,
-        'Phone & Password cannot be empty',
+        'Email & Password cannot be empty',
       );
     }
 
-    // Check if the user already exists based on phone number
-    const existingUserPhone = await this.userModel.findOne({ phone });
-    if (existingUserPhone) {
-      return createResponse('DuplicatedRecord', null, 'Phone already in use');
-    }
-
     // Check if the user already exists based on email
-    const existingUserEmail = await this.userModel.findOne({ email });
-    if (existingUserEmail) {
-      return createResponse('DuplicatedRecord', null, 'Em ail already in use');
+    const existingUser = await this.userModel.findOne({ email });
+    if (existingUser) {
+      // If the user exists, check if they already have 'CUSTOMER' in user_type
+      if (existingUser.user_type.includes(Enum_UserType.CUSTOMER)) {
+        return createResponse(
+          'DuplicatedRecord',
+          null,
+          'Customer with the same email already exists',
+        );
+      }
+
+      // If user exists and does not have 'CUSTOMER', create the customer
+      const newCustomer = new this.customerModel({
+        ...userData,
+        password: existingUser.password, // Use existing user's password
+        user_id: existingUser.id, // Link the customer to the existing user
+      });
+
+      // Save the new customer to the database
+      await newCustomer.save();
+
+      return createResponse(
+        'OK',
+        {
+          id: existingUser.id,
+          email: existingUser.email,
+          first_name: existingUser.first_name,
+          last_name: existingUser.last_name,
+          user_type: existingUser.user_type,
+         data: existingUser
+        },
+        'Customer created successfully with existing user',
+      );
     }
 
-    // Hash password before saving to DB
+    // If no user exists, create a new user
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create a new user object
     const newUser = new this.userModel({
       ...userData,
-      password: hashedPassword,
-      user_type: ['CUSTOMER'], // Ensure user_type is an array of roles
-      first_name,
-      last_name,
       phone,
+      password: hashedPassword,
+      user_type: ['CUSTOMER'], // Set user_type as 'CUSTOMER'
     });
 
     // Save the new user to the database
@@ -59,9 +80,6 @@ export class AuthService {
     const newCustomer = new this.customerModel({
       ...userData,
       password: hashedPassword,
-      first_name,
-      last_name,
-      phone,
       user_id: newUser.id, // Set the user_id field to the user ID
     });
 
@@ -73,23 +91,35 @@ export class AuthService {
       'OK',
       {
         id: newUser.id,
+        phone,
         email: newUser.email,
         first_name: newUser.first_name,
         last_name: newUser.last_name,
         user_type: newUser.user_type,
+        data: newCustomer
       },
       'Customer registered successfully',
     );
   }
 
   // Login an existing user
-  async login({phone, password}:{phone: string, password: string}): Promise<any> {
-    if (!phone || !password) {
-      return createResponse('MissingInput', null, 'Phone & Password cannot be empty');      
+  async login({
+    email,
+    password,
+  }: {
+    email: string;
+    password: string;
+  }): Promise<any> {
+    if (!email || !password) {
+      return createResponse(
+        'MissingInput',
+        null,
+        'Email & Password cannot be empty',
+      );
     }
-    const user = await this.userModel.findOne({ phone });
+    const user = await this.userModel.findOne({ email });
     if (!user) {
-      return createResponse('NotFound', null, 'User not found with this phone number');
+      return createResponse('NotFound', null, 'User not found with this email');
     }
 
     // Validate the password

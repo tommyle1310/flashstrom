@@ -77,6 +77,24 @@ export class UserService {
     }
   }
 
+  // Find a user by a specific condition (e.g., any field)
+async findOne(conditions: object): Promise<any> {
+  const user = await this.userModel.findOne(conditions).exec();
+  if (!user) {
+    return createResponse('NotFound', null, 'User not found');
+  }
+  try {
+    return createResponse('OK', user, 'Fetched user successfully');
+  } catch (error) {
+    return createResponse(
+      'ServerError',
+      null,
+      'An error occurred while fetching the user',
+    );
+  }
+}
+
+
   // Get a user by ID
   async getUserById(id: string): Promise<any> {
     const user = await this.userModel.findById(id).exec();

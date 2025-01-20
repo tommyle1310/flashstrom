@@ -1,4 +1,3 @@
-// app.module.ts
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -8,6 +7,8 @@ import { AddressBook as AddressBookModule } from './address_book/address_book.mo
 import { CustomersModule } from './customers/customers.module';
 import { UploadModule } from './upload/upload.module';
 import { AuthModule } from './auth/auth.module'; // Make sure AuthModule is imported here
+import { EmailService } from './mailer/email.service';
+import { MailerCustomModule } from './mailer/mailer.module';  // Import MailerCustomModule (which configures MailerService)
 
 @Module({
   imports: [
@@ -17,8 +18,9 @@ import { AuthModule } from './auth/auth.module'; // Make sure AuthModule is impo
     CustomersModule,
     UploadModule,
     AuthModule, // Ensure AuthModule is imported
+    MailerCustomModule, // Import the mailer module here
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, EmailService],
 })
 export class AppModule {}

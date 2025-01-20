@@ -16,9 +16,10 @@ export const UserSchema = new Schema({
   _id: { type: String }, // Custom _id field with 'USR_' prefix
   first_name: { type: String, required: false },
   last_name: { type: String, required: false },
+  verification_code: {type:Number, required: false},
   password: {type: String, required: true},
   email: { type: String, required: false, unique: true },
-  phone: { type: String, required: true },
+  phone: { type: String, required: false },
   user_type: { type: [String], enum: Object.values(Enum_UserType), required: true },  // Multiple roles
   address: { type: [String], required: false }, // Array of address book IDs
   created_at: { type: Number, required: false }, // Unix timestamp
@@ -50,6 +51,7 @@ export interface User extends Document {
   last_name: string;
   email: string;
   password: string;
+  verification_code: number,
   phone: string;
   user_type: Enum_UserType[];
   address: string[]; // Array of address book IDs
