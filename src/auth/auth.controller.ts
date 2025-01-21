@@ -89,6 +89,43 @@ export class AuthController {
       );
     }
   }
+  @Post('register-fwallet')
+  async registerFWallet(
+    @Body()
+    userData: {
+      user_id: string,
+      email: string,
+      password: string
+      balance: string
+    },
+  ) {
+    // Step 1: Register the customer with the provided data
+    const registrationResponse =
+      await this.authService.register(userData, Enum_UserType.F_WALLET);
+
+    // If registration is successful
+    if (registrationResponse?.data?.data) {
+      const code = await this.emailService.sendVerificationEmail(
+        userData.email,
+      ); // Send email to the user's email
+      await this.userService.updateUser(
+        registrationResponse.data.data.user_id,
+        { verification_code: code },
+      );
+
+      return createResponse(
+        'OK',
+        null,
+        'Registration successful, verification email sent',
+      );
+    } else {
+      return createResponse(
+        'ServerError',
+        null,
+        'Something went wrong in the server',
+      );
+    }
+  }
 
   @Post('login-customer')
   async loginCustomer(@Body() credentials: { email: string; password: string }) {
@@ -97,6 +134,10 @@ export class AuthController {
   @Post('login-driver')
   async loginDriver(@Body() credentials: { email: string; password: string }) {
     return this.authService.login(credentials, Enum_UserType.DRIVER);
+  }
+  @Post('login-fwallet')
+  async loginFWallet(@Body() credentials: { email: string; password: string }) {
+    return this.authService.login(credentials, Enum_UserType.F_WALLET);
   }
 
   @Post('verify-email')

@@ -4,7 +4,8 @@ export enum Enum_UserType {
   ADMIN = 'ADMIN',
   CUSTOMER = 'CUSTOMER',
   RESTAURANT_OWNER = 'RESTAURANT_OWNER',
-  CUSTOMER_CARE_REPRESENTATIVE = 'CUSTOMER_CARE_REPRESENTATIVE'
+  CUSTOMER_CARE_REPRESENTATIVE = 'CUSTOMER_CARE_REPRESENTATIVE',
+  F_WALLET = 'F_WALLET',
 }
 
 export enum Enum_AppTheme {
@@ -36,6 +37,9 @@ export type CustomerPayload = BasePayload & {
   favorite_items: string[];
   support_tickets: string[];
 };
+export type FWalletPayload = BasePayload & {
+  balance: number;
+};
 
 // The final payload type can be a union of both driver and customer payload types.
-export type Payload = DriverPayload | CustomerPayload;
+export type Payload = DriverPayload | CustomerPayload | FWalletPayload;

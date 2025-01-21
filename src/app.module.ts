@@ -9,7 +9,8 @@ import { DriversModule } from './drivers/drivers.module';
 import { UploadModule } from './upload/upload.module';
 import { AuthModule } from './auth/auth.module'; // Make sure AuthModule is imported here
 import { EmailService } from './mailer/email.service';
-import { MailerCustomModule } from './mailer/mailer.module';  // Import MailerCustomModule (which configures MailerService)
+import { MailerCustomModule } from './mailer/mailer.module'; // Import MailerCustomModule (which configures MailerService)
+import { FwalletsModule } from './fwallets/fwallets.module';
 
 @Module({
   imports: [
@@ -20,7 +21,8 @@ import { MailerCustomModule } from './mailer/mailer.module';  // Import MailerCu
     DriversModule,
     UploadModule,
     AuthModule, // Ensure AuthModule is imported
-    MailerCustomModule, // Import the mailer module here
+    MailerCustomModule,
+    FwalletsModule, // Import the mailer module here
   ],
   controllers: [AppController],
   providers: [AppService, EmailService],

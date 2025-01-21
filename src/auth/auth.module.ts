@@ -14,6 +14,9 @@ import { UserService } from 'src/user/user.service';
 import { DriversModule } from 'src/drivers/drivers.module';
 import { DriversService } from 'src/drivers/drivers.service';
 import { DriverSchema } from 'src/drivers/drivers.schema';
+import { FWalletService } from 'src/fwallets/fwallets.service';
+import { FWalletSchema } from 'src/fwallets/fwallets.schema';
+import { FwalletsModule } from 'src/fwallets/fwallets.module';
 
 @Module({
   imports: [
@@ -24,12 +27,14 @@ import { DriverSchema } from 'src/drivers/drivers.schema';
     MongooseModule.forFeature([{ name: 'User', schema: UserSchema }]), // Make sure the User model is available
     UserModule, // Import UserModule to make the UserService available
     MongooseModule.forFeature([{ name: 'Customer', schema: CustomerSchema }]), // Customer model
-    CustomersModule, // Import CustomersModule
-    MongooseModule.forFeature([{ name: 'Driver', schema: DriverSchema }]), // Customer model
-    DriversModule, // Import CustomersModule
+    CustomersModule,
+    MongooseModule.forFeature([{ name: 'Driver', schema: DriverSchema }]), // driver model
+    DriversModule,
+    MongooseModule.forFeature([{ name: 'FWallet', schema: FWalletSchema }]), // fwallet model
+    FwalletsModule,
     MailerCustomModule,  // Import Mailer module to handle emails
   ],
-  providers: [AuthService, JwtStrategy, EmailService, UserService, DriversService], // Make sure EmailService is included here
+  providers: [AuthService, JwtStrategy, EmailService, UserService, DriversService, FWalletService], // Make sure EmailService is included here
   controllers: [AuthController], // Only controllers should be listed here
   exports: [AuthService, EmailService], // Export AuthService and EmailService if needed in other modules
 })
