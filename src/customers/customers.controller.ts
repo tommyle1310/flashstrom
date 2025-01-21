@@ -1,4 +1,12 @@
-import { Body, Controller, Param, Post, Get, Patch, Delete } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Param,
+  Post,
+  Get,
+  Patch,
+  Delete,
+} from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -18,12 +26,19 @@ export class CustomersController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.customersService.findOne(id);
+  findCustomerById(@Param('id') id: string) {
+    return this.customersService.findCustomerById(id);
+  }
+  @Get(':field/:value')
+  findOne(@Param('field') field: string, @Param('value') value: string) {
+    return this.customersService.findOne({ [field]: value });
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCustomerDto: UpdateCustomerDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateCustomerDto: UpdateCustomerDto,
+  ) {
     return this.customersService.update(id, updateCustomerDto);
   }
 

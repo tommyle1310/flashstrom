@@ -2,10 +2,7 @@ import { Schema, Document } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 
 // Enum for preferred app themes
-export enum Enum_AppTheme {
-  LIGHT = 'light',
-  DARK = 'dark',
-}
+
 
 // Define the Customer Schema
 export const CustomerSchema = new Schema({
@@ -18,9 +15,7 @@ export const CustomerSchema = new Schema({
   favorite_restaurants: { type: [String], required: false }, // Array of Favorite Restaurant IDs
   favorite_items: { type: [String], required: false }, // Array of Favorite Menu Item IDs
   support_tickets: { type: [String], required: false }, // Array of Support Ticket IDs
-  app_preferences: {
-    theme: { type: String, enum: Object.values(Enum_AppTheme), required: false }, // User's App Theme preference
-  },
+
   created_at: { type: Number, required: false }, // Unix timestamp
   updated_at: { type: Number, required: false }, // Unix timestamp
 });
@@ -48,7 +43,6 @@ export interface Customer extends Document {
   favorite_restaurants: string[]; // Array of favorite restaurant IDs (RES_* format)
   favorite_items: string[]; // Array of favorite menu IDs (MENU_* format)
   support_tickets?: string[]; // Array of support ticket IDs (ST_* format)
-  app_preferences?: { theme: Enum_AppTheme }; // App preferences with theme
   created_at?: number; // Unix timestamp
   updated_at?: number; // Unix timestamp
 }

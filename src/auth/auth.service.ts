@@ -1,22 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Enum_UserType, User } from 'src/user/user.schema';
+import {  User } from 'src/user/user.schema';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { createResponse } from 'src/utils/createResponse';
 import { Customer } from 'src/customers/customer.schema';
+import { Driver } from 'src/drivers/drivers.schema';
+import { BasePayload, CustomerPayload, DriverPayload, Enum_UserType, Payload } from 'src/types/Payload';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectModel('User') private readonly userModel: Model<User>,
     @InjectModel('Customer') private readonly customerModel: Model<Customer>,
+    @InjectModel('Driver') private readonly driverModel: Model<Driver>,
     private readonly jwtService: JwtService,
   ) {}
-
-  async registerCustomer(userData: any): Promise<any> {
-    const { email, password, first_name, last_name, phone } = userData;
+  async register(userData: any, type: Enum_UserType): Promise<any> {
+    const { email, password, phone } = userData;
 
     // Validate input fields
     if (!email || !password) {
@@ -30,24 +32,53 @@ export class AuthService {
     // Check if the user already exists based on email
     const existingUser = await this.userModel.findOne({ email });
     if (existingUser) {
-      // If the user exists, check if they already have 'CUSTOMER' in user_type
-      if (existingUser.user_type.includes(Enum_UserType.CUSTOMER)) {
+      // If the user exists, check if they already have the specified user_type
+      if (existingUser.user_type.includes(type)) {
         return createResponse(
           'DuplicatedRecord',
           null,
-          'Customer with the same email already exists',
+          `${type} with the same email already exists`,
         );
       }
 
-      // If user exists and does not have 'CUSTOMER', create the customer
-      const newCustomer = new this.customerModel({
-        ...userData,
-        password: existingUser.password, // Use existing user's password
-        user_id: existingUser.id, // Link the customer to the existing user
-      });
+      // If the user exists and does not have the same type, create the customer or driver
+      let newUserWithRole;
 
-      // Save the new customer to the database
-      await newCustomer.save();
+      switch (type) {
+        case 'CUSTOMER':
+          // Create a new customer object and link to the existing user
+          newUserWithRole = new this.customerModel({
+            ...userData,
+            password: existingUser.password, // Use the existing user's password
+            user_id: existingUser.id, // Link the customer to the existing user
+          });
+          break;
+
+        case 'DRIVER':
+          // Create a new driver object and link to the existing user
+          newUserWithRole = new this.driverModel({
+            ...userData,
+            password: existingUser.password, // Use the existing user's password
+            user_id: existingUser.id, // Link the driver to the existing user
+          });
+          break;
+
+        default:
+          return createResponse(
+            'Unauthorized',
+            null,
+            'Invalid user type provided',
+          );
+      }
+
+      // Save the new user role (customer or driver) to the database
+      await newUserWithRole.save();
+
+      // Update the user_type to include the new type if not already present
+      if (!existingUser.user_type.includes(type)) {
+        existingUser.user_type.push(type); // Only add type if it doesn't already exist
+        await existingUser.save(); // Save the updated user document
+      }
 
       return createResponse(
         'OK',
@@ -56,10 +87,10 @@ export class AuthService {
           email: existingUser.email,
           first_name: existingUser.first_name,
           last_name: existingUser.last_name,
-          user_type: existingUser.user_type,
-         data: existingUser
+          user_type: existingUser.user_type, // Return updated user_type
+          data: newUserWithRole,
         },
-        'Customer created successfully with existing user',
+        `${type} created successfully with existing user`,
       );
     }
 
@@ -70,21 +101,42 @@ export class AuthService {
       ...userData,
       phone,
       password: hashedPassword,
-      user_type: ['CUSTOMER'], // Set user_type as 'CUSTOMER'
+      user_type: [type], // Set user_type as 'CUSTOMER' or 'DRIVER'
     });
 
     // Save the new user to the database
     await newUser.save();
 
-    // Create a new customer object, apply the user_id from the new user to the customer
-    const newCustomer = new this.customerModel({
-      ...userData,
-      password: hashedPassword,
-      user_id: newUser.id, // Set the user_id field to the user ID
-    });
+    let newUserWithRole;
 
-    // Save the new customer to the database
-    await newCustomer.save();
+    // Create the correct user role (customer or driver) based on the user type
+    switch (type) {
+      case 'CUSTOMER':
+        newUserWithRole = new this.customerModel({
+          ...userData,
+          password: hashedPassword,
+          user_id: newUser.id, // Link the customer to the new user
+        });
+        break;
+
+      case 'DRIVER':
+        newUserWithRole = new this.driverModel({
+          ...userData,
+          password: hashedPassword,
+          user_id: newUser.id, // Link the driver to the new user
+        });
+        break;
+
+      default:
+        return createResponse(
+          'Unauthorized',
+          null,
+          'Invalid user type provided',
+        );
+    }
+
+    // Save the new user role (customer or driver) to the database
+    await newUserWithRole.save();
 
     // Return a response with the user data
     return createResponse(
@@ -96,53 +148,119 @@ export class AuthService {
         first_name: newUser.first_name,
         last_name: newUser.last_name,
         user_type: newUser.user_type,
-        data: newCustomer
+        data: newUserWithRole,
       },
-      'Customer registered successfully',
+      `${type} registered successfully`,
     );
   }
 
   // Login an existing user
-  async login({
-    email,
-    password,
-  }: {
-    email: string;
-    password: string;
-  }): Promise<any> {
-    if (!email || !password) {
-      return createResponse(
-        'MissingInput',
-        null,
-        'Email & Password cannot be empty',
-      );
-    }
-    const user = await this.userModel.findOne({ email });
-    if (!user) {
-      return createResponse('NotFound', null, 'User not found with this email');
-    }
-
-    // Validate the password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return createResponse('Unauthorized', null, 'Invalid credentials');
-    }
-
-    // Generate JWT token
-    const payload = {
-      userId: user.id,
-      email: user.email,
-      user_type: user.user_type,
-    };
-    const accessToken = this.jwtService.sign(payload);
-
-    // Return the access token
+async login(
+  { email, password }: { email: string; password: string },
+  type: Enum_UserType,
+): Promise<any> {
+  if (!email || !password) {
     return createResponse(
-      'OK',
-      { access_token: accessToken },
-      'Login successful',
+      'MissingInput',
+      null,
+      'Email & Password cannot be empty',
     );
   }
+
+  // Find the user by email
+  const user = await this.userModel.findOne({ email });
+  if (!user) {
+    return createResponse('NotFound', null, 'User not found with this email');
+  }
+
+  // Validate the password
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+  if (!isPasswordValid) {
+    return createResponse('Unauthorized', null, 'Invalid credentials');
+  }
+
+  // Initialize the payload with basic user info
+  let payload: BasePayload = {
+    userId: user.id,
+    email: user.email,
+    user_type: user.user_type,
+    first_name: user.first_name,
+    last_name: user.last_name,
+    app_preferences: user.app_preferences, // App preferences are common to both users
+  };
+
+  let userWithRole;
+  let accessToken: string;
+
+  // Switch based on user type (DRIVER or CUSTOMER)
+  switch (type) {
+    case 'DRIVER':
+      // Fetch additional fields from the driver collection
+      userWithRole = await this.driverModel.findOne({ user_id: user.id });
+      if (!userWithRole) {
+        return createResponse('NotFound', null, 'Driver not found');
+      }
+
+      // Expand payload for DRIVER type
+      const driverPayload: DriverPayload = {
+        ...payload,
+        contact_email: userWithRole.contact_email,
+        contact_phone: userWithRole.contact_phone,
+        vehicle: userWithRole.vehicle,
+        current_location: userWithRole.current_location,
+        avatar: userWithRole.avatar,
+        available_for_work: userWithRole.available_for_work,
+      };
+
+      // Generate JWT token with the extended payload
+      accessToken = this.jwtService.sign(driverPayload);
+
+      // Return the access token along with the user data
+      return createResponse(
+        'OK',
+        {
+          access_token: accessToken,
+          user_data: userWithRole,
+        },
+        'Login successful',
+      );
+
+    case 'CUSTOMER':
+      // Fetch additional fields from the customer collection
+      userWithRole = await this.customerModel.findOne({ user_id: user.id });
+      if (!userWithRole) {
+        return createResponse('NotFound', null, 'Customer not found');
+      }
+
+      // Expand payload for CUSTOMER type
+      const customerPayload: CustomerPayload = {
+        ...payload,
+        preferred_category: userWithRole.preferred_category,
+        favorite_restaurants: userWithRole.favorite_restaurants,
+        favorite_items: userWithRole.favorite_items,
+        support_tickets: userWithRole.support_tickets,
+      };
+
+      // Generate JWT token with the extended payload
+      accessToken = this.jwtService.sign(customerPayload);
+
+      // Return the access token along with the user data
+      return createResponse(
+        'OK',
+        {
+          access_token: accessToken,
+          // user_data: userWithRole,
+        },
+        'Login successful',
+      );
+
+    default:
+      return createResponse('Unauthorized', null, 'Invalid user type');
+  }
+}
+
+
+
 
   // Validate a user based on the JWT payload
   async validateUser(payload: any): Promise<User> {

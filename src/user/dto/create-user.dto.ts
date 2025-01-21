@@ -1,5 +1,5 @@
 import { IsString, IsEmail, IsEnum, IsArray, IsBoolean, IsOptional, IsObject, IsNumber } from 'class-validator';
-import { Enum_UserType } from '../user.schema';
+import { Enum_UserType } from 'src/types/Payload';
 
 export class CreateUserDto {
   @IsString()

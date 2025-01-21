@@ -1,15 +1,9 @@
 import { MongooseModule } from '@nestjs/mongoose';
 import { Schema, Document } from 'mongoose';
+import { Enum_AppTheme, Enum_UserType } from 'src/types/Payload';
 import { v4 as uuidv4 } from 'uuid';
 
-// Enum for UserType
-export enum Enum_UserType {
-  DRIVER = 'DRIVER',
-  ADMIN = 'ADMIN',
-  CUSTOMER = 'CUSTOMER',
-  RESTAURANT_OWNER = 'RESTAURANT_OWNER',
-  CUSTOMER_CARE_REPRESENTATIVE = 'CUSTOMER_CARE_REPRESENTATIVE'
-}
+
 
 // Define the User Schema
 export const UserSchema = new Schema({
@@ -27,6 +21,9 @@ export const UserSchema = new Schema({
   last_login: { type: Number, required: false }, // Unix timestamp
   avatar: { type: { url: String, key: String }, required: false },
   is_verified: { type: Boolean, default: false }, // Verification status
+  app_preferences: {
+    theme: { type: String, enum: Object.values(Enum_AppTheme), required: false }, // User's App Theme preference
+  },
 });
 
 
@@ -60,6 +57,8 @@ export interface User extends Document {
   last_login: number;
   avatar: { url: string, key: string };
   is_verified: boolean;
+  app_preferences?: { theme: Enum_AppTheme }; // App preferences with theme
+
 }
 
 

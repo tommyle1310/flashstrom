@@ -1,5 +1,5 @@
 import { IsString, IsArray, IsEnum, IsOptional, IsInt } from 'class-validator';
-import { Enum_AppTheme } from '../customer.schema'; // Importing Enum_AppTheme from the schema
+import { Enum_AppTheme } from 'src/types/Payload'; // Importing Enum_AppTheme from the schema
 
 export class CreateCustomerDto {
   

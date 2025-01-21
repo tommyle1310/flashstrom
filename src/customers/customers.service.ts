@@ -90,7 +90,7 @@ constructor(
   }
 
   // Get a customer by ID
-  async findOne(id: string): Promise<any> {
+  async findCustomerById(id: string): Promise<any> {
     const customer = await this.customerModel.findById(id).exec();
     if (!customer) {
       return createResponse('NotFound', null, 'Customer not found');
@@ -105,6 +105,22 @@ constructor(
         'An error occurred while fetching the customer',
       );
     }
+  }
+
+  async findOne(conditions: object): Promise<any> {
+ const customer = await this.customerModel.findOne(conditions).exec();
+  if (!customer) {
+    return createResponse('NotFound', null, 'Customer not found');
+  }
+  try {
+    return createResponse('OK', customer, 'Fetched customer successfully');
+  } catch (error) {
+    return createResponse(
+      'ServerError',
+      null,
+      'An error occurred while fetching the customer',
+    );
+  }
   }
 
   // Update a customer by ID

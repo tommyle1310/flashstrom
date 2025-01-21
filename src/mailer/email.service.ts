@@ -85,7 +85,6 @@ async sendVerificationEmail(to: string) {
 
     async verifyEmail(email: string, code: string) {
     const user = await this.userService.findOne({email});
-    console.log('check suer', typeof(user.data.verification_code) ,user, typeof( +code));
     
     if (user && user.data.verification_code === +code) {
         await this.userService.updateUser(

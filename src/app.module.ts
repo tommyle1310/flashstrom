@@ -5,6 +5,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { UserModule } from './user/user.module';
 import { AddressBook as AddressBookModule } from './address_book/address_book.module';
 import { CustomersModule } from './customers/customers.module';
+import { DriversModule } from './drivers/drivers.module';
 import { UploadModule } from './upload/upload.module';
 import { AuthModule } from './auth/auth.module'; // Make sure AuthModule is imported here
 import { EmailService } from './mailer/email.service';
@@ -16,6 +17,7 @@ import { MailerCustomModule } from './mailer/mailer.module';  // Import MailerCu
     UserModule,
     AddressBookModule,
     CustomersModule,
+    DriversModule,
     UploadModule,
     AuthModule, // Ensure AuthModule is imported
     MailerCustomModule, // Import the mailer module here

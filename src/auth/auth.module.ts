@@ -11,6 +11,9 @@ import { AuthController } from './auth.controller';
 import { EmailService } from 'src/mailer/email.service';
 import { MailerCustomModule } from 'src/mailer/mailer.module';
 import { UserService } from 'src/user/user.service';
+import { DriversModule } from 'src/drivers/drivers.module';
+import { DriversService } from 'src/drivers/drivers.service';
+import { DriverSchema } from 'src/drivers/drivers.schema';
 
 @Module({
   imports: [
@@ -22,9 +25,11 @@ import { UserService } from 'src/user/user.service';
     UserModule, // Import UserModule to make the UserService available
     MongooseModule.forFeature([{ name: 'Customer', schema: CustomerSchema }]), // Customer model
     CustomersModule, // Import CustomersModule
+    MongooseModule.forFeature([{ name: 'Driver', schema: DriverSchema }]), // Customer model
+    DriversModule, // Import CustomersModule
     MailerCustomModule,  // Import Mailer module to handle emails
   ],
-  providers: [AuthService, JwtStrategy, EmailService, UserService], // Make sure EmailService is included here
+  providers: [AuthService, JwtStrategy, EmailService, UserService, DriversService], // Make sure EmailService is included here
   controllers: [AuthController], // Only controllers should be listed here
   exports: [AuthService, EmailService], // Export AuthService and EmailService if needed in other modules
 })
