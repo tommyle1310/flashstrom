@@ -23,24 +23,32 @@ export class AuthController {
       last_name: string;
     },
   ) {
-      // Step 1: Register the customer with the provided data
-      const registrationResponse =
-        await this.authService.registerCustomer(userData);
+    // Step 1: Register the customer with the provided data
+    const registrationResponse =
+      await this.authService.registerCustomer(userData);
 
-      // If registration is successful
-      if (registrationResponse?.data?.data) {
-        const code = await this.emailService.sendVerificationEmail(
-          userData.email,
-        ); // Send email to the user's email
-        await this.userService.updateUser(
-          registrationResponse.data.data.user_id,
-          { verification_code: code },
-        );
+    // If registration is successful
+    if (registrationResponse?.data?.data) {
+      const code = await this.emailService.sendVerificationEmail(
+        userData.email,
+      ); // Send email to the user's email
+      await this.userService.updateUser(
+        registrationResponse.data.data.user_id,
+        { verification_code: code },
+      );
 
-        return { message: 'Registration successful, verification email sent!' };
-      } else {
-        return { message: 'Registration failed, please try again.' };
-      }
+      return createResponse(
+        'OK',
+        null,
+        'Registration successful, verification email sent',
+      );
+    } else {
+      return createResponse(
+        'ServerError',
+        null,
+        'Something went wrong in the server',
+      );
+    }
   }
 
   @Post('login')
@@ -64,9 +72,11 @@ export class AuthController {
       return result;
     } catch (error) {
       console.error('Error during email verification:', error);
-      return {
-        message: 'An error occurred during verification, please try again.',
-      };
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred during verification, please try again.',
+      );
     }
   }
 }

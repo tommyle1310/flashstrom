@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { UserService } from 'src/user/user.service';
+import { createResponse } from 'src/utils/createResponse';
 
 @Injectable()
 export class EmailService {
@@ -91,7 +92,7 @@ async sendVerificationEmail(to: string) {
           user.data._id,
           { is_verified: true },
         );
-      return { message: 'Email verified successfully' };
+      return createResponse('OK', null, 'Email verified successfully' )
     }
     return { message: 'Invalid verification code' };
   }
