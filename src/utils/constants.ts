@@ -7,4 +7,5 @@ export const ResponseStatus = {
     'NotFound': { httpCode: 404, message: 'Not Found', code: -2 },  // Not Found
     'DuplicatedRecord': { httpCode: 409, message: 'Duplicated Record', code: -3 },  // Duplicated Record
     'Forbidden': { httpCode: 403, message: 'Forbidden (Authorization)', code: -4 },  // Forbidden
+    'InsufficientBalance': { httpCode: 400, message: 'Insufficient balance in the source wallet', code: -5 },  // Insufficient balance in the source wallet
 };

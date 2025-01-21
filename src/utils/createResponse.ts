@@ -10,7 +10,7 @@ type ResponseData = {
 };
 
 export function createResponse(
-    httpStatus: 'OK' | 'MissingInput' | 'InvalidFormatInput' | 'Unauthorized' | 'ServerError' | 'NotFound' | 'DuplicatedRecord' | 'Forbidden',
+    httpStatus: 'OK' | 'MissingInput' | 'InvalidFormatInput' | 'Unauthorized' | 'ServerError' | 'NotFound' | 'DuplicatedRecord' | 'Forbidden' | 'InsufficientBalance',
     data?: any,
     message?: string,
 ): ResponseData {

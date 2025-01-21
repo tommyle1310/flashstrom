@@ -11,6 +11,7 @@ import { AuthModule } from './auth/auth.module'; // Make sure AuthModule is impo
 import { EmailService } from './mailer/email.service';
 import { MailerCustomModule } from './mailer/mailer.module'; // Import MailerCustomModule (which configures MailerService)
 import { FwalletsModule } from './fwallets/fwallets.module';
+import { TransactionsModule } from './transactions/transactions.module';
 
 @Module({
   imports: [
@@ -22,7 +23,8 @@ import { FwalletsModule } from './fwallets/fwallets.module';
     UploadModule,
     AuthModule, // Ensure AuthModule is imported
     MailerCustomModule,
-    FwalletsModule, // Import the mailer module here
+    FwalletsModule,
+    TransactionsModule, // Import the mailer module here
   ],
   controllers: [AppController],
   providers: [AppService, EmailService],
