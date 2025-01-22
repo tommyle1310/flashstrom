@@ -18,25 +18,40 @@ export class TransactionService {
   ) {}
 
   // Create a new transaction
-    async create(createTransactionDto: CreateTransactionDto): Promise<any> {
-    const { user_id, fwallet_id, transaction_type, amount, balance_after, status, source, destination } = createTransactionDto;
+  async create(createTransactionDto: CreateTransactionDto): Promise<any> {
+    const {
+      user_id,
+      fwallet_id,
+      transaction_type,
+      amount,
+      balance_after,
+      status,
+      source,
+      destination,
+    } = createTransactionDto;
 
-    // try {
       // Check if the user exists before proceeding with the transaction
       const userExists = await this.userModel.findById(user_id).exec();
       if (!userExists) {
         return createResponse('NotFound', null, 'User not found');
       }
 
-      // Check if the source wallet has sufficient balance
+      // Check if the source wallet exists for withdrawal or purchase
       const sourceWallet = await this.fWalletModel.findOne({ user_id }).exec();
-      if (!sourceWallet) {
+      if (
+        !sourceWallet &&
+        (transaction_type === 'WITHDRAW' || transaction_type === 'PURCHASE')
+      ) {
         return createResponse('NotFound', null, 'Source wallet not found');
       }
 
       if (transaction_type === 'WITHDRAW' || transaction_type === 'PURCHASE') {
         if (sourceWallet.balance < +amount) {
-          return createResponse('InsufficientBalance', null, 'Insufficient balance in the source wallet');
+          return createResponse(
+            'InsufficientBalance',
+            null,
+            'Insufficient balance in the source wallet',
+          );
         }
 
         // Update the source wallet balance (subtract the amount)
@@ -44,16 +59,34 @@ export class TransactionService {
         await sourceWallet.save();
       }
 
-      // Check if the destination wallet exists and update if necessary
-      if (transaction_type === 'DEPOSIT' || transaction_type === 'PURCHASE') {
-        const destinationWallet = await this.fWalletModel.findById(destination).exec();
-        if (!destinationWallet) {
-          return createResponse('NotFound', null, 'Destination wallet not found');
-        }
+      let destinationWallet;
 
-        // Add the amount to the destination wallet
-        destinationWallet.balance += +amount;
-        await destinationWallet.save();
+      // Handling deposit or purchase to a destination wallet
+      if (transaction_type === 'DEPOSIT' || transaction_type === 'PURCHASE') {
+        destinationWallet = await this.fWalletModel
+          .findById(destination)
+          .exec();
+
+        if (!destinationWallet) {
+          // If destination wallet doesn't exist, add amount to the user's temporary wallet balance
+          destinationWallet = await this.userModel.findById(destination).exec();
+          if (!destinationWallet) {
+            return createResponse(
+              'NotFound',
+              null,
+              'Destination wallet or user not found',
+            );
+          }
+
+          // Increase the temporary wallet balance
+          destinationWallet.temporary_wallet_balance =
+            (destinationWallet.temporary_wallet_balance || 0) + +amount;
+          await destinationWallet.save();
+        } else {
+          // If destination wallet exists, update the balance in the wallet
+          destinationWallet.balance += +amount;
+          await destinationWallet.save();
+        }
       }
 
       // Create new transaction entry
@@ -70,14 +103,12 @@ export class TransactionService {
 
       // Save the new transaction and return success response
       await newTransaction.save();
-      return createResponse('OK', newTransaction, 'Transaction created successfully');
-    // } catch (error) {
-    //   return createResponse(
-    //     'ServerError',
-    //     null,
-    //     'An error occurred while creating the transaction',
-    //   );
-    // }
+      return createResponse(
+        'OK',
+        newTransaction,
+        'Transaction created successfully',
+      );
+
   }
 
   // Get all transactions

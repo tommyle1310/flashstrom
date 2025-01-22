@@ -89,6 +89,7 @@ export class AuthController {
       );
     }
   }
+  
   @Post('register-fwallet')
   async registerFWallet(
     @Body()

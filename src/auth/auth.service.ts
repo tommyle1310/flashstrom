@@ -73,12 +73,17 @@ export class AuthService {
           break;
 
         case 'F_WALLET':
-          // Create a new driver object and link to the existing user
+          // Create the wallet with the temporary wallet balance
           newUserWithRole = new this.fWalletModel({
             ...userData,
             password: existingUser.password, // Use the existing user's password
-            user_id: existingUser.id, // Link the driver to the existing user
+            user_id: existingUser.id, // Link the wallet to the existing user
+            balance: existingUser.temporary_wallet_balance, // Transfer balance
           });
+
+          // Clear the temporary_wallet_balance and save the user document
+          existingUser.temporary_wallet_balance = 0;
+          await existingUser.save(); // Save after resetting the temporary balance
           break;
 
         default:
@@ -89,7 +94,7 @@ export class AuthService {
           );
       }
 
-      // Save the new user role (customer or driver) to the database
+      // Save the new user role (customer, driver, or wallet) to the database
       await newUserWithRole.save();
 
       // Update the user_type to include the new type if not already present
@@ -110,7 +115,7 @@ export class AuthService {
         },
         `${type} created successfully with existing user`,
       );
-    }
+    } 
 
     // If no user exists, create a new user
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -148,7 +153,7 @@ export class AuthService {
         newUserWithRole = new this.fWalletModel({
           ...userData,
           password: hashedPassword,
-          user_id: newUser.id, // Link the fwallet to the new user
+          user_id: newUser.id, // Link the wallet to the new user
         });
         break;
 
@@ -288,6 +293,7 @@ export class AuthService {
         const fWalletPayload: FWalletPayload = {
           ...payload,
           balance: userWithRole.balance,
+          fWallet_id: userWithRole.id
         };
 
         // Generate JWT token with the extended payload

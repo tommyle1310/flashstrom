@@ -8,7 +8,8 @@ export const FWalletSchema = new Schema({
   balance: { type: Number, required: true, default: 0 }, // Wallet balance
   first_name: { type: String }, // User's first name
   last_name: { type: String }, // User's last name
-  created_at: { type: Number, required: false, default: Math.floor(Date.now() / 1000) }, // Unix timestamp of creation
+  is_verified: { type: Boolean, default: false }, // Verification status
+    created_at: { type: Number, required: false, default: Math.floor(Date.now() / 1000) }, // Unix timestamp of creation
   updated_at: { type: Number, required: false, default: Math.floor(Date.now() / 1000) }, // Unix timestamp of last update
 });
 
@@ -30,6 +31,7 @@ export interface FWallet extends Document {
   user_id: string; // Reference to the User's ID
   balance: number; // Wallet balance
   first_name: string; // User's first name
+  is_verified: boolean;
   last_name: string; // User's last name
   created_at: number; // Unix timestamp of creation
   updated_at: number; // Unix timestamp of last update

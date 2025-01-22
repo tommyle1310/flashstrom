@@ -39,6 +39,7 @@ export type CustomerPayload = BasePayload & {
 };
 export type FWalletPayload = BasePayload & {
   balance: number;
+  fWallet_id: string;
 };
 
 // The final payload type can be a union of both driver and customer payload types.

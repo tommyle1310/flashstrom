@@ -25,7 +25,12 @@ export const TransactionSchema = new Schema({
     enum: ['MOMO', 'FWALLET'],
     required: true,
   }, // Source of transaction (MOMO or FWALLET)
-  destination: { type: String, required: true }, // Can be `fwallet.id`  depending on the transaction
+  destination: { type: String, required: true }, // Can be `fwallet.id` or `user.id` depending on the transaction
+  destination_type: {
+    type: String,
+    enum: ['FWALLET', 'TEMPORARY_WALLET_BALANCE'],
+    default: 'FWALLET',  // Default status is 'PENDING'
+  },
 });
 
 // Pre-save hook to generate a custom ID with 'TXN_' prefix and a random UUID

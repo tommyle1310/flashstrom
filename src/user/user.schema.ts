@@ -19,6 +19,7 @@ export const UserSchema = new Schema({
   created_at: { type: Number, required: false }, // Unix timestamp
   updated_at: { type: Number, required: false }, // Unix timestamp
   last_login: { type: Number, required: false }, // Unix timestamp
+  temporary_wallet_balance: { type: Number, required: false },
   avatar: { type: { url: String, key: String }, required: false },
   is_verified: { type: Boolean, default: false }, // Verification status
   app_preferences: {
@@ -49,6 +50,7 @@ export interface User extends Document {
   email: string;
   password: string;
   verification_code: number,
+  temporary_wallet_balance: number,
   phone: string;
   user_type: Enum_UserType[];
   address: string[]; // Array of address book IDs
