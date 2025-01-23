@@ -106,20 +106,20 @@ export class DriversService {
   }
 
   async findOne(conditions: object): Promise<any> {
-  const driver = await this.driverModel.findOne(conditions).exec();
-  if (!driver) {
-    return createResponse('NotFound', null, 'Driver not found');
+    const driver = await this.driverModel.findOne(conditions).exec();
+    if (!driver) {
+      return createResponse('NotFound', null, 'Driver not found');
+    }
+    try {
+      return createResponse('OK', driver, 'Fetched driver successfully');
+    } catch (error) {
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while fetching the driver',
+      );
+    }
   }
-  try {
-    return createResponse('OK', driver, 'Fetched driver successfully');
-  } catch (error) {
-    return createResponse(
-      'ServerError',
-      null,
-      'An error occurred while fetching the driver',
-    );
-  }
-}
 
   // Update a driver by ID
   async update(id: string, updateDriverDto: UpdateDriverDto): Promise<any> {
@@ -133,6 +133,31 @@ export class DriversService {
       }
 
       return createResponse('OK', updatedDriver, 'Driver updated successfully');
+    } catch (error) {
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while updating the driver',
+      );
+    }
+  }
+
+  async setAvailability(id: string): Promise<any> {
+    try {
+      // Find the driver by ID
+      const updatedDriver = await this.driverModel.findById(id).exec();
+
+      if (!updatedDriver) {
+        return createResponse('NotFound', null, 'Driver not found');
+      }
+
+      // Toggle the available_for_work field (flip its boolean value)
+      updatedDriver.available_for_work = !updatedDriver.available_for_work;
+
+      // Save the updated driver
+      const savedDriver = await updatedDriver.save();
+
+      return createResponse('OK', savedDriver, 'Driver updated successfully');
     } catch (error) {
       return createResponse(
         'ServerError',

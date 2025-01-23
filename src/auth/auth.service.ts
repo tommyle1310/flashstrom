@@ -69,6 +69,7 @@ export class AuthService {
             ...userData,
             password: existingUser.password, // Use the existing user's password
             user_id: existingUser.id, // Link the driver to the existing user
+            available_for_work: false,
           });
           break;
 
@@ -115,7 +116,7 @@ export class AuthService {
         },
         `${type} created successfully with existing user`,
       );
-    } 
+    }
 
     // If no user exists, create a new user
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -211,7 +212,7 @@ export class AuthService {
 
     // Initialize the payload with basic user info
     let payload: BasePayload = {
-      userId: user.id,
+      user_id: user.id,
       email: user.email,
       user_type: user.user_type,
       first_name: user.first_name,
@@ -231,15 +232,27 @@ export class AuthService {
           return createResponse('NotFound', null, 'Driver not found');
         }
 
+        // Fetch FWallet info where user_id matches
+        const fWalletData = await this.fWalletModel.findOne({
+          user_id: user.id,
+        });
+        if (!fWalletData) {
+          return createResponse('NotFound', null, 'Driver not found');
+        }
+
         // Expand payload for DRIVER type
         const driverPayload: DriverPayload = {
           ...payload,
+          user_id: userWithRole.user_id,
+          driver_id: userWithRole.id,
           contact_email: userWithRole.contact_email,
           contact_phone: userWithRole.contact_phone,
           vehicle: userWithRole.vehicle,
           current_location: userWithRole.current_location,
           avatar: userWithRole.avatar,
           available_for_work: userWithRole.available_for_work,
+          fWallet_id: fWalletData.id, // Only include the fWallet ID in payload
+          fWallet_balance: fWalletData.balance, // Only include the fWallet ID in payload
         };
 
         // Generate JWT token with the extended payload
@@ -254,6 +267,7 @@ export class AuthService {
           },
           'Login successful',
         );
+
       case 'CUSTOMER':
         // Fetch additional fields from the customer collection
         userWithRole = await this.customerModel.findOne({ user_id: user.id });
@@ -278,10 +292,10 @@ export class AuthService {
           'OK',
           {
             access_token: accessToken,
-            // user_data: userWithRole,
           },
           'Login successful',
         );
+
       case 'F_WALLET':
         // Fetch additional fields from the FWallet collection
         userWithRole = await this.fWalletModel.findOne({ user_id: user.id });
@@ -293,7 +307,7 @@ export class AuthService {
         const fWalletPayload: FWalletPayload = {
           ...payload,
           balance: userWithRole.balance,
-          fWallet_id: userWithRole.id
+          fWallet_id: userWithRole.id,
         };
 
         // Generate JWT token with the extended payload
@@ -304,10 +318,10 @@ export class AuthService {
           'OK',
           {
             access_token: accessToken,
-            // user_data: userWithRole,
           },
           'Login successful',
         );
+
       default:
         return createResponse('Unauthorized', null, 'Invalid user type');
     }

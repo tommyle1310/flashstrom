@@ -14,7 +14,7 @@ export enum Enum_AppTheme {
 }
 
 export type BasePayload = {
-  userId: string;
+  user_id: string;
   email: string;
   user_type: Enum_UserType[];
   first_name: string;
@@ -28,6 +28,9 @@ export type DriverPayload = BasePayload & {
   vehicle: string;
   current_location: string;
   avatar: string;
+  fWallet_id: string;
+  driver_id: string;
+  fWallet_balance: number;
   available_for_work: boolean;
 };
 
