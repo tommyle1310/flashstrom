@@ -9,17 +9,17 @@ import { User } from 'src/user/user.schema';
 
 @Injectable()
 export class CustomersService {
-constructor(
-  @InjectModel('Customer') private readonly customerModel: Model<Customer>,
-  @InjectModel('User') private readonly userModel: Model<User>
-) {}
-
+  constructor(
+    @InjectModel('Customer') private readonly customerModel: Model<Customer>,
+    @InjectModel('User') private readonly userModel: Model<User>,
+  ) {}
 
   // Create a new customer
   async create(createCustomerDto: CreateCustomerDto): Promise<any> {
     const {
       user_id,
-      first_name, last_name,
+      first_name,
+      last_name,
       avatar,
       preferred_category,
       favorite_restaurants,
@@ -39,7 +39,9 @@ constructor(
         'This userId is not existed',
       );
     }
-    const existingCustomer = await this.customerModel.findOne({ user_id }).exec();
+    const existingCustomer = await this.customerModel
+      .findOne({ user_id })
+      .exec();
     if (existingCustomer) {
       return createResponse(
         'DuplicatedRecord',
@@ -47,13 +49,14 @@ constructor(
         'Customer with this user ID already exists',
       );
     }
-    
+
     try {
       // Create new customer
       const newCustomer = new this.customerModel({
         user_id,
-      first_name, last_name,
-        avatar,  
+        first_name,
+        last_name,
+        avatar,
         preferred_category,
         favorite_restaurants,
         favorite_items,
@@ -95,7 +98,7 @@ constructor(
     if (!customer) {
       return createResponse('NotFound', null, 'Customer not found');
     }
-    
+
     try {
       return createResponse('OK', customer, 'Fetched customer successfully');
     } catch (error) {
@@ -108,19 +111,19 @@ constructor(
   }
 
   async findOne(conditions: object): Promise<any> {
- const customer = await this.customerModel.findOne(conditions).exec();
-  if (!customer) {
-    return createResponse('NotFound', null, 'Customer not found');
-  }
-  try {
-    return createResponse('OK', customer, 'Fetched customer successfully');
-  } catch (error) {
-    return createResponse(
-      'ServerError',
-      null,
-      'An error occurred while fetching the customer',
-    );
-  }
+    const customer = await this.customerModel.findOne(conditions).exec();
+    if (!customer) {
+      return createResponse('NotFound', null, 'Customer not found');
+    }
+    try {
+      return createResponse('OK', customer, 'Fetched customer successfully');
+    } catch (error) {
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while fetching the customer',
+      );
+    }
   }
 
   // Update a customer by ID
@@ -134,7 +137,11 @@ constructor(
     }
 
     try {
-      return createResponse('OK', updatedCustomer, 'Customer updated successfully');
+      return createResponse(
+        'OK',
+        updatedCustomer,
+        'Customer updated successfully',
+      );
     } catch (error) {
       return createResponse(
         'ServerError',
@@ -146,7 +153,9 @@ constructor(
 
   // Delete a customer by ID
   async remove(id: string): Promise<any> {
-    const deletedCustomer = await this.customerModel.findByIdAndDelete(id).exec();
+    const deletedCustomer = await this.customerModel
+      .findByIdAndDelete(id)
+      .exec();
 
     if (!deletedCustomer) {
       return createResponse('NotFound', null, 'Customer not found');
@@ -161,5 +170,26 @@ constructor(
         'An error occurred while deleting the customer',
       );
     }
+  }
+
+  async updateEntityAvatar(
+    uploadResult: { url: string; public_id: string },
+    entityId: string,
+  ) {
+    const customer = await this.customerModel.findByIdAndUpdate(
+      entityId,
+      { avatar: { url: uploadResult.url, key: uploadResult.public_id } },
+      { new: true },
+    );
+
+    if (!customer) {
+      return createResponse('NotFound', null, 'Customer not found');
+    }
+
+    return createResponse(
+      'OK',
+      customer,
+      'Customer avatar updated successfully',
+    );
   }
 }

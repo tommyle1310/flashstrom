@@ -1,7 +1,6 @@
 import { Schema, Document } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 
-
 // Define the Vehicle Schema
 const VehicleSchema = new Schema({
   license_plate: { type: String, required: true },
@@ -18,6 +17,7 @@ const ContactEmailSchema = new Schema({
 
 // Define the Contact Schema for phone
 const ContactPhoneSchema = new Schema({
+  title: { type: String, required: true },
   number: { type: String, required: true },
   is_default: { type: Boolean, required: true },
 });
@@ -52,7 +52,6 @@ export const DriverSchema = new Schema({
   avatar: { type: { key: String, url: String }, required: false }, // Avatar image information
   available_for_work: { type: Boolean, required: false }, // If the driver is available for work
   is_on_delivery: { type: Boolean, required: false }, // If the driver is currently on delivery
-
 });
 
 // Pre-save hook to generate a custom ID with 'DRV_' prefix and a random UUID
@@ -72,7 +71,7 @@ export interface Driver extends Document {
   id: string; // Custom driver ID
   user_id: string; // Reference to the User's ID
   contact_email: { title: string; is_default: boolean; email: string }[]; // Array of email contacts
-  contact_phone: { number: string; is_default: boolean }[]; // Array of phone contacts
+  contact_phone: { title: string; number: string; is_default: boolean }[]; // Array of phone contacts
   first_name: string; // Driver's first name
   last_name: string; // Driver's last name
   vehicle: { license_plate: string; model: string; color: string }; // Vehicle details
@@ -85,6 +84,4 @@ export interface Driver extends Document {
   avatar?: { key: string; url: string }; // Avatar information
   available_for_work: boolean; // If the driver is available for work
   is_on_delivery: boolean; // If the driver is currently on delivery
-  
 }
-

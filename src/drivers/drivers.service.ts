@@ -123,23 +123,55 @@ export class DriversService {
 
   // Update a driver by ID
   async update(id: string, updateDriverDto: UpdateDriverDto): Promise<any> {
-    try {
-      const updatedDriver = await this.driverModel
-        .findByIdAndUpdate(id, updateDriverDto, { new: true })
-        .exec();
+    const { contact_phone, contact_email } = updateDriverDto;
 
-      if (!updatedDriver) {
-        return createResponse('NotFound', null, 'Driver not found');
-      }
+    // Retrieve the current driver data before making changes
+    const updatedDriver = await this.driverModel.findById(id).exec();
 
-      return createResponse('OK', updatedDriver, 'Driver updated successfully');
-    } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while updating the driver',
-      );
+    if (!updatedDriver) {
+      return createResponse('NotFound', null, 'Driver not found');
     }
+
+    // Check and handle contact_phone numbers
+    if (contact_phone && contact_phone.length > 0) {
+      for (const newPhone of contact_phone) {
+        // Check if the phone number already exists in the driver's contact_phone
+        const existingPhone = updatedDriver.contact_phone.find(
+          (phone) => phone.number === newPhone.number,
+        );
+
+        if (!existingPhone) {
+          // If phone number doesn't exist, push it to the contact_phone array
+          updatedDriver.contact_phone.push(newPhone);
+        }
+      }
+    }
+
+    // Check and handle contact_email emails
+    if (contact_email && contact_email.length > 0) {
+      for (const newEmail of contact_email) {
+        // Check if the email already exists in the driver's contact_email
+        const existingEmail = updatedDriver.contact_email.find(
+          (email) => email.email === newEmail.email,
+        );
+
+        if (!existingEmail) {
+          // If email doesn't exist, push it to the contact_email array
+          updatedDriver.contact_email.push(newEmail);
+        }
+      }
+    }
+
+    // Update the driver with the modified contact details
+    const finalUpdatedDriver = await this.driverModel
+      .findByIdAndUpdate(id, updatedDriver, { new: true })
+      .exec();
+
+    return createResponse(
+      'OK',
+      finalUpdatedDriver,
+      'Driver updated successfully',
+    );
   }
 
   async setAvailability(id: string): Promise<any> {
@@ -184,5 +216,22 @@ export class DriversService {
         'An error occurred while deleting the driver',
       );
     }
+  }
+
+  async updateEntityAvatar(
+    uploadResult: { url: string; public_id: string },
+    entityId: string,
+  ) {
+    const driver = await this.driverModel.findByIdAndUpdate(
+      entityId,
+      { avatar: { url: uploadResult.url, key: uploadResult.public_id } },
+      { new: true },
+    );
+
+    if (!driver) {
+      return createResponse('NotFound', null, 'Driver not found');
+    }
+
+    return createResponse('OK', driver, 'Driver avatar updated successfully');
   }
 }

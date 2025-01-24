@@ -24,6 +24,12 @@ export class UpdatePromotionDto extends PartialType(CreatePromotionDto) {
   end_date: number;
 
   @IsOptional()
+  avatar?: {
+    url: string;
+    key: string;
+  }; // Avatar object with url and key, optional
+
+  @IsOptional()
   @IsEnum(DiscountType) // Validates the discount_type against the DiscountType enum
   discount_type: DiscountType;
 
@@ -33,7 +39,7 @@ export class UpdatePromotionDto extends PartialType(CreatePromotionDto) {
 
   @IsOptional()
   @IsNumber()
-  price: number;
+  promotion_cost_price: number;
 
   @IsOptional()
   @IsNumber()

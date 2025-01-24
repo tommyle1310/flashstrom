@@ -34,10 +34,10 @@ export const RestaurantSchema = new Schema({
     is_active: { type: Boolean },
     is_accepted_orders: { type: Boolean },
   }, // Status of the restaurant (open, active, accepting orders)
-  promotions: [{ type: [String], ref: 'Promotion' }], // References to promotion IDs
+  promotions: [{ type: String, ref: 'Promotion' }], // References to promotion IDs
   ratings: {
-    average_rating: { type: Number,  },
-    review_count: { type: Number,  },
+    average_rating: { type: Number },
+    review_count: { type: Number },
   }, // Ratings for the restaurant
   specialize_in: [{ type: String, ref: 'FoodCategory' }], // References to food categories
   opening_hours: {
@@ -69,7 +69,7 @@ export interface Restaurant extends Document {
   address: string;
   restaurant_name: string;
   contact_email: { title: string; is_default: boolean; email: string }[];
-  contact_phone: { number: string; is_default: boolean, title: string }[];
+  contact_phone: { number: string; is_default: boolean; title: string }[];
   created_at: number;
   updated_at: number;
   avatar: { url: string; key: string };

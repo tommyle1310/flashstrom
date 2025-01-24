@@ -1,4 +1,13 @@
-import { IsString, IsEmail, IsEnum, IsArray, IsBoolean, IsOptional, IsObject, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsEmail,
+  IsEnum,
+  IsArray,
+  IsBoolean,
+  IsOptional,
+  IsObject,
+  IsNumber,
+} from 'class-validator';
 
 export class CreateDriverDto {
   @IsString()
@@ -11,10 +20,18 @@ export class CreateDriverDto {
   readonly last_name: string; // Driver's last name
 
   @IsArray()
-  readonly contact_email: { title: string; is_default: boolean; email: string }[]; // Array of contact emails
+  readonly contact_email: {
+    title: string;
+    is_default: boolean;
+    email: string;
+  }[]; // Array of contact emails
 
   @IsArray()
-  readonly contact_phone: { number: string; is_default: boolean }[]; // Array of contact phone numbers
+  readonly contact_phone: {
+    title: string;
+    number: string;
+    is_default: boolean;
+  }[]; // Array of contact phone numbers
 
   @IsObject()
   readonly vehicle: {

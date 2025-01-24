@@ -27,7 +27,7 @@ export class RestaurantsService {
     // Check if owner_id exists in the User collection
     const owner = await this.userModel.findById(owner_id).exec();
     console.log('check', owner, owner_id);
-    
+
     if (!owner) {
       return createResponse('NotFound', null, 'Owner not found');
     }
@@ -70,74 +70,99 @@ export class RestaurantsService {
       'Restaurant created successfully',
     );
   }
-
   // Update a restaurant
   async update(
     id: string,
     updateRestaurantDto: UpdateRestaurantDto,
   ): Promise<any> {
-    const { owner_id, promotions, address } = updateRestaurantDto;
+    const { owner_id, promotions, address, contact_phone, contact_email } =
+      updateRestaurantDto;
 
-    try {
-      // Check if owner_id exists in the User collection
-      if (owner_id) {
-        const owner = await this.userModel.findById(owner_id).exec();
-        if (!owner) {
-          return createResponse('NotFound', null, 'Owner not found');
-        }
+    // Check if owner_id exists in the User collection
+    if (owner_id) {
+      const owner = await this.userModel.findById(owner_id).exec();
+      if (!owner) {
+        return createResponse('NotFound', null, 'Owner not found');
       }
+    }
 
-      // Check if the address exists in the AddressBook collection (if address is provided)
-      if (address) {
-        const addressBookEntry = await this.addressbookModel
-          .findById(address)
+    // Check if the address exists in the AddressBook collection (if address is provided)
+    if (address) {
+      const addressBookEntry = await this.addressbookModel
+        .findById(address)
+        .exec();
+      if (!addressBookEntry) {
+        return createResponse(
+          'NotFound',
+          null,
+          'Address not found in address book',
+        );
+      }
+    }
+
+    // Check if promotions exist in the Promotion collection (if promotions are provided)
+    if (promotions) {
+      for (const promotionId of promotions) {
+        const promotion = await this.promotionModel
+          .findById(promotionId)
           .exec();
-        if (!addressBookEntry) {
+        if (!promotion) {
           return createResponse(
             'NotFound',
             null,
-            'Address not found in address book',
+            `Promotion with ID ${promotionId} not found`,
           );
         }
       }
+    }
 
-      // Check if promotions exist in the Promotion collection (if promotions are provided)
-      if (promotions) {
-        for (const promotionId of promotions) {
-          const promotion = await this.promotionModel
-            .findById(promotionId)
-            .exec();
-          if (!promotion) {
-            return createResponse(
-              'NotFound',
-              null,
-              `Promotion with ID ${promotionId} not found`,
-            );
-          }
+    // Retrieve the current restaurant data before making changes
+    const updatedRestaurant = await this.restaurantModel.findById(id).exec();
+
+    if (!updatedRestaurant) {
+      return createResponse('NotFound', null, 'Restaurant not found');
+    }
+
+    // Check and handle contact_phone numbers
+    if (contact_phone && contact_phone.length > 0) {
+      for (const newPhone of contact_phone) {
+        // Check if the phone number already exists in the restaurant's contact_phone
+        const existingPhone = updatedRestaurant.contact_phone.find(
+          (phone) => phone.number === newPhone.number,
+        );
+
+        if (!existingPhone) {
+          // If phone number doesn't exist, push it to the contact_phone array
+          updatedRestaurant.contact_phone.push(newPhone);
         }
       }
-
-      // Update the restaurant
-      const updatedRestaurant = await this.restaurantModel
-        .findByIdAndUpdate(id, updateRestaurantDto, { new: true })
-        .exec();
-
-      if (!updatedRestaurant) {
-        return createResponse('NotFound', null, 'Restaurant not found');
-      }
-
-      return createResponse(
-        'OK',
-        updatedRestaurant,
-        'Restaurant updated successfully',
-      );
-    } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while updating the restaurant',
-      );
     }
+
+    // Check and handle contact_email emails
+    if (contact_email && contact_email.length > 0) {
+      for (const newEmail of contact_email) {
+        // Check if the email already exists in the restaurant's contact_email
+        const existingEmail = updatedRestaurant.contact_email.find(
+          (email) => email.email === newEmail.email,
+        );
+
+        if (!existingEmail) {
+          // If email doesn't exist, push it to the contact_email array
+          updatedRestaurant.contact_email.push(newEmail);
+        }
+      }
+    }
+
+    // Update the restaurant with the modified contact details
+    const finalUpdatedRestaurant = await this.restaurantModel
+      .findByIdAndUpdate(id, updatedRestaurant, { new: true })
+      .exec();
+
+    return createResponse(
+      'OK',
+      finalUpdatedRestaurant,
+      'Restaurant updated successfully',
+    );
   }
 
   // Get all restaurants
@@ -192,5 +217,26 @@ export class RestaurantsService {
         'An error occurred while deleting the restaurant',
       );
     }
+  }
+
+  async updateEntityAvatar(
+    uploadResult: { url: string; public_id: string },
+    entityId: string,
+  ) {
+    const restaurant = await this.restaurantModel.findByIdAndUpdate(
+      entityId,
+      { avatar: { url: uploadResult.url, key: uploadResult.public_id } },
+      { new: true },
+    );
+
+    if (!restaurant) {
+      return createResponse('NotFound', null, 'Restaurant not found');
+    }
+
+    return createResponse(
+      'OK',
+      restaurant,
+      'Restaurant avatar updated successfully',
+    );
   }
 }
