@@ -15,6 +15,8 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { FoodCategoriesModule } from './food_categories/food_categories.module';
 import { PromotionsModule } from './promotions/promotions.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
+import { MenuItemsModule } from './menu_items/menu_items.module';
+import { MenuItemVariantsModule } from './menu_item_variants/menu_item_variants.module';
 
 @Module({
   imports: [
@@ -30,7 +32,9 @@ import { RestaurantsModule } from './restaurants/restaurants.module';
     TransactionsModule,
     FoodCategoriesModule,
     PromotionsModule,
-    RestaurantsModule, // Import the mailer module here
+    RestaurantsModule,
+    MenuItemsModule,
+    MenuItemVariantsModule, // Import the mailer module here
   ],
   controllers: [AppController],
   providers: [AppService, EmailService],
