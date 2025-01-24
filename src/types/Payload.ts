@@ -34,6 +34,32 @@ export type DriverPayload = BasePayload & {
   available_for_work: boolean;
 };
 
+export type RestaurantOwnerPayload = BasePayload & {
+  owner_id: string;
+  owner_name: string;
+  address: string;
+  restaurant_name: string;
+  contact_email: { title: string; is_default: boolean; email: string }[];
+  contact_phone: { number: string; is_default: boolean, title: string }[];
+  created_at: number;
+  updated_at: number;
+  avatar: { url: string; key: string };
+  images_gallery: string[];
+  status: { is_open: boolean; is_active: boolean; is_accepted_orders: boolean };
+  promotions: string[];
+  ratings: { average_rating: number; review_count: number };
+  specialize_in: string[];
+  opening_hours: {
+    mon: { from: number; to: number };
+    tue: { from: number; to: number };
+    wed: { from: number; to: number };
+    thu: { from: number; to: number };
+    fri: { from: number; to: number };
+    sat: { from: number; to: number };
+    sun: { from: number; to: number };
+  };
+};
+
 export type CustomerPayload = BasePayload & {
   preferred_category: string;
   favorite_restaurants: string[];
@@ -46,4 +72,4 @@ export type FWalletPayload = BasePayload & {
 };
 
 // The final payload type can be a union of both driver and customer payload types.
-export type Payload = DriverPayload | CustomerPayload | FWalletPayload;
+export type Payload = DriverPayload | CustomerPayload | FWalletPayload | RestaurantOwnerPayload;

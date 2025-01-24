@@ -59,7 +59,7 @@ export const DriverSchema = new Schema({
 DriverSchema.pre('save', function (next) {
   if (this.isNew) {
     // Generate a custom ID with the 'DRV_' prefix and a random UUID
-    this._id = `DRI_${uuidv4()}`;
+    this._id = `FF_DRI_${uuidv4()}`;
     // Set timestamps if not provided
     if (!this.created_at) this.created_at = Math.floor(Date.now() / 1000); // Current Unix timestamp
     if (!this.updated_at) this.updated_at = Math.floor(Date.now() / 1000); // Current Unix timestamp

@@ -89,6 +89,45 @@ export class AuthController {
       );
     }
   }
+
+  @Post('register-restaurant')
+  async registerRestaurant(
+    @Body()
+    userData: {
+      phone: string;
+      email: string;
+      password: string;
+      first_name: string;
+      last_name: string;
+    },
+  ) {
+    // Step 1: Register the customer with the provided data
+    const registrationResponse =
+      await this.authService.register(userData, Enum_UserType.RESTAURANT_OWNER);
+
+    // If registration is successful
+    if (registrationResponse?.data?.data) {
+      const code = await this.emailService.sendVerificationEmail(
+        userData.email,
+      ); // Send email to the user's email
+      await this.userService.updateUser(
+        registrationResponse.data.data.user_id ?? registrationResponse.data.data.owner_id,
+        { verification_code: code },
+      );
+
+      return createResponse(
+        'OK',
+        null,
+        'Registration successful, verification email sent',
+      );
+    } else {
+      return createResponse(
+        'ServerError',
+        null,
+        'Something went wrong in the server',
+      );
+    }
+  }
   
   @Post('register-fwallet')
   async registerFWallet(
@@ -139,6 +178,11 @@ export class AuthController {
   @Post('login-fwallet')
   async loginFWallet(@Body() credentials: { email: string; password: string }) {
     return this.authService.login(credentials, Enum_UserType.F_WALLET);
+  }
+
+  @Post('login-restaurant')
+  async loginRestaurant(@Body() credentials: { email: string; password: string }) {
+    return this.authService.login(credentials, Enum_UserType.RESTAURANT_OWNER);
   }
 
   @Post('verify-email')

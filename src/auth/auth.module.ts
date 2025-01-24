@@ -17,6 +17,15 @@ import { DriverSchema } from 'src/drivers/drivers.schema';
 import { FWalletService } from 'src/fwallets/fwallets.service';
 import { FWalletSchema } from 'src/fwallets/fwallets.schema';
 import { FwalletsModule } from 'src/fwallets/fwallets.module';
+import { RestaurantSchema } from 'src/restaurants/restaurants.schema';
+import { RestaurantsModule } from 'src/restaurants/restaurants.module';
+import { RestaurantsService } from 'src/restaurants/restaurants.service';
+import { PromotionSchema } from 'src/promotions/promotions.schema';
+import { PromotionsModule } from 'src/promotions/promotions.module';
+import { AddressBookSchema } from 'src/address_book/address_book.schema';
+import { AddressBook } from 'src/address_book/address_book.module';
+import { AddressBookService } from 'src/address_book/address_book.service';
+import { PromotionsService } from 'src/promotions/promotions.service';
 
 @Module({
   imports: [
@@ -32,9 +41,15 @@ import { FwalletsModule } from 'src/fwallets/fwallets.module';
     DriversModule,
     MongooseModule.forFeature([{ name: 'FWallet', schema: FWalletSchema }]), // fwallet model
     FwalletsModule,
+    MongooseModule.forFeature([{ name: 'Restaurant', schema: RestaurantSchema }]), // fwallet model
+    RestaurantsModule,
+    MongooseModule.forFeature([{ name: 'Promotion', schema: PromotionSchema }]), // fwallet model
+    PromotionsModule,
+    MongooseModule.forFeature([{ name: 'AddressBook', schema: AddressBookSchema }]), // fwallet model
+    AddressBook,
     MailerCustomModule,  // Import Mailer module to handle emails
   ],
-  providers: [AuthService, JwtStrategy, EmailService, UserService, DriversService, FWalletService], // Make sure EmailService is included here
+  providers: [AuthService, JwtStrategy, EmailService, UserService, DriversService, FWalletService, RestaurantsService, AddressBookService, PromotionsService], // Make sure EmailService is included here
   controllers: [AuthController], // Only controllers should be listed here
   exports: [AuthService, EmailService], // Export AuthService and EmailService if needed in other modules
 })

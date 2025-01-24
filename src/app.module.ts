@@ -12,6 +12,9 @@ import { EmailService } from './mailer/email.service';
 import { MailerCustomModule } from './mailer/mailer.module'; // Import MailerCustomModule (which configures MailerService)
 import { FwalletsModule } from './fwallets/fwallets.module';
 import { TransactionsModule } from './transactions/transactions.module';
+import { FoodCategoriesModule } from './food_categories/food_categories.module';
+import { PromotionsModule } from './promotions/promotions.module';
+import { RestaurantsModule } from './restaurants/restaurants.module';
 
 @Module({
   imports: [
@@ -24,7 +27,10 @@ import { TransactionsModule } from './transactions/transactions.module';
     AuthModule, // Ensure AuthModule is imported
     MailerCustomModule,
     FwalletsModule,
-    TransactionsModule, // Import the mailer module here
+    TransactionsModule,
+    FoodCategoriesModule,
+    PromotionsModule,
+    RestaurantsModule, // Import the mailer module here
   ],
   controllers: [AppController],
   providers: [AppService, EmailService],

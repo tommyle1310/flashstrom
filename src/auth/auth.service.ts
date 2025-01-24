@@ -14,8 +14,10 @@ import {
   Enum_UserType,
   FWalletPayload,
   Payload,
+  RestaurantOwnerPayload,
 } from 'src/types/Payload';
 import { FWallet } from 'src/fwallets/fwallets.schema';
+import { Restaurant } from 'src/restaurants/restaurants.schema';
 
 @Injectable()
 export class AuthService {
@@ -24,8 +26,11 @@ export class AuthService {
     @InjectModel('Customer') private readonly customerModel: Model<Customer>,
     @InjectModel('Driver') private readonly driverModel: Model<Driver>,
     @InjectModel('FWallet') private readonly fWalletModel: Model<FWallet>,
+    @InjectModel('Restaurant')
+    private readonly restaurantModel: Model<Restaurant>,
     private readonly jwtService: JwtService,
   ) {}
+
   async register(userData: any, type: Enum_UserType): Promise<any> {
     const { email, password, phone } = userData;
 
@@ -50,7 +55,7 @@ export class AuthService {
         );
       }
 
-      // If the user exists and does not have the same type, create the customer or driver
+      // If the user exists and does not have the same type, create the customer, driver, or restaurant
       let newUserWithRole;
 
       switch (type) {
@@ -87,6 +92,16 @@ export class AuthService {
           await existingUser.save(); // Save after resetting the temporary balance
           break;
 
+        case 'RESTAURANT_OWNER':
+          // Create a new restaurant object and link to the existing user
+          // Pass the user_id as owner_id in the restaurant
+          newUserWithRole = new this.restaurantModel({
+            ...userData,
+            password: existingUser.password, // Use the existing user's password
+            owner_id: existingUser.id, // Set the restaurant owner to the user's id
+          });
+          break;
+
         default:
           return createResponse(
             'Unauthorized',
@@ -95,7 +110,7 @@ export class AuthService {
           );
       }
 
-      // Save the new user role (customer, driver, or wallet) to the database
+      // Save the new user role (customer, driver, restaurant, or wallet) to the database
       await newUserWithRole.save();
 
       // Update the user_type to include the new type if not already present
@@ -108,6 +123,7 @@ export class AuthService {
         'OK',
         {
           id: existingUser.id,
+          user_id: existingUser.id,
           email: existingUser.email,
           first_name: existingUser.first_name,
           last_name: existingUser.last_name,
@@ -125,7 +141,7 @@ export class AuthService {
       ...userData,
       phone,
       password: hashedPassword,
-      user_type: [type], // Set user_type as 'CUSTOMER' or 'DRIVER'
+      user_type: [type], // Set user_type as 'CUSTOMER', 'DRIVER', or 'RESTAURANT'
     });
 
     // Save the new user to the database
@@ -133,7 +149,7 @@ export class AuthService {
 
     let newUserWithRole;
 
-    // Create the correct user role (customer or driver) based on the user type
+    // Create the correct user role (customer, driver, restaurant, or wallet) based on the user type
     switch (type) {
       case 'CUSTOMER':
         newUserWithRole = new this.customerModel({
@@ -150,11 +166,22 @@ export class AuthService {
           user_id: newUser.id, // Link the driver to the new user
         });
         break;
+
       case 'F_WALLET':
         newUserWithRole = new this.fWalletModel({
           ...userData,
           password: hashedPassword,
           user_id: newUser.id, // Link the wallet to the new user
+        });
+        break;
+
+      case 'RESTAURANT_OWNER':
+        // For restaurant type, make sure to pass user_id to owner_id
+        newUserWithRole = new this.restaurantModel({
+          ...userData,
+          password: hashedPassword,
+          user_id: newUser.id, // Link the restaurant to the new user
+          owner_id: newUser.id, // Set the owner_id to the new user's id
         });
         break;
 
@@ -166,7 +193,7 @@ export class AuthService {
         );
     }
 
-    // Save the new user role (customer or driver) to the database
+    // Save the new user role (customer, driver, restaurant, or wallet) to the database
     await newUserWithRole.save();
 
     // Return a response with the user data
@@ -174,6 +201,7 @@ export class AuthService {
       'OK',
       {
         id: newUser.id,
+        user_id: newUser.id,
         phone,
         email: newUser.email,
         first_name: newUser.first_name,
@@ -318,6 +346,46 @@ export class AuthService {
           'OK',
           {
             access_token: accessToken,
+          },
+          'Login successful',
+        );
+      case 'RESTAURANT_OWNER':
+        // Fetch restaurant info
+        userWithRole = await this.restaurantModel.findOne({
+          owner_id: user.id,
+        });
+        if (!userWithRole) {
+          return createResponse('NotFound', null, 'Restaurant owner not found');
+        }
+
+        // Expand payload for RESTAURANT_OWNER
+        const restaurantPayload: RestaurantOwnerPayload = {
+          ...payload,
+          owner_id: userWithRole.owner_id,
+          owner_name: userWithRole.owner_name,
+          address: userWithRole.address,
+          restaurant_name: userWithRole.restaurant_name,
+          contact_email: userWithRole.contact_email,
+          contact_phone: userWithRole.contact_phone,
+          created_at: userWithRole.created_at,
+          updated_at: userWithRole.updated_at,
+          avatar: userWithRole.avatar,
+          images_gallery: userWithRole.images_gallery,
+          status: userWithRole.status,
+          promotions: userWithRole.promotions,
+          ratings: userWithRole.ratings,
+          specialize_in: userWithRole.specialize_in,
+          opening_hours: userWithRole.opening_hours,
+        };
+
+        // Generate JWT token for the restaurant owner
+        accessToken = this.jwtService.sign(restaurantPayload);
+
+        return createResponse(
+          'OK',
+          {
+            access_token: accessToken,
+            user_data: userWithRole, // Include restaurant data in response
           },
           'Login successful',
         );
