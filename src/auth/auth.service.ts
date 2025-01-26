@@ -298,7 +298,9 @@ export class AuthService {
 
       case 'CUSTOMER':
         // Fetch additional fields from the customer collection
-        userWithRole = await this.customerModel.findOne({ user_id: user.id });
+        userWithRole = await this.customerModel
+          .findOne({ user_id: user.id })
+          .populate('address');
         if (!userWithRole) {
           return createResponse('NotFound', null, 'Customer not found');
         }
@@ -309,7 +311,10 @@ export class AuthService {
           preferred_category: userWithRole.preferred_category,
           favorite_restaurants: userWithRole.favorite_restaurants,
           favorite_items: userWithRole.favorite_items,
+          user_id: userWithRole._id,
+          avatar: userWithRole?.avatar,
           support_tickets: userWithRole.support_tickets,
+          address: userWithRole?.address,
         };
 
         // Generate JWT token with the extended payload

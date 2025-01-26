@@ -86,9 +86,16 @@ export class MenuItemsService {
   }
 
   // Get all menu items
+  // Fetch all menu items with populated category and variants
   async findAll(): Promise<any> {
     try {
-      const menuItems = await this.menuItemModel.find().exec();
+      // Find all menu items and populate category and variants
+      const menuItems = await this.menuItemModel
+        .find()
+        .populate('category') // Populate category with full category document
+        .populate('variants') // Populate variants with full variant documents
+        .exec();
+
       return createResponse('OK', menuItems, 'Fetched all menu items');
     } catch (error) {
       return createResponse(

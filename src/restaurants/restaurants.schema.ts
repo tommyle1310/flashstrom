@@ -4,9 +4,9 @@ import { v4 as uuidv4 } from 'uuid';
 // Define the Restaurant Schema
 export const RestaurantSchema = new Schema({
   _id: { type: String }, // Custom restaurant ID
-  owner_id: { type: String }, // User ID of the owner
+  owner_id: { type: String, ref: 'User' }, // User ID of the owner
   owner_name: { type: String }, // Owner's name
-  address: { type: String }, // Address of the restaurant
+  address: { type: String, ref: 'AddressBook' }, // Address of the restaurant
   restaurant_name: { type: String }, // Restaurant name
   contact_email: [
     {

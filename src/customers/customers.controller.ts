@@ -9,7 +9,11 @@ import {
 } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
-import { UpdateCustomerDto } from './dto/update-customer.dto';
+import {
+  UpdateCustomerDto,
+  UpdateCustomerFavoriteRestaurantDto,
+  UpdateCustomerPreferredCategoryDto,
+} from './dto/update-customer.dto';
 
 @Controller('customers')
 export class CustomersController {
@@ -25,13 +29,37 @@ export class CustomersController {
     return this.customersService.findAll();
   }
 
+  // Ensure this specific route for restaurants comes before the generic :id route
+  @Get('/restaurants/:id')
+  getAllRestaurants(@Param('id') id: string) {
+    console.log('check', id);
+    return this.customersService.getAllRestaurants(id);
+  }
+
   @Get(':id')
   findCustomerById(@Param('id') id: string) {
     return this.customersService.findCustomerById(id);
   }
+
   @Get(':field/:value')
   findOne(@Param('field') field: string, @Param('value') value: string) {
+    console.log('go into this route');
     return this.customersService.findOne({ [field]: value });
+  }
+
+  @Patch('/preferred-category/:id')
+  togglePreferredCategory(
+    @Param('id') id: string,
+    @Body() preferred_category: UpdateCustomerPreferredCategoryDto,
+  ) {
+    return this.customersService.update(id, preferred_category);
+  }
+  @Patch('/favorite-restaurant/:id')
+  toggleFavoriteRestaurant(
+    @Param('id') id: string,
+    @Body() favorite_restaurant: UpdateCustomerFavoriteRestaurantDto,
+  ) {
+    return this.customersService.update(id, favorite_restaurant);
   }
 
   @Patch(':id')

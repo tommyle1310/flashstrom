@@ -152,18 +152,14 @@ export class MenuItemVariantsService {
       return createResponse('NotFound', null, 'Menu Item Variant not found');
     }
 
-    try {
-      return createResponse(
-        'OK',
-        null,
-        'Menu Item Variant deleted successfully',
-      );
-    } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while deleting the menu item variant',
-      );
-    }
+    // After deletion, remove the variant reference from the related menu item
+    await this.menuItemModel
+      .updateMany(
+        { variants: id }, // Find menu items where the 'variants' array contains the variant ID
+        { $pull: { variants: id } }, // Remove the variant ID from the 'variants' array
+      )
+      .exec();
+
+    return createResponse('OK', null, 'Menu Item Variant deleted successfully');
   }
 }

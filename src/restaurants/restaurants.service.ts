@@ -8,6 +8,12 @@ import { Promotion } from 'src/promotions/promotions.schema';
 import { User } from 'src/user/user.schema';
 import { createResponse } from 'src/utils/createResponse';
 import { AddressBook } from 'src/address_book/address_book.schema';
+import { MenuItemsService } from 'src/menu_items/menu_items.service';
+import { CreateMenuItemDto } from 'src/menu_items/dto/create-menu_item.dto';
+import { UpdateMenuItemDto } from 'src/menu_items/dto/update-menu_item.dto';
+import { CreateMenuItemVariantDto } from 'src/menu_item_variants/dto/create-menu_item_variant.dto';
+import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_variants.service';
+import { UpdateMenuItemVariantDto } from 'src/menu_item_variants/dto/update-menu_item_variant.dto';
 
 @Injectable()
 export class RestaurantsService {
@@ -18,6 +24,9 @@ export class RestaurantsService {
     @InjectModel('Promotion') private readonly promotionModel: Model<Promotion>,
     @InjectModel('AddressBook')
     private readonly addressbookModel: Model<AddressBook>,
+
+    private readonly menuItemsService: MenuItemsService,
+    private readonly menuItemVariantsService: MenuItemVariantsService,
   ) {}
 
   // Create a new restaurant
@@ -75,8 +84,14 @@ export class RestaurantsService {
     id: string,
     updateRestaurantDto: UpdateRestaurantDto,
   ): Promise<any> {
-    const { owner_id, promotions, address, contact_phone, contact_email } =
-      updateRestaurantDto;
+    const {
+      owner_id,
+      promotions,
+      address,
+      contact_phone,
+      contact_email,
+      restaurant_name,
+    } = updateRestaurantDto;
 
     // Check if owner_id exists in the User collection
     if (owner_id) {
@@ -153,9 +168,16 @@ export class RestaurantsService {
       }
     }
 
-    // Update the restaurant with the modified contact details
+    // Instead of spreading updatedRestaurant, directly assign values
+    const updateData: any = {
+      ...updatedRestaurant.toObject(), // Spread existing data
+      restaurant_name, // Directly include the new restaurant_name
+      address, // Directly include the new address
+    };
+
+    // Update the restaurant with the modified contact details and restaurant_name
     const finalUpdatedRestaurant = await this.restaurantModel
-      .findByIdAndUpdate(id, updatedRestaurant, { new: true })
+      .findByIdAndUpdate(id, updateData, { new: true })
       .exec();
 
     return createResponse(
@@ -168,7 +190,14 @@ export class RestaurantsService {
   // Get all restaurants
   async findAll(): Promise<any> {
     try {
-      const restaurants = await this.restaurantModel.find().exec();
+      // Find all restaurants and populate promotions and specialize_in
+      const restaurants = await this.restaurantModel
+        .find()
+        .populate('address', '-created_at -updated_at')
+        .populate('promotions', '-created_at -updated_at') // Populate promotions with full promotion documents
+        .populate('specialize_in', '-created_at -updated_at') // Populate specialize_in with full food category documents
+        .exec();
+
       return createResponse('OK', restaurants, 'Fetched all restaurants');
     } catch (error) {
       return createResponse(
@@ -182,7 +211,12 @@ export class RestaurantsService {
   // Get a restaurant by ID
   async findOne(id: string): Promise<any> {
     try {
-      const restaurant = await this.restaurantModel.findById(id).exec();
+      const restaurant = await this.restaurantModel
+        .findById(id) // Populate promotions with full promotion documents
+        .populate('promotions', '-created_at -updated_at') // Exclude created_at and updated_at from promotions
+        .populate('specialize_in', '-created_at -updated_at')
+        .populate('address', '-created_at -updated_at')
+        .exec();
       if (!restaurant) {
         return createResponse('NotFound', null, 'Restaurant not found');
       }
@@ -238,5 +272,113 @@ export class RestaurantsService {
       restaurant,
       'Restaurant avatar updated successfully',
     );
+  }
+
+  // New method to create a menu item for a specific restaurant
+  async createMenuItemForRestaurant(
+    restaurantId: string,
+    createMenuItemDto: CreateMenuItemDto,
+  ): Promise<any> {
+    // Set the restaurant_id in the createMenuItemDto
+    createMenuItemDto.restaurant_id = restaurantId;
+
+    // Call the create method from MenuItemsService
+    return this.menuItemsService.create({
+      ...createMenuItemDto,
+      restaurant_id: restaurantId,
+    });
+  }
+
+  // New method to update a menu item for a specific restaurant
+  async updateMenuItemForRestaurant(
+    restaurantId: string,
+    menuItemId: string,
+    updateMenuItemDto: UpdateMenuItemDto,
+  ): Promise<any> {
+    // Fetch the menu item to ensure it's associated with the restaurant
+    const menuItem = await this.menuItemsService.findOne(menuItemId);
+
+    if (menuItem.data.restaurant_id !== restaurantId) {
+      return createResponse(
+        'Forbidden',
+        null,
+        'Menu Item does not belong to this restaurant',
+      );
+    }
+
+    // Call the update method from MenuItemsService
+    return this.menuItemsService.update(menuItemId, {
+      ...updateMenuItemDto,
+      restaurant_id: restaurantId,
+    });
+  }
+
+  // New method to delete a menu item for a specific restaurant
+  async deleteMenuItemForRestaurant(
+    restaurantId: string,
+    menuItemId: string,
+  ): Promise<any> {
+    // Fetch the menu item to ensure it's associated with the restaurant
+    const menuItem = await this.menuItemsService.findOne(menuItemId);
+
+    if (menuItem.data.restaurant_id !== restaurantId) {
+      return createResponse(
+        'Forbidden',
+        null,
+        'Menu Item does not belong to this restaurant',
+      );
+    }
+
+    // Call the remove method from MenuItemsService
+    return this.menuItemsService.remove(menuItemId);
+  }
+
+  // New method to fetch all menu items for a specific restaurant
+  async getMenuItemsForRestaurant(restaurantId: string): Promise<any> {
+    const allMenuItems = await this.menuItemsService.findAll();
+
+    // Filter menu items by restaurant_id
+    const restaurantMenuItems = allMenuItems.data.filter(
+      (item) => item.restaurant_id.toString() === restaurantId,
+    );
+
+    return createResponse(
+      'OK',
+      restaurantMenuItems,
+      'Fetched menu items for the restaurant',
+    );
+  }
+  // New method to create a menu item variant for a specific restaurant
+  async createMenuItemVariantForRestaurant(
+    menuId: string,
+    createMenuItemVariantDto: CreateMenuItemVariantDto,
+  ): Promise<any> {
+    // Optionally validate that the menu_id belongs to a valid menu item for a restaurant
+
+    // Call the create method from MenuItemVariantsService to create the variant
+    return this.menuItemVariantsService.create({
+      ...createMenuItemVariantDto,
+      menu_id: menuId, // MenuItem ID that the variant belongs to
+    });
+  }
+
+  // New method to update a menu item for a specific restaurant
+  async updateMenuItemVariantForRestaurant(
+    variantId: string,
+    updateMenuItemVariantDto: UpdateMenuItemVariantDto,
+  ): Promise<any> {
+    // Call the update method from MenuItemVariantsService
+    return this.menuItemVariantsService.update(
+      variantId,
+      updateMenuItemVariantDto,
+    );
+  }
+
+  // New method to delete a menu item for a specific restaurant
+  async deleteMenuItemVariantForRestaurant(
+    menuItemVariantId: string,
+  ): Promise<any> {
+    // Call the remove method from MenuItemVariantsService to delete the variant
+    return this.menuItemVariantsService.remove(menuItemVariantId);
   }
 }

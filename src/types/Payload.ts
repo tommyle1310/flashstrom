@@ -1,4 +1,14 @@
-// Enum for UserType
+export interface AddressPopulate {
+  _id?: string;
+  street?: string;
+  city?: string;
+  postal_code?: number;
+  location?: {
+    lat?: number;
+    lon?: number;
+  };
+}
+
 export enum Enum_UserType {
   DRIVER = 'DRIVER',
   ADMIN = 'ADMIN',
@@ -27,7 +37,7 @@ export type DriverPayload = BasePayload & {
   contact_phone: string;
   vehicle: string;
   current_location: string;
-  avatar: string;
+  avatar: { url: string; key: string };
   fWallet_id: string;
   driver_id: string;
   fWallet_balance: number;
@@ -40,7 +50,7 @@ export type RestaurantOwnerPayload = BasePayload & {
   address: string;
   restaurant_name: string;
   contact_email: { title: string; is_default: boolean; email: string }[];
-  contact_phone: { number: string; is_default: boolean, title: string }[];
+  contact_phone: { number: string; is_default: boolean; title: string }[];
   created_at: number;
   updated_at: number;
   avatar: { url: string; key: string };
@@ -64,6 +74,8 @@ export type CustomerPayload = BasePayload & {
   preferred_category: string;
   favorite_restaurants: string[];
   favorite_items: string[];
+  avatar: { url: string; key: string };
+  address: AddressPopulate[];
   support_tickets: string[];
 };
 export type FWalletPayload = BasePayload & {
@@ -72,4 +84,8 @@ export type FWalletPayload = BasePayload & {
 };
 
 // The final payload type can be a union of both driver and customer payload types.
-export type Payload = DriverPayload | CustomerPayload | FWalletPayload | RestaurantOwnerPayload;
+export type Payload =
+  | DriverPayload
+  | CustomerPayload
+  | FWalletPayload
+  | RestaurantOwnerPayload;

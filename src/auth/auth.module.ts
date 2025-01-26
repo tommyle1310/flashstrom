@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { MongooseModule } from '@nestjs/mongoose';
-import { UserModule } from 'src/user/user.module';  // Import UserModule to make the UserModel available
+import { UserModule } from 'src/user/user.module'; // Import UserModule to make the UserModel available
 import { JwtStrategy } from './jwt.strategy'; // Your JwtStrategy
 import { AuthService } from './auth.service'; // Your AuthService
 import { UserSchema } from 'src/user/user.schema';
@@ -26,31 +26,65 @@ import { AddressBookSchema } from 'src/address_book/address_book.schema';
 import { AddressBook } from 'src/address_book/address_book.module';
 import { AddressBookService } from 'src/address_book/address_book.service';
 import { PromotionsService } from 'src/promotions/promotions.service';
+import { MenuItemsService } from 'src/menu_items/menu_items.service';
+import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
+import { MenuItemsModule } from 'src/menu_items/menu_items.module';
+import { FoodCategoriesModule } from 'src/food_categories/food_categories.module'; // Import FoodCategoriesModule
+import { FoodCategorySchema } from 'src/food_categories/food_categories.schema'; // Import FoodCategorySchema
+import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_variants.service';
+import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
+import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variants.module';
 
 @Module({
   imports: [
     JwtModule.register({
-      secret: process.env.JWT_SECRET,  // Your JWT secret
+      secret: process.env.JWT_SECRET, // Your JWT secret
       signOptions: { expiresIn: '1h' }, // Token expiration time
     }),
-    MongooseModule.forFeature([{ name: 'User', schema: UserSchema }]), // Make sure the User model is available
-    UserModule, // Import UserModule to make the UserService available
-    MongooseModule.forFeature([{ name: 'Customer', schema: CustomerSchema }]), // Customer model
+    MongooseModule.forFeature([{ name: 'User', schema: UserSchema }]),
+    UserModule,
+    MongooseModule.forFeature([{ name: 'Customer', schema: CustomerSchema }]),
     CustomersModule,
-    MongooseModule.forFeature([{ name: 'Driver', schema: DriverSchema }]), // driver model
+    MongooseModule.forFeature([{ name: 'Driver', schema: DriverSchema }]),
     DriversModule,
-    MongooseModule.forFeature([{ name: 'FWallet', schema: FWalletSchema }]), // fwallet model
+    MongooseModule.forFeature([{ name: 'FWallet', schema: FWalletSchema }]),
     FwalletsModule,
-    MongooseModule.forFeature([{ name: 'Restaurant', schema: RestaurantSchema }]), // fwallet model
+    MongooseModule.forFeature([
+      { name: 'Restaurant', schema: RestaurantSchema },
+    ]),
     RestaurantsModule,
-    MongooseModule.forFeature([{ name: 'Promotion', schema: PromotionSchema }]), // fwallet model
+    MongooseModule.forFeature([{ name: 'Promotion', schema: PromotionSchema }]),
     PromotionsModule,
-    MongooseModule.forFeature([{ name: 'AddressBook', schema: AddressBookSchema }]), // fwallet model
+    MongooseModule.forFeature([
+      { name: 'AddressBook', schema: AddressBookSchema },
+    ]),
     AddressBook,
-    MailerCustomModule,  // Import Mailer module to handle emails
+    MongooseModule.forFeature([{ name: 'MenuItem', schema: MenuItemSchema }]),
+    MenuItemsModule,
+    MongooseModule.forFeature([
+      { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
+    ]),
+    MenuItemVariantsModule,
+    FoodCategoriesModule, // Import FoodCategoriesModule to make FoodCategoryModel available
+    MongooseModule.forFeature([
+      { name: 'FoodCategory', schema: FoodCategorySchema },
+    ]), // Register FoodCategorySchema
+    MailerCustomModule,
   ],
-  providers: [AuthService, JwtStrategy, EmailService, UserService, DriversService, FWalletService, RestaurantsService, AddressBookService, PromotionsService], // Make sure EmailService is included here
-  controllers: [AuthController], // Only controllers should be listed here
-  exports: [AuthService, EmailService], // Export AuthService and EmailService if needed in other modules
+  providers: [
+    AuthService,
+    JwtStrategy,
+    EmailService,
+    UserService,
+    DriversService,
+    FWalletService,
+    RestaurantsService,
+    AddressBookService,
+    PromotionsService,
+    MenuItemsService,
+    MenuItemVariantsService,
+  ],
+  controllers: [AuthController],
+  exports: [AuthService, EmailService],
 })
 export class AuthModule {}

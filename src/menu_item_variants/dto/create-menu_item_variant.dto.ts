@@ -8,6 +8,7 @@ import {
 } from 'class-validator';
 
 export class CreateMenuItemVariantDto {
+  @IsOptional()
   @IsString()
   menu_id: string; // The ID of the related menu item
 

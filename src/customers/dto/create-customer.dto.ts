@@ -2,31 +2,32 @@ import { IsString, IsArray, IsEnum, IsOptional, IsInt } from 'class-validator';
 import { Enum_AppTheme } from 'src/types/Payload'; // Importing Enum_AppTheme from the schema
 
 export class CreateCustomerDto {
-  
   @IsString()
-  user_id: string; 
-  
-  @IsString()
-  first_name: string; 
+  user_id: string;
 
   @IsString()
-  last_name: string; 
+  first_name: string;
+
+  @IsString()
+  last_name: string;
 
   @IsOptional()
-  avatar?: { 
-    url: string; 
-    key: string; 
+  @IsString()
+  address: string;
+
+  @IsOptional()
+  avatar?: {
+    url: string;
+    key: string;
   }; // Avatar object with url and key, optional
 
-  @IsArray()
   @IsOptional()
-  @IsString({ each: true })
-  preferred_category: string[]; // Array of preferred food category IDs (FC_* format)
+  @IsString()
+  preferred_category: string; // Array of preferred food category IDs (FC_* format)
 
-  @IsArray()
   @IsOptional()
-  @IsString({ each: true })
-  favorite_restaurants: string[]; // Array of favorite restaurant IDs (RES_* format)
+  @IsString()
+  favorite_restaurants: string; // Array of favorite restaurant IDs (RES_* format)
 
   @IsArray()
   @IsOptional()
@@ -40,8 +41,8 @@ export class CreateCustomerDto {
 
   @IsEnum(Enum_AppTheme)
   @IsOptional()
-  app_preferences: { 
-    theme: Enum_AppTheme; 
+  app_preferences: {
+    theme: Enum_AppTheme;
   }; // User's app theme preference
 
   @IsOptional()

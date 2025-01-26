@@ -8,30 +8,31 @@ export class UpdateCustomerDto extends PartialType(CreateCustomerDto) {
   @IsString()
   user_id?: string; // Reference to User's id (USR_* format), optional
 
-  @IsOptional()  
+  @IsOptional()
   @IsString()
-  first_name: string; 
+  first_name: string;
 
   @IsOptional()
   @IsString()
-  last_name: string; 
-
+  last_name: string;
 
   @IsOptional()
-  avatar?: { 
-    url: string; 
-    key: string; 
+  @IsString()
+  address: string;
+
+  @IsOptional()
+  avatar?: {
+    url: string;
+    key: string;
   }; // Avatar object with url and key, optional
 
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  preferred_category?: string[]; // Array of preferred food category IDs (FC_* format), optional
+  @IsString()
+  preferred_category: string; // Array of preferred food category IDs (FC_* format)
 
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  favorite_restaurants?: string[]; // Array of favorite restaurant IDs (RES_* format), optional
+  @IsString()
+  favorite_restaurants?: string; // Array of favorite restaurant IDs (RES_* format), optional
 
   @IsOptional()
   @IsArray()
@@ -45,8 +46,8 @@ export class UpdateCustomerDto extends PartialType(CreateCustomerDto) {
 
   @IsOptional()
   @IsEnum(Enum_AppTheme)
-  app_preferences?: { 
-    theme: Enum_AppTheme; 
+  app_preferences?: {
+    theme: Enum_AppTheme;
   }; // User's app theme preference, optional
 
   @IsOptional()
@@ -56,4 +57,11 @@ export class UpdateCustomerDto extends PartialType(CreateCustomerDto) {
   @IsOptional()
   @IsInt()
   updated_at?: number; // Unix timestamp for when the customer was last updated, optional
+}
+
+export class UpdateCustomerPreferredCategoryDto extends UpdateCustomerDto {
+  preferred_category: string;
+}
+export class UpdateCustomerFavoriteRestaurantDto extends UpdateCustomerDto {
+  favorite_restaurants: string;
 }

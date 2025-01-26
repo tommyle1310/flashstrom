@@ -10,6 +10,8 @@ import {
 } from 'class-validator';
 
 export class UpdateMenuItemDto extends PartialType(CreateMenuItemDto) {
+  @IsOptional()
+  @IsString()
   restaurant_id: string; // The ID of the related restaurant
 
   @IsOptional()
