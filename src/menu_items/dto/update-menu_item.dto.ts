@@ -23,6 +23,10 @@ export class UpdateMenuItemDto extends PartialType(CreateMenuItemDto) {
   description: string; // Description of the menu item
 
   @IsOptional()
+  @IsNumber()
+  price: number; // price of the menu item
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   category: string[]; // Array of food category IDs

@@ -169,4 +169,30 @@ export class MenuItemsService {
       );
     }
   }
+
+  async updateEntityAvatar(
+    uploadResult: { url: string; public_id: string },
+    menuItemId: string,
+  ) {
+    // Update the menu item's avatar in the database
+    const menuItem = await this.menuItemModel.findByIdAndUpdate(
+      menuItemId, // Identify the menu item by its ID
+      {
+        avatar: { url: uploadResult.url, key: uploadResult.public_id }, // Update the avatar field
+      },
+      { new: true }, // Return the updated document
+    );
+
+    // If the menu item is not found, return an error response
+    if (!menuItem) {
+      return createResponse('NotFound', null, 'Menu item not found');
+    }
+
+    // Return a success response with the updated menu item
+    return createResponse(
+      'OK',
+      menuItem,
+      'Menu item avatar updated successfully',
+    );
+  }
 }

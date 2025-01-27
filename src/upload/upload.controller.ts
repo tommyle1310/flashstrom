@@ -12,8 +12,9 @@ import { memoryStorage } from 'multer';
 import { RestaurantsService } from 'src/restaurants/restaurants.service';
 import { DriversService } from 'src/drivers/drivers.service';
 import { CustomersService } from 'src/customers/customers.service';
-import { Enum_UserType } from 'src/types/Payload';
+import { Enum_AvatarType, Enum_UserType } from 'src/types/Payload';
 import { createResponse } from 'src/utils/createResponse'; // Import createResponse
+import { MenuItemsService } from 'src/menu_items/menu_items.service';
 
 @Controller('upload')
 export class UploadController {
@@ -23,6 +24,7 @@ export class UploadController {
     private readonly uploadService: UploadService,
     private readonly driverService: DriversService,
     private readonly customerService: CustomersService,
+    private readonly menuItemService: MenuItemsService,
   ) {}
 
   @Post('avatar')
@@ -33,7 +35,7 @@ export class UploadController {
   )
   async uploadAvatar(
     @UploadedFile() file: Express.Multer.File,
-    @Body('userType') userType: Enum_UserType,
+    @Body('userType') userType: Enum_AvatarType,
     @Body('entityId') entityId: string,
   ) {
     if (!file) {
@@ -47,20 +49,26 @@ export class UploadController {
     let updatedEntity;
     console.log('check', userType);
     switch (userType) {
-      case Enum_UserType.RESTAURANT_OWNER:
+      case Enum_AvatarType.RESTAURANT_OWNER:
         updatedEntity = await this.restaurantService.updateEntityAvatar(
           uploadResult,
           entityId,
         );
         break;
-      case Enum_UserType.DRIVER:
+      case Enum_AvatarType.DRIVER:
         updatedEntity = await this.driverService.updateEntityAvatar(
           uploadResult,
           entityId,
         );
         break;
-      case Enum_UserType.CUSTOMER:
+      case Enum_AvatarType.CUSTOMER:
         updatedEntity = await this.customerService.updateEntityAvatar(
+          uploadResult,
+          entityId,
+        );
+        break;
+      case Enum_AvatarType.MENU_ITEM:
+        updatedEntity = await this.menuItemService.updateEntityAvatar(
           uploadResult,
           entityId,
         );

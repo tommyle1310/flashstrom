@@ -82,7 +82,7 @@ export class RestaurantsService {
   // Update a restaurant
   async update(
     id: string,
-    updateRestaurantDto: UpdateRestaurantDto,
+    updateRestaurantDto: UpdateRestaurantDto, // Assuming UpdateRestaurantDto has a description field
   ): Promise<any> {
     const {
       owner_id,
@@ -90,6 +90,7 @@ export class RestaurantsService {
       address,
       contact_phone,
       contact_email,
+      description, // Add description here
       restaurant_name,
     } = updateRestaurantDto;
 
@@ -168,6 +169,11 @@ export class RestaurantsService {
       }
     }
 
+    // If a new description is provided, update the restaurant's description
+    if (description) {
+      updatedRestaurant.description = description;
+    }
+
     // Instead of spreading updatedRestaurant, directly assign values
     const updateData: any = {
       ...updatedRestaurant.toObject(), // Spread existing data
@@ -175,7 +181,7 @@ export class RestaurantsService {
       address, // Directly include the new address
     };
 
-    // Update the restaurant with the modified contact details and restaurant_name
+    // Update the restaurant with the modified contact details, restaurant_name, and description
     const finalUpdatedRestaurant = await this.restaurantModel
       .findByIdAndUpdate(id, updateData, { new: true })
       .exec();

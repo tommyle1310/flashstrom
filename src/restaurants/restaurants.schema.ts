@@ -39,6 +39,7 @@ export const RestaurantSchema = new Schema({
     average_rating: { type: Number },
     review_count: { type: Number },
   }, // Ratings for the restaurant
+  description: { type: String },
   specialize_in: [{ type: String, ref: 'FoodCategory' }], // References to food categories
   opening_hours: {
     mon: { from: { type: Number }, to: { type: Number } },
@@ -68,6 +69,7 @@ export interface Restaurant extends Document {
   owner_name: string;
   address: string;
   restaurant_name: string;
+  description: string;
   contact_email: { title: string; is_default: boolean; email: string }[];
   contact_phone: { number: string; is_default: boolean; title: string }[];
   created_at: number;

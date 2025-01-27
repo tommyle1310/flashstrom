@@ -13,6 +13,10 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
 
   @IsOptional()
   @IsString()
+  description: string;
+
+  @IsOptional()
+  @IsString()
   address: string;
 
   @IsOptional()

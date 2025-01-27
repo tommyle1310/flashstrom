@@ -19,6 +19,10 @@ export class CreateMenuItemDto {
   @IsString()
   description: string; // Description of the menu item
 
+  @IsOptional()
+  @IsNumber()
+  price: number; // price of the menu item
+
   @IsArray()
   @IsString({ each: true })
   category: string[]; // Array of food category IDs

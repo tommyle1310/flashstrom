@@ -21,6 +21,10 @@ export class CreateRestaurantDto {
   restaurant_name: string;
 
   @IsOptional()
+  @IsString()
+  description: string;
+
+  @IsOptional()
   @IsArray()
   promotions: string[];
 
