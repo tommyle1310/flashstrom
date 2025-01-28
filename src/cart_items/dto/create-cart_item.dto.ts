@@ -12,6 +12,10 @@ export class CreateCartItemDto {
   @IsOptional()
   customer_id: String;
 
+  @IsString()
+  @IsOptional()
+  restaurant_id: String;
+
   @IsNumber()
   quantity: Number;
 

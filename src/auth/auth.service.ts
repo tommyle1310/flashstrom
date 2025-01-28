@@ -325,7 +325,6 @@ export class AuthService {
           address: userWithRole?.address,
           cart_items: cartItems.data, // Include cart items in the payload
         };
-
         // Generate JWT token with the extended payload
         accessToken = this.jwtService.sign(customerPayload);
 

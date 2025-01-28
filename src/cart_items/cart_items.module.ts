@@ -6,11 +6,13 @@ import { CustomerSchema } from 'src/customers/customer.schema';
 import { CartItemSchema } from './cart_items.schema'; // Assuming you have the CartItem schema
 import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
 import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
+import { RestaurantSchema } from 'src/restaurants/restaurants.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: 'Customer', schema: CustomerSchema }, // Injecting Customer schema
+      { name: 'Restaurant', schema: RestaurantSchema }, // Injecting Customer schema
       { name: 'MenuItem', schema: MenuItemSchema }, // Injecting Customer schema
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema }, // Injecting Customer schema
       { name: 'CartItem', schema: CartItemSchema }, // Injecting CartItem schema

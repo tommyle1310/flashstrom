@@ -83,7 +83,6 @@ export class RestaurantsController {
     @Param('id') id: string, // Get menu item id from the URL
     @Body() updateMenuItemDto: UpdateMenuItemDto, // Get updated data from the body
   ) {
-    console.log('check here', updateMenuItemDto.price);
     return this.restaurantsService.updateMenuItemForRestaurant(
       restaurantId, // Pass restaurantId to the service
       id, // Pass menuItemId to the service

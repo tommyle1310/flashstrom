@@ -6,6 +6,7 @@ export const CartItemSchema = new Schema({
   _id: { type: String }, // Custom _id field for cart item
   customer_id: { type: String, required: true, ref: 'Customer' }, // Reference to Customer collection
   item_id: { type: String, required: true, ref: 'MenuItem' }, // Reference to MenuItem collection
+  restaurant_id: { type: String, ref: 'Restaurant' }, // Reference to MenuItem collection
   variant_id: { type: String, ref: 'MenuItemVariant' }, // Reference to MenuItem collection
   quantity: { type: Number, required: true, min: 1 }, // Quantity of the item added to the cart
   price_at_time_of_addition: { type: Number, required: true }, // Price when the item was added to the cart
@@ -32,6 +33,7 @@ CartItemSchema.pre('save', function (next) {
 export interface CartItem extends Document {
   id: string; // Custom cart item ID (FF_CART_ITEM_uuid)
   customer_id: string; // Reference to the customer
+  restaurant_id: string;
   item_id: string; // Reference to the item added to the cart,
   variant_id: string;
   quantity: number; // Quantity of the item
