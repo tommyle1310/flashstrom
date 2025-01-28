@@ -8,6 +8,7 @@ import { UpdateMenuItemDto } from './dto/update-menu_item.dto';
 import { Restaurant } from 'src/restaurants/restaurants.schema';
 import { helpers } from 'handlebars';
 import { FoodCategory } from 'src/food_categories/food_categories.schema';
+import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_variants.service';
 
 @Injectable()
 export class MenuItemsService {
@@ -17,6 +18,7 @@ export class MenuItemsService {
     private readonly restaurantModel: Model<Restaurant>,
     @InjectModel('FoodCategory')
     private readonly foodCategoryModel: Model<FoodCategory>,
+    private readonly menuItemVariantsService: MenuItemVariantsService,
   ) {}
 
   // Create a new menu item
@@ -112,9 +114,16 @@ export class MenuItemsService {
     if (!menuItem) {
       return createResponse('NotFound', null, 'Menu Item not found');
     }
+    const menuItemVariants = await this.menuItemVariantsService.findAll({
+      menu_id: id,
+    });
 
     try {
-      return createResponse('OK', menuItem, 'Fetched menu item successfully');
+      return createResponse(
+        'OK',
+        { menuItem, variants: menuItemVariants.data },
+        'Fetched menu item successfully',
+      );
     } catch (error) {
       return createResponse(
         'ServerError',

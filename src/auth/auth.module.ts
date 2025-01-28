@@ -34,6 +34,9 @@ import { FoodCategorySchema } from 'src/food_categories/food_categories.schema';
 import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_variants.service';
 import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
 import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variants.module';
+import { CartItemSchema } from 'src/cart_items/cart_items.schema';
+import { CartItemsModule } from 'src/cart_items/cart_items.module';
+import { CartItemsService } from 'src/cart_items/cart_items.service';
 
 @Module({
   imports: [
@@ -65,6 +68,8 @@ import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variant
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
     ]),
     MenuItemVariantsModule,
+    MongooseModule.forFeature([{ name: 'CartItem', schema: CartItemSchema }]),
+    CartItemsModule,
     FoodCategoriesModule, // Import FoodCategoriesModule to make FoodCategoryModel available
     MongooseModule.forFeature([
       { name: 'FoodCategory', schema: FoodCategorySchema },
@@ -80,6 +85,7 @@ import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variant
     FWalletService,
     RestaurantsService,
     AddressBookService,
+    CartItemsService,
     PromotionsService,
     MenuItemsService,
     MenuItemVariantsService,

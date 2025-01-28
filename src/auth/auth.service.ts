@@ -18,6 +18,8 @@ import {
 } from 'src/types/Payload';
 import { FWallet } from 'src/fwallets/fwallets.schema';
 import { Restaurant } from 'src/restaurants/restaurants.schema';
+import { CartItem } from 'src/cart_items/cart_items.schema';
+import { CartItemsService } from 'src/cart_items/cart_items.service';
 
 @Injectable()
 export class AuthService {
@@ -29,6 +31,7 @@ export class AuthService {
     @InjectModel('Restaurant')
     private readonly restaurantModel: Model<Restaurant>,
     private readonly jwtService: JwtService,
+    private readonly cartItemService: CartItemsService,
   ) {}
 
   async register(userData: any, type: Enum_UserType): Promise<any> {
@@ -305,7 +308,12 @@ export class AuthService {
           return createResponse('NotFound', null, 'Customer not found');
         }
 
-        // Expand payload for CUSTOMER type
+        // Fetch the cart items for the customer using the cartItemService
+        const cartItems = await this.cartItemService.findAll({
+          customer_id: userWithRole._id,
+        });
+
+        // Expand payload for CUSTOMER type and include cart items
         const customerPayload: CustomerPayload = {
           ...payload,
           preferred_category: userWithRole.preferred_category,
@@ -315,6 +323,7 @@ export class AuthService {
           avatar: userWithRole?.avatar,
           support_tickets: userWithRole.support_tickets,
           address: userWithRole?.address,
+          cart_items: cartItems.data, // Include cart items in the payload
         };
 
         // Generate JWT token with the extended payload

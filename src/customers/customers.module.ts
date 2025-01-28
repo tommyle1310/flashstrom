@@ -7,10 +7,15 @@ import { UserSchema } from 'src/user/user.schema';
 import { RestaurantSchema } from 'src/restaurants/restaurants.schema';
 import { AddressBookSchema } from 'src/address_book/address_book.schema';
 import { FoodCategorySchema } from 'src/food_categories/food_categories.schema';
+import { CartItemSchema } from 'src/cart_items/cart_items.schema';
+
+// Import CartItemsModule to make CartItemsService available
+import { CartItemsModule } from 'src/cart_items/cart_items.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: 'Customer', schema: CustomerSchema }]),
+    MongooseModule.forFeature([{ name: 'CartItem', schema: CartItemSchema }]),
     MongooseModule.forFeature([
       { name: 'Restaurant', schema: RestaurantSchema },
     ]),
@@ -21,6 +26,9 @@ import { FoodCategorySchema } from 'src/food_categories/food_categories.schema';
     MongooseModule.forFeature([
       { name: 'FoodCategory', schema: FoodCategorySchema },
     ]),
+
+    // Import CartItemsModule here
+    CartItemsModule,
   ],
   controllers: [CustomersController],
   providers: [CustomersService],

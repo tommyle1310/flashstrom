@@ -87,6 +87,7 @@ export type CustomerPayload = BasePayload & {
   avatar: { url: string; key: string };
   address: AddressPopulate[];
   support_tickets: string[];
+  cart_items: any;
 };
 export type FWalletPayload = BasePayload & {
   balance: number;

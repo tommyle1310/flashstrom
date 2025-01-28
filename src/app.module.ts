@@ -17,6 +17,7 @@ import { PromotionsModule } from './promotions/promotions.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
 import { MenuItemsModule } from './menu_items/menu_items.module';
 import { MenuItemVariantsModule } from './menu_item_variants/menu_item_variants.module';
+import { CartItemsModule } from './cart_items/cart_items.module';
 
 @Module({
   imports: [
@@ -34,7 +35,8 @@ import { MenuItemVariantsModule } from './menu_item_variants/menu_item_variants.
     PromotionsModule,
     RestaurantsModule,
     MenuItemsModule,
-    MenuItemVariantsModule, // Import the mailer module here
+    MenuItemVariantsModule,
+    CartItemsModule, // Import the mailer module here
   ],
   controllers: [AppController],
   providers: [AppService, EmailService],

@@ -14,10 +14,16 @@ import {
   UpdateCustomerFavoriteRestaurantDto,
   UpdateCustomerPreferredCategoryDto,
 } from './dto/update-customer.dto';
+import { CartItemsService } from 'src/cart_items/cart_items.service';
+import { CreateCartItemDto } from 'src/cart_items/dto/create-cart_item.dto';
+import { UpdateCartItemDto } from 'src/cart_items/dto/update-cart_item.dto';
 
 @Controller('customers')
 export class CustomersController {
-  constructor(private readonly customersService: CustomersService) {}
+  constructor(
+    private readonly customersService: CustomersService,
+    private readonly cartItemService: CartItemsService,
+  ) {}
 
   @Post()
   create(@Body() createCustomerDto: CreateCustomerDto) {
@@ -34,6 +40,12 @@ export class CustomersController {
   getAllRestaurants(@Param('id') id: string) {
     console.log('check', id);
     return this.customersService.getAllRestaurants(id);
+  }
+
+  @Get('/cart-items/:customerId')
+  findAllCartItemByCustomerId(@Param('customerId') customerId: string) {
+    console.log('go into this route');
+    return this.cartItemService.findAll({ customer_id: customerId });
   }
 
   @Get(':id')
@@ -60,6 +72,37 @@ export class CustomersController {
     @Body() favorite_restaurant: UpdateCustomerFavoriteRestaurantDto,
   ) {
     return this.customersService.update(id, favorite_restaurant);
+  }
+
+  @Patch('/cart-items/:customerId/:cartItemId')
+  updateCartItem(
+    @Param('customerId') customer_id: string,
+    @Param('cartItemId') cart_item_id: string,
+    @Body() cart_item: UpdateCartItemDto,
+  ) {
+    return this.cartItemService.update(cart_item_id, {
+      ...cart_item,
+      customer_id: customer_id,
+    });
+  }
+
+  @Post('/cart-items/:id')
+  createCartItem(
+    @Param('id') customerId: string, // Get the customer ID from the route param
+    @Body() createCartItemDto: CreateCartItemDto, // Get the rest of the data from the body
+  ) {
+    // Pass the customerId and the rest of the DTO to the service
+    return this.cartItemService.create({
+      ...createCartItemDto,
+      customer_id: customerId, // Attach customerId to the DTO
+    });
+  }
+  @Delete('/cart-items/:id')
+  deleteCartItem(
+    @Param('id') cartItemId: string, // Get the customer ID from the route param
+  ) {
+    // Pass the customerId and the rest of the DTO to the service
+    return this.cartItemService.remove(cartItemId);
   }
 
   @Patch(':id')

@@ -106,18 +106,14 @@ export class MenuItemVariantsService {
     }
   }
 
-  // Get all menu item variants
-  async findAll(): Promise<any> {
-    try {
-      const variants = await this.menuItemVariantModel.find().exec();
-      return createResponse('OK', variants, 'Fetched all menu item variants');
-    } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while fetching menu item variants',
-      );
-    }
+  async findAll(query: Record<string, any> = {}): Promise<any> {
+    // Use the query object to filter the results if provided
+    const menuItemVariant = await this.menuItemVariantModel.find(query).exec();
+    return createResponse(
+      'OK',
+      menuItemVariant,
+      'Fetched menu item variants successfully',
+    );
   }
 
   // Get a menu item variant by ID
