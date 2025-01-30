@@ -26,222 +26,223 @@ export class CartItemsService {
   ) {}
 
   async create(createCartItemDto: CreateCartItemDto): Promise<any> {
-    let {
-      customer_id,
-      item_id,
-      quantity,
-      price_at_time_of_addition,
-      variant_id,
-      restaurant_id,
-    } = createCartItemDto;
+    const { variants, item_id, customer_id, ...cartItemData } =
+      createCartItemDto;
 
-    // Check if the restaurant exists
-    if (restaurant_id) {
-      const RestaurantModel = await this.restaurantModel
-        .findById(restaurant_id)
-        .exec();
-      if (!RestaurantModel) {
-        return createResponse('NotFound', null, 'This restaurant not found.');
+    try {
+      // Ensure required fields are present
+      if (!item_id || !customer_id) {
+        return createResponse(
+          'MissingInput',
+          null,
+          'Item ID and Customer ID are required',
+        );
       }
-    }
 
-    // Check if the variant_id is provided and update the price accordingly
-    if (variant_id) {
-      const variantModel = await this.menuItemVariantModel
-        .findById(variant_id) // Correctly find by variant_id
-        .exec();
-      if (!variantModel) {
-        return createResponse('NotFound', null, 'This variant not found.');
+      // Check if MenuItem exists
+      const menuItem = await this.menuItemModel.findById(item_id);
+      if (!menuItem) {
+        return createResponse(
+          'NotFound',
+          null,
+          `MenuItem with ID ${item_id} not found`,
+        );
       }
-      price_at_time_of_addition = variantModel.price; // Set price from the variant
-    } else {
-      // If no variant is provided, fetch the menu item price
-      const menuItemModel = await this.menuItemModel.findById(item_id).exec();
-      if (!menuItemModel) {
-        return createResponse('NotFound', null, 'This menu item not found.');
+
+      // Check if Customer exists
+      const customer = await this.customerModel.findById(customer_id);
+      if (!customer) {
+        return createResponse(
+          'NotFound',
+          null,
+          `Customer with ID ${customer_id} not found`,
+        );
       }
-      price_at_time_of_addition = menuItemModel.price; // Set price from the menu item
-      restaurant_id = menuItemModel.restaurant_id; // Assign restaurant_id from the menu item
-    }
 
-    // Multiply price_at_time_of_addition by quantity to get the total price at the time of addition
-    const total_price_at_time_of_addition =
-      +price_at_time_of_addition * +quantity;
-
-    // Check if the customer exists
-    const CustomerModel = await this.customerModel.findById(customer_id).exec();
-    if (!CustomerModel) {
-      return createResponse('NotFound', null, 'This customer not found.');
-    }
-
-    // Check if the cart item already exists for the customer and item
-    const existingCartItem = await this.cartItemModel
-      .findOne({ customer_id, item_id })
-      .exec();
-
-    if (existingCartItem) {
-      // If it exists, update the quantity by adding the new quantity to the old one
-      existingCartItem.quantity += +quantity;
-
-      // Add the new price to the existing total price
-      existingCartItem.price_at_time_of_addition +=
-        total_price_at_time_of_addition;
-
-      existingCartItem.updated_at = new Date().getTime(); // Update the timestamp
-
-      // Save the updated cart item
-      await existingCartItem.save();
-      return createResponse(
-        'OK',
-        existingCartItem,
-        'Cart item quantity updated successfully',
+      // Populate variants
+      const populatedVariants = await Promise.all(
+        variants.map(async (variant) => {
+          const variantDetails = await this.menuItemVariantModel.findById(
+            variant.variant_id,
+          );
+          if (!variantDetails) {
+            return createResponse(
+              'NotFound',
+              null,
+              `Variant with ID ${variant.variant_id} not found`,
+            );
+          }
+          return {
+            ...variant,
+            variant_name: variantDetails.variant,
+          };
+        }),
       );
+
+      // Create the cart item
+      const cartItem = new this.cartItemModel({
+        ...cartItemData,
+        item_id, // Ensure item_id is correctly passed
+        customer_id, // Ensure customer_id is correctly passed
+        variants: populatedVariants,
+        created_at: Math.floor(Date.now() / 1000),
+        updated_at: Math.floor(Date.now() / 1000),
+      });
+
+      await cartItem.save();
+      return createResponse('OK', cartItem, 'Cart item created successfully');
+    } catch (error) {
+      return createResponse('ServerError', null, 'Failed to create cart item');
     }
-
-    // If it doesn't exist, create a new cart item
-    const newCartItem = new this.cartItemModel({
-      customer_id,
-      item_id,
-      restaurant_id, // Include restaurant_id here
-      quantity,
-      price_at_time_of_addition: total_price_at_time_of_addition, // Set the total price
-      created_at: new Date().getTime(),
-      updated_at: new Date().getTime(),
-    });
-
-    // Save the new cart item
-    const result = await newCartItem.save();
-    let finalData;
-    if (result) {
-      finalData = await this.findById(newCartItem._id as string);
-    }
-
-    return createResponse('OK', finalData.data, 'Cart item added successfully');
   }
 
   async update(id: string, updateCartItemDto: UpdateCartItemDto): Promise<any> {
-    const { customer_id, item_id, variant_id, quantity, restaurant_id } =
-      updateCartItemDto;
-
-    // Check if the customer exists
-    if (customer_id) {
-      const CustomerModel = await this.customerModel
-        .findById(customer_id)
-        .exec();
-      if (!CustomerModel) {
-        return createResponse('NotFound', null, 'This customer not found.');
-      }
-    }
-
-    let existingRestaurant;
-    // Check if the menu item exists
-    if (item_id) {
-      const existingMenuItem = await this.menuItemModel
-        .findById(item_id)
-        .populate('restaurant_id')
-        .exec();
-      if (!existingMenuItem) {
-        return createResponse('NotFound', null, 'This menu item not found.');
-      }
-      existingRestaurant = existingMenuItem;
-
-      // Set the price based on the variant or menu item
-      if (variant_id) {
-        // Check if variant_id is provided and get the variant price
-        const variantModel = await this.menuItemVariantModel
-          .findById(variant_id)
-          .exec();
-        if (!variantModel) {
-          return createResponse('NotFound', null, 'This variant not found.');
-        }
-
-        // Update the price to the variant price
-        updateCartItemDto.price_at_time_of_addition = variantModel.price;
-      } else {
-        // If no variant_id is provided, use the menu item price
-        updateCartItemDto.price_at_time_of_addition = existingMenuItem.price;
-      }
-    }
-
-    // Multiply price_at_time_of_addition by quantity to get the total price at the time of update
-    const total_price_at_time_of_addition =
-      +updateCartItemDto.price_at_time_of_addition * +quantity;
-    updateCartItemDto.price_at_time_of_addition =
-      total_price_at_time_of_addition;
-    updateCartItemDto.restaurant_id = existingRestaurant.restaurant_id;
-
-    // Update the cart item with the provided data
-    const updatedCartItem = await this.cartItemModel
-      .findByIdAndUpdate(id, updateCartItemDto, { new: true })
-      .exec();
-
-    if (!updatedCartItem) {
-      return createResponse('NotFound', null, 'Cart item not found');
-    }
+    const { variants, item_id, customer_id, ...updateData } = updateCartItemDto;
 
     try {
+      // Check if MenuItem exists
+      if (item_id) {
+        const menuItem = await this.menuItemModel.findById(item_id);
+        if (!menuItem) {
+          return createResponse(
+            'NotFound',
+            null,
+            `MenuItem with ID ${item_id} not found`,
+          );
+        }
+      }
+
+      // Check if Customer exists
+      if (customer_id) {
+        const customer = await this.customerModel.findById(customer_id);
+        if (!customer) {
+          return createResponse(
+            'NotFound',
+            null,
+            `Customer with ID ${customer_id} not found`,
+          );
+        }
+      }
+
+      if (variants) {
+        // Populate variants
+        const populatedVariants = await Promise.all(
+          variants.map(async (variant) => {
+            const variantDetails = await this.menuItemVariantModel.findById(
+              variant.variant_id,
+            );
+            if (!variantDetails) {
+              return createResponse(
+                'NotFound',
+                null,
+                `Variant with ID ${variant.variant_id} not found`,
+              );
+            }
+            return {
+              ...variant,
+              variant_name: variantDetails.variant,
+            };
+          }),
+        );
+        (updateData as any).variants = populatedVariants;
+      }
+
+      // Update the cart item
+      const updatedCartItem = await this.cartItemModel.findByIdAndUpdate(
+        id,
+        updateData,
+        { new: true },
+      );
+
+      if (!updatedCartItem) {
+        return createResponse(
+          'NotFound',
+          null,
+          `Cart item with ID ${id} not found`,
+        );
+      }
+
       return createResponse(
         'OK',
         updatedCartItem,
         'Cart item updated successfully',
       );
     } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while updating the cart item',
-      );
+      return createResponse('ServerError', null, 'Failed to update cart item');
     }
   }
 
-  // Get all cart items
   async findAll(query: Record<string, any> = {}): Promise<any> {
     try {
-      // Use the query object to filter the results if provided
       const cartItems = await this.cartItemModel
         .find(query)
-        .populate(
-          'restaurant_id', // Keep 'restaurant_id' to populate it
-          '-promotions -contact_email -contact_phone -created_at -updated_at -description -images-gallery -specialize_in -address',
-        )
-        .populate('item_id', '-created_at -updated_at -restaurant_id -_id') // Populate item_id
-        .exec();
+        .populate('item_id');
 
-      if (cartItems.length === 0) {
-        return createResponse(
-          'NotFound',
-          null,
-          'No cart items found matching the criteria',
-        );
-      }
+      // Populate variant names for all cart items
+      const populatedCartItems = await Promise.all(
+        cartItems.map(async (cartItem) => {
+          // Convert the cart item document to a plain object
+          const cartItemObj = cartItem.toObject();
 
-      // Change 'restaurant_id' to 'restaurant' and move the 'item_id' content to 'item'
-      const transformedCartItems = cartItems.map((item) => {
-        const { restaurant_id, item_id, ...rest } = item.toObject(); // Extract restaurant_id and item_id
+          // Map over the variants and populate their names
+          const populatedVariants = await Promise.all(
+            cartItemObj.variants.map(async (variant) => {
+              const variantDetails = await this.menuItemVariantModel.findById(
+                variant.variant_id,
+              );
+              return {
+                ...variant,
+                variant_name: variantDetails
+                  ? variantDetails.variant
+                  : 'Unknown',
+              };
+            }),
+          );
 
+          // Replace the variants with populated ones
+          cartItemObj.variants = populatedVariants;
+
+          return cartItemObj;
+        }),
+      );
+
+      console.log('Check cart items:', populatedCartItems);
+
+      // Transform the cart items to add the item_id as item
+      const transformedCartItems = populatedCartItems.map((cartItem) => {
+        const { item_id, ...rest } = cartItem;
         return {
           ...rest,
-          restaurant: restaurant_id, // Rename restaurant_id to restaurant
-          item: item_id, // Move item_id to item
-          item_id: item._id, // Add the _id of the cart item as item_id at the top level
+          item: item_id, // Adding item_id as item
         };
       });
 
+      // Fetch restaurant details for each cart item and include them
+      const finalResult = await Promise.all(
+        transformedCartItems.map(async (item) => {
+          const itemObj = item.item as unknown as { restaurant_id: string };
+          const restaurantDetails = await this.restaurantModel.findById(
+            itemObj.restaurant_id,
+          );
+          return {
+            ...item, // Include all the cart item fields
+            restaurantDetails, // Add the restaurantDetails field here
+          };
+        }),
+      );
+
+      console.log('Final result with restaurant details:', finalResult);
+
       return createResponse(
         'OK',
-        transformedCartItems,
-        'Fetched cart items successfully',
+        finalResult, // Return the final result with restaurant details
+        'Cart items fetched successfully',
       );
     } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while fetching cart items',
-      );
+      return createResponse('ServerError', null, 'Failed to fetch cart items');
     }
   }
 
-  // Get a cart item by ID
   // Get a cart item by ID
   async findById(id: string): Promise<any> {
     try {

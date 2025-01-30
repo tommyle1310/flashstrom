@@ -88,7 +88,7 @@ export class MenuItemVariantsService {
       .exec();
 
     if (!updatedVariant) {
-      return createResponse('NotFound', null, 'Menu Item Variant not found');
+      return createResponse('NotFound', null, 'Menu Item Varsiant not found');
     }
 
     try {
@@ -136,6 +136,16 @@ export class MenuItemVariantsService {
         'An error occurred while fetching the menu item variant',
       );
     }
+  }
+
+  findOneByDetails(
+    price: number,
+    description: string,
+    menu_id: string,
+  ): Promise<MenuItemVariant> {
+    return this.menuItemVariantModel
+      .findOne({ price, description, menu_id })
+      .exec();
   }
 
   // Delete a menu item variant by ID

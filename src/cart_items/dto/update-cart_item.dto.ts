@@ -8,8 +8,10 @@ export class UpdateCartItemDto extends PartialType(CreateCartItemDto) {
   item_id: String;
 
   @IsOptional()
-  @IsString()
-  variant_id: String;
+  variants: {
+    variant_id: String;
+    quantity: Number;
+  }[];
 
   @IsOptional()
   @IsString()
@@ -18,12 +20,4 @@ export class UpdateCartItemDto extends PartialType(CreateCartItemDto) {
   @IsString()
   @IsOptional()
   restaurant_id: String;
-
-  @IsOptional()
-  @IsNumber()
-  quantity: Number;
-
-  @IsOptional()
-  @IsNumber()
-  price_at_time_of_addition: Number;
 }

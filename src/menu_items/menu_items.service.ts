@@ -9,11 +9,14 @@ import { Restaurant } from 'src/restaurants/restaurants.schema';
 import { helpers } from 'handlebars';
 import { FoodCategory } from 'src/food_categories/food_categories.schema';
 import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_variants.service';
+import { UpdateMenuItemVariantDto } from 'src/menu_item_variants/dto/update-menu_item_variant.dto';
+import { MenuItemVariant } from 'src/menu_item_variants/menu_item_variants.schema';
 
 @Injectable()
 export class MenuItemsService {
   constructor(
     @InjectModel('MenuItem') private readonly menuItemModel: Model<MenuItem>,
+    // @InjectModel('MenuItemVariant') private readonly menuItemVariantModel: Model<MenuItemVariant>,
     @InjectModel('Restaurant')
     private readonly restaurantModel: Model<Restaurant>,
     @InjectModel('FoodCategory')
@@ -60,15 +63,65 @@ export class MenuItemsService {
     const existingMenuItem = await this.menuItemModel
       .findOne({ name, restaurant_id })
       .exec();
+
+    let variantIds = [];
+
+    // If the menu item already exists
     if (existingMenuItem) {
+      // Check if the variants already exist
+      for (const variant of variants) {
+        // Look for an existing variant with the same price and description (since variant_id is not passed)
+        const existingVariant =
+          await this.menuItemVariantsService.findOneByDetails(
+            variant.price,
+            variant.description,
+            existingMenuItem._id.toString(), // Ensuring the variant is linked to the correct menu item
+          );
+
+        if (!existingVariant) {
+          // If the variant doesn't exist, create it
+          const newVariantData = {
+            menu_id: existingMenuItem._id as string, // Link to the existing menu item
+            variant: variant.description || '', // Add variant field (you can decide what goes here)
+            price: variant.price,
+            description: variant.description,
+            avatar: existingMenuItem.avatar || { url: '', key: '' },
+            availability: true, // Default availability to true if not provided
+            default_restaurant_notes: [],
+            discount_rate: 0,
+          };
+
+          const newVariant =
+            await this.menuItemVariantsService.create(newVariantData);
+          variantIds.push(newVariant._id); // Add the new variant ID
+        } else {
+          variantIds.push(existingVariant._id); // Add the existing variant ID
+          const variantId = existingVariant._id as string;
+          // If the variant already exists in the menu item, don't add it again
+          const variantExistsInMenuItem =
+            existingMenuItem.variants.includes(variantId);
+          if (variantExistsInMenuItem) {
+            return createResponse(
+              'DuplicatedRecord',
+              null,
+              `Variant with ID ${existingVariant._id} already exists for this menu item`,
+            );
+          }
+        }
+      }
+
+      // Add the variants to the existing menu item
+      existingMenuItem.variants.push(...variantIds);
+      await existingMenuItem.save();
+
       return createResponse(
-        'DuplicatedRecord',
-        null,
-        'Menu Item with this name already exists in this restaurant',
+        'OK',
+        existingMenuItem,
+        'Menu Item and variants updated successfully',
       );
     }
 
-    // Create the new menu item
+    // Create a new menu item
     const newMenuItem = new this.menuItemModel({
       restaurant_id,
       name,
@@ -77,14 +130,69 @@ export class MenuItemsService {
       avatar,
       availability,
       suggest_notes,
-      variants,
+      variants: variantIds, // Use the variant IDs created or found above
       created_at: new Date().getTime(),
       updated_at: new Date().getTime(),
     });
 
-    // Save the menu item and return the success response
+    // Save the new menu item
     await newMenuItem.save();
-    return createResponse('OK', newMenuItem, 'Menu Item created successfully');
+
+    // Handle the variants: create any missing variants and associate them with the menu item
+    for (const variant of variants) {
+      // Look for an existing variant with the same price and description
+      const existingVariant =
+        await this.menuItemVariantsService.findOneByDetails(
+          variant.price,
+          variant.description,
+          newMenuItem._id.toString(), // Ensuring the variant is linked to the correct menu item
+        );
+
+      if (!existingVariant) {
+        // If variant doesn't exist, create it
+        const newVariantData = {
+          menu_id: newMenuItem._id.toString(), // Ensure this is a string
+          variant: variant.description || '',
+          price: variant.price,
+          description: variant.description,
+          avatar: newMenuItem.avatar || { key: '', url: '' },
+          availability: true,
+          default_restaurant_notes: [],
+          discount_rate: 0,
+        };
+
+        const newVariant =
+          await this.menuItemVariantsService.create(newVariantData);
+
+        // Associate the created variant with the new menu item
+        const updateData: UpdateMenuItemVariantDto = {
+          menu_id: newMenuItem._id.toString(),
+          variant: variant.description || '', // Add description or another identifier for the variant
+          avatar: newMenuItem.avatar,
+          availability: true,
+          discount_rate: 0,
+          description: variant.description || '', // Ensure description is included
+        };
+        console.log('check', newVariant);
+
+        await this.menuItemVariantsService.update(
+          newVariant.data._id,
+          updateData,
+        );
+      } else {
+        // If the variant exists, ensure it's associated with the new menu item
+        if (!existingVariant.menu_id) {
+          existingVariant.menu_id = newMenuItem._id.toString();
+          await existingVariant.save();
+        }
+      }
+    }
+
+    return createResponse(
+      'OK',
+      newMenuItem,
+      'Menu Item and variants created successfully',
+    );
   }
 
   // Get all menu items

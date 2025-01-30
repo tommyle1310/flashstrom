@@ -15,7 +15,6 @@ export const MenuItemSchema = new Schema({
   availability: { type: Boolean, default: false }, // Availability of the menu item
   suggest_notes: [{ type: String }], // Suggested notes (e.g., 'no spicy', 'more carrots')
   variants: [{ type: String, ref: 'MenuItemVariant' }], // Array of menu item variant references
-  price: { type: Number, default: 0 },
   created_at: { type: Number, default: Math.floor(Date.now() / 1000) }, // Unix timestamp of creation
   updated_at: { type: Number, default: Math.floor(Date.now() / 1000) }, // Unix timestamp of last update
   purchase_count: { type: Number, default: 0 }, // Purchase count for this menu item
@@ -43,7 +42,6 @@ export interface MenuItem extends Document {
   suggest_notes: string[]; // Suggested notes for the menu item
   variants: string[]; // Array of menu item variant IDs
   created_at: number; // Unix timestamp of creation
-  price: number; // Unix timestamp of creation
   updated_at: number; // Unix timestamp of last update
   purchase_count: number; // Purchase count of the menu item
 }

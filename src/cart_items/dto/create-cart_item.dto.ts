@@ -5,8 +5,10 @@ export class CreateCartItemDto {
   item_id: String;
 
   @IsOptional()
-  @IsString()
-  variant_id: String;
+  variants: {
+    variant_id: String;
+    quantity: Number;
+  }[];
 
   @IsString()
   @IsOptional()
@@ -15,10 +17,4 @@ export class CreateCartItemDto {
   @IsString()
   @IsOptional()
   restaurant_id: String;
-
-  @IsNumber()
-  quantity: Number;
-
-  @IsNumber()
-  price_at_time_of_addition: Number;
 }

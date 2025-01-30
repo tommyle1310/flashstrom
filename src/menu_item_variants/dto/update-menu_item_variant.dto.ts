@@ -1,22 +1,15 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateMenuItemVariantDto } from './create-menu_item_variant.dto';
 import {
   IsString,
-  IsArray,
-  IsBoolean,
   IsOptional,
   IsObject,
+  IsBoolean,
   IsNumber,
 } from 'class-validator';
 
-export class UpdateMenuItemVariantDto extends PartialType(
-  CreateMenuItemVariantDto,
-) {
-  @IsOptional()
+export class UpdateMenuItemVariantDto {
   @IsString()
   menu_id: string; // The ID of the related menu item
 
-  @IsOptional()
   @IsString()
   variant: string; // Name or type of the variant (e.g., "small", "large", "extra spicy")
 
@@ -34,15 +27,6 @@ export class UpdateMenuItemVariantDto extends PartialType(
   @IsOptional()
   @IsBoolean()
   availability: boolean; // Availability of the variant (true/false)
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  default_restaurant_notes: string[]; // Default notes for the restaurant
-
-  @IsOptional()
-  @IsNumber()
-  price: number; // Price of the variant
 
   @IsOptional()
   @IsNumber()

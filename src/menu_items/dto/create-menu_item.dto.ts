@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsObject,
   IsNumber,
+  IsUUID,
 } from 'class-validator';
 
 export class CreateMenuItemDto {
@@ -21,7 +22,7 @@ export class CreateMenuItemDto {
 
   @IsOptional()
   @IsNumber()
-  price: number; // price of the menu item
+  price: number; // Price of the menu item
 
   @IsArray()
   @IsString({ each: true })
@@ -45,6 +46,10 @@ export class CreateMenuItemDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  variants: string[]; // Array of menu item variant IDs
+  @IsObject({ each: true }) // Expecting array of objects for variants
+  variants: {
+    variant_id: string; // Variant ID reference
+    price?: number; // Price of the variant
+    description?: string; // Optional description for the variant
+  }[]; // Array of variant objects
 }
