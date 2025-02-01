@@ -91,6 +91,8 @@ export class CustomersController {
     @Param('id') customerId: string, // Get the customer ID from the route param
     @Body() createCartItemDto: CreateCartItemDto, // Get the rest of the data from the body
   ) {
+    console.log('check famm me');
+
     // Pass the customerId and the rest of the DTO to the service
     return this.cartItemService.create({
       ...createCartItemDto,

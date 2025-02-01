@@ -28,132 +28,125 @@ export class CartItemsService {
   async create(createCartItemDto: CreateCartItemDto): Promise<any> {
     const { variants, item_id, customer_id, ...cartItemData } =
       createCartItemDto;
+    // Ensure required fields are present
+    console.log('check req', createCartItemDto);
 
-    try {
-      // Ensure required fields are present
-      if (!item_id || !customer_id) {
-        return createResponse(
-          'MissingInput',
-          null,
-          'Item ID and Customer ID are required',
+    if (!item_id || !customer_id) {
+      return createResponse(
+        'MissingInput',
+        null,
+        'Item ID and Customer ID are required',
+      );
+    }
+
+    // Check if MenuItem exists
+    const menuItem = await this.menuItemModel.findById(item_id);
+    if (!menuItem) {
+      return createResponse(
+        'NotFound',
+        null,
+        `MenuItem with ID ${item_id} not found`,
+      );
+    }
+
+    // Check if Customer exists
+    const customer = await this.customerModel.findById(customer_id);
+    if (!customer) {
+      return createResponse(
+        'NotFound',
+        null,
+        `Customer with ID ${customer_id} not found`,
+      );
+    }
+
+    // Check if a cart item already exists for the same customer and item
+    let existingCartItem = await this.cartItemModel.findOne({
+      customer_id,
+      item_id,
+    });
+
+    if (existingCartItem) {
+      // Iterate over existing variants and update their quantity or add new variants
+      for (let i = 0; i < variants.length; i++) {
+        const newVariant = variants[i];
+
+        // Find the existing variant in the cart item
+        const existingVariant = existingCartItem.variants.find(
+          (variant) => variant.variant_id === newVariant.variant_id,
         );
-      }
 
-      // Check if MenuItem exists
-      const menuItem = await this.menuItemModel.findById(item_id);
-      if (!menuItem) {
-        return createResponse(
-          'NotFound',
-          null,
-          `MenuItem with ID ${item_id} not found`,
-        );
-      }
-
-      // Check if Customer exists
-      const customer = await this.customerModel.findById(customer_id);
-      if (!customer) {
-        return createResponse(
-          'NotFound',
-          null,
-          `Customer with ID ${customer_id} not found`,
-        );
-      }
-
-      // Check if a cart item already exists for the same customer and item
-      let existingCartItem = await this.cartItemModel.findOne({
-        customer_id,
-        item_id,
-      });
-
-      if (existingCartItem) {
-        // Iterate over existing variants and update their quantity or add new variants
-        for (let i = 0; i < variants.length; i++) {
-          const newVariant = variants[i];
-
-          // Find the existing variant in the cart item
-          const existingVariant = existingCartItem.variants.find(
-            (variant) => variant.variant_id === newVariant.variant_id,
-          );
-
-          if (existingVariant) {
-            // If the variant exists, update the quantity
-            existingVariant.quantity += +newVariant.quantity;
-          } else {
-            // If the variant doesn't exist, fetch variant details and add it to the cart
-            const variantDetails = await this.menuItemVariantModel.findById(
-              newVariant.variant_id,
-            );
-            if (variantDetails) {
-              existingCartItem.variants.push({
-                variant_id: `${newVariant.variant_id}`,
-                variant_name: variantDetails.variant,
-                variant_price_at_time_of_addition: variantDetails.price, // Store price at time of addition
-                quantity: +newVariant.quantity,
-              });
-            } else {
-              return createResponse(
-                'NotFound',
-                null,
-                `Variant with ID ${newVariant.variant_id} not found`,
-              );
-            }
-          }
-        }
-
-        // Update the modified timestamp
-        existingCartItem.updated_at = Math.floor(Date.now() / 1000);
-
-        // Save the updated cart item
-        await existingCartItem.save();
-
-        return createResponse(
-          'OK',
-          existingCartItem,
-          'Cart item updated successfully',
-        );
-      }
-
-      // If no existing cart item, create a new one
-      const populatedVariants = await Promise.all(
-        variants.map(async (variant) => {
+        if (existingVariant) {
+          // If the variant exists, update the quantity
+          existingVariant.quantity += +newVariant.quantity;
+        } else {
+          // If the variant doesn't exist, fetch variant details and add it to the cart
           const variantDetails = await this.menuItemVariantModel.findById(
-            variant.variant_id,
+            newVariant.variant_id,
           );
-          if (!variantDetails) {
+          if (variantDetails) {
+            existingCartItem.variants.push({
+              variant_id: `${newVariant.variant_id}`,
+              variant_name: variantDetails.variant,
+              variant_price_at_time_of_addition: variantDetails.price, // Store price at time of addition
+              quantity: +newVariant.quantity,
+            });
+          } else {
             return createResponse(
               'NotFound',
               null,
-              `Variant with ID ${variant.variant_id} not found`,
+              `Variant with ID ${newVariant.variant_id} not found`,
             );
           }
-          return {
-            variant_id: variant.variant_id,
-            variant_name: variantDetails.variant, // Add variant name
-            variant_price_at_time_of_addition: variantDetails.price, // Add price
-            quantity: variant.quantity,
-          };
-        }),
-      );
+        }
+      }
 
-      // Create the cart item
-      const newCartItem = new this.cartItemModel({
-        ...cartItemData,
-        item_id,
-        customer_id,
-        variants: populatedVariants,
-        created_at: Math.floor(Date.now() / 1000),
-        updated_at: Math.floor(Date.now() / 1000),
-      });
+      // Update the modified timestamp
+      existingCartItem.updated_at = Math.floor(Date.now() / 1000);
 
-      await newCartItem.save();
+      // Save the updated cart item
+      await existingCartItem.save();
+
       return createResponse(
         'OK',
-        newCartItem,
-        'Cart item created successfully',
+        existingCartItem,
+        'Cart item updated successfully',
       );
-    } catch (error) {
-      return createResponse('ServerError', null, 'Failed to create cart item');
     }
+
+    // If no existing cart item, create a new one
+    const populatedVariants = await Promise.all(
+      variants.map(async (variant) => {
+        const variantDetails = await this.menuItemVariantModel.findById(
+          variant.variant_id,
+        );
+        if (!variantDetails) {
+          return createResponse(
+            'NotFound',
+            null,
+            `Variant with ID ${variant.variant_id} not found`,
+          );
+        }
+        return {
+          variant_id: variant.variant_id,
+          variant_name: variantDetails.variant, // Add variant name
+          variant_price_at_time_of_addition: variantDetails.price, // Add price
+          quantity: variant.quantity,
+        };
+      }),
+    );
+
+    // Create the cart item
+    const newCartItem = new this.cartItemModel({
+      ...cartItemData,
+      item_id,
+      customer_id,
+      variants: populatedVariants,
+      created_at: Math.floor(Date.now() / 1000),
+      updated_at: Math.floor(Date.now() / 1000),
+    });
+
+    await newCartItem.save();
+    return createResponse('OK', newCartItem, 'Cart item created successfully');
   }
 
   async update(id: string, updateCartItemDto: UpdateCartItemDto): Promise<any> {

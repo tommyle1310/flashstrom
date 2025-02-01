@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsUUID,
 } from 'class-validator';
+import { DiscountDto } from 'src/discounts/discount.dto'; // Import the DiscountDto
 
 export class CreateMenuItemDto {
   @IsOptional()
@@ -52,4 +53,8 @@ export class CreateMenuItemDto {
     price?: number; // Price of the variant
     description?: string; // Optional description for the variant
   }[]; // Array of variant objects
+
+  @IsOptional()
+  @IsObject()
+  discount: DiscountDto; // Discount information
 }

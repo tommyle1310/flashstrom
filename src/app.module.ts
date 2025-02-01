@@ -18,6 +18,7 @@ import { RestaurantsModule } from './restaurants/restaurants.module';
 import { MenuItemsModule } from './menu_items/menu_items.module';
 import { MenuItemVariantsModule } from './menu_item_variants/menu_item_variants.module';
 import { CartItemsModule } from './cart_items/cart_items.module';
+import { OrdersModule } from './orders/orders.module';
 
 @Module({
   imports: [
@@ -36,7 +37,8 @@ import { CartItemsModule } from './cart_items/cart_items.module';
     RestaurantsModule,
     MenuItemsModule,
     MenuItemVariantsModule,
-    CartItemsModule, // Import the mailer module here
+    CartItemsModule,
+    OrdersModule, // Import the mailer module here
   ],
   controllers: [AppController],
   providers: [AppService, EmailService],

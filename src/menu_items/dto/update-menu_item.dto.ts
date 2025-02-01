@@ -9,6 +9,7 @@ import {
   IsNumber,
   IsUUID,
 } from 'class-validator';
+import { DiscountDto } from 'src/discounts/discount.dto'; // Import the DiscountDto
 
 export class UpdateMenuItemDto extends PartialType(CreateMenuItemDto) {
   @IsOptional()
@@ -56,4 +57,8 @@ export class UpdateMenuItemDto extends PartialType(CreateMenuItemDto) {
     price?: number; // Price of the variant
     description?: string; // Optional description for the variant
   }[]; // Array of variant objects
+
+  @IsOptional()
+  @IsObject()
+  discount: DiscountDto; // Discount information (optional for update)
 }

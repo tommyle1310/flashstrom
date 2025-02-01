@@ -18,6 +18,27 @@ export const MenuItemSchema = new Schema({
   created_at: { type: Number, default: Math.floor(Date.now() / 1000) }, // Unix timestamp of creation
   updated_at: { type: Number, default: Math.floor(Date.now() / 1000) }, // Unix timestamp of last update
   purchase_count: { type: Number, default: 0 }, // Purchase count for this menu item
+  discount: {
+    type: Schema.Types.Mixed, // This allows us to store an object or null
+    default: null,
+    validate: {
+      validator: function (value) {
+        if (value === null) return true; // If no discount, it's valid
+        // Validate the discount object structure
+        const validDiscountTypes = ['FIXED', 'PERCENTAGE'];
+        return (
+          value.hasOwnProperty('discount_type') &&
+          validDiscountTypes.includes(value.discount_type) &&
+          typeof value.discount_value === 'number' &&
+          value.discount_value >= 0 &&
+          typeof value.start_date === 'number' &&
+          typeof value.end_date === 'number' &&
+          value.start_date < value.end_date
+        );
+      },
+      message: 'Invalid discount structure or values',
+    },
+  },
 });
 
 // Pre-save hook to generate a custom ID with 'FF_MENU_ITEM_' prefix and a random UUID
@@ -44,4 +65,10 @@ export interface MenuItem extends Document {
   created_at: number; // Unix timestamp of creation
   updated_at: number; // Unix timestamp of last update
   purchase_count: number; // Purchase count of the menu item
+  discount: {
+    discount_type: 'FIXED' | 'PERCENTAGE'; // Type of discount
+    discount_value: number | null; // The discount value
+    start_date: number | null; // Start date of the discount (Unix timestamp)
+    end_date: number | null; // End date of the discount (Unix timestamp)
+  } | null; // Discount can be null or an object
 }
