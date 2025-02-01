@@ -49,7 +49,6 @@ export class CreateMenuItemDto {
   @IsArray()
   @IsObject({ each: true }) // Expecting array of objects for variants
   variants: {
-    variant_id: string; // Variant ID reference
     price?: number; // Price of the variant
     description?: string; // Optional description for the variant
   }[]; // Array of variant objects

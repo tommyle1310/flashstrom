@@ -66,6 +66,7 @@ export class MenuItemsService {
       .exec();
 
     let variantIds = [];
+    let createdVariants = []; // Track newly created variants
 
     // If the menu item already exists
     if (existingMenuItem) {
@@ -92,6 +93,7 @@ export class MenuItemsService {
 
           const newVariant =
             await this.menuItemVariantsService.create(newVariantData);
+          createdVariants.push(newVariant); // Save the created variant
           variantIds.push(newVariant._id);
         } else {
           variantIds.push(existingVariant._id);
@@ -120,7 +122,10 @@ export class MenuItemsService {
 
       return createResponse(
         'OK',
-        existingMenuItem,
+        {
+          ...existingMenuItem,
+          variants: [...existingMenuItem.variants, ...createdVariants],
+        }, // Return both existing and newly created variants
         'Menu Item and variants updated successfully',
       );
     }
@@ -166,10 +171,7 @@ export class MenuItemsService {
 
         const newVariant =
           await this.menuItemVariantsService.create(newVariantData);
-        await this.menuItemVariantsService.update(
-          newVariant._id,
-          newVariantData,
-        );
+        createdVariants.push(newVariant.data); // Track created variant
       } else {
         if (!existingVariant.menu_id) {
           existingVariant.menu_id = newMenuItem._id.toString();
@@ -178,9 +180,10 @@ export class MenuItemsService {
       }
     }
 
+    // Return the newly created menu item with variants
     return createResponse(
       'OK',
-      newMenuItem,
+      { ...newMenuItem.toObject(), variants: createdVariants }, // Return the newly created variants
       'Menu Item and variants created successfully',
     );
   }
