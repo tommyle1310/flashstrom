@@ -13,6 +13,8 @@ export const OrderSchema = new Schema({
     default: 'PENDING',
   },
   total_amount: { type: Number, required: true }, // Total amount for the order
+  delivery_fee: { type: Number, required: true }, // Total amount for the order
+  service_fee: { type: Number, required: true }, // Total amount for the order
   payment_status: {
     type: String,
     enum: ['PENDING', 'PAID', 'FAILED'], // Enum for payment status
@@ -66,6 +68,8 @@ export interface Order extends Document {
   restaurant_id: string; // The ID of the restaurant where the order is placed
   status: 'PENDING' | 'ACCEPTED' | 'IN_PROGRESS' | 'DELIVERED' | 'CANCELLED'; // The current status of the order
   total_amount: number; // Total amount of the order
+  delivery_fee: number; // Total amount of the order
+  service_fee: number; // Total amount of the order
   payment_status: 'PENDING' | 'PAID' | 'FAILED'; // Payment status
   payment_method: string; // Payment method ID (could be reference to PaymentMethod schema)
   customer_location: string; // The customer's address (reference to AddressBook schema)

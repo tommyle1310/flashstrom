@@ -20,6 +20,14 @@ export class UpdateOrderDto extends PartialType(CreateOrderDto) {
   @Min(0)
   total_amount?: number; // Total amount for the order (if updated)
 
+  @IsNumber()
+  @Min(0)
+  delivery_fee: number; // Total amount for the order
+
+  @IsNumber()
+  @Min(0)
+  service_fee: number; // Total amount for the order
+
   @IsOptional()
   @IsEnum(['PENDING', 'PAID', 'FAILED'])
   payment_status?: 'PENDING' | 'PAID' | 'FAILED'; // Payment status (if updated)
