@@ -10,6 +10,7 @@ export class UpdateMenuItemVariantDto {
   @IsString()
   menu_id: string; // The ID of the related menu item
 
+  @IsOptional()
   @IsString()
   variant: string; // Name or type of the variant (e.g., "small", "large", "extra spicy")
 

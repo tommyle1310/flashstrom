@@ -38,7 +38,6 @@ export class CustomersController {
   // Ensure this specific route for restaurants comes before the generic :id route
   @Get('/restaurants/:id')
   getAllRestaurants(@Param('id') id: string) {
-    console.log('check', id);
     return this.customersService.getAllRestaurants(id);
   }
 

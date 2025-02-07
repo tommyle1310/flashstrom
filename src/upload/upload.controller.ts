@@ -47,7 +47,6 @@ export class UploadController {
 
     // Dynamically handle which service to call based on the userType and entityId
     let updatedEntity;
-    console.log('check', userType);
     switch (userType) {
       case Enum_AvatarType.RESTAURANT_OWNER:
         updatedEntity = await this.restaurantService.updateEntityAvatar(

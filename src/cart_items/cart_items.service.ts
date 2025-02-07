@@ -199,11 +199,12 @@ export class CartItemsService {
         );
         (updateData as any).variants = populatedVariants;
       }
+      console.log('check update data', updateData);
 
       // Update the cart item
       const updatedCartItem = await this.cartItemModel.findByIdAndUpdate(
         id,
-        updateData,
+        { variants, item_id, customer_id, ...updateData },
         { new: true },
       );
 
@@ -217,7 +218,7 @@ export class CartItemsService {
 
       return createResponse(
         'OK',
-        updatedCartItem,
+        { variants, item_id, customer_id, ...updateData },
         'Cart item updated successfully',
       );
     } catch (error) {
@@ -226,83 +227,80 @@ export class CartItemsService {
   }
 
   async findAll(query: Record<string, any> = {}): Promise<any> {
-    try {
-      const cartItems = await this.cartItemModel
-        .find(query)
-        .populate('item_id');
+    const cartItems = await this.cartItemModel
+      .find()
+      // .populate('item_id')
+      .exec();
+    console.log('check cart item', cartItems);
 
-      // Populate variant names for all cart items
-      const populatedCartItems = await Promise.all(
-        cartItems.map(async (cartItem) => {
-          // Convert the cart item document to a plain object
-          const cartItemObj = cartItem.toObject();
+    // Populate variant names for all cart items
+    const populatedCartItems = await Promise.all(
+      cartItems.map(async (cartItem) => {
+        // Convert the cart item document to a plain object
+        const cartItemObj = cartItem.toObject();
 
-          // Map over the variants and populate their names
-          const populatedVariants = await Promise.all(
-            cartItemObj.variants.map(async (variant) => {
-              const variantDetails = await this.menuItemVariantModel.findById(
-                variant.variant_id,
-              );
-              return {
-                ...variant,
-                variant_name: variantDetails
-                  ? variantDetails.variant
-                  : 'Unknown',
-              };
-            }),
-          );
+        // Map over the variants and populate their names
+        const populatedVariants = await Promise.all(
+          cartItemObj.variants.map(async (variant) => {
+            const variantDetails = await this.menuItemVariantModel.findById(
+              variant.variant_id,
+            );
+            return {
+              ...variant,
+              variant_name: variantDetails ? variantDetails.variant : 'Unknown',
+            };
+          }),
+        );
 
-          // Replace the variants with populated ones
-          cartItemObj.variants = populatedVariants;
+        // Replace the variants with populated ones
+        cartItemObj.variants = populatedVariants;
 
-          return cartItemObj;
-        }),
-      );
+        return cartItemObj;
+      }),
+    );
 
-      console.log('Check cart items:', populatedCartItems);
+    // console.log('Check cart items:', populatedCartItems);
 
-      // Transform the cart items to add the item_id as item
-      const transformedCartItems = populatedCartItems.map((cartItem) => {
-        const { item_id, ...rest } = cartItem;
+    // Transform the cart items to add the item_id as item
+    const transformedCartItems = populatedCartItems.map((cartItem) => {
+      const { item_id, ...rest } = cartItem;
+      return {
+        ...rest,
+        item: item_id, // Adding item_id as item
+      };
+    });
+
+    // Fetch restaurant details for each cart item and include them inside the item
+    const finalResult = await Promise.all(
+      transformedCartItems.map(async (item) => {
+        // Fetch the item object using the item_id (which is the item reference)
+        const menuItem = await this.menuItemModel.findById(item.item);
+        // console.log('cehck here', item, 'and check here', menuItem);
+
+        if (!menuItem) {
+          return createResponse('NotFound', null, 'Menu item not found');
+        }
+
+        const itemObj = menuItem as { restaurant_id: string };
+        const restaurantDetails = await this.restaurantModel.findById(
+          itemObj.restaurant_id,
+        );
+
         return {
-          ...rest,
-          item: item_id, // Adding item_id as item
+          ...item,
+          item: {
+            ...menuItem.toObject(), // Now spread the full item object here
+            restaurantDetails, // Add restaurantDetails inside the item object
+          },
         };
-      });
+      }),
+    );
 
-      // Fetch restaurant details for each cart item and include them inside the item
-      const finalResult = await Promise.all(
-        transformedCartItems.map(async (item) => {
-          // Fetch the item object using the item_id (which is the item reference)
-          const menuItem = await this.menuItemModel.findById(item.item);
-
-          if (!menuItem) {
-            return createResponse('NotFound', null, 'Menu item not found');
-          }
-
-          const itemObj = menuItem as { restaurant_id: string };
-          const restaurantDetails = await this.restaurantModel.findById(
-            itemObj.restaurant_id,
-          );
-
-          return {
-            ...item,
-            item: {
-              ...menuItem.toObject(), // Now spread the full item object here
-              restaurantDetails, // Add restaurantDetails inside the item object
-            },
-          };
-        }),
-      );
-
-      return createResponse(
-        'OK',
-        finalResult, // Return the final result with restaurant details
-        'Cart items fetched successfully',
-      );
-    } catch (error) {
-      return createResponse('ServerError', null, 'Failed to fetch cart items');
-    }
+    return createResponse(
+      'OK',
+      finalResult, // Return the final result with restaurant details
+      'Cart items fetched successfully',
+    );
   }
 
   // Get a cart item by ID
@@ -313,7 +311,7 @@ export class CartItemsService {
         .findById(id)
         .populate(
           'restaurant_id', // Populate the 'restaurant_id'
-          '-promotions -contact_email -contact_phone -created_at -updated_at -description -images-gallery -specialize_in -address',
+          '-promotions -contact_email -contact_phone -created_at -updated_at -description -images-gallery -specialize_in',
         )
         .populate('item_id', '-created_at -updated_at -restaurant_id -_id') // Populate the 'item_id'
         .exec();

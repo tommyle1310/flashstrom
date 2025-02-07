@@ -53,8 +53,6 @@ export class RestaurantsController {
     @Param('restaurantId') restaurantId: string, // Get restaurantId from the URL
     @Body() createMenuItemDto: CreateMenuItemDto, // Get menu item data from the body
   ) {
-    console.log('check', restaurantId, createMenuItemDto);
-
     return this.restaurantsService.createMenuItemForRestaurant(
       restaurantId, // Pass restaurantId to the service
       createMenuItemDto,
@@ -108,8 +106,6 @@ export class RestaurantsController {
     @Param('variantId') variantId: string, // Get variantId from the URL
     @Body() createMenuItemVariantDto: CreateMenuItemVariantDto, // Get menu item variant data from the body
   ) {
-    console.log('check', variantId, createMenuItemVariantDto);
-
     // Call the service method to create the menu item variant for the given restaurant
     return this.restaurantsService.createMenuItemVariantForRestaurant(
       variantId, // Pass variantId to the service

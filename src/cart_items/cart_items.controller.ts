@@ -39,6 +39,8 @@ export class CartItemsController {
     @Param('id') id: string,
     @Body() updateCartItemDto: UpdateCartItemDto,
   ) {
+    console.log('check contro', updateCartItemDto);
+
     return this.cartItemsService.update(id, updateCartItemDto); // Pass the ID as string directly
   }
 

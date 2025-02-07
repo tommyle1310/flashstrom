@@ -35,7 +35,6 @@ export class RestaurantsService {
 
     // Check if owner_id exists in the User collection
     const owner = await this.userModel.findById(owner_id).exec();
-    console.log('check', owner, owner_id);
 
     if (!owner) {
       return createResponse('NotFound', null, 'Owner not found');
