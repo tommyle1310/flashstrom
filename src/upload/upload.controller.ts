@@ -41,6 +41,8 @@ export class UploadController {
     if (!file) {
       return createResponse('MissingInput', null, 'No file uploaded');
     }
+    console.log('cehck go this');
+    console.log('cehck faile', file);
 
     // Upload the image to Cloudinary
     const uploadResult = await this.uploadService.uploadImage(file);

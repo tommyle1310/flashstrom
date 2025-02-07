@@ -114,18 +114,42 @@ export class CustomersService {
 
   // Get a customer by ID
   async findCustomerById(id: string): Promise<any> {
-    const customer = await this.customerModel.findById(id).exec();
-    if (!customer) {
-      return createResponse('NotFound', null, 'Customer not found');
-    }
-
     try {
-      return createResponse('OK', customer, 'Fetched customer successfully');
+      // Fetch customer by ID
+      const customer = await this.customerModel.findById(id).exec();
+      if (!customer) {
+        return createResponse('NotFound', null, 'Customer not found');
+      }
+
+      // Fetch user by user_id from the customer data
+      const user = await this.userModel.findById(customer.user_id).exec();
+      if (!user) {
+        return createResponse('NotFound', null, 'User not found');
+      }
+
+      // Merge customer data with selected user data
+      const customerWithUserData = {
+        ...customer.toObject(),
+        user: {
+          _id: user._id,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          email: user.email,
+          phone: user.phone,
+          is_verified: user.is_verified,
+        },
+      };
+
+      return createResponse(
+        'OK',
+        customerWithUserData,
+        'Fetched customer and user data successfully',
+      );
     } catch (error) {
       return createResponse(
         'ServerError',
         null,
-        'An error occurred while fetching the customer',
+        'An error occurred while fetching the customer and user data',
       );
     }
   }
