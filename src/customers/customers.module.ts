@@ -11,6 +11,7 @@ import { CartItemSchema } from 'src/cart_items/cart_items.schema';
 
 // Import CartItemsModule to make CartItemsService available
 import { CartItemsModule } from 'src/cart_items/cart_items.module';
+import { AddressBookService } from 'src/address_book/address_book.service';
 
 @Module({
   imports: [
@@ -31,6 +32,6 @@ import { CartItemsModule } from 'src/cart_items/cart_items.module';
     CartItemsModule,
   ],
   controllers: [CustomersController],
-  providers: [CustomersService],
+  providers: [CustomersService, AddressBookService],
 })
 export class CustomersModule {}

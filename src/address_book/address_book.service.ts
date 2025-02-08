@@ -5,12 +5,15 @@ import { AddressBook } from './address_book.schema';
 import { CreateAddressBookDto } from './dto/create-address_book.dto'; // Import the DTO
 import { UpdateAddressBookDto } from './dto/update-address_book.dto';
 import { createResponse } from 'src/utils/createResponse'; // Import the createResponse function
+import { Customer } from 'src/customers/customer.schema';
 
 @Injectable()
 export class AddressBookService {
   constructor(
     @InjectModel('AddressBook')
     private readonly AddressBookModel: Model<AddressBook>,
+    @InjectModel('Customer')
+    private readonly customerModel: Model<Customer>,
   ) {}
 
   // Create a new address book entry
@@ -107,18 +110,68 @@ export class AddressBookService {
 
   // Update an existing address book entry
   async updateAddressBook(
-    id: string,
+    entityId: string,
     updateData: UpdateAddressBookDto,
+    id?: string, // Optional parameter id
   ): Promise<any> {
-    const updatedAddressBook = await this.AddressBookModel.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true },
-    ).exec();
-    if (!updatedAddressBook) {
-      return createResponse('NotFound', null, 'Address book not found');
-    }
     try {
+      if (id) {
+        // Find the customer by entityId and check if the address exists in the customer's address array
+        const customer = await this.customerModel.findOne({
+          _id: entityId,
+          address: id, // Check if the addressId exists in the customer's address array
+        });
+
+        if (!customer) {
+          return createResponse('NotFound', null, 'Customer not found');
+        }
+        console.log('cehck csus', customer);
+
+        // Iterate over the customer's address array and set is_default: false for all addresses
+        await Promise.all(
+          customer.address.map(async (addressId) => {
+            const address = await this.AddressBookModel.findById(addressId);
+            if (address && address.is_default) {
+              // If any address has is_default = true, set it to false
+              await this.AddressBookModel.findByIdAndUpdate(
+                address._id,
+                { is_default: false },
+                { new: true },
+              );
+            }
+          }),
+        );
+
+        // Now, find and update the address with the provided id to set is_default = true
+        const updatedAddressBook =
+          await this.AddressBookModel.findByIdAndUpdate(
+            id,
+            { ...updateData, is_default: true }, // Ensure is_default is true for the updated address
+            { new: true },
+          ).exec();
+
+        if (!updatedAddressBook) {
+          return createResponse('NotFound', null, 'Address book not found');
+        }
+
+        return createResponse(
+          'OK',
+          updatedAddressBook,
+          'Address book updated successfully',
+        );
+      }
+
+      // If is_default is not provided in the updateData, proceed with the regular update
+      const updatedAddressBook = await this.AddressBookModel.findByIdAndUpdate(
+        id,
+        updateData,
+        { new: true },
+      ).exec();
+
+      if (!updatedAddressBook) {
+        return createResponse('NotFound', null, 'Address book not found');
+      }
+
       return createResponse(
         'OK',
         updatedAddressBook,
@@ -128,7 +181,7 @@ export class AddressBookService {
       return createResponse(
         'ServerError',
         null,
-        'An error occurred while creating the address book',
+        'An error occurred while updating the address book',
       );
     }
   }

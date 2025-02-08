@@ -231,7 +231,6 @@ export class CartItemsService {
       .find()
       // .populate('item_id')
       .exec();
-    console.log('check cart item', cartItems);
 
     // Populate variant names for all cart items
     const populatedCartItems = await Promise.all(
@@ -258,8 +257,6 @@ export class CartItemsService {
         return cartItemObj;
       }),
     );
-
-    // console.log('Check cart items:', populatedCartItems);
 
     // Transform the cart items to add the item_id as item
     const transformedCartItems = populatedCartItems.map((cartItem) => {

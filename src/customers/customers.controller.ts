@@ -17,12 +17,14 @@ import {
 import { CartItemsService } from 'src/cart_items/cart_items.service';
 import { CreateCartItemDto } from 'src/cart_items/dto/create-cart_item.dto';
 import { UpdateCartItemDto } from 'src/cart_items/dto/update-cart_item.dto';
+import { AddressBookService } from 'src/address_book/address_book.service';
 
 @Controller('customers')
 export class CustomersController {
   constructor(
     private readonly customersService: CustomersService,
     private readonly cartItemService: CartItemsService,
+    private readonly addressBookService: AddressBookService,
   ) {}
 
   @Post()
@@ -106,6 +108,18 @@ export class CustomersController {
     return this.cartItemService.remove(cartItemId);
   }
 
+  @Patch('/address/:id/:addressbookId')
+  updateAddress(
+    @Param('id') id: string,
+    @Param('addressbookId') addressbookId: string,
+    @Body() updateCustomerDto: UpdateCustomerDto,
+  ) {
+    return this.addressBookService.updateAddressBook(
+      id,
+      updateCustomerDto,
+      addressbookId,
+    );
+  }
   @Patch(':id')
   update(
     @Param('id') id: string,
