@@ -1,4 +1,10 @@
-import { IsString, IsNumber, IsBoolean, IsArray, IsObject } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsBoolean,
+  IsArray,
+  IsObject,
+} from 'class-validator';
 
 export class CreateAddressBookDto {
   @IsString()
@@ -23,7 +29,7 @@ export class CreateAddressBookDto {
   readonly postal_code: number;
 
   @IsObject()
-  readonly location: { lon: number; lat: number };
+  readonly location: { lng: number; lat: number };
 
   @IsString()
   readonly title: string;

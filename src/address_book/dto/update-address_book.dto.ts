@@ -1,4 +1,11 @@
-import { IsString, IsNumber, IsBoolean, IsArray, IsObject, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsBoolean,
+  IsArray,
+  IsObject,
+  IsOptional,
+} from 'class-validator';
 import { CreateAddressBookDto } from './create-address_book.dto';
 import { PartialType } from '@nestjs/mapped-types';
 
@@ -33,7 +40,7 @@ export class UpdateAddressBookDto extends PartialType(CreateAddressBookDto) {
 
   @IsOptional()
   @IsObject()
-  readonly location?: { lon: number; lat: number };
+  readonly location?: { lng: number; lat: number };
 
   @IsOptional()
   @IsString()

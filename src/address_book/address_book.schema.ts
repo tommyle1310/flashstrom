@@ -12,7 +12,7 @@ export const AddressBookSchema = new Schema({
   updated_at: { type: Number, required: true }, // Unix timestamp
   postal_code: { type: Number, required: true },
   location: {
-    lon: { type: Number, required: true }, // Longitude
+    lng: { type: Number, required: true }, // longitude
     lat: { type: Number, required: true }, // Latitude
   },
   title: { type: String, required: true },
@@ -41,7 +41,7 @@ export interface AddressBook extends Document {
   updated_at: number; // Unix timestamp
   postal_code: number;
   location: {
-    lon: number; // Longitude
+    lng: number; // lnggitude
     lat: number; // Latitude
   };
   title: string;

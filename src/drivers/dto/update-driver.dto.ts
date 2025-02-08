@@ -41,7 +41,7 @@ export class UpdateDriverDto extends PartialType(CreateDriverDto) {
   @IsObject()
   current_location: {
     lat: number;
-    lon: number;
+    lng: number;
   }; // Current location with latitude and longitude
 
   @IsOptional()

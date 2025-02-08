@@ -25,7 +25,7 @@ const ContactPhoneSchema = new Schema({
 // Define the Location Schema
 const LocationSchema = new Schema({
   lat: { type: Number, required: true },
-  lon: { type: Number, required: true },
+  lng: { type: Number, required: true },
 });
 
 // Define the Rating Schema
@@ -43,7 +43,7 @@ export const DriverSchema = new Schema({
   first_name: { type: String, required: false }, // Driver's first name
   last_name: { type: String, required: false }, // Driver's last name
   vehicle: { type: VehicleSchema, required: false }, // Vehicle information
-  current_location: { type: LocationSchema, required: false }, // Driver's current location (lat, lon)
+  current_location: { type: LocationSchema, required: false }, // Driver's current location (lat, lng)
   current_order_id: { type: [String], required: false }, // Array of order IDs (max 3 orders)
   created_at: { type: Number, required: false }, // Unix timestamp of creation
   updated_at: { type: Number, required: false }, // Unix timestamp of last update
@@ -75,7 +75,7 @@ export interface Driver extends Document {
   first_name: string; // Driver's first name
   last_name: string; // Driver's last name
   vehicle: { license_plate: string; model: string; color: string }; // Vehicle details
-  current_location: { lat: number; lon: number }; // Driver's current location (lat, lon)
+  current_location: { lat: number; lng: number }; // Driver's current location (lat, lng)
   current_order_id: string[]; // Array of order IDs (max 3 orders)
   created_at: number; // Unix timestamp of creation
   updated_at: number; // Unix timestamp of last update

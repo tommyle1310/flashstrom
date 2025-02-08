@@ -43,7 +43,7 @@ export class CreateDriverDto {
   @IsObject()
   readonly current_location: {
     lat: number;
-    lon: number;
+    lng: number;
   }; // Current location with latitude and longitude
 
   @IsArray()
