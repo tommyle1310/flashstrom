@@ -17,6 +17,10 @@ export class UpdateCustomerDto extends PartialType(CreateCustomerDto) {
 
   @IsOptional()
   @IsString()
+  _id?: string; // Reference to User's id (USR_* format), optional
+
+  @IsOptional()
+  @IsString()
   first_name: string;
 
   @IsOptional()

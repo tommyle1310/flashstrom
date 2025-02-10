@@ -13,6 +13,7 @@ import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
 import { MenuItemsModule } from 'src/menu_items/menu_items.module';
 import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
 import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variants.module';
+import { OrdersGateway } from './orders.gateway';
 
 @Module({
   imports: [
@@ -35,6 +36,6 @@ import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variant
     MongooseModule.forFeature([{ name: 'Order', schema: OrderSchema }]),
   ],
   controllers: [OrdersController],
-  providers: [OrdersService],
+  providers: [OrdersService, OrdersGateway],
 })
 export class OrdersModule {}

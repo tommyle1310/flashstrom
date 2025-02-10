@@ -5,6 +5,10 @@ import { IsArray, IsObject, IsOptional, IsString } from 'class-validator';
 export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsOptional()
   @IsString()
+  _id: string;
+
+  @IsOptional()
+  @IsString()
   owner_id: string;
 
   @IsOptional()

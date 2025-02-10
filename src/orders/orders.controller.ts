@@ -17,8 +17,8 @@ export class OrdersController {
 
   // Create a new order
   @Post()
-  create(@Body() createOrderDto: CreateOrderDto) {
-    return this.ordersService.create(createOrderDto);
+  async createOrder(@Body() createOrderDto: CreateOrderDto) {
+    return this.ordersService.createOrder(createOrderDto);
   }
 
   // Get all orders

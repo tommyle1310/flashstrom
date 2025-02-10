@@ -45,6 +45,7 @@ export class MenuItemsService {
     if (!existingRestaurant) {
       return createResponse('NotFound', null, 'Restaurant not found');
     }
+    console.log('check variant', variants);
 
     // Check if each food category exists
     for (const categoryId of category) {

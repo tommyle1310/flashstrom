@@ -11,13 +11,13 @@ import { AddressBook } from 'src/address_book/address_book.module';
 import { MenuItemsService } from 'src/menu_items/menu_items.service';
 import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
 import { MenuItemsModule } from 'src/menu_items/menu_items.module';
-// Import FoodCategoriesModule
-import { FoodCategoriesModule } from 'src/food_categories/food_categories.module'; // Add this import
+import { FoodCategoriesModule } from 'src/food_categories/food_categories.module';
 import { FoodCategorySchema } from 'src/food_categories/food_categories.schema';
 import { PromotionSchema } from 'src/promotions/promotions.schema';
 import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_variants.service';
 import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
 import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variants.module';
+import { RestaurantsGateway } from './restaurants.gateway';
 
 @Module({
   imports: [
@@ -34,18 +34,22 @@ import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variant
     MongooseModule.forFeature([
       { name: 'AddressBook', schema: AddressBookSchema },
     ]),
-
     MongooseModule.forFeature([
       { name: 'FoodCategory', schema: FoodCategorySchema },
-    ]), // fwallet model
+    ]),
     FoodCategoriesModule,
-    MongooseModule.forFeature([{ name: 'Promotion', schema: PromotionSchema }]), // fwallet model
+    MongooseModule.forFeature([{ name: 'Promotion', schema: PromotionSchema }]),
     PromotionsModule,
     AddressBook,
-    FoodCategoriesModule, // Import FoodCategoriesModule here
+    FoodCategoriesModule,
   ],
   controllers: [RestaurantsController],
-  providers: [RestaurantsService, MenuItemsService, MenuItemVariantsService],
-  exports: [RestaurantsService],
+  providers: [
+    RestaurantsService,
+    MenuItemsService,
+    MenuItemVariantsService,
+    RestaurantsGateway, // Add RestaurantsGateway to providers
+  ],
+  exports: [RestaurantsService, RestaurantsGateway],
 })
 export class RestaurantsModule {}

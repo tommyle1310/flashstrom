@@ -15,6 +15,10 @@ import { CreateDriverDto } from './create-driver.dto';
 export class UpdateDriverDto extends PartialType(CreateDriverDto) {
   @IsOptional()
   @IsString()
+  _id: string; // Driver's first name
+
+  @IsOptional()
+  @IsString()
   first_name: string; // Driver's first name
 
   @IsOptional()

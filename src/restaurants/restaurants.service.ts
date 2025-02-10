@@ -81,7 +81,7 @@ export class RestaurantsService {
   // Update a restaurant
   async update(
     id: string,
-    updateRestaurantDto: UpdateRestaurantDto, // Assuming UpdateRestaurantDto has a description field
+    updateRestaurantDto: UpdateRestaurantDto,
   ): Promise<any> {
     const {
       owner_id,
@@ -89,8 +89,9 @@ export class RestaurantsService {
       address,
       contact_phone,
       contact_email,
-      description, // Add description here
+      description,
       restaurant_name,
+      status,
     } = updateRestaurantDto;
 
     // Check if owner_id exists in the User collection
@@ -171,6 +172,23 @@ export class RestaurantsService {
     // If a new description is provided, update the restaurant's description
     if (description) {
       updatedRestaurant.description = description;
+    }
+
+    // Merge the status object if provided
+    if (status) {
+      console.log('check status payload', status);
+
+      updatedRestaurant.status = {
+        ...updatedRestaurant.status,
+        ...(status.is_open !== undefined && { is_open: status.is_open }),
+        ...(status.is_active !== undefined && { is_active: status.is_active }),
+        ...(status.is_accepted_orders !== undefined && {
+          is_accepted_orders: status.is_accepted_orders,
+        }),
+        ...(status.is_accepted_orders !== undefined && {
+          is_accepted_orders: status.is_accepted_orders,
+        }),
+      };
     }
 
     // Instead of spreading updatedRestaurant, directly assign values
@@ -303,7 +321,9 @@ export class RestaurantsService {
     // Fetch the menu item to ensure it's associated with the restaurant
     const menuItem = await this.menuItemsService.findOne(menuItemId);
 
-    if (menuItem.data.restaurant_id !== restaurantId) {
+    if (menuItem.data.menuItem.restaurant_id !== restaurantId) {
+      console.log('cehck is it here', menuItem);
+
       return createResponse(
         'Forbidden',
         null,

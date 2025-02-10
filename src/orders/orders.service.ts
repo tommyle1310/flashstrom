@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -10,6 +10,7 @@ import { createResponse } from 'src/utils/createResponse'; // Utility for creati
 import { AddressBook } from 'src/address_book/address_book.schema';
 import { MenuItem } from 'src/menu_items/menu_items.schema';
 import { MenuItemVariant } from 'src/menu_item_variants/menu_item_variants.schema';
+import { RestaurantsGateway } from '../restaurants/restaurants.gateway';
 
 @Injectable()
 export class OrdersService {
@@ -23,9 +24,10 @@ export class OrdersService {
     @InjectModel('Customer') private readonly customerModel: Model<Customer>, // Inject Customer model
     @InjectModel('Restaurant')
     private readonly restaurantModel: Model<Restaurant>, // Inject Restaurant model
+    private readonly restaurantsGateway: RestaurantsGateway,
   ) {}
 
-  async create(createOrderDto: CreateOrderDto): Promise<any> {
+  async createOrder(createOrderDto: CreateOrderDto): Promise<any> {
     const {
       customer_id,
       restaurant_id,
@@ -59,6 +61,15 @@ export class OrdersService {
       .exec();
     if (!restaurantExists) {
       return createResponse('NotFound', null, 'Restaurant not found');
+    }
+
+    // Check if the restaurant is accepting orders
+    if (!restaurantExists.status.is_accepted_orders) {
+      return createResponse(
+        'NotAcceptingOrders',
+        null,
+        'Restaurant is not accepting orders',
+      );
     }
 
     // Check if the customer location exists in AddressBook
@@ -127,8 +138,14 @@ export class OrdersService {
       // Save the new order
       await newOrder.save();
 
+      // Emit WebSocket event to notify the restaurant about the new order
+      console.log('Emitting incomingOrder event to restaurant:', restaurant_id);
+      await this.restaurantsGateway.handleNewOrder(newOrder);
+      console.log('Emitted incomingOrder event:', newOrder);
+
       return createResponse('OK', newOrder, 'Order created successfully');
     } catch (error) {
+      console.error('Error creating order:', error);
       return createResponse(
         'ServerError',
         null,
