@@ -123,7 +123,8 @@ export class DriversService {
 
   // Update a driver by ID
   async update(id: string, updateDriverDto: UpdateDriverDto): Promise<any> {
-    const { contact_phone, contact_email } = updateDriverDto;
+    const { contact_phone, contact_email, first_name, last_name } =
+      updateDriverDto;
 
     // Retrieve the current driver data before making changes
     const updatedDriver = await this.driverModel.findById(id).exec();
@@ -136,11 +137,14 @@ export class DriversService {
     if (contact_phone && contact_phone.length > 0) {
       for (const newPhone of contact_phone) {
         // Check if the phone number already exists in the driver's contact_phone
-        const existingPhone = updatedDriver.contact_phone.find(
+        const existingPhoneIndex = updatedDriver.contact_phone.findIndex(
           (phone) => phone.number === newPhone.number,
         );
 
-        if (!existingPhone) {
+        if (existingPhoneIndex !== -1) {
+          // If phone number exists, update it
+          updatedDriver.contact_phone[existingPhoneIndex] = newPhone;
+        } else {
           // If phone number doesn't exist, push it to the contact_phone array
           updatedDriver.contact_phone.push(newPhone);
         }
@@ -151,11 +155,14 @@ export class DriversService {
     if (contact_email && contact_email.length > 0) {
       for (const newEmail of contact_email) {
         // Check if the email already exists in the driver's contact_email
-        const existingEmail = updatedDriver.contact_email.find(
+        const existingEmailIndex = updatedDriver.contact_email.findIndex(
           (email) => email.email === newEmail.email,
         );
 
-        if (!existingEmail) {
+        if (existingEmailIndex !== -1) {
+          // If email exists, update it
+          updatedDriver.contact_email[existingEmailIndex] = newEmail;
+        } else {
           // If email doesn't exist, push it to the contact_email array
           updatedDriver.contact_email.push(newEmail);
         }
@@ -164,7 +171,16 @@ export class DriversService {
 
     // Update the driver with the modified contact details
     const finalUpdatedDriver = await this.driverModel
-      .findByIdAndUpdate(id, updatedDriver, { new: true })
+      .findByIdAndUpdate(
+        id,
+        {
+          contact_phone: updatedDriver.contact_phone,
+          contact_email: updatedDriver.contact_email,
+          first_name,
+          last_name,
+        },
+        { new: true },
+      )
       .exec();
 
     return createResponse(

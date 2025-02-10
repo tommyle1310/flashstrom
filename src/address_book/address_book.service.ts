@@ -110,61 +110,41 @@ export class AddressBookService {
 
   // Update an existing address book entry
   async updateAddressBook(
-    entityId: string,
+    id: string,
     updateData: UpdateAddressBookDto,
-    id?: string, // Optional parameter id
+    entityId?: string, // Optional parameter id
   ): Promise<any> {
-    try {
-      if (id) {
-        // Find the customer by entityId and check if the address exists in the customer's address array
-        const customer = await this.customerModel.findOne({
-          _id: entityId,
-          address: id, // Check if the addressId exists in the customer's address array
-        });
+    if (entityId) {
+      // Find the customer by entityId and check if the address exists in the customer's address array
+      const customer = await this.customerModel.findOne({
+        _id: entityId,
+        address: { $in: [id] }, // Check if the addressId exists in the customer's address array
+      });
 
-        if (!customer) {
-          return createResponse('NotFound', null, 'Customer not found');
-        }
-        console.log('cehck csus', customer);
-
-        // Iterate over the customer's address array and set is_default: false for all addresses
-        await Promise.all(
-          customer.address.map(async (addressId) => {
-            const address = await this.AddressBookModel.findById(addressId);
-            if (address && address.is_default) {
-              // If any address has is_default = true, set it to false
-              await this.AddressBookModel.findByIdAndUpdate(
-                address._id,
-                { is_default: false },
-                { new: true },
-              );
-            }
-          }),
-        );
-
-        // Now, find and update the address with the provided id to set is_default = true
-        const updatedAddressBook =
-          await this.AddressBookModel.findByIdAndUpdate(
-            id,
-            { ...updateData, is_default: true }, // Ensure is_default is true for the updated address
-            { new: true },
-          ).exec();
-
-        if (!updatedAddressBook) {
-          return createResponse('NotFound', null, 'Address book not found');
-        }
-
-        return createResponse(
-          'OK',
-          updatedAddressBook,
-          'Address book updated successfully',
-        );
+      if (!customer) {
+        return createResponse('NotFound', null, 'Customer not found');
       }
+      console.log('check csus', customer);
 
-      // If is_default is not provided in the updateData, proceed with the regular update
+      // Iterate over the customer's address array and set is_default: false for all addresses
+      await Promise.all(
+        customer.address.map(async (addressId) => {
+          const address = await this.AddressBookModel.findById(addressId);
+          if (address && address.is_default) {
+            // If any address has is_default = true, set it to false
+            await this.AddressBookModel.findByIdAndUpdate(
+              address._id,
+              { is_default: false },
+              { new: true },
+            );
+          }
+        }),
+      );
+
+      // Now, find and update the address with the provided id to set is_default = true
       const updatedAddressBook = await this.AddressBookModel.findByIdAndUpdate(
         id,
-        updateData,
+        { ...updateData, is_default: true }, // Ensure is_default is true for the updated address
         { new: true },
       ).exec();
 
@@ -177,13 +157,25 @@ export class AddressBookService {
         updatedAddressBook,
         'Address book updated successfully',
       );
-    } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while updating the address book',
-      );
     }
+
+    // If is_default is not provided in the updateData, proceed with the regular update
+    const updatedAddressBook = await this.AddressBookModel.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true },
+    ).exec();
+    console.log('check updated one', updatedAddressBook, id, updateData);
+
+    if (!updatedAddressBook) {
+      return createResponse('NotFound', null, 'Address book not found');
+    }
+
+    return createResponse(
+      'OK',
+      updatedAddressBook,
+      'Address book updated successfully',
+    );
   }
 
   // Delete an address book entry by ID

@@ -126,8 +126,6 @@ export class OrdersService {
     try {
       // Save the new order
       await newOrder.save();
-      console.log('ehckce data', createOrderDto);
-      console.log('ehckce new order', newOrder);
 
       return createResponse('OK', newOrder, 'Order created successfully');
     } catch (error) {
