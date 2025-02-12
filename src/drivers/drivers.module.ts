@@ -13,5 +13,6 @@ import { DriversGateway } from './drivers.gateway';
   ],
   controllers: [DriversController],
   providers: [DriversService, DriversGateway],
+  exports: [DriversGateway],
 })
 export class DriversModule {}

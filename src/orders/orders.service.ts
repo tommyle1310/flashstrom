@@ -11,6 +11,7 @@ import { AddressBook } from 'src/address_book/address_book.schema';
 import { MenuItem } from 'src/menu_items/menu_items.schema';
 import { MenuItemVariant } from 'src/menu_item_variants/menu_item_variants.schema';
 import { RestaurantsGateway } from '../restaurants/restaurants.gateway';
+import { DriversGateway } from 'src/drivers/drivers.gateway';
 
 @Injectable()
 export class OrdersService {
@@ -25,6 +26,7 @@ export class OrdersService {
     @InjectModel('Restaurant')
     private readonly restaurantModel: Model<Restaurant>, // Inject Restaurant model
     private readonly restaurantsGateway: RestaurantsGateway,
+    private readonly driverGateway: DriversGateway,
   ) {}
 
   async createOrder(createOrderDto: CreateOrderDto): Promise<any> {
@@ -62,6 +64,8 @@ export class OrdersService {
     if (!restaurantExists) {
       return createResponse('NotFound', null, 'Restaurant not found');
     }
+
+    console.log('cehck ehrereerere', restaurant_id, restaurantExists);
 
     // Check if the restaurant is accepting orders
     if (!restaurantExists.status.is_accepted_orders) {
@@ -138,10 +142,12 @@ export class OrdersService {
       // Save the new order
       await newOrder.save();
 
-      // Emit WebSocket event to notify the restaurant about the new order
-      console.log('Emitting incomingOrder event to restaurant:', restaurant_id);
-      await this.restaurantsGateway.handleNewOrder(newOrder);
-      console.log('Emitted incomingOrder event:', newOrder);
+      const dataResponseRestaurant =
+        await this.restaurantsGateway.handleNewOrder(newOrder);
+      console.log('cehck dataresponseRestaurant', dataResponseRestaurant);
+
+      // await this.driverGateway.handleNewOrder(newOrder);
+      // console.log('Emitted incomingOrder event:', newOrder);
 
       return createResponse('OK', newOrder, 'Order created successfully');
     } catch (error) {

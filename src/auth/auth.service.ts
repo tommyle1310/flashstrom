@@ -376,6 +376,7 @@ export class AuthService {
           ...payload,
           owner_id: userWithRole.owner_id,
           owner_name: userWithRole.owner_name,
+          restaurant_id: userWithRole._id ?? userWithRole.id,
           address: userWithRole.address,
           restaurant_name: userWithRole.restaurant_name,
           contact_email: userWithRole.contact_email,

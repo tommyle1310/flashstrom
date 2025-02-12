@@ -6,6 +6,7 @@ export const OrderSchema = new Schema({
   _id: { type: String }, // Custom _id for orders, e.g., FF_ORDER_{uuid}
   customer_id: { type: String, required: true, ref: 'Customer' }, // Reference to the customer
   restaurant_id: { type: String, required: true, ref: 'Restaurant' }, // Reference to the restaurant
+  driver_id: { type: String, ref: 'Driver' }, // Reference to the restaurant
   status: {
     type: String,
     enum: ['PENDING', 'ACCEPTED', 'IN_PROGRESS', 'DELIVERED', 'CANCELLED'], // Enum for order status
@@ -66,6 +67,7 @@ export interface Order extends Document {
   id: string; // Custom order ID (FF_ORDER_uuid)
   customer_id: string; // The ID of the customer who placed the order
   restaurant_id: string; // The ID of the restaurant where the order is placed
+  driver_id: string; // The ID of the restaurant where the order is placed
   status: 'PENDING' | 'ACCEPTED' | 'IN_PROGRESS' | 'DELIVERED' | 'CANCELLED'; // The current status of the order
   total_amount: number; // Total amount of the order
   delivery_fee: number; // Total amount of the order

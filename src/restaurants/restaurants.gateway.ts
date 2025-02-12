@@ -19,18 +19,18 @@ export class RestaurantsGateway
 
   constructor(private readonly restaurantsService: RestaurantsService) {}
 
-  handleConnection(client: Socket, ...args: any[]) {
-    console.log(`Client connected: ${client.id}`);
+  handleConnection(restaurant: Socket, ...args: any[]) {
+    console.log(`restaurant connected: ${restaurant.id}`);
   }
 
-  handleDisconnect(client: Socket) {
-    console.log(`Client disconnected: ${client.id}`);
+  handleDisconnect(restaurant: Socket) {
+    console.log(`restaurant disconnected: ${restaurant.id}`);
   }
 
   @SubscribeMessage('joinRoom')
-  handleJoinRoom(client: Socket, room: string) {
-    client.join(room);
-    console.log(`Client joined room: ${room}`);
+  handleJoinRoom(restaurant: Socket, room: string) {
+    restaurant.join(room);
+    console.log(`restaurant joined room: ${room}`);
   }
 
   @SubscribeMessage('updateRestaurant')
@@ -45,19 +45,12 @@ export class RestaurantsGateway
     return restaurant;
   }
 
-  @SubscribeMessage('newOrder')
+  @SubscribeMessage('newOrderForRestaurant')
   async handleNewOrder(@MessageBody() order: any) {
-    console.log('Received new order:', order);
-    const restaurantId = order.restaurant_id;
-    console.log('Restaurant ID:', restaurantId);
+    const restaurantId = await order.restaurant_id;
 
     // Notify the restaurant about the new order
-    this.server.to(restaurantId).emit('incomingOrder', order);
-    console.log(
-      'Emitted incomingOrder event to restaurant:',
-      restaurantId,
-      order,
-    );
+    await this.server.to(restaurantId).emit('incomingOrder', order);
 
     return order;
   }
