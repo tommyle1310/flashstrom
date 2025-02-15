@@ -259,6 +259,8 @@ export class AuthService {
       case 'DRIVER':
         // Fetch additional fields from the driver collection
         userWithRole = await this.driverModel.findOne({ user_id: user.id });
+        console.log('check suer', user.id, userWithRole);
+
         if (!userWithRole) {
           return createResponse('NotFound', null, 'Driver not found');
         }

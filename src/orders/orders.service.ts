@@ -65,8 +65,6 @@ export class OrdersService {
       return createResponse('NotFound', null, 'Restaurant not found');
     }
 
-    console.log('cehck ehrereerere', restaurant_id, restaurantExists);
-
     // Check if the restaurant is accepting orders
     if (!restaurantExists.status.is_accepted_orders) {
       return createResponse(

@@ -79,16 +79,8 @@ export class DriversService {
 
   // Get all drivers
   async findAll(): Promise<any> {
-    try {
-      const drivers = await this.driverModel.find().exec();
-      return createResponse('OK', drivers, 'Fetched all drivers');
-    } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while fetching drivers',
-      );
-    }
+    const drivers = await this.driverModel.find().exec();
+    return createResponse('OK', drivers, 'Fetched all drivers');
   }
 
   // Get a driver by ID
@@ -268,6 +260,16 @@ export class DriversService {
     if (!restaurant_location) {
       return createResponse('NotFound', null, 'Restaurant location not found');
     }
+    console.log('check list drivers', listAvailableDrivers);
+    try {
+      // Early check - if no drivers available at all, return appropriate response
+      if (!listAvailableDrivers || listAvailableDrivers.length === 0) {
+        return createResponse('NoDrivers', [], 'No available drivers found');
+      }
+    } catch (err) {
+      console.log(err);
+      throw err;
+    }
 
     let restaurantLocation;
     const restaurantAddressBookResponse =
@@ -316,7 +318,17 @@ export class DriversService {
           (a.current_order_id?.length || 0) - (b.current_order_id?.length || 0)
         );
       });
-      // console.log('check kkkkkkk ', sortedDrivers);
+
+      // Ensure we always return at least one driver if available
+      if (sortedDrivers.length === 0 && driversWithDistance.length > 0) {
+        // If sorting somehow resulted in empty array but we had drivers,
+        // just return the first available driver as a fallback
+        return createResponse(
+          'OK',
+          [driversWithDistance[0]],
+          'Assigned default driver as fallback',
+        );
+      }
 
       // Return the sorted array of drivers
       return createResponse(

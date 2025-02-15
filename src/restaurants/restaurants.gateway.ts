@@ -13,7 +13,7 @@ import { DriversService } from 'src/drivers/drivers.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { forwardRef, Inject } from '@nestjs/common';
 
-@WebSocketGateway()
+@WebSocketGateway({ namespace: 'restaurant' })
 export class RestaurantsGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
@@ -35,10 +35,10 @@ export class RestaurantsGateway
     console.log(`restaurant disconnected: ${restaurant.id}`);
   }
 
-  @SubscribeMessage('joinRoom')
-  handleJoinRoom(restaurant: Socket, room: string) {
-    restaurant.join(room);
-    console.log(`restaurant joined room: ${room}`);
+  @SubscribeMessage('joinRoomRestaurant')
+  handleJoinRoom(restaurant: Socket, restaurantId: string) {
+    restaurant.join(restaurantId);
+    console.log(`Restaurant joined room: ${restaurantId}`);
   }
 
   @SubscribeMessage('updateRestaurant')
@@ -76,6 +76,7 @@ export class RestaurantsGateway
         })),
         orderDetails,
       );
+    console.log('should here first', responsePrioritizeDrivers);
 
     if (
       responsePrioritizeDrivers.EC === 0 &&
@@ -88,6 +89,11 @@ export class RestaurantsGateway
         ...orderDetails,
         driver_id: selectedDriver._id,
       };
+
+      console.log(
+        'chek  restaurantAcceptWithAvailableDrivers before order.assignedToDriver',
+        orderAssignment,
+      );
 
       // Emit the event for the DriversGateway to pick up
       this.eventEmitter.emit('order.assignedToDriver', orderAssignment);

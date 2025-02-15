@@ -21,4 +21,9 @@ export const ResponseStatus = {
     message: 'This restaurant is currently not accepting at the moment.',
     code: -5,
   },
+  NoDrivers: {
+    httpCode: 400,
+    message: 'This restaurant is currently not accepting at the moment.',
+    code: -6,
+  },
 };

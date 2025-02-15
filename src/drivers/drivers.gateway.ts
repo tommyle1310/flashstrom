@@ -14,7 +14,7 @@ import { UpdateDriverDto } from './dto/update-driver.dto';
 import { RestaurantsService } from 'src/restaurants/restaurants.service';
 import { forwardRef, Inject } from '@nestjs/common';
 
-@WebSocketGateway()
+@WebSocketGateway({ namespace: 'driver' })
 export class DriversGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {
@@ -29,10 +29,12 @@ export class DriversGateway
   ) {}
 
   afterInit(server: Server) {
-    console.log('WebSocket Gateway initialized');
-
-    // Set up the global listener just once
+    console.log('Driver Gateway initialized');
     this.server.on('assignOrderToDriver', (orderAssignment) => {
+      console.log(
+        'Received global event for assignOrderToDriver:',
+        orderAssignment,
+      );
       const driverId = orderAssignment.driver_id;
       if (driverId) {
         this.server
@@ -58,10 +60,10 @@ export class DriversGateway
   }
 
   // Handle joining a specific room for the driver
-  @SubscribeMessage('joinRoom')
+  @SubscribeMessage('joinRoomDriver')
   handleJoinRoom(client: Socket, driverId: string) {
     client.join(driverId);
-    console.log(`Driver ${driverId} joined room: ${driverId}`);
+    console.log(`Driver joined room: ${driverId}`);
   }
 
   // Handle updating a driver's information
@@ -81,12 +83,8 @@ export class DriversGateway
     const driverId = order.driver_id; // Removed the 'await' as it's not needed here
 
     // Notify the specific driver about the new order
-    this.server.to(driverId).emit('incomingOrderForDriver', order);
-    console.log(
-      'Emitted incomingOrderForDriver event to driver:',
-      driverId,
-      order,
-    );
+    this.server.to(driverId).emit('incomingOrder', order);
+    console.log('Emitted incomingOrder event to driver:', driverId, order);
 
     return order;
   }
@@ -106,10 +104,23 @@ export class DriversGateway
 
   @OnEvent('order.assignedToDriver')
   handleOrderAssignedToDriver(orderAssignment: any) {
-    const driverId = orderAssignment.driver_id;
-    if (driverId) {
-      this.server.to(driverId).emit('incomingOrderForDriver', orderAssignment);
-      console.log('new:', driverId, orderAssignment);
+    try {
+      const driverId = orderAssignment.driver_id;
+      console.log(
+        'Received order assignment for driver:',
+        driverId,
+        orderAssignment,
+      );
+      if (driverId) {
+        this.server
+          .to(driverId)
+          .emit('incomingOrderForDriver', orderAssignment);
+      }
+    } catch (error) {
+      console.error(
+        'Error handling order.assignedToDriver in DriversGateway:',
+        error,
+      );
     }
   }
 }

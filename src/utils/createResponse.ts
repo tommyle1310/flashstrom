@@ -26,6 +26,7 @@ export function createResponse(
     | 'DuplicatedRecord'
     | 'Forbidden'
     | 'InsufficientBalance'
+    | 'NoDrivers'
     | 'NotAcceptingOrders',
   data?: any,
   message?: string,
