@@ -5,19 +5,47 @@ import {
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
 } from '@nestjs/websockets';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Server, Socket } from 'socket.io';
 import { DriversService } from './drivers.service';
 import { UpdateDriverDto } from './dto/update-driver.dto';
+import { RestaurantsService } from 'src/restaurants/restaurants.service';
+import { forwardRef, Inject } from '@nestjs/common';
 
 @WebSocketGateway()
 export class DriversGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {
   @WebSocketServer()
   server: Server;
 
-  constructor(private readonly driversService: DriversService) {}
+  constructor(
+    private readonly restaurantsService: RestaurantsService,
+    @Inject(forwardRef(() => DriversService))
+    private readonly driverService: DriversService,
+    private eventEmitter: EventEmitter2,
+  ) {}
+
+  afterInit(server: Server) {
+    console.log('WebSocket Gateway initialized');
+
+    // Set up the global listener just once
+    this.server.on('assignOrderToDriver', (orderAssignment) => {
+      const driverId = orderAssignment.driver_id;
+      if (driverId) {
+        this.server
+          .to(driverId)
+          .emit('incomingOrderForDriver', orderAssignment);
+        console.log(
+          'Forwarded order assignment to driver:',
+          driverId,
+          orderAssignment,
+        );
+      }
+    });
+  }
 
   // Handle new driver connections
   handleConnection(client: Socket) {
@@ -39,7 +67,7 @@ export class DriversGateway
   // Handle updating a driver's information
   @SubscribeMessage('updateDriver')
   async handleUpdateDriver(@MessageBody() updateDriverDto: UpdateDriverDto) {
-    const driver = await this.driversService.update(
+    const driver = await this.driverService.update(
       updateDriverDto._id,
       updateDriverDto,
     );
@@ -50,7 +78,7 @@ export class DriversGateway
   // Handle incoming order notification for drivers
   @SubscribeMessage('newOrderForDriver')
   async handleNewOrder(@MessageBody() order: any) {
-    const driverId = await order.driver_id; // Assuming order has driver_id
+    const driverId = order.driver_id; // Removed the 'await' as it's not needed here
 
     // Notify the specific driver about the new order
     this.server.to(driverId).emit('incomingOrderForDriver', order);
@@ -61,5 +89,27 @@ export class DriversGateway
     );
 
     return order;
+  }
+
+  @SubscribeMessage('assignOrderToDriver')
+  async handleReceiveOrderAssignment(@MessageBody() order: any) {
+    const driverId = order.driver_id; // Removed the 'await' as it's not needed here
+
+    console.log(
+      'Received assignOrderToDriver event for driver:',
+      driverId,
+      order,
+    );
+
+    return order;
+  }
+
+  @OnEvent('order.assignedToDriver')
+  handleOrderAssignedToDriver(orderAssignment: any) {
+    const driverId = orderAssignment.driver_id;
+    if (driverId) {
+      this.server.to(driverId).emit('incomingOrderForDriver', orderAssignment);
+      console.log('new:', driverId, orderAssignment);
+    }
   }
 }

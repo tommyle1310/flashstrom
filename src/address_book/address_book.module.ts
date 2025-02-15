@@ -14,5 +14,6 @@ import { CustomerSchema } from 'src/customers/customer.schema';
   ],
   controllers: [AddressBookController],
   providers: [AddressBookService],
+  exports: [AddressBookService],
 })
 export class AddressBook {}

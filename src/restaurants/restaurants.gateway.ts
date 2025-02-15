@@ -9,6 +9,9 @@ import {
 import { Server, Socket } from 'socket.io';
 import { RestaurantsService } from './restaurants.service';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
+import { DriversService } from 'src/drivers/drivers.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { forwardRef, Inject } from '@nestjs/common';
 
 @WebSocketGateway()
 export class RestaurantsGateway
@@ -17,7 +20,12 @@ export class RestaurantsGateway
   @WebSocketServer()
   server: Server;
 
-  constructor(private readonly restaurantsService: RestaurantsService) {}
+  constructor(
+    private readonly restaurantsService: RestaurantsService,
+    @Inject(forwardRef(() => DriversService))
+    private readonly driverService: DriversService,
+    private eventEmitter: EventEmitter2,
+  ) {}
 
   handleConnection(restaurant: Socket, ...args: any[]) {
     console.log(`restaurant connected: ${restaurant.id}`);
@@ -53,5 +61,40 @@ export class RestaurantsGateway
     await this.server.to(restaurantId).emit('incomingOrder', order);
 
     return order;
+  }
+
+  @SubscribeMessage('restaurantAcceptWithAvailableDrivers')
+  async handleRestaurantAcceptWithDrivers(@MessageBody() data: any) {
+    const { availableDrivers, orderDetails } = data;
+
+    // Forward to driver service for processing
+    const responsePrioritizeDrivers =
+      await this.driverService.prioritizeAndAssignDriver(
+        availableDrivers.map((item) => ({
+          _id: item._id,
+          location: { lat: item.lat, lng: item.lng },
+        })),
+        orderDetails,
+      );
+
+    if (
+      responsePrioritizeDrivers.EC === 0 &&
+      responsePrioritizeDrivers.data.length > 0
+    ) {
+      const selectedDriver = responsePrioritizeDrivers.data[0];
+
+      // Create the order assignment object
+      const orderAssignment = {
+        ...orderDetails,
+        driver_id: selectedDriver._id,
+      };
+
+      // Emit the event for the DriversGateway to pick up
+      this.eventEmitter.emit('order.assignedToDriver', orderAssignment);
+
+      return orderAssignment;
+    }
+
+    return { error: 'No suitable driver found' };
   }
 }

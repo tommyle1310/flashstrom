@@ -84,4 +84,5 @@ export interface Driver extends Document {
   avatar?: { key: string; url: string }; // Avatar information
   available_for_work: boolean; // If the driver is available for work
   is_on_delivery: boolean; // If the driver is currently on delivery
+  active_points: number;
 }

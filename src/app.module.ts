@@ -19,12 +19,14 @@ import { MenuItemsModule } from './menu_items/menu_items.module';
 import { MenuItemVariantsModule } from './menu_item_variants/menu_item_variants.module';
 import { CartItemsModule } from './cart_items/cart_items.module';
 import { OrdersModule } from './orders/orders.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
   imports: [
     MongooseModule.forRoot(process.env.MONGO_URI), // Your MongoDB URI
     UserModule,
     AddressBookModule,
+    EventEmitterModule.forRoot(),
     CustomersModule,
     DriversModule,
     UploadModule,

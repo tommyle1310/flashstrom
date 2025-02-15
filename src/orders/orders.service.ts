@@ -144,7 +144,6 @@ export class OrdersService {
 
       const dataResponseRestaurant =
         await this.restaurantsGateway.handleNewOrder(newOrder);
-      console.log('cehck dataresponseRestaurant', dataResponseRestaurant);
 
       // await this.driverGateway.handleNewOrder(newOrder);
       // console.log('Emitted incomingOrder event:', newOrder);

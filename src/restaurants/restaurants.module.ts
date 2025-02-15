@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module, Inject } from '@nestjs/common';
 import { RestaurantsService } from './restaurants.service';
 import { RestaurantsController } from './restaurants.controller';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -18,6 +18,9 @@ import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_varian
 import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
 import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variants.module';
 import { RestaurantsGateway } from './restaurants.gateway';
+import { DriverSchema } from 'src/drivers/drivers.schema';
+import { DriversModule } from 'src/drivers/drivers.module';
+import { DriversService } from 'src/drivers/drivers.service';
 
 @Module({
   imports: [
@@ -26,6 +29,8 @@ import { RestaurantsGateway } from './restaurants.gateway';
     ]),
     MongooseModule.forFeature([{ name: 'User', schema: UserSchema }]),
     UserModule,
+    MongooseModule.forFeature([{ name: 'Driver', schema: DriverSchema }]),
+    forwardRef(() => DriversModule),
     MongooseModule.forFeature([{ name: 'MenuItem', schema: MenuItemSchema }]),
     MongooseModule.forFeature([
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
@@ -39,7 +44,6 @@ import { RestaurantsGateway } from './restaurants.gateway';
     ]),
     FoodCategoriesModule,
     MongooseModule.forFeature([{ name: 'Promotion', schema: PromotionSchema }]),
-    PromotionsModule,
     AddressBook,
     FoodCategoriesModule,
   ],
@@ -48,7 +52,7 @@ import { RestaurantsGateway } from './restaurants.gateway';
     RestaurantsService,
     MenuItemsService,
     MenuItemVariantsService,
-    RestaurantsGateway, // Add RestaurantsGateway to providers
+    RestaurantsGateway,
   ],
   exports: [RestaurantsService, RestaurantsGateway],
 })

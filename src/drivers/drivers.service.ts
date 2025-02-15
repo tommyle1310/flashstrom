@@ -5,10 +5,13 @@ import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
 import { Driver } from './drivers.schema'; // Assuming a Driver schema similar to Customer
 import { createResponse } from 'src/utils/createResponse'; // Utility for creating responses
+import { Type_Delivery_Order } from 'src/types/Driver';
+import { AddressBookService } from 'src/address_book/address_book.service';
 
 @Injectable()
 export class DriversService {
   constructor(
+    private readonly addressBookService: AddressBookService,
     @InjectModel('Driver') private readonly driverModel: Model<Driver>,
   ) {}
 
@@ -249,5 +252,109 @@ export class DriversService {
     }
 
     return createResponse('OK', driver, 'Driver avatar updated successfully');
+  }
+
+  // prioritize drivers when app finding driver
+  async prioritizeAndAssignDriver(
+    listAvailableDrivers: {
+      _id: string;
+      location: { lng: number; lat: number };
+      active_points?: number;
+      current_order_id?: string[];
+    }[],
+    orderDetails: Type_Delivery_Order,
+  ): Promise<any> {
+    const { restaurant_location } = orderDetails;
+    if (!restaurant_location) {
+      return createResponse('NotFound', null, 'Restaurant location not found');
+    }
+
+    let restaurantLocation;
+    const restaurantAddressBookResponse =
+      await this.addressBookService.getAddressBookById(restaurant_location);
+    const { data, EC, EM } = restaurantAddressBookResponse;
+
+    if (EC === 0) {
+      restaurantLocation = data.location;
+
+      // Calculate distance for each driver
+      const driversWithDistance = listAvailableDrivers.map((driver) => {
+        // Get driver's location
+        const driverLocation = driver.location;
+
+        // Calculate distance between driver and restaurant
+        const distance = this.calculateDistance(
+          driverLocation.lat,
+          driverLocation.lng,
+          restaurantLocation.lat,
+          restaurantLocation.lng,
+        );
+
+        // Return driver with distance
+        return {
+          ...driver,
+          distance,
+          active_points: driver.active_points || 0,
+          current_order_id: driver.current_order_id || [],
+        };
+      });
+
+      // Sort drivers: 1. By distance, 2. By active_points, 3. By number of current orders
+      const sortedDrivers = driversWithDistance.sort((a, b) => {
+        // First, prioritize by distance
+        if (a.distance !== b.distance) {
+          return a.distance - b.distance;
+        }
+
+        // If distances are equal, prioritize by active_points (higher is better)
+        if (a.active_points !== b.active_points) {
+          return b.active_points - a.active_points;
+        }
+
+        // If active_points are equal, prioritize by number of current orders (fewer is better)
+        return (
+          (a.current_order_id?.length || 0) - (b.current_order_id?.length || 0)
+        );
+      });
+      // console.log('check kkkkkkk ', sortedDrivers);
+
+      // Return the sorted array of drivers
+      return createResponse(
+        'OK',
+        sortedDrivers,
+        'Drivers prioritized successfully',
+      );
+    }
+
+    return createResponse(
+      'Forbidden',
+      null,
+      'Failed to get restaurant location',
+    );
+  }
+
+  // Helper function to calculate distance between two points using Haversine formula
+  private calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
+    const R = 6371; // Radius of the Earth in km
+    const dLat = this.deg2rad(lat2 - lat1);
+    const dLon = this.deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.deg2rad(lat1)) *
+        Math.cos(this.deg2rad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c; // Distance in km
+    return distance;
+  }
+
+  private deg2rad(deg: number): number {
+    return deg * (Math.PI / 180);
   }
 }
