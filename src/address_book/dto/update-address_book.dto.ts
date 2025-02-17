@@ -4,7 +4,7 @@ import {
   IsBoolean,
   IsArray,
   IsObject,
-  IsOptional,
+  IsOptional
 } from 'class-validator';
 import { CreateAddressBookDto } from './create-address_book.dto';
 import { PartialType } from '@nestjs/mapped-types';

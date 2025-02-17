@@ -3,18 +3,20 @@ import { Schema, Document } from 'mongoose';
 import { Enum_AppTheme, Enum_UserType } from 'src/types/Payload';
 import { v4 as uuidv4 } from 'uuid';
 
-
-
 // Define the User Schema
 export const UserSchema = new Schema({
   _id: { type: String }, // Custom _id field with 'USR_' prefix
   first_name: { type: String, required: false },
   last_name: { type: String, required: false },
-  verification_code: {type:Number, required: false},
-  password: {type: String, required: true},
+  verification_code: { type: Number, required: false },
+  password: { type: String, required: true },
   email: { type: String, required: false, unique: true },
   phone: { type: String, required: false },
-  user_type: { type: [String], enum: Object.values(Enum_UserType), required: true },  // Multiple roles
+  user_type: {
+    type: [String],
+    enum: Object.values(Enum_UserType),
+    required: true
+  }, // Multiple roles
   address: { type: [String], required: false }, // Array of address book IDs
   created_at: { type: Number, required: false }, // Unix timestamp
   updated_at: { type: Number, required: false }, // Unix timestamp
@@ -23,11 +25,13 @@ export const UserSchema = new Schema({
   avatar: { type: { url: String, key: String }, required: false },
   is_verified: { type: Boolean, default: false }, // Verification status
   app_preferences: {
-    theme: { type: String, enum: Object.values(Enum_AppTheme), required: false }, // User's App Theme preference
-  },
+    theme: {
+      type: String,
+      enum: Object.values(Enum_AppTheme),
+      required: false
+    } // User's App Theme preference
+  }
 });
-
-
 
 // Pre-save hook to generate a custom ID with 'USR_' prefix and unique random part
 UserSchema.pre('save', function (next) {
@@ -49,19 +53,19 @@ export interface User extends Document {
   last_name: string;
   email: string;
   password: string;
-  verification_code: number,
-  temporary_wallet_balance: number,
+  verification_code: number;
+  temporary_wallet_balance: number;
   phone: string;
   user_type: Enum_UserType[];
   address: string[]; // Array of address book IDs
   created_at: number;
   updated_at: number;
   last_login: number;
-  avatar: { url: string, key: string };
+  avatar: { url: string; key: string };
   is_verified: boolean;
   app_preferences?: { theme: Enum_AppTheme }; // App preferences with theme
-
 }
 
-
-export const UserModel = MongooseModule.forFeature([{ name: 'User', schema: UserSchema }]);
+export const UserModel = MongooseModule.forFeature([
+  { name: 'User', schema: UserSchema }
+]);

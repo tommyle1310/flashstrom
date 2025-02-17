@@ -5,13 +5,13 @@ export enum PromotionStatus {
   ACTIVE = 'ACTIVE',
   EXPIRED = 'EXPIRED',
   PENDING = 'PENDING',
-  CANCELLED = 'CANCELLED',
+  CANCELLED = 'CANCELLED'
 }
 
 // Enum for discount type
 export enum DiscountType {
   PERCENTAGE = 'PERCENTAGE',
-  FIXED = 'FIXED',
+  FIXED = 'FIXED'
 }
 
 export class CreatePromotionDto {

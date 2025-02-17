@@ -15,11 +15,11 @@ import { RestaurantSchema } from 'src/restaurants/restaurants.schema';
       { name: 'Restaurant', schema: RestaurantSchema }, // Injecting Customer schema
       { name: 'MenuItem', schema: MenuItemSchema }, // Injecting Customer schema
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema }, // Injecting Customer schema
-      { name: 'CartItem', schema: CartItemSchema }, // Injecting CartItem schema
-    ]),
+      { name: 'CartItem', schema: CartItemSchema } // Injecting CartItem schema
+    ])
   ],
   controllers: [CartItemsController],
   providers: [CartItemsService],
-  exports: [CartItemsService],
+  exports: [CartItemsService]
 })
 export class CartItemsModule {}

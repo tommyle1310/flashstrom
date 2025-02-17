@@ -5,7 +5,7 @@ import {
   Body,
   Patch,
   Param,
-  Delete,
+  Delete
 } from '@nestjs/common';
 import { RestaurantsService } from './restaurants.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
@@ -37,7 +37,7 @@ export class RestaurantsController {
   @Patch(':id')
   update(
     @Param('id') id: string,
-    @Body() updateRestaurantDto: UpdateRestaurantDto,
+    @Body() updateRestaurantDto: UpdateRestaurantDto
   ) {
     return this.restaurantsService.update(id, updateRestaurantDto);
   }
@@ -51,11 +51,11 @@ export class RestaurantsController {
   @Post('/menu-items/:restaurantId')
   createMenuItem(
     @Param('restaurantId') restaurantId: string, // Get restaurantId from the URL
-    @Body() createMenuItemDto: CreateMenuItemDto, // Get menu item data from the body
+    @Body() createMenuItemDto: CreateMenuItemDto // Get menu item data from the body
   ) {
     return this.restaurantsService.createMenuItemForRestaurant(
       restaurantId, // Pass restaurantId to the service
-      createMenuItemDto,
+      createMenuItemDto
     );
   }
 
@@ -69,7 +69,7 @@ export class RestaurantsController {
   @Get('/menu-items/:restaurantId/:id')
   findOneMenuItem(
     @Param('restaurantId') restaurantId: string, // Get restaurantId from the URL
-    @Param('id') id: string, // Get menu item id from the URL
+    @Param('id') id: string // Get menu item id from the URL
   ) {
     return this.restaurantsService.findOne(id); // Fetch menu item by its id
   }
@@ -79,12 +79,12 @@ export class RestaurantsController {
   updateMenuItem(
     @Param('restaurantId') restaurantId: string, // Get restaurantId from the URL
     @Param('id') id: string, // Get menu item id from the URL
-    @Body() updateMenuItemDto: UpdateMenuItemDto, // Get updated data from the body
+    @Body() updateMenuItemDto: UpdateMenuItemDto // Get updated data from the body
   ) {
     return this.restaurantsService.updateMenuItemForRestaurant(
       restaurantId, // Pass restaurantId to the service
       id, // Pass menuItemId to the service
-      updateMenuItemDto, // Pass update data to the service
+      updateMenuItemDto // Pass update data to the service
     );
   }
 
@@ -92,11 +92,11 @@ export class RestaurantsController {
   @Delete('/menu-items/:restaurantId/:id')
   removeMenuItem(
     @Param('restaurantId') restaurantId: string, // Get restaurantId from the URL
-    @Param('id') id: string, // Get menu item id from the URL
+    @Param('id') id: string // Get menu item id from the URL
   ) {
     return this.restaurantsService.deleteMenuItemForRestaurant(
       restaurantId, // Pass restaurantId to the service
-      id, // Pass menuItemId to the service
+      id // Pass menuItemId to the service
     );
   }
 
@@ -104,12 +104,12 @@ export class RestaurantsController {
   @Post('/menu-item-variants/:variantId')
   createMenuItemVariant(
     @Param('variantId') variantId: string, // Get variantId from the URL
-    @Body() createMenuItemVariantDto: CreateMenuItemVariantDto, // Get menu item variant data from the body
+    @Body() createMenuItemVariantDto: CreateMenuItemVariantDto // Get menu item variant data from the body
   ) {
     // Call the service method to create the menu item variant for the given restaurant
     return this.restaurantsService.createMenuItemVariantForRestaurant(
       variantId, // Pass variantId to the service
-      createMenuItemVariantDto,
+      createMenuItemVariantDto
     );
   }
 
@@ -117,23 +117,23 @@ export class RestaurantsController {
   @Patch('/menu-item-variants/:variantId')
   updateMenuItemVariant(
     @Param('variantId') variantId: string, // Get restaurantId from the URL
-    @Body() updateMenuItemVariantDto: UpdateMenuItemVariantDto, // Get updated data from the body
+    @Body() updateMenuItemVariantDto: UpdateMenuItemVariantDto // Get updated data from the body
   ) {
     // Pass all the necessary data to the service
     return this.restaurantsService.updateMenuItemVariantForRestaurant(
       variantId, // Pass menu item variant id
-      updateMenuItemVariantDto, // Pass update data
+      updateMenuItemVariantDto // Pass update data
     );
   }
 
   // Remove a menu item variant for a specific restaurant
   @Delete('/menu-item-variants/:variantId')
   removeMenuItemVariantForRestaurant(
-    @Param('variantId') variantId: string, // Get menu item variant id from the URL
+    @Param('variantId') variantId: string // Get menu item variant id from the URL
   ) {
     // Call the service method to delete the menu item variant for the given restaurant
     return this.restaurantsService.deleteMenuItemVariantForRestaurant(
-      variantId, // Pass menu item variant id
+      variantId // Pass menu item variant id
     );
   }
 }

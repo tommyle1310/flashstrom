@@ -25,6 +25,11 @@ export const ResponseStatus = {
     httpCode: 400,
     message: 'This restaurant is currently not accepting at the moment.',
     code: -6
+  },
+  DRIVER_MAXIMUM_ORDER: {
+    httpCode: 400,
+    message: 'Driver has reached maximum number of orders',
+    code: -7
   }
 };
 

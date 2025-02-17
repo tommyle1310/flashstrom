@@ -2,7 +2,7 @@ import { PartialType } from '@nestjs/mapped-types';
 import {
   CreatePromotionDto,
   DiscountType,
-  PromotionStatus,
+  PromotionStatus
 } from './create-promotion.dto';
 import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
 

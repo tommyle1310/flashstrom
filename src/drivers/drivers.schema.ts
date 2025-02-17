@@ -5,33 +5,33 @@ import { v4 as uuidv4 } from 'uuid';
 const VehicleSchema = new Schema({
   license_plate: { type: String, required: true },
   model: { type: String, required: true },
-  color: { type: String, required: true },
+  color: { type: String, required: true }
 });
 
 // Define the Contact Schema for email
 const ContactEmailSchema = new Schema({
   title: { type: String, required: true },
   is_default: { type: Boolean, required: true },
-  email: { type: String, required: true },
+  email: { type: String, required: true }
 });
 
 // Define the Contact Schema for phone
 const ContactPhoneSchema = new Schema({
   title: { type: String, required: true },
   number: { type: String, required: true },
-  is_default: { type: Boolean, required: true },
+  is_default: { type: Boolean, required: true }
 });
 
 // Define the Location Schema
 const LocationSchema = new Schema({
   lat: { type: Number, required: true },
-  lng: { type: Number, required: true },
+  lng: { type: Number, required: true }
 });
 
 // Define the Rating Schema
 const RatingSchema = new Schema({
   average_rating: { type: Number, required: true },
-  review_count: { type: Number, required: true },
+  review_count: { type: Number, required: true }
 });
 
 // Define the Driver Schema
@@ -44,7 +44,7 @@ export const DriverSchema = new Schema({
   last_name: { type: String, required: false }, // Driver's last name
   vehicle: { type: VehicleSchema, required: false }, // Vehicle information
   current_location: { type: LocationSchema, required: false }, // Driver's current location (lat, lng)
-  current_order_id: { type: [String], required: false }, // Array of order IDs (max 3 orders)
+  current_order_id: { type: [String], required: false, default: [] }, // Array of current order IDs
   created_at: { type: Number, required: false }, // Unix timestamp of creation
   updated_at: { type: Number, required: false }, // Unix timestamp of last update
   rating: { type: RatingSchema, required: false }, // Driver's average rating and review count
@@ -52,6 +52,7 @@ export const DriverSchema = new Schema({
   avatar: { type: { key: String, url: String }, required: false }, // Avatar image information
   available_for_work: { type: Boolean, required: false }, // If the driver is available for work
   is_on_delivery: { type: Boolean, required: false }, // If the driver is currently on delivery
+  active_points: { type: Number, required: false, default: 0 } // Driver's active points
 });
 
 // Pre-save hook to generate a custom ID with 'DRV_' prefix and a random UUID

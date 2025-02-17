@@ -16,17 +16,17 @@ export const CustomerSchema = new Schema({
     type: [
       {
         restaurant_id: { type: String, ref: 'Restaurant' }, // Ensure restaurant_id is a required field
-        count: { type: Number, default: 0 }, // Ensure count is required and has a default value of 0
-      },
+        count: { type: Number, default: 0 } // Ensure count is required and has a default value of 0
+      }
     ],
-    required: false,
+    required: false
   },
   favorite_restaurants: { type: [String], required: false }, // Array of Favorite Restaurant IDs
   favorite_items: { type: [String], required: false }, // Array of Favorite Menu Item IDs
   support_tickets: { type: [String], required: false }, // Array of Support Ticket IDs
 
   created_at: { type: Number, required: false }, // Unix timestamp
-  updated_at: { type: Number, required: false }, // Unix timestamp
+  updated_at: { type: Number, required: false } // Unix timestamp
 });
 
 // Pre-save hook to generate a custom ID with 'CUS_' prefix and a random UUID

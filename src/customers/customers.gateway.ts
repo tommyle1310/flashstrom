@@ -2,7 +2,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
   SubscribeMessage,
-  MessageBody,
+  MessageBody
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 import { CustomersService } from './customers.service';
@@ -17,11 +17,11 @@ export class CustomersGateway {
 
   @SubscribeMessage('updateCustomer')
   async handleUpdateCustomer(
-    @MessageBody() updateCustomerDto: UpdateCustomerDto,
+    @MessageBody() updateCustomerDto: UpdateCustomerDto
   ) {
     const customer = await this.customersService.update(
       updateCustomerDto._id,
-      updateCustomerDto,
+      updateCustomerDto
     );
     this.server.emit('customerUpdated', customer);
     return customer;

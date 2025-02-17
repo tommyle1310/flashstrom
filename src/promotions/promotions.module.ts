@@ -6,10 +6,10 @@ import { PromotionsController } from './promotions.controller';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: 'Promotion', schema: PromotionSchema }]), // Register Promotion schema
+    MongooseModule.forFeature([{ name: 'Promotion', schema: PromotionSchema }]) // Register Promotion schema
   ],
   providers: [PromotionsService],
   controllers: [PromotionsController],
-  exports: [MongooseModule], // Export MongooseModule to make the Promotion model available
+  exports: [MongooseModule] // Export MongooseModule to make the Promotion model available
 })
 export class PromotionsModule {}

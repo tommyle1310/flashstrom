@@ -11,7 +11,7 @@ export const OrderSchema = new Schema({
     type: String,
     enum: ['PENDING', 'ACCEPTED', 'IN_PROGRESS', 'DELIVERED', 'CANCELLED'], // Enum for order status
     required: true,
-    default: 'PENDING',
+    default: 'PENDING'
   },
   total_amount: { type: Number, required: true }, // Total amount for the order
   delivery_fee: { type: Number, required: true }, // Total amount for the order
@@ -20,13 +20,13 @@ export const OrderSchema = new Schema({
     type: String,
     enum: ['PENDING', 'PAID', 'FAILED'], // Enum for payment status
     required: true,
-    default: 'PENDING',
+    default: 'PENDING'
   },
   payment_method: {
     type: String,
     enum: ['COD', 'FWallet'], // Enum for order status
     required: true,
-    default: 'FWallet',
+    default: 'FWallet'
   }, // Reference to the payment method
   customer_location: { type: String, required: true, ref: 'AddressBook' }, // Reference to customer's address
   restaurant_location: { type: String, required: true, ref: 'AddressBook' }, // Reference to restaurant's address
@@ -36,8 +36,8 @@ export const OrderSchema = new Schema({
       variant_id: { type: String, required: true, ref: 'MenuItemVariant' }, // Reference to menu item
       name: { type: String, required: true }, // Name of the menu item
       quantity: { type: Number, required: true, min: 1 }, // Quantity ordered
-      price_at_time_of_order: { type: Number, required: true }, // Price at the time of the order
-    },
+      price_at_time_of_order: { type: Number, required: true } // Price at the time of the order
+    }
   ], // List of items in the order
   customer_note: { type: String, default: '' }, // Any note from the customer (e.g., special requests)
   restaurant_note: { type: String, default: '' }, // Any note from the restaurant (e.g., preparation instructions)
@@ -46,10 +46,10 @@ export const OrderSchema = new Schema({
   tracking_info: {
     type: String,
     enum: ['ORDER_PLACED', 'PREPARING', 'OUT_FOR_DELIVERY', 'DELIVERED'], // Enum for tracking status
-    default: 'ORDER_PLACED',
+    default: 'ORDER_PLACED'
   }, // Tracking information for the order
   created_at: { type: Number, default: Math.floor(Date.now() / 1000) }, // Timestamp for when the order was created
-  updated_at: { type: Number, default: Math.floor(Date.now() / 1000) }, // Timestamp for the last update of the order
+  updated_at: { type: Number, default: Math.floor(Date.now() / 1000) } // Timestamp for the last update of the order
 });
 
 // Pre-save hook to generate a custom ID for order with 'FF_ORDER_' prefix

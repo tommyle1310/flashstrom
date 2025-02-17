@@ -12,20 +12,20 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
           port: 2525,
           auth: {
             user: '389c1523b80572', // Your Mailtrap username
-            pass: '9685cd52ea218d', // Your Mailtrap password
-          },
+            pass: '9685cd52ea218d' // Your Mailtrap password
+          }
         }),
         defaults: {
-          from: '"NestJS" <noreply@nestjs.com>',
+          from: '"NestJS" <noreply@nestjs.com>'
         },
         template: {
           adapter: new HandlebarsAdapter(),
           options: {
-            strict: true,
-          },
-        },
-      }),
-    }),
+            strict: true
+          }
+        }
+      })
+    })
   ],
   providers: [
     {
@@ -36,12 +36,12 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
           port: 2525,
           auth: {
             user: '389c1523b80572', // Your Mailtrap username
-            pass: '9685cd52ea218d', // Your Mailtrap password
-          },
+            pass: '9685cd52ea218d' // Your Mailtrap password
+          }
         });
-      },
-    },
+      }
+    }
   ],
-  exports: ['MAIL_TRANSPORT'], // Export the provider so it can be used in other modules
+  exports: ['MAIL_TRANSPORT'] // Export the provider so it can be used in other modules
 })
 export class MailerCustomModule {}

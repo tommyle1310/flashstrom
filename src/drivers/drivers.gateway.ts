@@ -5,7 +5,7 @@ import {
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
-  OnGatewayInit,
+  OnGatewayInit
 } from '@nestjs/websockets';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Server, Socket } from 'socket.io';
@@ -13,6 +13,7 @@ import { DriversService } from './drivers.service';
 import { UpdateDriverDto } from './dto/update-driver.dto';
 import { RestaurantsService } from 'src/restaurants/restaurants.service';
 import { forwardRef, Inject } from '@nestjs/common';
+import { OrdersService } from 'src/orders/orders.service';
 
 @WebSocketGateway({ namespace: 'driver' })
 export class DriversGateway
@@ -26,14 +27,15 @@ export class DriversGateway
     @Inject(forwardRef(() => DriversService))
     private readonly driverService: DriversService,
     private eventEmitter: EventEmitter2,
+    private readonly ordersService: OrdersService
   ) {}
 
-  afterInit(server: Server) {
+  afterInit() {
     console.log('Driver Gateway initialized');
-    this.server.on('assignOrderToDriver', (orderAssignment) => {
+    this.server.on('assignOrderToDriver', orderAssignment => {
       console.log(
         'Received global event for assignOrderToDriver:',
-        orderAssignment,
+        orderAssignment
       );
       const driverId = orderAssignment.driver_id;
       if (driverId) {
@@ -43,7 +45,7 @@ export class DriversGateway
         console.log(
           'Forwarded order assignment to driver:',
           driverId,
-          orderAssignment,
+          orderAssignment
         );
       }
     });
@@ -71,7 +73,7 @@ export class DriversGateway
   async handleUpdateDriver(@MessageBody() updateDriverDto: UpdateDriverDto) {
     const driver = await this.driverService.update(
       updateDriverDto._id,
-      updateDriverDto,
+      updateDriverDto
     );
     this.server.emit('driverUpdated', driver);
     return driver;
@@ -96,7 +98,7 @@ export class DriversGateway
     console.log(
       'Received assignOrderToDriver event for driver:',
       driverId,
-      order,
+      order
     );
 
     return order;
@@ -109,7 +111,7 @@ export class DriversGateway
       console.log(
         'Received order assignment for driver:',
         driverId,
-        orderAssignment,
+        orderAssignment
       );
       if (driverId) {
         this.server
@@ -119,8 +121,66 @@ export class DriversGateway
     } catch (error) {
       console.error(
         'Error handling order.assignedToDriver in DriversGateway:',
-        error,
+        error
       );
     }
+  }
+
+  @SubscribeMessage('acceptOrder')
+  async handleDriverAcceptOrder(
+    @MessageBody()
+    data: {
+      orderId: string;
+      driverId: string;
+      restaurantLocation: { lat: number; lng: number };
+    }
+  ) {
+    try {
+      // Update order with driver and status
+      const updatedOrder = await this.ordersService.update(data.orderId, {
+        driver_id: data.driverId,
+        status: 'IN_PROGRESS',
+        tracking_info: 'PREPARING'
+      });
+
+      if (updatedOrder.EC === 0) {
+        const order = updatedOrder.data;
+
+        // Update driver's current orders and calculate active points
+        const updatedDriver = await this.driverService.addOrderToDriver(
+          data.driverId,
+          order._id as string,
+          data.restaurantLocation
+        );
+
+        if (updatedDriver.EC === 0) {
+          // Notify all parties about the order update
+          this.notifyAllParties(order);
+          return { success: true, order, driver: updatedDriver.data };
+        }
+      }
+
+      return { success: false, message: 'Failed to update order or driver' };
+    } catch (error) {
+      console.error('Error in handleDriverAcceptOrder:', error);
+      return { success: false, message: 'Internal server error' };
+    }
+  }
+
+  private notifyAllParties(order: any) {
+    // Notify restaurant
+    this.server
+      .to(`restaurant_${order.restaurant_id}`)
+      .emit('orderStatusUpdated', order);
+
+    // Notify customer
+    this.server
+      .to(`customer_${order.customer_id}`)
+      .emit('orderStatusUpdated', order);
+
+    // Notify driver
+    this.server
+      .to(`driver_${order.driver_id}`)
+      .emit('orderStatusUpdated', order);
   }
 }

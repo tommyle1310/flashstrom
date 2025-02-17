@@ -5,7 +5,7 @@ import {
   IsNumber,
   Min,
   IsOptional,
-  IsUUID,
+  IsUUID
 } from 'class-validator';
 
 export class CreateOrderDto {

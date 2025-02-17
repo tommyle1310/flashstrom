@@ -3,7 +3,7 @@ import { IsString, IsNumber, IsOptional, IsEnum, IsInt } from 'class-validator';
 // Enum for discount types
 export enum DiscountType {
   FIXED = 'FIXED',
-  PERCENTAGE = 'PERCENTAGE',
+  PERCENTAGE = 'PERCENTAGE'
 }
 
 export class DiscountDto {

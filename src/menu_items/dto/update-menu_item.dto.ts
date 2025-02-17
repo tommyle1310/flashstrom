@@ -7,7 +7,7 @@ import {
   IsOptional,
   IsObject,
   IsNumber,
-  IsUUID,
+  IsUUID
 } from 'class-validator';
 import { DiscountDto } from 'src/discounts/discount.dto'; // Import the DiscountDto
 

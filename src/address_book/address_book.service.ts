@@ -2,197 +2,196 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { AddressBook } from './address_book.schema';
-import { CreateAddressBookDto } from './dto/create-address_book.dto'; // Import the DTO
+import { CreateAddressBookDto } from './dto/create-address_book.dto';
 import { UpdateAddressBookDto } from './dto/update-address_book.dto';
-import { createResponse } from 'src/utils/createResponse'; // Import the createResponse function
+import { createResponse } from 'src/utils/createResponse';
+import { ApiResponse } from 'src/utils/createResponse';
 import { Customer } from 'src/customers/customer.schema';
 
 @Injectable()
 export class AddressBookService {
   constructor(
     @InjectModel('AddressBook')
-    private readonly AddressBookModel: Model<AddressBook>,
-    @InjectModel('Customer')
-    private readonly customerModel: Model<Customer>,
+    private readonly addressBookModel: Model<AddressBook>,
+    @InjectModel('Customer') private readonly customerModel: Model<Customer>
   ) {}
 
-  // Create a new address book entry
   async createAddressBook(
-    createAddressBookDto: CreateAddressBookDto, // Accept the DTO as an argument
-  ): Promise<any> {
-    const {
-      street,
-      city,
-      nationality,
-      postal_code,
-      location,
-      title,
-      is_default,
-    } = createAddressBookDto;
-
-    // Check if the address already exists (simplified example)
-    const existingAddressBook = await this.AddressBookModel.findOne({
-      street,
-      city,
-    }).exec();
-    if (existingAddressBook) {
-      // If address already exists, return a response with error without going into the catch block
-      return createResponse('DuplicatedRecord', null, 'Address already exists');
-    }
-
+    createAddressBookDto: CreateAddressBookDto
+  ): Promise<ApiResponse<AddressBook>> {
     try {
-      // Create a new address book object
-      const newAddressBook = new this.AddressBookModel({
-        street,
-        city,
-        nationality,
-        postal_code,
-        location,
-        title,
-        is_default,
-        created_at: new Date().getTime(),
-        updated_at: new Date().getTime(),
-      });
+      const existingAddress =
+        await this.findExistingAddress(createAddressBookDto);
+      if (existingAddress) {
+        return this.handleDuplicateAddress();
+      }
 
-      // Save the new address book to the database
-      await newAddressBook.save();
-
-      // Return success response
+      const newAddress = await this.saveNewAddress(createAddressBookDto);
       return createResponse(
         'OK',
-        newAddressBook,
-        'Address book created successfully',
+        newAddress,
+        'Address book created successfully'
       );
     } catch (error) {
-      // Handle unexpected errors and return a generic server error response
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while creating the address book',
-      );
+      return this.handleError('Error creating address book:', error);
     }
   }
 
-  // Retrieve all address books
-  async getAllAddressBooks(): Promise<any> {
+  async getAllAddressBooks(): Promise<ApiResponse<AddressBook[]>> {
     try {
-      const addressBooks = await this.AddressBookModel.find().exec();
+      const addressBooks = await this.addressBookModel.find().exec();
       return createResponse('OK', addressBooks, 'Fetched all address books');
     } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while fetching address books',
-      );
+      return this.handleError('Error fetching address books:', error);
     }
   }
 
-  // Get a single address book by ID
-  async getAddressBookById(id: string): Promise<any> {
-    const addressBook = await this.AddressBookModel.findById(id).exec();
-    if (!addressBook) {
-      return createResponse('NotFound', null, 'Address book not found');
-    }
+  async getAddressBookById(id: string): Promise<ApiResponse<AddressBook>> {
     try {
-      return createResponse(
-        'OK',
-        addressBook,
-        'Fetched address book successfully',
-      );
-    } catch (e) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while creating the address book',
-      );
+      const addressBook = await this.addressBookModel.findById(id).exec();
+      return this.handleAddressBookResponse(addressBook);
+    } catch (error) {
+      return this.handleError('Error fetching address book:', error);
     }
   }
 
-  // Update an existing address book entry
   async updateAddressBook(
     id: string,
     updateData: UpdateAddressBookDto,
-    entityId?: string, // Optional parameter id
-  ): Promise<any> {
-    if (entityId) {
-      // Find the customer by entityId and check if the address exists in the customer's address array
-      const customer = await this.customerModel.findOne({
-        _id: entityId,
-        address: { $in: [id] }, // Check if the addressId exists in the customer's address array
-      });
-
-      if (!customer) {
-        return createResponse('NotFound', null, 'Customer not found');
+    entityId?: string
+  ): Promise<ApiResponse<AddressBook>> {
+    try {
+      if (entityId) {
+        return await this.handleCustomerAddressUpdate(id, updateData, entityId);
       }
-      console.log('check csus', customer);
 
-      // Iterate over the customer's address array and set is_default: false for all addresses
-      await Promise.all(
-        customer.address.map(async (addressId) => {
-          const address = await this.AddressBookModel.findById(addressId);
-          if (address && address.is_default) {
-            // If any address has is_default = true, set it to false
-            await this.AddressBookModel.findByIdAndUpdate(
-              address._id,
-              { is_default: false },
-              { new: true },
-            );
-          }
-        }),
-      );
+      const updatedAddress = await this.addressBookModel
+        .findByIdAndUpdate(id, updateData, { new: true })
+        .exec();
+      return this.handleAddressBookResponse(updatedAddress);
+    } catch (error) {
+      return this.handleError('Error updating address book:', error);
+    }
+  }
 
-      // Now, find and update the address with the provided id to set is_default = true
-      const updatedAddressBook = await this.AddressBookModel.findByIdAndUpdate(
-        id,
-        { ...updateData, is_default: true }, // Ensure is_default is true for the updated address
-        { new: true },
-      ).exec();
-
-      if (!updatedAddressBook) {
+  async deleteAddressBook(id: string): Promise<ApiResponse<null>> {
+    try {
+      const deletedAddress = await this.addressBookModel
+        .findByIdAndDelete(id)
+        .exec();
+      if (!deletedAddress) {
         return createResponse('NotFound', null, 'Address book not found');
       }
+      return createResponse('OK', null, 'Address book deleted successfully');
+    } catch (error) {
+      return this.handleError('Error deleting address book:', error);
+    }
+  }
 
-      return createResponse(
-        'OK',
-        updatedAddressBook,
-        'Address book updated successfully',
-      );
+  // Private helper methods
+  private async findExistingAddress(
+    addressData: CreateAddressBookDto
+  ): Promise<AddressBook | null> {
+    return this.addressBookModel
+      .findOne({
+        street: addressData.street,
+        city: addressData.city
+      })
+      .exec();
+  }
+
+  private async saveNewAddress(
+    addressData: CreateAddressBookDto
+  ): Promise<AddressBook> {
+    const newAddress = new this.addressBookModel({
+      ...addressData,
+      created_at: new Date().getTime(),
+      updated_at: new Date().getTime()
+    });
+    return newAddress.save();
+  }
+
+  private async handleCustomerAddressUpdate(
+    id: string,
+    updateData: UpdateAddressBookDto,
+    entityId: string
+  ): Promise<ApiResponse<AddressBook>> {
+    const customer = await this.findCustomerWithAddress(entityId, id);
+    if (!customer) {
+      return createResponse('NotFound', null, 'Customer not found');
     }
 
-    // If is_default is not provided in the updateData, proceed with the regular update
-    const updatedAddressBook = await this.AddressBookModel.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true },
-    ).exec();
-    console.log('check updated one', updatedAddressBook, id, updateData);
+    await this.updateCustomerAddresses(customer.address);
+    const updatedAddress = await this.updateAddressWithDefault(id, updateData);
 
-    if (!updatedAddressBook) {
+    if (!updatedAddress) {
       return createResponse('NotFound', null, 'Address book not found');
     }
 
     return createResponse(
       'OK',
-      updatedAddressBook,
-      'Address book updated successfully',
+      updatedAddress,
+      'Address book updated successfully'
     );
   }
 
-  // Delete an address book entry by ID
-  async deleteAddressBook(id: string): Promise<any> {
-    const deletedAddressBook =
-      await this.AddressBookModel.findByIdAndDelete(id).exec();
-    if (!deletedAddressBook) {
+  private async findCustomerWithAddress(
+    entityId: string,
+    addressId: string
+  ): Promise<Customer | null> {
+    return this.customerModel.findOne({
+      _id: entityId,
+      address: { $in: [addressId] }
+    });
+  }
+
+  private async updateCustomerAddresses(addresses: string[]): Promise<void> {
+    await Promise.all(
+      addresses.map(async addressId => {
+        const address = await this.addressBookModel.findById(addressId);
+        if (address?.is_default) {
+          await this.addressBookModel.findByIdAndUpdate(
+            address._id,
+            { is_default: false },
+            { new: true }
+          );
+        }
+      })
+    );
+  }
+
+  private async updateAddressWithDefault(
+    id: string,
+    updateData: UpdateAddressBookDto
+  ): Promise<AddressBook | null> {
+    return this.addressBookModel
+      .findByIdAndUpdate(id, { ...updateData, is_default: true }, { new: true })
+      .exec();
+  }
+
+  private handleDuplicateAddress(): ApiResponse<null> {
+    return createResponse('DuplicatedRecord', null, 'Address already exists');
+  }
+
+  private handleAddressBookResponse(
+    addressBook: AddressBook | null
+  ): ApiResponse<AddressBook> {
+    if (!addressBook) {
       return createResponse('NotFound', null, 'Address book not found');
     }
-    try {
-      return createResponse('OK', null, 'Address book deleted successfully');
-    } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while creating the address book',
-      );
-    }
+    return createResponse(
+      'OK',
+      addressBook,
+      'Address book retrieved successfully'
+    );
+  }
+
+  private handleError(message: string, error: any): ApiResponse<null> {
+    console.error(message, error);
+    return createResponse(
+      'ServerError',
+      null,
+      'An error occurred while processing your request'
+    );
   }
 }

@@ -13,9 +13,9 @@ export const AddressBookSchema = new Schema({
   postal_code: { type: Number, required: true },
   location: {
     lng: { type: Number, required: true }, // longitude
-    lat: { type: Number, required: true }, // Latitude
+    lat: { type: Number, required: true } // Latitude
   },
-  title: { type: String, required: true },
+  title: { type: String, required: true }
 });
 
 // Pre-save hook to generate a custom ID with 'FF_AB_' prefix and unique random part

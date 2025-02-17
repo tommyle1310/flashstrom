@@ -9,14 +9,14 @@ export const MenuItemVariantSchema = new Schema({
   description: { type: String }, // Description of the variant
   avatar: {
     key: { type: String }, // Key for the avatar image (to manage Cloud storage)
-    url: { type: String }, // URL for the variant's avatar image
+    url: { type: String } // URL for the variant's avatar image
   },
   availability: { type: Boolean, default: true }, // Availability of the variant
   default_restaurant_notes: [{ type: String }], // Default notes for the restaurant (e.g., 'extra sauce')
   price: { type: Number, required: true }, // Price of the variant
   discount_rate: { type: Number }, // Discount rate in percentage (0-100)
   created_at: { type: Number, default: Math.floor(Date.now() / 1000) }, // Unix timestamp of creation
-  updated_at: { type: Number, default: Math.floor(Date.now() / 1000) }, // Unix timestamp of last update
+  updated_at: { type: Number, default: Math.floor(Date.now() / 1000) } // Unix timestamp of last update
 });
 
 // Pre-save hook to generate a custom ID with 'FF_MENU_ITEM_VARIANT_' prefix and a random UUID

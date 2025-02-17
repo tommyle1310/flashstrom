@@ -14,7 +14,7 @@ import {
   Enum_UserType,
   FWalletPayload,
   Payload,
-  RestaurantOwnerPayload,
+  RestaurantOwnerPayload
 } from 'src/types/Payload';
 import { FWallet } from 'src/fwallets/fwallets.schema';
 import { Restaurant } from 'src/restaurants/restaurants.schema';
@@ -31,7 +31,7 @@ export class AuthService {
     @InjectModel('Restaurant')
     private readonly restaurantModel: Model<Restaurant>,
     private readonly jwtService: JwtService,
-    private readonly cartItemService: CartItemsService,
+    private readonly cartItemService: CartItemsService
   ) {}
 
   async register(userData: any, type: Enum_UserType): Promise<any> {
@@ -42,7 +42,7 @@ export class AuthService {
       return createResponse(
         'InvalidFormatInput',
         null,
-        'Email & Password cannot be empty',
+        'Email & Password cannot be empty'
       );
     }
 
@@ -54,7 +54,7 @@ export class AuthService {
         return createResponse(
           'DuplicatedRecord',
           null,
-          `${type} with the same email already exists`,
+          `${type} with the same email already exists`
         );
       }
 
@@ -67,7 +67,7 @@ export class AuthService {
           newUserWithRole = new this.customerModel({
             ...userData,
             password: existingUser.password, // Use the existing user's password
-            user_id: existingUser.id, // Link the customer to the existing user
+            user_id: existingUser.id // Link the customer to the existing user
           });
           break;
 
@@ -77,7 +77,7 @@ export class AuthService {
             ...userData,
             password: existingUser.password, // Use the existing user's password
             user_id: existingUser.id, // Link the driver to the existing user
-            available_for_work: false,
+            available_for_work: false
           });
           break;
 
@@ -87,7 +87,7 @@ export class AuthService {
             ...userData,
             password: existingUser.password, // Use the existing user's password
             user_id: existingUser.id, // Link the wallet to the existing user
-            balance: existingUser.temporary_wallet_balance, // Transfer balance
+            balance: existingUser.temporary_wallet_balance // Transfer balance
           });
 
           // Clear the temporary_wallet_balance and save the user document
@@ -101,7 +101,7 @@ export class AuthService {
           newUserWithRole = new this.restaurantModel({
             ...userData,
             password: existingUser.password, // Use the existing user's password
-            owner_id: existingUser.id, // Set the restaurant owner to the user's id
+            owner_id: existingUser.id // Set the restaurant owner to the user's id
           });
           break;
 
@@ -109,7 +109,7 @@ export class AuthService {
           return createResponse(
             'Unauthorized',
             null,
-            'Invalid user type provided',
+            'Invalid user type provided'
           );
       }
 
@@ -131,9 +131,9 @@ export class AuthService {
           first_name: existingUser.first_name,
           last_name: existingUser.last_name,
           user_type: existingUser.user_type, // Return updated user_type
-          data: newUserWithRole,
+          data: newUserWithRole
         },
-        `${type} created successfully with existing user`,
+        `${type} created successfully with existing user`
       );
     }
 
@@ -144,7 +144,7 @@ export class AuthService {
       ...userData,
       phone,
       password: hashedPassword,
-      user_type: [type], // Set user_type as 'CUSTOMER', 'DRIVER', or 'RESTAURANT'
+      user_type: [type] // Set user_type as 'CUSTOMER', 'DRIVER', or 'RESTAURANT'
     });
 
     // Save the new user to the database
@@ -158,7 +158,7 @@ export class AuthService {
         newUserWithRole = new this.customerModel({
           ...userData,
           password: hashedPassword,
-          user_id: newUser.id, // Link the customer to the new user
+          user_id: newUser.id // Link the customer to the new user
         });
         break;
 
@@ -166,7 +166,7 @@ export class AuthService {
         newUserWithRole = new this.driverModel({
           ...userData,
           password: hashedPassword,
-          user_id: newUser.id, // Link the driver to the new user
+          user_id: newUser.id // Link the driver to the new user
         });
         break;
 
@@ -174,7 +174,7 @@ export class AuthService {
         newUserWithRole = new this.fWalletModel({
           ...userData,
           password: hashedPassword,
-          user_id: newUser.id, // Link the wallet to the new user
+          user_id: newUser.id // Link the wallet to the new user
         });
         break;
 
@@ -184,7 +184,7 @@ export class AuthService {
           ...userData,
           password: hashedPassword,
           user_id: newUser.id, // Link the restaurant to the new user
-          owner_id: newUser.id, // Set the owner_id to the new user's id
+          owner_id: newUser.id // Set the owner_id to the new user's id
         });
         break;
 
@@ -192,7 +192,7 @@ export class AuthService {
         return createResponse(
           'Unauthorized',
           null,
-          'Invalid user type provided',
+          'Invalid user type provided'
         );
     }
 
@@ -210,22 +210,22 @@ export class AuthService {
         first_name: newUser.first_name,
         last_name: newUser.last_name,
         user_type: newUser.user_type,
-        data: newUserWithRole,
+        data: newUserWithRole
       },
-      `${type} registered successfully`,
+      `${type} registered successfully`
     );
   }
 
   // Login an existing user
   async login(
     { email, password }: { email: string; password: string },
-    type: Enum_UserType,
+    type: Enum_UserType
   ): Promise<any> {
     if (!email || !password) {
       return createResponse(
         'MissingInput',
         null,
-        'Email & Password cannot be empty',
+        'Email & Password cannot be empty'
       );
     }
 
@@ -242,13 +242,13 @@ export class AuthService {
     }
 
     // Initialize the payload with basic user info
-    let payload: BasePayload = {
+    const payload: BasePayload = {
       user_id: user.id,
       email: user.email,
       user_type: user.user_type,
       first_name: user.first_name,
       last_name: user.last_name,
-      app_preferences: user.app_preferences, // App preferences are common to both users
+      app_preferences: user.app_preferences // App preferences are common to both users
     };
 
     let userWithRole;
@@ -267,7 +267,7 @@ export class AuthService {
 
         // Fetch FWallet info where user_id matches
         const fWalletData = await this.fWalletModel.findOne({
-          user_id: user.id,
+          user_id: user.id
         });
         if (!fWalletData) {
           return createResponse('NotFound', null, 'Driver not found');
@@ -285,7 +285,7 @@ export class AuthService {
           avatar: userWithRole.avatar,
           available_for_work: userWithRole.available_for_work,
           fWallet_id: fWalletData.id, // Only include the fWallet ID in payload
-          fWallet_balance: fWalletData.balance, // Only include the fWallet ID in payload
+          fWallet_balance: fWalletData.balance // Only include the fWallet ID in payload
         };
 
         // Generate JWT token with the extended payload
@@ -296,9 +296,9 @@ export class AuthService {
           'OK',
           {
             access_token: accessToken,
-            user_data: userWithRole,
+            user_data: userWithRole
           },
-          'Login successful',
+          'Login successful'
         );
 
       case 'CUSTOMER':
@@ -312,7 +312,7 @@ export class AuthService {
 
         // Fetch the cart items for the customer using the cartItemService
         const cartItems = await this.cartItemService.findAll({
-          customer_id: userWithRole._id,
+          customer_id: userWithRole._id
         });
 
         // Expand payload for CUSTOMER type and include cart items
@@ -325,7 +325,7 @@ export class AuthService {
           avatar: userWithRole?.avatar,
           support_tickets: userWithRole.support_tickets,
           address: userWithRole?.address,
-          cart_items: cartItems.data, // Include cart items in the payload
+          cart_items: cartItems.data // Include cart items in the payload
         };
         // Generate JWT token with the extended payload
         accessToken = this.jwtService.sign(customerPayload);
@@ -334,9 +334,9 @@ export class AuthService {
         return createResponse(
           'OK',
           {
-            access_token: accessToken,
+            access_token: accessToken
           },
-          'Login successful',
+          'Login successful'
         );
 
       case 'F_WALLET':
@@ -350,7 +350,7 @@ export class AuthService {
         const fWalletPayload: FWalletPayload = {
           ...payload,
           balance: userWithRole.balance,
-          fWallet_id: userWithRole.id,
+          fWallet_id: userWithRole.id
         };
 
         // Generate JWT token with the extended payload
@@ -360,14 +360,14 @@ export class AuthService {
         return createResponse(
           'OK',
           {
-            access_token: accessToken,
+            access_token: accessToken
           },
-          'Login successful',
+          'Login successful'
         );
       case 'RESTAURANT_OWNER':
         // Fetch restaurant info
         userWithRole = await this.restaurantModel.findOne({
-          owner_id: user.id,
+          owner_id: user.id
         });
         if (!userWithRole) {
           return createResponse('NotFound', null, 'Restaurant owner not found');
@@ -391,7 +391,7 @@ export class AuthService {
           promotions: userWithRole.promotions,
           ratings: userWithRole.ratings,
           specialize_in: userWithRole.specialize_in,
-          opening_hours: userWithRole.opening_hours,
+          opening_hours: userWithRole.opening_hours
         };
 
         // Generate JWT token for the restaurant owner
@@ -401,9 +401,9 @@ export class AuthService {
           'OK',
           {
             access_token: accessToken,
-            user_data: userWithRole, // Include restaurant data in response
+            user_data: userWithRole // Include restaurant data in response
           },
-          'Login successful',
+          'Login successful'
         );
 
       default:

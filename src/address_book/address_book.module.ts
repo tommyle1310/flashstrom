@@ -8,12 +8,12 @@ import { CustomerSchema } from 'src/customers/customer.schema';
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: 'AddressBook', schema: AddressBookSchema },
+      { name: 'AddressBook', schema: AddressBookSchema }
     ]),
-    MongooseModule.forFeature([{ name: 'Customer', schema: CustomerSchema }]),
+    MongooseModule.forFeature([{ name: 'Customer', schema: CustomerSchema }])
   ],
   controllers: [AddressBookController],
   providers: [AddressBookService],
-  exports: [AddressBookService],
+  exports: [AddressBookService]
 })
 export class AddressBook {}

@@ -1,367 +1,308 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { MenuItem } from './menu_items.schema'; // Assuming MenuItem schema is similar to the one we've defined earlier
-import { createResponse } from 'src/utils/createResponse'; // Utility for creating responses
+import { MenuItem } from './menu_items.schema';
+import { createResponse } from 'src/utils/createResponse';
 import { CreateMenuItemDto } from './dto/create-menu_item.dto';
 import { UpdateMenuItemDto } from './dto/update-menu_item.dto';
 import { Restaurant } from 'src/restaurants/restaurants.schema';
-import { helpers } from 'handlebars';
 import { FoodCategory } from 'src/food_categories/food_categories.schema';
 import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_variants.service';
-import { UpdateMenuItemVariantDto } from 'src/menu_item_variants/dto/update-menu_item_variant.dto';
-import { MenuItemVariant } from 'src/menu_item_variants/menu_item_variants.schema';
+import { ApiResponse } from 'src/utils/createResponse';
 
 @Injectable()
 export class MenuItemsService {
   constructor(
     @InjectModel('MenuItem') private readonly menuItemModel: Model<MenuItem>,
-    // @InjectModel('MenuItemVariant') private readonly menuItemVariantModel: Model<MenuItemVariant>,
     @InjectModel('Restaurant')
     private readonly restaurantModel: Model<Restaurant>,
     @InjectModel('FoodCategory')
     private readonly foodCategoryModel: Model<FoodCategory>,
-    private readonly menuItemVariantsService: MenuItemVariantsService,
+    private readonly menuItemVariantsService: MenuItemVariantsService
   ) {}
 
-  // Create a new menu item
-  async create(createMenuItemDto: CreateMenuItemDto): Promise<any> {
-    const {
-      restaurant_id,
-      name,
-      description,
-      category,
-      avatar,
-      availability,
-      suggest_notes,
-      variants,
-      discount,
-    } = createMenuItemDto;
-
-    // Check if the restaurant exists
-    const existingRestaurant = await this.restaurantModel
-      .findById(restaurant_id)
-      .exec();
-    if (!existingRestaurant) {
-      return createResponse('NotFound', null, 'Restaurant not found');
-    }
-    console.log('check variant', variants);
-
-    // Check if each food category exists
-    for (const categoryId of category) {
-      const existingFoodCategory = await this.foodCategoryModel
-        .findById(categoryId)
-        .exec();
-      if (!existingFoodCategory) {
-        return createResponse(
-          'NotFound',
-          null,
-          `Food Category with ID ${categoryId} not found`,
-        );
-      }
-    }
-
-    // Check if the menu item already exists by name and restaurant_id
-    const existingMenuItem = await this.menuItemModel
-      .findOne({ name, restaurant_id })
-      .exec();
-
-    let variantIds = [];
-    let createdVariants = []; // Track newly created variants
-
-    // If the menu item already exists
-    if (existingMenuItem) {
-      // Handle existing menu item update with new variants
-      for (const variant of variants) {
-        const existingVariant =
-          await this.menuItemVariantsService.findOneByDetails(
-            variant.price,
-            variant.description,
-            existingMenuItem._id.toString(),
-          );
-
-        if (!existingVariant) {
-          const newVariantData = {
-            menu_id: existingMenuItem._id.toString(),
-            variant: variant.description || '',
-            price: variant.price,
-            description: variant.description,
-            avatar: existingMenuItem.avatar || { url: '', key: '' },
-            availability: true,
-            default_restaurant_notes: [],
-            discount_rate: 0,
-          };
-
-          const newVariant =
-            await this.menuItemVariantsService.create(newVariantData);
-          createdVariants.push(newVariant); // Save the created variant
-          variantIds.push(newVariant._id);
-        } else {
-          variantIds.push(existingVariant._id);
-          const stringExistingVariantId = existingVariant._id as string;
-          const variantExistsInMenuItem = existingMenuItem.variants.includes(
-            stringExistingVariantId,
-          );
-          if (variantExistsInMenuItem) {
-            return createResponse(
-              'DuplicatedRecord',
-              null,
-              `Variant with ID ${existingVariant._id} already exists for this menu item`,
-            );
-          }
-        }
-      }
-
-      existingMenuItem.variants.push(...variantIds);
-
-      // Update the discount if provided
-      if (discount) {
-        existingMenuItem.discount = discount;
-      }
-
-      await existingMenuItem.save();
-
-      return createResponse(
-        'OK',
-        {
-          ...existingMenuItem,
-          variants: [...existingMenuItem.variants, ...createdVariants],
-        }, // Return both existing and newly created variants
-        'Menu Item and variants updated successfully',
-      );
-    }
-
-    // Create a new menu item
-    const newMenuItem = new this.menuItemModel({
-      restaurant_id,
-      name,
-      description,
-      category,
-      avatar,
-      availability,
-      suggest_notes,
-      variants: variantIds,
-      created_at: new Date().getTime(),
-      updated_at: new Date().getTime(),
-      discount, // Add discount here if present
-    });
-
-    // Save the new menu item
-    await newMenuItem.save();
-
-    // Handle the variants: create any missing variants and associate them with the menu item
-    for (const variant of variants) {
-      const existingVariant =
-        await this.menuItemVariantsService.findOneByDetails(
-          variant.price,
-          variant.description,
-          newMenuItem._id.toString(),
-        );
-
-      if (!existingVariant) {
-        const newVariantData = {
-          menu_id: newMenuItem._id.toString(),
-          variant: variant.description || '',
-          price: variant.price,
-          description: variant.description,
-          avatar: newMenuItem.avatar || { key: '', url: '' },
-          availability: true,
-          default_restaurant_notes: [],
-          discount_rate: 0,
-        };
-
-        const newVariant =
-          await this.menuItemVariantsService.create(newVariantData);
-        createdVariants.push(newVariant.data); // Track created variant
-      } else {
-        if (!existingVariant.menu_id) {
-          existingVariant.menu_id = newMenuItem._id.toString();
-          await existingVariant.save();
-        }
-      }
-    }
-
-    // Return the newly created menu item with variants
-    return createResponse(
-      'OK',
-      { ...newMenuItem.toObject(), variants: createdVariants }, // Return the newly created variants
-      'Menu Item and variants created successfully',
-    );
-  }
-
-  // Update a menu item by ID
-  async update(id: string, updateMenuItemDto: UpdateMenuItemDto): Promise<any> {
-    const {
-      restaurant_id,
-      name,
-      description,
-      category,
-      avatar,
-      availability,
-      suggest_notes,
-      variants,
-      discount,
-    } = updateMenuItemDto;
-
-    // Check if the menu item exists
-    const existingMenuItem = await this.menuItemModel.findById(id).exec();
-    if (!existingMenuItem) {
-      return createResponse('NotFound', null, 'Menu Item not found');
-    }
-
-    // Update the menu item details
-    existingMenuItem.restaurant_id =
-      restaurant_id || existingMenuItem.restaurant_id;
-    existingMenuItem.name = name || existingMenuItem.name;
-    existingMenuItem.description = description || existingMenuItem.description;
-    existingMenuItem.category = category || existingMenuItem.category;
-    existingMenuItem.avatar = avatar || existingMenuItem.avatar;
-    existingMenuItem.availability =
-      availability !== undefined ? availability : existingMenuItem.availability;
-    existingMenuItem.suggest_notes =
-      suggest_notes || existingMenuItem.suggest_notes;
-
-    // If a discount is provided, update it
-    if (discount !== undefined) {
-      existingMenuItem.discount = discount;
-    }
-
-    // Handle variants if any
-    if (variants && variants.length > 0) {
-      const variantIds = [];
-
-      for (const variant of variants) {
-        const existingVariant =
-          await this.menuItemVariantsService.findOneByDetails(
-            variant.price,
-            variant.description,
-            existingMenuItem._id.toString(),
-          );
-
-        if (!existingVariant) {
-          const newVariantData = {
-            menu_id: existingMenuItem._id.toString(),
-            variant: variant.description || '',
-            price: variant.price,
-            description: variant.description,
-            avatar: existingMenuItem.avatar || { url: '', key: '' },
-            availability: true,
-            default_restaurant_notes: [],
-            discount_rate: 0,
-          };
-
-          const newVariant =
-            await this.menuItemVariantsService.create(newVariantData);
-          variantIds.push(newVariant._id);
-        } else {
-          variantIds.push(existingVariant._id);
-        }
-      }
-
-      existingMenuItem.variants = variantIds;
-    }
-
-    await existingMenuItem.save();
-
-    return createResponse(
-      'OK',
-      existingMenuItem,
-      'Menu Item updated successfully',
-    );
-  }
-
-  // Get all menu items
-  // Fetch all menu items with populated category and variants
-  async findAll(): Promise<any> {
+  async create(
+    createMenuItemDto: CreateMenuItemDto
+  ): Promise<ApiResponse<any>> {
     try {
-      // Find all menu items and populate category and variants
+      const validationResult =
+        await this.validateMenuItemData(createMenuItemDto);
+      if (validationResult !== true) {
+        return validationResult;
+      }
+
+      const existingMenuItem = await this.findExistingMenuItem(
+        createMenuItemDto.name,
+        createMenuItemDto.restaurant_id
+      );
+
+      if (existingMenuItem) {
+        return await this.handleExistingMenuItem(
+          existingMenuItem,
+          createMenuItemDto
+        );
+      }
+
+      return await this.createNewMenuItem(createMenuItemDto);
+    } catch (error) {
+      return this.handleError('Error creating menu item:', error);
+    }
+  }
+
+  async findAll(): Promise<ApiResponse<MenuItem[]>> {
+    try {
       const menuItems = await this.menuItemModel
         .find()
-        .populate('category') // Populate category with full category document
-        .populate('variants') // Populate variants with full variant documents
+        .populate('category')
+        .populate('variants')
         .exec();
-
       return createResponse('OK', menuItems, 'Fetched all menu items');
     } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while fetching menu items',
-      );
+      return this.handleError('Error fetching menu items:', error);
     }
   }
 
-  // Get a menu item by ID
-  async findOne(id: string): Promise<any> {
-    const menuItem = await this.menuItemModel.findById(id).exec();
-    if (!menuItem) {
-      return createResponse('NotFound', null, 'Menu Item not found');
-    }
-    const menuItemVariants = await this.menuItemVariantsService.findAll({
-      menu_id: id,
-    });
-
+  async findOne(id: string): Promise<ApiResponse<any>> {
     try {
+      const menuItem = await this.menuItemModel.findById(id).exec();
+      if (!menuItem) {
+        return createResponse('NotFound', null, 'Menu Item not found');
+      }
+
+      const menuItemVariants = await this.menuItemVariantsService.findAll({
+        menu_id: id
+      });
+
       return createResponse(
         'OK',
         { menuItem, variants: menuItemVariants.data },
-        'Fetched menu item successfully',
+        'Fetched menu item successfully'
       );
     } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while fetching the menu item',
-      );
+      return this.handleError('Error fetching menu item:', error);
     }
   }
 
-  // Update a menu item by ID
-
-  // Delete a menu item by ID
-  async remove(id: string): Promise<any> {
-    const deletedMenuItem = await this.menuItemModel
-      .findByIdAndDelete(id)
-      .exec();
-
-    if (!deletedMenuItem) {
-      return createResponse('NotFound', null, 'Menu Item not found');
-    }
-
+  async update(
+    id: string,
+    updateMenuItemDto: UpdateMenuItemDto
+  ): Promise<ApiResponse<MenuItem>> {
     try {
+      const existingMenuItem = await this.menuItemModel.findById(id).exec();
+      if (!existingMenuItem) {
+        return createResponse('NotFound', null, 'Menu Item not found');
+      }
+
+      const updatedMenuItem = await this.updateExistingMenuItem(
+        existingMenuItem,
+        updateMenuItemDto
+      );
+      return createResponse(
+        'OK',
+        updatedMenuItem,
+        'Menu Item updated successfully'
+      );
+    } catch (error) {
+      return this.handleError('Error updating menu item:', error);
+    }
+  }
+
+  async remove(id: string): Promise<ApiResponse<null>> {
+    try {
+      const deletedMenuItem = await this.menuItemModel
+        .findByIdAndDelete(id)
+        .exec();
+      if (!deletedMenuItem) {
+        return createResponse('NotFound', null, 'Menu Item not found');
+      }
       return createResponse('OK', null, 'Menu Item deleted successfully');
     } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while deleting the menu item',
-      );
+      return this.handleError('Error deleting menu item:', error);
     }
   }
 
   async updateEntityAvatar(
     uploadResult: { url: string; public_id: string },
-    menuItemId: string,
-  ) {
-    // Update the menu item's avatar in the database
-    const menuItem = await this.menuItemModel.findByIdAndUpdate(
-      menuItemId, // Identify the menu item by its ID
-      {
-        avatar: { url: uploadResult.url, key: uploadResult.public_id }, // Update the avatar field
-      },
-      { new: true }, // Return the updated document
+    menuItemId: string
+  ): Promise<ApiResponse<MenuItem>> {
+    try {
+      const menuItem = await this.menuItemModel.findByIdAndUpdate(
+        menuItemId,
+        { avatar: { url: uploadResult.url, key: uploadResult.public_id } },
+        { new: true }
+      );
+      return this.handleMenuItemResponse(menuItem);
+    } catch (error) {
+      return this.handleError('Error updating menu item avatar:', error);
+    }
+  }
+
+  // Private helper methods
+  private async validateMenuItemData(
+    createMenuItemDto: CreateMenuItemDto
+  ): Promise<true | ApiResponse<null>> {
+    const { restaurant_id, category } = createMenuItemDto;
+
+    const restaurant = await this.restaurantModel
+      .findById(restaurant_id)
+      .exec();
+    if (!restaurant) {
+      return createResponse('NotFound', null, 'Restaurant not found');
+    }
+
+    for (const categoryId of category) {
+      const foodCategory = await this.foodCategoryModel
+        .findById(categoryId)
+        .exec();
+      if (!foodCategory) {
+        return createResponse(
+          'NotFound',
+          null,
+          `Food Category with ID ${categoryId} not found`
+        );
+      }
+    }
+
+    return true;
+  }
+
+  private async findExistingMenuItem(
+    name: string,
+    restaurantId: string
+  ): Promise<MenuItem | null> {
+    return this.menuItemModel
+      .findOne({ name, restaurant_id: restaurantId })
+      .exec();
+  }
+
+  private async handleExistingMenuItem(
+    existingMenuItem: MenuItem,
+    createMenuItemDto: CreateMenuItemDto
+  ): Promise<ApiResponse<any>> {
+    const variantIds = await this.processVariants(
+      createMenuItemDto.variants,
+      existingMenuItem
+    );
+    existingMenuItem.variants.push(...variantIds);
+
+    if (createMenuItemDto.discount) {
+      existingMenuItem.discount = createMenuItemDto.discount;
+    }
+
+    await existingMenuItem.save();
+
+    const createdVariants = await this.menuItemVariantsService.findAll({
+      _id: { $in: variantIds }
+    });
+
+    return createResponse(
+      'OK',
+      { ...existingMenuItem.toObject(), variants: createdVariants.data },
+      'Menu Item and variants updated successfully'
+    );
+  }
+
+  private async createNewMenuItem(
+    createMenuItemDto: CreateMenuItemDto
+  ): Promise<ApiResponse<any>> {
+    const newMenuItem = new this.menuItemModel({
+      ...createMenuItemDto,
+      variants: [],
+      created_at: new Date().getTime(),
+      updated_at: new Date().getTime()
+    });
+
+    await newMenuItem.save();
+
+    const createdVariants = await this.createVariants(
+      createMenuItemDto.variants,
+      newMenuItem
     );
 
-    // If the menu item is not found, return an error response
+    return createResponse(
+      'OK',
+      { ...newMenuItem.toObject(), variants: createdVariants },
+      'Menu Item and variants created successfully'
+    );
+  }
+
+  private async processVariants(
+    variants: any[],
+    menuItem: MenuItem
+  ): Promise<string[]> {
+    const variantIds = [];
+    for (const variant of variants) {
+      const existingVariant =
+        await this.menuItemVariantsService.findOneByDetails(
+          variant.price,
+          variant.description,
+          menuItem._id.toString()
+        );
+
+      if (!existingVariant) {
+        const newVariant = await this.createVariant(variant, menuItem);
+        variantIds.push(newVariant._id);
+      } else if (!menuItem.variants.includes(existingVariant._id as string)) {
+        variantIds.push(existingVariant._id);
+      }
+    }
+    return variantIds;
+  }
+
+  private async createVariant(
+    variantData: any,
+    menuItem: MenuItem
+  ): Promise<any> {
+    const newVariantData = {
+      menu_id: menuItem._id.toString(),
+      variant: variantData.description || '',
+      price: variantData.price,
+      description: variantData.description,
+      avatar: menuItem.avatar || { key: '', url: '' },
+      availability: true,
+      default_restaurant_notes: [],
+      discount_rate: 0
+    };
+
+    const result = await this.menuItemVariantsService.create(newVariantData);
+    return result.data;
+  }
+
+  private async createVariants(
+    variants: any[],
+    menuItem: MenuItem
+  ): Promise<any[]> {
+    const createdVariants = [];
+    for (const variant of variants) {
+      const newVariant = await this.createVariant(variant, menuItem);
+      createdVariants.push(newVariant);
+    }
+    return createdVariants;
+  }
+
+  private async updateExistingMenuItem(
+    menuItem: MenuItem,
+    updateData: UpdateMenuItemDto
+  ): Promise<MenuItem> {
+    Object.assign(menuItem, updateData);
+    return menuItem.save();
+  }
+
+  private handleMenuItemResponse(
+    menuItem: MenuItem | null
+  ): ApiResponse<MenuItem> {
     if (!menuItem) {
       return createResponse('NotFound', null, 'Menu item not found');
     }
+    return createResponse('OK', menuItem, 'Menu item retrieved successfully');
+  }
 
-    // Return a success response with the updated menu item
+  private handleError(message: string, error: any): ApiResponse<null> {
+    console.error(message, error);
     return createResponse(
-      'OK',
-      menuItem,
-      'Menu item avatar updated successfully',
+      'ServerError',
+      null,
+      'An error occurred while processing your request'
     );
   }
 }

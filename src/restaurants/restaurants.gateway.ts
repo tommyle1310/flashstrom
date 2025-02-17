@@ -4,7 +4,7 @@ import {
   SubscribeMessage,
   MessageBody,
   OnGatewayConnection,
-  OnGatewayDisconnect,
+  OnGatewayDisconnect
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { RestaurantsService } from './restaurants.service';
@@ -25,7 +25,7 @@ export class RestaurantsGateway
     private readonly restaurantsService: RestaurantsService,
     @Inject(forwardRef(() => DriversService))
     private readonly driverService: DriversService,
-    private eventEmitter: EventEmitter2,
+    private eventEmitter: EventEmitter2
   ) {}
 
   handleConnection(restaurant: Socket) {
@@ -44,11 +44,11 @@ export class RestaurantsGateway
 
   @SubscribeMessage('updateRestaurant')
   async handleUpdateRestaurant(
-    @MessageBody() updateRestaurantDto: UpdateRestaurantDto,
+    @MessageBody() updateRestaurantDto: UpdateRestaurantDto
   ) {
     const restaurant = await this.restaurantsService.update(
       updateRestaurantDto._id,
-      updateRestaurantDto,
+      updateRestaurantDto
     );
     this.server.emit('restaurantUpdated', restaurant);
     return restaurant;
@@ -72,11 +72,11 @@ export class RestaurantsGateway
     // Forward to driver service for processing
     const responsePrioritizeDrivers =
       await this.driverService.prioritizeAndAssignDriver(
-        availableDrivers.map((item) => ({
+        availableDrivers.map(item => ({
           _id: item._id,
-          location: { lat: item.lat, lng: item.lng },
+          location: { lat: item.lat, lng: item.lng }
         })),
-        orderDetails,
+        orderDetails
       );
     console.log('should here first', responsePrioritizeDrivers);
 
@@ -90,12 +90,12 @@ export class RestaurantsGateway
       const orderAssignment = {
         ...orderDetails,
         driver_id: selectedDriver._id,
-        driver_wage: FIXED_DELIVERY_DRIVER_WAGE,
+        driver_wage: FIXED_DELIVERY_DRIVER_WAGE
       };
 
       console.log(
         'chek  restaurantAcceptWithAvailableDrivers before order.assignedToDriver',
-        orderAssignment,
+        orderAssignment
       );
 
       // Emit the event for the DriversGateway to pick up

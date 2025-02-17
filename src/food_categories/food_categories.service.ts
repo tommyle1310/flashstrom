@@ -3,136 +3,128 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateFoodCategoryDto } from './dto/create-food_category.dto';
 import { UpdateFoodCategoryDto } from './dto/update-food_category.dto';
-import { FoodCategory } from './food_categories.schema'; // Assuming a FoodCategory schema similar to your original schema
-import { createResponse } from 'src/utils/createResponse'; // Utility for creating responses
+import { FoodCategory } from './food_categories.schema';
+import { createResponse } from 'src/utils/createResponse';
+import { ApiResponse } from 'src/utils/createResponse';
 
 @Injectable()
 export class FoodCategoriesService {
   constructor(
     @InjectModel('FoodCategory')
-    private readonly foodCategoryModel: Model<FoodCategory>,
+    private readonly foodCategoryModel: Model<FoodCategory>
   ) {}
 
-  // Create a new food category
-  async create(createFoodCategoryDto: CreateFoodCategoryDto): Promise<any> {
-    const { name, description, avatar } = createFoodCategoryDto;
-
-    // Check if the food category already exists
-    const existingCategory = await this.foodCategoryModel
-      .findOne({ name })
-      .exec();
-    if (existingCategory) {
-      return createResponse(
-        'DuplicatedRecord',
-        null,
-        'Food category with this name already exists',
+  async create(
+    createFoodCategoryDto: CreateFoodCategoryDto
+  ): Promise<ApiResponse<FoodCategory>> {
+    try {
+      const existingCategory = await this.findCategoryByName(
+        createFoodCategoryDto.name
       );
+      if (existingCategory) {
+        return this.handleDuplicateCategory();
+      }
+
+      const newCategory = await this.saveNewCategory(createFoodCategoryDto);
+      return createResponse(
+        'OK',
+        newCategory,
+        'Food category created successfully'
+      );
+    } catch (error) {
+      return this.handleError('Error creating food category:', error);
     }
+  }
 
-    // Create a new food category
-    const newFoodCategory = new this.foodCategoryModel({
-      name,
-      description,
-      avatar,
+  async findAll(): Promise<ApiResponse<FoodCategory[]>> {
+    try {
+      const categories = await this.foodCategoryModel.find().exec();
+      return createResponse('OK', categories, 'Fetched all food categories');
+    } catch (error) {
+      return this.handleError('Error fetching food categories:', error);
+    }
+  }
+
+  async findOne(id: string): Promise<ApiResponse<FoodCategory>> {
+    try {
+      const category = await this.foodCategoryModel.findById(id).exec();
+      return this.handleCategoryResponse(category);
+    } catch (error) {
+      return this.handleError('Error fetching food category:', error);
+    }
+  }
+
+  async update(
+    id: string,
+    updateFoodCategoryDto: UpdateFoodCategoryDto
+  ): Promise<ApiResponse<FoodCategory>> {
+    try {
+      const updatedCategory = await this.foodCategoryModel
+        .findByIdAndUpdate(id, updateFoodCategoryDto, { new: true })
+        .exec();
+      return this.handleCategoryResponse(updatedCategory);
+    } catch (error) {
+      return this.handleError('Error updating food category:', error);
+    }
+  }
+
+  async remove(id: string): Promise<ApiResponse<null>> {
+    try {
+      const deletedCategory = await this.foodCategoryModel
+        .findByIdAndDelete(id)
+        .exec();
+      if (!deletedCategory) {
+        return createResponse('NotFound', null, 'Food category not found');
+      }
+      return createResponse('OK', null, 'Food category deleted successfully');
+    } catch (error) {
+      return this.handleError('Error deleting food category:', error);
+    }
+  }
+
+  // Private helper methods
+  private async findCategoryByName(name: string): Promise<FoodCategory | null> {
+    return this.foodCategoryModel.findOne({ name }).exec();
+  }
+
+  private async saveNewCategory(
+    categoryData: CreateFoodCategoryDto
+  ): Promise<FoodCategory> {
+    const newCategory = new this.foodCategoryModel({
+      ...categoryData,
       created_at: new Date().getTime(),
-      updated_at: new Date().getTime(),
+      updated_at: new Date().getTime()
     });
+    return newCategory.save();
+  }
 
-    // Save the new food category and return a success response
-    await newFoodCategory.save();
+  private handleDuplicateCategory(): ApiResponse<null> {
     return createResponse(
-      'OK',
-      newFoodCategory,
-      'Food category created successfully',
+      'DuplicatedRecord',
+      null,
+      'Food category with this name already exists'
     );
   }
 
-  // Get all food categories
-  async findAll(): Promise<any> {
-    try {
-      const foodCategories = await this.foodCategoryModel.find().exec();
-      return createResponse(
-        'OK',
-        foodCategories,
-        'Fetched all food categories',
-      );
-    } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while fetching food categories',
-      );
-    }
-  }
-
-  // Get a food category by ID
-  async findOne(id: string): Promise<any> {
-    const foodCategory = await this.foodCategoryModel.findById(id).exec();
-    if (!foodCategory) {
+  private handleCategoryResponse(
+    category: FoodCategory | null
+  ): ApiResponse<FoodCategory> {
+    if (!category) {
       return createResponse('NotFound', null, 'Food category not found');
     }
-
-    try {
-      return createResponse(
-        'OK',
-        foodCategory,
-        'Fetched food category successfully',
-      );
-    } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while fetching the food category',
-      );
-    }
+    return createResponse(
+      'OK',
+      category,
+      'Food category retrieved successfully'
+    );
   }
 
-  // Update a food category by ID
-  async update(
-    id: string,
-    updateFoodCategoryDto: UpdateFoodCategoryDto,
-  ): Promise<any> {
-    const updatedFoodCategory = await this.foodCategoryModel
-      .findByIdAndUpdate(id, updateFoodCategoryDto, { new: true })
-      .exec();
-
-    if (!updatedFoodCategory) {
-      return createResponse('NotFound', null, 'Food category not found');
-    }
-
-    try {
-      return createResponse(
-        'OK',
-        updatedFoodCategory,
-        'Food category updated successfully',
-      );
-    } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while updating the food category',
-      );
-    }
-  }
-
-  // Delete a food category by ID
-  async remove(id: string): Promise<any> {
-    const deletedFoodCategory = await this.foodCategoryModel
-      .findByIdAndDelete(id)
-      .exec();
-
-    if (!deletedFoodCategory) {
-      return createResponse('NotFound', null, 'Food category not found');
-    }
-
-    try {
-      return createResponse('OK', null, 'Food category deleted successfully');
-    } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while deleting the food category',
-      );
-    }
+  private handleError(message: string, error: any): ApiResponse<null> {
+    console.error(message, error);
+    return createResponse(
+      'ServerError',
+      null,
+      'An error occurred while processing your request'
+    );
   }
 }

@@ -5,7 +5,7 @@ import {
   Body,
   Patch,
   Param,
-  Delete,
+  Delete
 } from '@nestjs/common';
 import { MenuItemsService } from './menu_items.service';
 import { CreateMenuItemDto } from './dto/create-menu_item.dto';
@@ -37,7 +37,7 @@ export class MenuItemsController {
   @Patch(':id')
   update(
     @Param('id') id: string,
-    @Body() updateMenuItemDto: UpdateMenuItemDto,
+    @Body() updateMenuItemDto: UpdateMenuItemDto
   ) {
     return this.menuItemsService.update(id, updateMenuItemDto); // ID passed as string
   }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -13,302 +13,220 @@ import { MenuItemVariant } from 'src/menu_item_variants/menu_item_variants.schem
 import { RestaurantsGateway } from '../restaurants/restaurants.gateway';
 import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
+import { ApiResponse } from 'src/utils/createResponse';
 
 @Injectable()
 export class OrdersService {
   constructor(
-    @InjectModel('Order') private readonly orderModel: Model<Order>, // Inject Order model
-    @InjectModel('MenuItem') private readonly menuItemModel: Model<MenuItem>, // Inject Order model
+    @InjectModel('Order') private readonly orderModel: Model<Order>,
+    @InjectModel('MenuItem') private readonly menuItemModel: Model<MenuItem>,
     @InjectModel('MenuItemVariant')
-    private readonly menuItemVariantModel: Model<MenuItemVariant>, // Inject Order model
+    private readonly menuItemVariantModel: Model<MenuItemVariant>,
     @InjectModel('AddressBook')
-    private readonly addressBookModel: Model<AddressBook>, // Inject Order model
-    @InjectModel('Customer') private readonly customerModel: Model<Customer>, // Inject Customer model
+    private readonly addressBookModel: Model<AddressBook>,
+    @InjectModel('Customer') private readonly customerModel: Model<Customer>,
     @InjectModel('Restaurant')
-    private readonly restaurantModel: Model<Restaurant>, // Inject Restaurant model
+    private readonly restaurantModel: Model<Restaurant>,
     private readonly restaurantsGateway: RestaurantsGateway,
-    private readonly driverGateway: DriversGateway,
+    private readonly driversGateway: DriversGateway
   ) {}
 
-  async createOrder(createOrderDto: CreateOrderDto): Promise<any> {
-    const {
-      customer_id,
-      restaurant_id,
-      status,
-      total_amount,
-      delivery_fee,
-      service_fee,
-      payment_status,
-      payment_method,
-      customer_location,
-      restaurant_location,
-      order_items,
-      customer_note,
-      restaurant_note,
-      order_time,
-      delivery_time,
-      tracking_info,
-    } = createOrderDto;
-
-    // Check if the customer exists
-    const customerExists = await this.customerModel
-      .findById(customer_id)
-      .exec();
-    if (!customerExists) {
-      return createResponse('NotFound', null, 'Customer not found');
-    }
-
-    // Check if the restaurant exists
-    const restaurantExists = await this.restaurantModel
-      .findById(restaurant_id)
-      .exec();
-    if (!restaurantExists) {
-      return createResponse('NotFound', null, 'Restaurant not found');
-    }
-
-    // Check if the restaurant is accepting orders
-    if (!restaurantExists.status.is_accepted_orders) {
-      return createResponse(
-        'NotAcceptingOrders',
-        null,
-        'Restaurant is not accepting orders',
-      );
-    }
-
-    // Check if the customer location exists in AddressBook
-    const customerAddressExists = await this.addressBookModel
-      .findById(customer_location)
-      .exec();
-    if (!customerAddressExists) {
-      return createResponse('NotFound', null, 'Customer address not found');
-    }
-
-    // Check if the restaurant location exists in AddressBook
-    const restaurantAddressExists = await this.addressBookModel
-      .findById(restaurant_location)
-      .exec();
-    if (!restaurantAddressExists) {
-      return createResponse('NotFound', null, 'Restaurant address not found');
-    }
-
-    // Check if all items and variants in order_items exist
-    for (const item of order_items) {
-      const itemExists = await this.menuItemModel.findById(item.item_id).exec();
-      if (!itemExists) {
-        return createResponse(
-          'NotFound',
-          null,
-          `Menu item ${item.item_id} not found`,
-        );
-      }
-      itemExists.purchase_count += 1;
-      await itemExists.save();
-      const variantExists = await this.menuItemVariantModel
-        .findById(item.variant_id)
-        .exec();
-      if (!variantExists) {
-        return createResponse(
-          'NotFound',
-          null,
-          `Variant ${item.variant_id} not found for item ${item.item_id}`,
-        );
-      }
-    }
-
-    // Create a new order instance
-    const newOrder = new this.orderModel({
-      customer_id,
-      restaurant_id,
-      status,
-      total_amount,
-      payment_status,
-      payment_method,
-      delivery_fee,
-      service_fee,
-      customer_location,
-      restaurant_location,
-      order_items,
-      customer_note,
-      restaurant_note,
-      order_time,
-      delivery_time,
-      tracking_info,
-      created_at: new Date().getTime(),
-      updated_at: new Date().getTime(),
-    });
-
+  async createOrder(createOrderDto: CreateOrderDto): Promise<ApiResponse<any>> {
     try {
-      // Save the new order
-      await newOrder.save();
+      const validationResult = await this.validateOrderData(createOrderDto);
+      if (validationResult !== true) {
+        return validationResult;
+      }
 
-      const dataResponseRestaurant =
-        await this.restaurantsGateway.handleNewOrder({
-          ...newOrder.toObject(),
-          driver_wage: FIXED_DELIVERY_DRIVER_WAGE,
-        });
+      const newOrder = await this.saveNewOrder(createOrderDto);
+      await this.updateMenuItemPurchaseCount(createOrderDto.order_items);
 
-      // await this.driverGateway.handleNewOrder(newOrder);
-      // console.log('Emitted incomingOrder event:', newOrder);
-
-      return createResponse(
-        'OK',
-        {
-          ...newOrder.toObject(),
-          driver_wage: FIXED_DELIVERY_DRIVER_WAGE,
-        },
-        'Order created successfully',
-      );
+      const orderResponse = await this.notifyRestaurantAndDriver(newOrder);
+      return createResponse('OK', orderResponse, 'Order created successfully');
     } catch (error) {
-      console.error('Error creating order:', error);
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while creating the order',
-      );
+      return this.handleError('Error creating order:', error);
     }
   }
 
-  async update(id: string, updateOrderDto: UpdateOrderDto): Promise<any> {
-    const {
-      customer_id,
-      restaurant_id,
-      status,
-      total_amount,
-      payment_status,
-      payment_method,
-      customer_location,
-      restaurant_location,
-      order_items,
-      customer_note,
-      restaurant_note,
-      order_time,
-      delivery_time,
-      tracking_info,
-    } = updateOrderDto;
-
-    // Check if the customer exists
-    const customerExists = await this.customerModel
-      .findById(customer_id)
-      .exec();
-    if (!customerExists) {
-      return createResponse('NotFound', null, 'Customer not found');
-    }
-
-    // Check if the restaurant exists
-    const restaurantExists = await this.restaurantModel
-      .findById(restaurant_id)
-      .exec();
-    if (!restaurantExists) {
-      return createResponse('NotFound', null, 'Restaurant not found');
-    }
-
-    // Check if the customer location exists in AddressBook
-    const customerAddressExists = await this.addressBookModel
-      .findById(customer_location)
-      .exec();
-    if (!customerAddressExists) {
-      return createResponse('NotFound', null, 'Customer address not found');
-    }
-
-    // Check if the restaurant location exists in AddressBook
-    const restaurantAddressExists = await this.addressBookModel
-      .findById(restaurant_location)
-      .exec();
-    if (!restaurantAddressExists) {
-      return createResponse('NotFound', null, 'Restaurant address not found');
-    }
-
-    // Check if all items and variants in order_items exist
-    for (const item of order_items) {
-      const itemExists = await this.menuItemModel.findById(item.item_id).exec();
-      if (!itemExists) {
-        return createResponse(
-          'NotFound',
-          null,
-          `Menu item ${item.item_id} not found`,
-        );
-      }
-
-      const variantExists = await this.menuItemVariantModel
-        .findById(item.variant_id)
-        .exec();
-      if (!variantExists) {
-        return createResponse(
-          'NotFound',
-          null,
-          `Variant ${item.variant_id} not found for item ${item.item_id}`,
-        );
-      }
-    }
-
-    // Update the order
-    const updatedOrder = await this.orderModel
-      .findByIdAndUpdate(id, updateOrderDto, { new: true })
-      .exec();
-
-    if (!updatedOrder) {
-      return createResponse('NotFound', null, 'Order not found');
-    }
-
+  async update(
+    id: string,
+    updateOrderDto: UpdateOrderDto
+  ): Promise<ApiResponse<Order>> {
     try {
-      return createResponse('OK', updatedOrder, 'Order updated successfully');
+      const validationResult = await this.validateOrderData(updateOrderDto);
+      if (validationResult !== true) {
+        return validationResult;
+      }
+
+      const updatedOrder = await this.orderModel
+        .findByIdAndUpdate(id, updateOrderDto, { new: true })
+        .exec();
+      return this.handleOrderResponse(updatedOrder);
     } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while updating the order',
-      );
+      return this.handleError('Error updating order:', error);
     }
   }
 
-  // Get all orders
-  async findAll(): Promise<any> {
+  async findAll(): Promise<ApiResponse<Order[]>> {
     try {
       const orders = await this.orderModel.find().exec();
       return createResponse('OK', orders, 'Fetched all orders');
     } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while fetching orders',
-      );
+      return this.handleError('Error fetching orders:', error);
     }
   }
 
-  // Get a specific order by ID
-  async findOne(id: string): Promise<any> {
-    const order = await this.orderModel.findById(id).exec();
+  async findOne(id: string): Promise<ApiResponse<Order>> {
+    try {
+      const order = await this.orderModel.findById(id).exec();
+      return this.handleOrderResponse(order);
+    } catch (error) {
+      return this.handleError('Error fetching order:', error);
+    }
+  }
+
+  async remove(id: string): Promise<ApiResponse<null>> {
+    try {
+      const deletedOrder = await this.orderModel.findByIdAndDelete(id).exec();
+      if (!deletedOrder) {
+        return createResponse('NotFound', null, 'Order not found');
+      }
+      return createResponse('OK', null, 'Order deleted successfully');
+    } catch (error) {
+      return this.handleError('Error deleting order:', error);
+    }
+  }
+
+  // Private helper methods
+  private async validateOrderData(
+    orderDto: CreateOrderDto | UpdateOrderDto
+  ): Promise<true | ApiResponse<null>> {
+    const {
+      customer_id,
+      restaurant_id,
+      customer_location,
+      restaurant_location,
+      order_items
+    } = orderDto;
+
+    if (!customer_id) {
+      return createResponse('MissingInput', null, 'Customer ID is required');
+    }
+
+    const customer = await this.customerModel.findById(customer_id).exec();
+    if (!customer) {
+      return createResponse('NotFound', null, 'Customer not found');
+    }
+
+    const restaurant = await this.restaurantModel
+      .findById(restaurant_id)
+      .exec();
+    if (!restaurant) {
+      return createResponse('NotFound', null, 'Restaurant not found');
+    }
+
+    if (!restaurant.status.is_accepted_orders) {
+      return createResponse(
+        'NotAcceptingOrders',
+        null,
+        'Restaurant is not accepting orders'
+      );
+    }
+
+    const customerAddress = await this.addressBookModel
+      .findById(customer_location)
+      .exec();
+    if (!customerAddress) {
+      return createResponse('NotFound', null, 'Customer address not found');
+    }
+
+    const restaurantAddress = await this.addressBookModel
+      .findById(restaurant_location)
+      .exec();
+    if (!restaurantAddress) {
+      return createResponse('NotFound', null, 'Restaurant address not found');
+    }
+
+    const itemValidation = await this.validateOrderItems(order_items);
+    if (itemValidation !== true) {
+      return itemValidation;
+    }
+
+    return true;
+  }
+
+  private async validateOrderItems(
+    orderItems: any[]
+  ): Promise<true | ApiResponse<null>> {
+    for (const item of orderItems) {
+      const menuItem = await this.menuItemModel.findById(item.item_id).exec();
+      if (!menuItem) {
+        return createResponse(
+          'NotFound',
+          null,
+          `Menu item ${item.item_id} not found`
+        );
+      }
+
+      const variant = await this.menuItemVariantModel
+        .findById(item.variant_id)
+        .exec();
+      if (!variant) {
+        return createResponse(
+          'NotFound',
+          null,
+          `Variant ${item.variant_id} not found for item ${item.item_id}`
+        );
+      }
+    }
+    return true;
+  }
+
+  private async saveNewOrder(orderData: CreateOrderDto): Promise<Order> {
+    const newOrder = new this.orderModel({
+      ...orderData,
+      created_at: new Date().getTime(),
+      updated_at: new Date().getTime()
+    });
+    return newOrder.save();
+  }
+
+  private async updateMenuItemPurchaseCount(orderItems: any[]): Promise<void> {
+    for (const item of orderItems) {
+      const menuItem = await this.menuItemModel.findById(item.item_id).exec();
+      if (menuItem) {
+        menuItem.purchase_count += 1;
+        await menuItem.save();
+      }
+    }
+  }
+
+  private async notifyRestaurantAndDriver(order: Order): Promise<any> {
+    const orderWithDriverWage = {
+      ...order.toObject(),
+      driver_wage: FIXED_DELIVERY_DRIVER_WAGE
+    };
+
+    await this.restaurantsGateway.handleNewOrder(orderWithDriverWage);
+    // Uncomment when driver notification is needed
+    // await this.driverGateway.handleNewOrder(order);
+
+    return orderWithDriverWage;
+  }
+
+  private handleOrderResponse(order: Order | null): ApiResponse<Order> {
     if (!order) {
       return createResponse('NotFound', null, 'Order not found');
     }
-
-    try {
-      return createResponse('OK', order, 'Fetched order successfully');
-    } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while fetching the order',
-      );
-    }
+    return createResponse('OK', order, 'Order retrieved successfully');
   }
 
-  // Delete an order by ID
-  async remove(id: string): Promise<any> {
-    const deletedOrder = await this.orderModel.findByIdAndDelete(id).exec();
-
-    if (!deletedOrder) {
-      return createResponse('NotFound', null, 'Order not found');
-    }
-
-    try {
-      return createResponse('OK', null, 'Order deleted successfully');
-    } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while deleting the order',
-      );
-    }
+  private handleError(message: string, error: any): ApiResponse<null> {
+    console.error(message, error);
+    return createResponse(
+      'ServerError',
+      null,
+      'An error occurred while processing your request'
+    );
   }
 }

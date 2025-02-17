@@ -7,10 +7,10 @@ import { FWalletController } from './fwallets.controller';
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: 'FWallet', schema: FWalletSchema },  // Register the FWallet model
-    ]),
+      { name: 'FWallet', schema: FWalletSchema } // Register the FWallet model
+    ])
   ],
   providers: [FWalletService],
-  controllers: [FWalletController],
+  controllers: [FWalletController]
 })
 export class FwalletsModule {}

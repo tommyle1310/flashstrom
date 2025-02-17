@@ -15,7 +15,7 @@ export enum Enum_UserType {
   CUSTOMER = 'CUSTOMER',
   RESTAURANT_OWNER = 'RESTAURANT_OWNER',
   CUSTOMER_CARE_REPRESENTATIVE = 'CUSTOMER_CARE_REPRESENTATIVE',
-  F_WALLET = 'F_WALLET',
+  F_WALLET = 'F_WALLET'
 }
 
 export enum Enum_AvatarType {
@@ -25,12 +25,12 @@ export enum Enum_AvatarType {
   RESTAURANT_OWNER = 'RESTAURANT_OWNER',
   CUSTOMER_CARE_REPRESENTATIVE = 'CUSTOMER_CARE_REPRESENTATIVE',
   F_WALLET = 'F_WALLET',
-  MENU_ITEM = 'MENU_ITEM',
+  MENU_ITEM = 'MENU_ITEM'
 }
 
 export enum Enum_AppTheme {
   LIGHT = 'light',
-  DARK = 'dark',
+  DARK = 'dark'
 }
 
 export type BasePayload = {

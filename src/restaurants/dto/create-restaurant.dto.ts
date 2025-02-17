@@ -4,7 +4,7 @@ import {
   IsNumber,
   IsObject,
   IsBoolean,
-  IsOptional,
+  IsOptional
 } from 'class-validator';
 
 export class CreateRestaurantDto {

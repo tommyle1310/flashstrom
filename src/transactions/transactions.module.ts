@@ -11,14 +11,14 @@ import { FwalletsModule } from 'src/fwallets/fwallets.module';
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: 'Transaction', schema: TransactionSchema }, // Register the FWallet model
+      { name: 'Transaction', schema: TransactionSchema } // Register the FWallet model
     ]),
     MongooseModule.forFeature([{ name: 'User', schema: UserSchema }]), // fwallet model
     UserModule,
     MongooseModule.forFeature([{ name: 'FWallet', schema: FWalletSchema }]), // fwallet model
-    FwalletsModule,
+    FwalletsModule
   ],
   controllers: [TransactionsController],
-  providers: [TransactionService],
+  providers: [TransactionService]
 })
 export class TransactionsModule {}

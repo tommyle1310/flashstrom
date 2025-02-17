@@ -12,19 +12,19 @@ export const PromotionSchema = new Schema({
   status: {
     type: String,
     enum: ['ACTIVE', 'EXPIRED', 'PENDING', 'CANCELLED'],
-    required: true,
+    required: true
   }, // Status of the promotion
   discount_type: {
     type: String,
     enum: ['PERCENTAGE', 'FIXED'],
-    required: true,
+    required: true
   }, // Type of discount (percentage or fixed)
   discount_value: { type: Number, required: true }, // Discount value (either percentage or fixed amount)
   food_categories: { type: [String], ref: 'FoodCategory', required: true }, // Food category IDs that are affected by this promotion
   minimum_order_value: { type: Number }, // Minimum order value to apply the promotion
   promotion_cost_price: { type: Number, required: true },
   created_at: { type: Number, required: false }, // Unix timestamp of creation
-  updated_at: { type: Number, required: false }, // Unix timestamp of last update
+  updated_at: { type: Number, required: false } // Unix timestamp of last update
 });
 
 // Pre-save hook to generate a custom ID with 'FF_PROMO_' prefix and a random UUID

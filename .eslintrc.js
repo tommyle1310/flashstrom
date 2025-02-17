@@ -24,14 +24,13 @@ module.exports = {
     'prettier/prettier': [
       'error',
       {
-        singleQuote: true,
+        endOfLine: 'lf',
         trailingComma: 'none',
+        singleQuote: true,
         printWidth: 80,
-        tabWidth: 2,
-        semi: true,
-        bracketSpacing: true,
-        arrowParens: 'avoid'
+        tabWidth: 2
       }
-    ]
+    ],
+    'comma-dangle': ['error', 'never']
   }
 };

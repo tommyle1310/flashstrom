@@ -12,11 +12,11 @@ export const CartItemSchema = new Schema({
       variant_id: { type: String, ref: 'MenuItemVariant' }, // Reference to MenuItemVariant
       variant_name: { type: String }, // Name of the variant (e.g., "Size M", "Size L")
       variant_price_at_time_of_addition: { type: Number }, // Price for this variant at time of addition
-      quantity: { type: Number, min: 1 }, // Quantity of this specific variant
-    },
+      quantity: { type: Number, min: 1 } // Quantity of this specific variant
+    }
   ], // Array to store different variants and their quantities
   created_at: { type: Number, required: false }, // Unix timestamp of when the item was added
-  updated_at: { type: Number, required: false }, // Unix timestamp of last update
+  updated_at: { type: Number, required: false } // Unix timestamp of last update
 });
 
 // Pre-save hook to generate a custom ID with 'FF_CART_ITEM_' prefix and a random UUID

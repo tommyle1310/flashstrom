@@ -10,11 +10,11 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
     private readonly reflector: Reflector,
-    private readonly authService: AuthService,  // Make sure to inject AuthService
+    private readonly authService: AuthService // Make sure to inject AuthService
   ) {}
 
   canActivate(
-    context: ExecutionContext,
+    context: ExecutionContext
   ): boolean | Promise<boolean> | Observable<boolean> {
     const request = context.switchToHttp().getRequest();
     const authorization = request.headers['authorization'];
@@ -30,11 +30,11 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
-      const payload = this.jwtService.verify(token);  // Verify the token
-      request.user = payload;  // Attach the decoded user data to the request
+      const payload = this.jwtService.verify(token); // Verify the token
+      request.user = payload; // Attach the decoded user data to the request
       return true;
     } catch (error) {
-      return false;  // Token verification failed
+      return false; // Token verification failed
     }
   }
 }

@@ -40,9 +40,9 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     MenuItemsModule,
     MenuItemVariantsModule,
     CartItemsModule,
-    OrdersModule, // Import the mailer module here
+    OrdersModule // Import the mailer module here
   ],
   controllers: [AppController],
-  providers: [AppService, EmailService],
+  providers: [AppService, EmailService]
 })
 export class AppModule {}
