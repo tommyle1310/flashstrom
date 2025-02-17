@@ -4,7 +4,7 @@ export const ResponseStatus = {
   InvalidFormatInput: {
     httpCode: 400,
     message: 'Invalid Format Input',
-    code: 2,
+    code: 2
   }, // Invalid Format Input
   Unauthorized: { httpCode: 401, message: 'Unauthorized', code: 3 }, // Unauthorized
   ServerError: { httpCode: 500, message: 'Server Error', code: -1 }, // Server Error
@@ -14,16 +14,18 @@ export const ResponseStatus = {
   InsufficientBalance: {
     httpCode: 400,
     message: 'Insufficient balance in the source wallet',
-    code: -5,
+    code: -5
   }, // Insufficient balance in the source wallet
   NotAcceptingOrders: {
     httpCode: 400,
     message: 'This restaurant is currently not accepting at the moment.',
-    code: -5,
+    code: -5
   },
   NoDrivers: {
     httpCode: 400,
     message: 'This restaurant is currently not accepting at the moment.',
-    code: -6,
-  },
+    code: -6
+  }
 };
+
+export const FIXED_DELIVERY_DRIVER_WAGE = 20;

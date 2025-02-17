@@ -268,7 +268,11 @@ export class DriversService {
       }
     } catch (err) {
       console.log(err);
-      throw err;
+      return createResponse(
+        'ServerError',
+        [],
+        'Something went wrong when searching drivers',
+      );
     }
 
     let restaurantLocation;

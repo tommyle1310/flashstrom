@@ -7,7 +7,9 @@ import { createResponse } from 'src/utils/createResponse';
 @Injectable()
 export class EmailService {
   constructor(
-    @Inject('MAIL_TRANSPORT') private readonly transport: nodemailer.Transporter, private readonly userService: UserService,
+    @Inject('MAIL_TRANSPORT')
+    private readonly transport: nodemailer.Transporter,
+    private readonly userService: UserService
   ) {}
 
   // Generate a random 6-digit verification code
@@ -15,11 +17,11 @@ export class EmailService {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
-async sendVerificationEmail(to: string) {
-  const verificationCode = this.generateVerificationCode();
-  
-  // Beautiful HTML email template with verification code
-  const emailTemplate = `
+  async sendVerificationEmail(to: string) {
+    const verificationCode = this.generateVerificationCode();
+
+    // Beautiful HTML email template with verification code
+    const emailTemplate = `
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -53,29 +55,28 @@ async sendVerificationEmail(to: string) {
     </html>
   `;
 
-  try {
-    // Sending email with the verification code inserted into the template
-    await this.transport.sendMail({
-      to,               // Recipient's email address
-      subject: 'Email Verification Code',
-      html: emailTemplate, // HTML content with injected verification code
-    });
-    console.log('Verification email sent!');
-    return verificationCode; // Return the code so it can be saved in the user record
-  } catch (error) {
-    console.error('Error sending verification email:', error);
+    try {
+      // Sending email with the verification code inserted into the template
+      await this.transport.sendMail({
+        to, // Recipient's email address
+        subject: 'Email Verification Code',
+        html: emailTemplate // HTML content with injected verification code
+      });
+      console.log('Verification email sent!');
+      return verificationCode; // Return the code so it can be saved in the user record
+    } catch (error) {
+      console.error('Error sending verification email:', error);
+    }
   }
-}
-
 
   // You can also keep the sendEmail method as is for general email sending
   async sendEmail(to: string, subject: string, text: string, html?: string) {
     try {
       await this.transport.sendMail({
-        to,       // Recipient's email address
-        subject,  // Email subject
-        text,     // Plain text content
-        html,     // HTML content (optional)
+        to, // Recipient's email address
+        subject, // Email subject
+        text, // Plain text content
+        html // HTML content (optional)
       });
       console.log('Email sent successfully');
     } catch (error) {
@@ -83,15 +84,14 @@ async sendVerificationEmail(to: string) {
     }
   }
 
-    async verifyEmail(email: string, code: string) {
-    const user = await this.userService.findOne({email});
-    
+  async verifyEmail(email: string, code: string) {
+    const user = await this.userService.findOne({ email });
+
     if (user && user.data.verification_code === +code) {
-        await this.userService.updateUser(
-          user.data._id,
-          { is_verified: true },
-        );
-      return createResponse('OK', null, 'Email verified successfully' )
+      await this.userService.updateUser(user.data._id as unknown as string, {
+        is_verified: true
+      });
+      return createResponse('OK', null, 'Email verified successfully');
     }
     return { message: 'Invalid verification code' };
   }

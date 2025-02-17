@@ -12,6 +12,7 @@ import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { DriversService } from 'src/drivers/drivers.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { forwardRef, Inject } from '@nestjs/common';
+import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
 
 @WebSocketGateway({ namespace: 'restaurant' })
 export class RestaurantsGateway
@@ -27,7 +28,7 @@ export class RestaurantsGateway
     private eventEmitter: EventEmitter2,
   ) {}
 
-  handleConnection(restaurant: Socket, ...args: any[]) {
+  handleConnection(restaurant: Socket) {
     console.log(`restaurant connected: ${restaurant.id}`);
   }
 
@@ -59,6 +60,7 @@ export class RestaurantsGateway
 
     // Notify the restaurant about the new order
     await this.server.to(restaurantId).emit('incomingOrder', order);
+    console.log('chck rs orer', order);
 
     return order;
   }
@@ -88,6 +90,7 @@ export class RestaurantsGateway
       const orderAssignment = {
         ...orderDetails,
         driver_id: selectedDriver._id,
+        driver_wage: FIXED_DELIVERY_DRIVER_WAGE,
       };
 
       console.log(

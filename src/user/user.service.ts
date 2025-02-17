@@ -1,150 +1,114 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { FilterQuery, Model } from 'mongoose';
 import { User } from './user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { createResponse } from 'src/utils/createResponse'; // Import the createResponse function
+import { createResponse } from 'src/utils/createResponse';
+import { ApiResponse } from 'src/utils/createResponse';
 
 @Injectable()
 export class UserService {
   constructor(@InjectModel('User') private readonly userModel: Model<User>) {}
 
-  // Create a new user
-  async createUser(createUserDto: CreateUserDto): Promise<any> {
-    const {
-      first_name,
-      last_name,
-      email,
-      phone,
-      user_type,
-      address,
-      created_at,
-      updated_at,
-      last_login,
-      avatar,
-      is_verified,
-    } = createUserDto;
-
-    // Check if user already exists by email (or other criteria)
-    const existingUser = await this.userModel.findOne({ email }).exec();
-    if (existingUser) {
-      return createResponse(
-        'DuplicatedRecord',
-        null,
-        'User with this email already exists',
-      );
-    }
+  async createUser(createUserDto: CreateUserDto): Promise<ApiResponse<User>> {
     try {
-      // Create new user
-      const newUser = new this.userModel({
-        first_name,
-        last_name,
-        email,
-        phone,
-        user_type,
-        address,
-        created_at,
-        updated_at,
-        last_login,
-        avatar,
-        is_verified,
-      });
+      const existingUser = await this.findUserByEmail(createUserDto.email);
+      if (existingUser) {
+        return this.handleDuplicateUser();
+      }
 
-      // Save and return success response
-      await newUser.save();
+      const newUser = await this.saveNewUser(createUserDto);
       return createResponse('OK', newUser, 'User created successfully');
     } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while creating the user',
-      );
+      return this.handleError('Error creating user:', error);
     }
   }
 
-  // Get all users
-  async getAllUsers(): Promise<any> {
+  async getAllUsers(): Promise<ApiResponse<User[]>> {
     try {
       const users = await this.userModel.find().exec();
-      return createResponse('OK', users, 'Fetched all users');
+      return createResponse('OK', users, 'Users retrieved successfully');
     } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while fetching users',
-      );
+      return this.handleError('Error fetching users:', error);
     }
   }
 
-  // Find a user by a specific condition (e.g., any field)
-async findOne(conditions: object): Promise<any> {
-  const user = await this.userModel.findOne(conditions).exec();
-  if (!user) {
-    return createResponse('NotFound', null, 'User not found');
+  async findOne(conditions: FilterQuery<User>): Promise<ApiResponse<User>> {
+    try {
+      const user = await this.userModel.findOne(conditions).exec();
+      return this.handleUserResponse(user);
+    } catch (error) {
+      return this.handleError('Error fetching user:', error);
+    }
   }
-  try {
-    return createResponse('OK', user, 'Fetched user successfully');
-  } catch (error) {
+
+  async getUserById(id: string): Promise<ApiResponse<User>> {
+    try {
+      const user = await this.userModel.findById(id).exec();
+      return this.handleUserResponse(user);
+    } catch (error) {
+      return this.handleError('Error fetching user by id:', error);
+    }
+  }
+
+  async updateUser(
+    id: string,
+    updateUserDto: UpdateUserDto
+  ): Promise<ApiResponse<User>> {
+    try {
+      const updatedUser = await this.userModel
+        .findByIdAndUpdate(id, updateUserDto, { new: true })
+        .exec();
+      return this.handleUserResponse(updatedUser);
+    } catch (error) {
+      return this.handleError('Error updating user:', error);
+    }
+  }
+
+  async deleteUser(id: string): Promise<ApiResponse<null>> {
+    try {
+      const deletedUser = await this.userModel.findByIdAndDelete(id).exec();
+      if (!deletedUser) {
+        return createResponse('NotFound', null, 'User not found');
+      }
+      return createResponse('OK', null, 'User deleted successfully');
+    } catch (error) {
+      return this.handleError('Error deleting user:', error);
+    }
+  }
+
+  // Private helper methods
+  private async findUserByEmail(email: string): Promise<User | null> {
+    return this.userModel.findOne({ email }).exec();
+  }
+
+  private async saveNewUser(userData: CreateUserDto): Promise<User> {
+    const newUser = new this.userModel(userData);
+    return newUser.save();
+  }
+
+  private handleDuplicateUser(): ApiResponse<null> {
     return createResponse(
-      'ServerError',
+      'DuplicatedRecord',
       null,
-      'An error occurred while fetching the user',
+      'User with this email already exists'
     );
   }
-}
 
-
-  // Get a user by ID
-  async getUserById(id: string): Promise<any> {
-    const user = await this.userModel.findById(id).exec();
+  private handleUserResponse(user: User | null): ApiResponse<User> {
     if (!user) {
       return createResponse('NotFound', null, 'User not found');
     }
-    try {
-      return createResponse('OK', user, 'Fetched user successfully');
-    } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while fetching the user',
-      );
-    }
+    return createResponse('OK', user, 'User retrieved successfully');
   }
 
-  // Update an existing user by ID
-  async updateUser(id: string, updateUserDto: UpdateUserDto): Promise<any> {
-    const updatedUser = await this.userModel
-      .findByIdAndUpdate(id, updateUserDto, { new: true })
-      .exec();
-    if (!updatedUser) {
-      return createResponse('NotFound', null, 'User not found');
-    }
-    try {
-      return createResponse('OK', updatedUser, 'User updated successfully');
-    } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while updating the user',
-      );
-    }
-  }
-
-  // Delete a user by ID
-  async deleteUser(id: string): Promise<any> {
-    const deletedUser = await this.userModel.findByIdAndDelete(id).exec();
-    if (!deletedUser) {
-      return createResponse('NotFound', null, 'User not found');
-    }
-    try {
-      return createResponse('OK', null, 'User deleted successfully');
-    } catch (error) {
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while deleting the user',
-      );
-    }
+  private handleError(message: string, error: any): ApiResponse<null> {
+    console.error(message, error);
+    return createResponse(
+      'ServerError',
+      null,
+      'An error occurred while processing your request'
+    );
   }
 }

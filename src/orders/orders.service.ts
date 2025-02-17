@@ -12,6 +12,7 @@ import { MenuItem } from 'src/menu_items/menu_items.schema';
 import { MenuItemVariant } from 'src/menu_item_variants/menu_item_variants.schema';
 import { RestaurantsGateway } from '../restaurants/restaurants.gateway';
 import { DriversGateway } from 'src/drivers/drivers.gateway';
+import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
 
 @Injectable()
 export class OrdersService {
@@ -141,12 +142,22 @@ export class OrdersService {
       await newOrder.save();
 
       const dataResponseRestaurant =
-        await this.restaurantsGateway.handleNewOrder(newOrder);
+        await this.restaurantsGateway.handleNewOrder({
+          ...newOrder.toObject(),
+          driver_wage: FIXED_DELIVERY_DRIVER_WAGE,
+        });
 
       // await this.driverGateway.handleNewOrder(newOrder);
       // console.log('Emitted incomingOrder event:', newOrder);
 
-      return createResponse('OK', newOrder, 'Order created successfully');
+      return createResponse(
+        'OK',
+        {
+          ...newOrder.toObject(),
+          driver_wage: FIXED_DELIVERY_DRIVER_WAGE,
+        },
+        'Order created successfully',
+      );
     } catch (error) {
       console.error('Error creating order:', error);
       return createResponse(
