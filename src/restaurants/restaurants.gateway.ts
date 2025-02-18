@@ -68,7 +68,6 @@ export class RestaurantsGateway
   @SubscribeMessage('restaurantAcceptWithAvailableDrivers')
   async handleRestaurantAcceptWithDrivers(@MessageBody() data: any) {
     const { availableDrivers, orderDetails } = data;
-
     // Forward to driver service for processing
     const responsePrioritizeDrivers =
       await this.driverService.prioritizeAndAssignDriver(

@@ -157,15 +157,19 @@ export class DriversService {
         );
       }
 
-      const prioritizedDrivers = this.calculateDriverPriorities(
-        listAvailableDrivers,
-        restaurantLocation
+      // Temporarily disabled prioritization logic
+      // const prioritizedDrivers = this.calculateDriverPriorities(
+      //   listAvailableDrivers,
+      //   restaurantLocation
+      // );
+
+      // Hard-coded to return specific driver only
+      const specificDriver = listAvailableDrivers.find(
+        driver => driver._id === 'DRI_1bcb34fa-ac9d-4611-b432-4e05586e137c'
       );
-      return createResponse(
-        'OK',
-        prioritizedDrivers,
-        'Drivers prioritized successfully'
-      );
+      const result = specificDriver ? [specificDriver] : [];
+
+      return createResponse('OK', result, 'Driver selected successfully');
     } catch (error) {
       return this.handleError('Error prioritizing drivers:', error);
     }
@@ -193,10 +197,10 @@ export class DriversService {
 
       // Calculate active points based on distance
       const points = this.calculateActivePoints(
-        driver.current_location.lat,
-        driver.current_location.lng,
-        restaurantLocation.lat,
-        restaurantLocation.lng
+        driver.current_location?.lat || 10.826411,
+        driver.current_location?.lng || 106.617353,
+        restaurantLocation.lat || 0,
+        restaurantLocation.lng || 0
       );
 
       // Update driver

@@ -135,6 +135,7 @@ export class DriversGateway
       restaurantLocation: { lat: number; lng: number };
     }
   ) {
+    console.log('chek data', data);
     try {
       // Update order with driver and status
       const updatedOrder = await this.ordersService.update(data.orderId, {
@@ -142,8 +143,10 @@ export class DriversGateway
         status: 'IN_PROGRESS',
         tracking_info: 'PREPARING'
       });
+      console.log('chek updated order', updatedOrder);
 
       if (updatedOrder.EC === 0) {
+        console.log('chek updated order', updatedOrder);
         const order = updatedOrder.data;
 
         // Update driver's current orders and calculate active points
@@ -152,8 +155,10 @@ export class DriversGateway
           order._id as string,
           data.restaurantLocation
         );
+        console.log('chek updated driver', updatedDriver);
 
         if (updatedDriver.EC === 0) {
+          console.log('Updated driver:', updatedDriver.data);
           // Notify all parties about the order update
           this.notifyAllParties(order);
           return { success: true, order, driver: updatedDriver.data };

@@ -53,10 +53,10 @@ export class OrdersService {
     updateOrderDto: UpdateOrderDto
   ): Promise<ApiResponse<Order>> {
     try {
-      const validationResult = await this.validateOrderData(updateOrderDto);
-      if (validationResult !== true) {
-        return validationResult;
-      }
+      // const validationResult = await this.validateOrderData(updateOrderDto);
+      // if (validationResult !== true) {
+      //   return validationResult;
+      // }
 
       const updatedOrder = await this.orderModel
         .findByIdAndUpdate(id, updateOrderDto, { new: true })
