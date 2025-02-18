@@ -12,6 +12,8 @@ import { CustomerSchema } from 'src/customers/customer.schema';
 import { RestaurantSchema } from 'src/restaurants/restaurants.schema';
 import { RestaurantsModule } from 'src/restaurants/restaurants.module';
 import { OrdersModule } from 'src/orders/orders.module';
+import { OrdersGateway } from 'src/orders/orders.gateway';
+import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
 
 @Module({
   imports: [
@@ -27,7 +29,13 @@ import { OrdersModule } from 'src/orders/orders.module';
     forwardRef(() => OrdersModule)
   ],
   controllers: [DriversController],
-  providers: [DriversService, DriversGateway, AddressBookService],
+  providers: [
+    DriversService,
+    DriversGateway,
+    AddressBookService,
+    RestaurantsGateway,
+    OrdersGateway
+  ],
   exports: [DriversService, DriversGateway]
 })
 export class DriversModule {}

@@ -12,8 +12,6 @@ import { OrdersGateway } from './orders.gateway';
 import { DriversModule } from 'src/drivers/drivers.module';
 import { DriverSchema } from 'src/drivers/drivers.schema';
 import { RestaurantsModule } from 'src/restaurants/restaurants.module';
-import { DriversGateway } from 'src/drivers/drivers.gateway';
-import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
 import { CustomersModule } from 'src/customers/customers.module';
 import { MenuItemsModule } from 'src/menu_items/menu_items.module';
 import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variants.module';
@@ -38,7 +36,7 @@ import { AddressBook } from 'src/address_book/address_book.module';
     forwardRef(() => DriversModule)
   ],
   controllers: [OrdersController],
-  providers: [OrdersService, OrdersGateway, RestaurantsGateway, DriversGateway],
+  providers: [OrdersService, OrdersGateway],
   exports: [OrdersService, OrdersGateway]
 })
 export class OrdersModule {}

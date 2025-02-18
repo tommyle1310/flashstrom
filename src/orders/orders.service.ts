@@ -11,7 +11,7 @@ import { AddressBook } from 'src/address_book/address_book.schema';
 import { MenuItem } from 'src/menu_items/menu_items.schema';
 import { MenuItemVariant } from 'src/menu_item_variants/menu_item_variants.schema';
 import { RestaurantsGateway } from '../restaurants/restaurants.gateway';
-import { DriversGateway } from 'src/drivers/drivers.gateway';
+// import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
 import { ApiResponse } from 'src/utils/createResponse';
 
@@ -27,8 +27,8 @@ export class OrdersService {
     @InjectModel('Customer') private readonly customerModel: Model<Customer>,
     @InjectModel('Restaurant')
     private readonly restaurantModel: Model<Restaurant>,
-    private readonly restaurantsGateway: RestaurantsGateway,
-    private readonly driversGateway: DriversGateway
+    private readonly restaurantsGateway: RestaurantsGateway
+    // private readonly driversGateway: DriversGateway
   ) {}
 
   async createOrder(createOrderDto: CreateOrderDto): Promise<ApiResponse<any>> {
