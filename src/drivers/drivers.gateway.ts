@@ -14,8 +14,14 @@ import { UpdateDriverDto } from './dto/update-driver.dto';
 import { RestaurantsService } from 'src/restaurants/restaurants.service';
 import { forwardRef, Inject } from '@nestjs/common';
 import { OrdersService } from 'src/orders/orders.service';
+import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
 
-@WebSocketGateway({ namespace: 'driver' })
+@WebSocketGateway({
+  namespace: 'driver',
+  cors: {
+    origin: '*'
+  }
+})
 export class DriversGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {
@@ -27,7 +33,8 @@ export class DriversGateway
     @Inject(forwardRef(() => DriversService))
     private readonly driverService: DriversService,
     private eventEmitter: EventEmitter2,
-    private readonly ordersService: OrdersService
+    private readonly ordersService: OrdersService,
+    private readonly driverProgressStageService: DriverProgressStagesService
   ) {}
 
   afterInit() {
@@ -172,20 +179,54 @@ export class DriversGateway
     }
   }
 
+  @SubscribeMessage('updateDriverProgress')
+  async handleDriverProgressUpdate(
+    @MessageBody()
+    data: {
+      stageId: string;
+      newState: string;
+      location: { latitude: number; longitude: number };
+      notes?: string;
+    }
+  ) {
+    try {
+      const result = await this.driverProgressStageService.updateStage(
+        data.stageId,
+        {
+          current_state: data.newState,
+          details: {
+            location: data.location,
+            notes: data.notes
+          }
+        }
+      );
+
+      if (result.EC === 0) {
+        this.server
+          .to(result.data.driver_id)
+          .emit('progressUpdated', result.data);
+        return { success: true, stage: result.data };
+      }
+
+      return { success: false, message: 'Failed to update progress' };
+    } catch (error) {
+      console.error('Error in handleDriverProgressUpdate:', error);
+      return { success: false, message: 'Internal server error' };
+    }
+  }
+
   private notifyAllParties(order: any) {
-    // Notify restaurant
-    this.server
-      .to(`restaurant_${order.restaurant_id}`)
-      .emit('orderStatusUpdated', order);
+    const restaurantRoom = `restaurant_${order.restaurant_id}`;
+    const customerRoom = `customer_${order.customer_id}`;
+    const driverRoom = `driver_${order.driver_id}`;
 
-    // Notify customer
-    this.server
-      .to(`customer_${order.customer_id}`)
-      .emit('orderStatusUpdated', order);
+    console.log(`Notifying restaurant room: ${restaurantRoom}`);
+    this.server.to(restaurantRoom).emit('orderStatusUpdated', order);
 
-    // Notify driver
-    this.server
-      .to(`driver_${order.driver_id}`)
-      .emit('orderStatusUpdated', order);
+    console.log(`Notifying customer room: ${customerRoom}`);
+    this.server.to(customerRoom).emit('orderStatusUpdated', order);
+
+    console.log(`Notifying driver room: ${driverRoom}`);
+    this.server.to(driverRoom).emit('orderStatusUpdated', order);
   }
 }

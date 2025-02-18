@@ -14,6 +14,7 @@ import { RestaurantsGateway } from '../restaurants/restaurants.gateway';
 // import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
 import { ApiResponse } from 'src/utils/createResponse';
+import { DriverProgressStage } from 'src/driver_progress_stages/driver_progress_stages.schema';
 
 @Injectable()
 export class OrdersService {
@@ -27,7 +28,9 @@ export class OrdersService {
     @InjectModel('Customer') private readonly customerModel: Model<Customer>,
     @InjectModel('Restaurant')
     private readonly restaurantModel: Model<Restaurant>,
-    private readonly restaurantsGateway: RestaurantsGateway
+    private readonly restaurantsGateway: RestaurantsGateway,
+    @InjectModel('DriverProgressStage')
+    private readonly driverProgressStageModel: Model<DriverProgressStage>
     // private readonly driversGateway: DriversGateway
   ) {}
 
@@ -53,15 +56,74 @@ export class OrdersService {
     updateOrderDto: UpdateOrderDto
   ): Promise<ApiResponse<Order>> {
     try {
-      // const validationResult = await this.validateOrderData(updateOrderDto);
-      // if (validationResult !== true) {
-      //   return validationResult;
-      // }
+      const order = await this.orderModel.findById(id);
+      if (!order) {
+        return createResponse('NotFound', null, 'Order not found');
+      }
+
+      if (updateOrderDto.driver_id || updateOrderDto.status) {
+        if (updateOrderDto.driver_id && !order.driver_id) {
+          await this.driverProgressStageModel.create({
+            driver_id: updateOrderDto.driver_id,
+            order_ids: [id],
+            current_state: 'driver_ready',
+            state_history: [
+              {
+                state: 'driver_ready',
+                status: 'in_progress',
+                timestamp: new Date(),
+                duration: 0
+              }
+            ]
+          });
+        }
+
+        if (updateOrderDto.status) {
+          const progressStage = await this.driverProgressStageModel.findOne({
+            order_ids: id,
+            current_state: { $ne: 'delivery_complete' }
+          });
+
+          if (progressStage) {
+            let newState = '';
+            switch (updateOrderDto.status) {
+              case 'ACCEPTED':
+                newState = 'waiting_for_pickup';
+                break;
+              case 'IN_PROGRESS':
+                newState = 'restaurant_pickup';
+                break;
+              case 'DELIVERED':
+                newState = 'delivery_complete';
+                break;
+            }
+
+            if (newState) {
+              await this.driverProgressStageModel.findByIdAndUpdate(
+                progressStage._id,
+                {
+                  current_state: newState,
+                  previous_state: progressStage.current_state,
+                  $push: {
+                    state_history: {
+                      state: newState,
+                      status: 'in_progress',
+                      timestamp: new Date(),
+                      duration: 0
+                    }
+                  }
+                }
+              );
+            }
+          }
+        }
+      }
 
       const updatedOrder = await this.orderModel
         .findByIdAndUpdate(id, updateOrderDto, { new: true })
         .exec();
-      return this.handleOrderResponse(updatedOrder);
+
+      return createResponse('OK', updatedOrder, 'Order updated successfully');
     } catch (error) {
       return this.handleError('Error updating order:', error);
     }

@@ -14,7 +14,12 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { forwardRef, Inject } from '@nestjs/common';
 import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
 
-@WebSocketGateway({ namespace: 'restaurant' })
+@WebSocketGateway({
+  namespace: 'restaurant',
+  cors: {
+    origin: '*'
+  }
+})
 export class RestaurantsGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {

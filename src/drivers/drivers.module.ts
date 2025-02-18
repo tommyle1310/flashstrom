@@ -14,6 +14,7 @@ import { RestaurantsModule } from 'src/restaurants/restaurants.module';
 import { OrdersModule } from 'src/orders/orders.module';
 import { OrdersGateway } from 'src/orders/orders.gateway';
 import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
+import { DriverProgressStagesModule } from 'src/driver_progress_stages/driver_progress_stages.module';
 
 @Module({
   imports: [
@@ -26,7 +27,8 @@ import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
     ]),
     AddressBook,
     forwardRef(() => RestaurantsModule),
-    forwardRef(() => OrdersModule)
+    forwardRef(() => OrdersModule),
+    DriverProgressStagesModule
   ],
   controllers: [DriversController],
   providers: [

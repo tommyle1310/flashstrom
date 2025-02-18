@@ -9,7 +9,11 @@ import { Server } from 'socket.io';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 
-@WebSocketGateway()
+@WebSocketGateway({
+  cors: {
+    origin: '*' // Or your specific frontend URL
+  }
+})
 export class OrdersGateway {
   @WebSocketServer()
   server: Server;
