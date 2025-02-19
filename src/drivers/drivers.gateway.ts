@@ -72,7 +72,7 @@ export class DriversGateway
   @SubscribeMessage('joinRoomDriver')
   handleJoinRoom(client: Socket, driverId: string) {
     client.join(driverId);
-    console.log(`Driver joined room: ${driverId}`);
+    console.log(`driver_${driverId}`);
   }
 
   // Handle updating a driver's information

@@ -20,6 +20,7 @@ import { MenuItemVariantsModule } from './menu_item_variants/menu_item_variants.
 import { CartItemsModule } from './cart_items/cart_items.module';
 import { OrdersModule } from './orders/orders.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { DriverProgressStagesModule } from './driver_progress_stages/driver_progress_stages.module';
 
 @Module({
   imports: [
@@ -40,7 +41,8 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     MenuItemsModule,
     MenuItemVariantsModule,
     CartItemsModule,
-    OrdersModule // Import the mailer module here
+    OrdersModule, // Import the mailer module here
+    DriverProgressStagesModule
   ],
   controllers: [AppController],
   providers: [AppService, EmailService]

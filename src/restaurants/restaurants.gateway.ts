@@ -33,18 +33,18 @@ export class RestaurantsGateway
     private eventEmitter: EventEmitter2
   ) {}
 
-  handleConnection(restaurant: Socket) {
-    console.log(`restaurant connected: ${restaurant.id}`);
+  handleConnection(client: Socket) {
+    console.log(`Restaurant connected: ${client.id}`);
   }
 
-  handleDisconnect(restaurant: Socket) {
-    console.log(`restaurant disconnected: ${restaurant.id}`);
+  handleDisconnect(client: Socket) {
+    console.log(`Restaurant disconnected: ${client.id}`);
   }
 
   @SubscribeMessage('joinRoomRestaurant')
-  handleJoinRoom(restaurant: Socket, restaurantId: string) {
-    restaurant.join(restaurantId);
-    console.log(`Restaurant joined room: ${restaurantId}`);
+  handleJoinRoom(client: Socket, restaurantId: string) {
+    client.join(`restaurant_${restaurantId}`);
+    console.log(`restaurant_${restaurantId}`);
   }
 
   @SubscribeMessage('updateRestaurant')
@@ -63,9 +63,14 @@ export class RestaurantsGateway
   async handleNewOrder(@MessageBody() order: any) {
     const restaurantId = await order.restaurant_id;
 
-    // Notify the restaurant about the new order
-    await this.server.to(restaurantId).emit('incomingOrder', order);
-    console.log('chck rs orer', order);
+    // Add this log to verify the room name matches
+    console.log('Emitting to room:', `restaurant_${restaurantId}`);
+
+    // Update the room name to match the join format
+    await this.server
+      .to(`restaurant_${restaurantId}`)
+      .emit('incomingOrder', order);
+    console.log('chck rs orer', restaurantId);
 
     return order;
   }

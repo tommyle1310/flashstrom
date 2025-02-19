@@ -56,7 +56,6 @@ export const DriverProgressStageSchema = new Schema({
       'waiting_for_pickup',
       'restaurant_pickup',
       'en_route_to_customer',
-      'customer_delivery',
       'delivery_complete'
     ],
     required: true
