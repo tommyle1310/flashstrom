@@ -311,10 +311,15 @@ export class DriversService {
     }
   }
 
-  private async getRestaurantLocation(locationId: string): Promise<any> {
-    const response =
-      await this.addressBookService.getAddressBookById(locationId);
-    return response.EC === 0 ? response.data.location : null;
+  private async getRestaurantLocation(
+    location: { lat: number; lng: number } | string
+  ): Promise<any> {
+    if (typeof location === 'string') {
+      const response =
+        await this.addressBookService.getAddressBookById(location);
+      return response.EC === 0 ? response.data.location : null;
+    }
+    return location;
   }
 
   private calculateDriverPriorities(

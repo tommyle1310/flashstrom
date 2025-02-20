@@ -159,6 +159,75 @@ export class OrdersService {
     }
   }
 
+  async updateOrderStatus(
+    orderId: string,
+    newStatus:
+      | 'PENDING'
+      | 'ACCEPTED'
+      | 'IN_PROGRESS'
+      | 'DELIVERED'
+      | 'CANCELLED'
+  ): Promise<ApiResponse<Order>> {
+    try {
+      const order = await this.orderModel.findById(orderId);
+      if (!order) {
+        return createResponse('NotFound', null, 'Order not found');
+      }
+
+      // Update driver progress stage if applicable
+      const progressStage = await this.driverProgressStageModel.findOne({
+        order_ids: orderId,
+        current_state: { $ne: 'delivery_complete' }
+      });
+
+      if (progressStage) {
+        let newState = '';
+        switch (newStatus) {
+          case 'ACCEPTED':
+            newState = 'waiting_for_pickup';
+            break;
+          case 'IN_PROGRESS':
+            newState = 'restaurant_pickup';
+            break;
+          case 'DELIVERED':
+            newState = 'delivery_complete';
+            break;
+        }
+
+        if (newState) {
+          await this.driverProgressStageModel.findByIdAndUpdate(
+            progressStage._id,
+            {
+              current_state: newState,
+              previous_state: progressStage.current_state,
+              $push: {
+                state_history: {
+                  state: newState,
+                  status: 'in_progress',
+                  timestamp: new Date(),
+                  duration: 0
+                }
+              }
+            }
+          );
+        }
+      }
+
+      // Update order status
+      const updatedOrder = await this.orderModel
+        .findByIdAndUpdate(orderId, { status: newStatus }, { new: true })
+        .exec();
+
+      return createResponse(
+        'OK',
+        updatedOrder,
+        'Order status updated successfully'
+      );
+    } catch (error) {
+      return this.handleError('Error updating order status:', error);
+    }
+  }
+
   // Private helper methods
   private async validateOrderData(
     orderDto: CreateOrderDto | UpdateOrderDto

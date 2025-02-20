@@ -15,12 +15,16 @@ import { RestaurantsService } from 'src/restaurants/restaurants.service';
 import { forwardRef, Inject } from '@nestjs/common';
 import { OrdersService } from 'src/orders/orders.service';
 import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
+import { UpdateDriverProgressStageDto } from 'src/driver_progress_stages/dto/update-driver-progress-stage.dto';
 
 @WebSocketGateway({
   namespace: 'driver',
   cors: {
-    origin: '*'
-  }
+    origin: ['*', 'localhost:1310'],
+    methods: ['GET', 'POST'],
+    credentials: true
+  },
+  transports: ['websocket']
 })
 export class DriversGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
@@ -70,9 +74,25 @@ export class DriversGateway
 
   // Handle joining a specific room for the driver
   @SubscribeMessage('joinRoomDriver')
-  handleJoinRoom(client: Socket, driverId: string) {
-    client.join(driverId);
-    console.log(`driver_${driverId}`);
+  handleJoinRoom(client: Socket, data: any) {
+    const driverId =
+      typeof data === 'string' ? data : data?.channel || data?._id || data;
+
+    try {
+      client.join(`driver_${driverId}`);
+      console.log(`driver_${driverId}`);
+
+      return {
+        event: 'joinRoomDriver',
+        data: `Joined driver_${driverId}`
+      };
+    } catch (error) {
+      console.error('❌ Error joining room:', error);
+      return {
+        event: 'error',
+        data: 'Failed to join room'
+      };
+    }
   }
 
   // Handle updating a driver's information
@@ -115,11 +135,11 @@ export class DriversGateway
   handleOrderAssignedToDriver(orderAssignment: any) {
     try {
       const driverId = orderAssignment.driver_id;
-      console.log(
-        'Received order assignment for driver:',
-        driverId,
-        orderAssignment
-      );
+      // console.log(
+      //   'Received order assignment for driver:',
+      //   driverId,
+      //   orderAssignment
+      // );
       if (driverId) {
         this.server
           .to(driverId)
@@ -142,36 +162,31 @@ export class DriversGateway
       restaurantLocation: { lat: number; lng: number };
     }
   ) {
-    console.log('chek data', data);
     try {
-      // Update order with driver and status
-      const updatedOrder = await this.ordersService.update(data.orderId, {
-        driver_id: data.driverId,
-        status: 'IN_PROGRESS',
-        tracking_info: 'PREPARING'
+      // First update the driver assignment
+      await this.ordersService.update(data.orderId, {
+        driver_id: data.driverId
       });
-      console.log('chek updated order', updatedOrder);
 
+      // Then update the status
+      const updatedOrder = await this.ordersService.updateOrderStatus(
+        data.orderId,
+        'IN_PROGRESS'
+      );
       if (updatedOrder.EC === 0) {
-        console.log('chek updated order', updatedOrder);
         const order = updatedOrder.data;
-
-        // Update driver's current orders and calculate active points
         const updatedDriver = await this.driverService.addOrderToDriver(
           data.driverId,
           order._id as string,
           data.restaurantLocation
         );
-        console.log('chek updated driver', updatedDriver);
 
         if (updatedDriver.EC === 0) {
-          console.log('Updated driver:', updatedDriver.data);
-          // Notify all parties about the order update
+          console.log('🔍 Driver accepted order:', updatedDriver.data);
           this.notifyAllParties(order);
           return { success: true, order, driver: updatedDriver.data };
         }
       }
-
       return { success: false, message: 'Failed to update order or driver' };
     } catch (error) {
       console.error('Error in handleDriverAcceptOrder:', error);
@@ -184,24 +199,24 @@ export class DriversGateway
     @MessageBody()
     data: {
       stageId: string;
-      newState: string;
-      location: { latitude: number; longitude: number };
-      notes?: string;
+      newState: UpdateDriverProgressStageDto;
     }
   ) {
     try {
+      console.log('check what hppen', data);
       const result = await this.driverProgressStageService.updateStage(
         data.stageId,
         {
-          current_state: data.newState,
+          current_state: data.newState.current_state,
           details: {
-            location: data.location,
-            notes: data.notes
+            location: data.newState.details?.location,
+            notes: data.newState.details?.notes
           }
         }
       );
 
       if (result.EC === 0) {
+        console.log('ok result', result.data);
         this.server
           .to(result.data.driver_id)
           .emit('progressUpdated', result.data);

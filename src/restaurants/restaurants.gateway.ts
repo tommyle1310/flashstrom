@@ -4,7 +4,8 @@ import {
   SubscribeMessage,
   MessageBody,
   OnGatewayConnection,
-  OnGatewayDisconnect
+  OnGatewayDisconnect,
+  OnGatewayInit
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { RestaurantsService } from './restaurants.service';
@@ -13,15 +14,45 @@ import { DriversService } from 'src/drivers/drivers.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { forwardRef, Inject } from '@nestjs/common';
 import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
+import { Location } from 'src/types/Order';
+
+interface AvailableDriver {
+  _id: string;
+  lat: number;
+  lng: number;
+}
+
+interface RestaurantAcceptData {
+  availableDrivers: AvailableDriver[];
+  orderDetails: {
+    restaurant_id: string;
+    restaurant_location: Location;
+    customer_location: Location;
+    status: 'PENDING' | 'ACCEPTED' | 'IN_PROGRESS' | 'DELIVERED' | 'CANCELLED';
+    payment_method: 'COD' | 'FWallet';
+    total_amount: number;
+    customer_id: string;
+    delivery_address: string;
+    items: any[];
+    order_items: any[];
+    tracking_info: any;
+    customer_note: string;
+    restaurant_note: string;
+    order_time: number;
+  };
+}
 
 @WebSocketGateway({
   namespace: 'restaurant',
   cors: {
-    origin: '*'
-  }
+    origin: ['*', 'localhost:1310'],
+    methods: ['GET', 'POST'],
+    credentials: true
+  },
+  transports: ['websocket']
 })
 export class RestaurantsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {
   @WebSocketServer()
   server: Server;
@@ -33,18 +64,39 @@ export class RestaurantsGateway
     private eventEmitter: EventEmitter2
   ) {}
 
+  afterInit() {
+    console.log('Restaurant Gateway initialized!');
+  }
+
   handleConnection(client: Socket) {
-    console.log(`Restaurant connected: ${client.id}`);
+    console.log('⚡️ Client connected to restaurant namespace:', client.id);
   }
 
   handleDisconnect(client: Socket) {
-    console.log(`Restaurant disconnected: ${client.id}`);
+    console.log('❌ Client disconnected from restaurant namespace:', client.id);
   }
 
   @SubscribeMessage('joinRoomRestaurant')
-  handleJoinRoom(client: Socket, restaurantId: string) {
-    client.join(`restaurant_${restaurantId}`);
-    console.log(`restaurant_${restaurantId}`);
+  handleJoinRoom(client: Socket, data: any) {
+    const restaurantId =
+      typeof data === 'string' ? data : data?.channel || data?._id || data;
+
+    try {
+      client.join(`restaurant_${restaurantId}`);
+      console.log('✅ Successfully joined room');
+      console.log(`restaurant_${restaurantId}`);
+
+      return {
+        event: 'joinRoomRestaurant',
+        data: `Joined restaurant_${restaurantId}`
+      };
+    } catch (error) {
+      console.error('❌ Error joining room:', error);
+      return {
+        event: 'error',
+        data: 'Failed to join room'
+      };
+    }
   }
 
   @SubscribeMessage('updateRestaurant')
@@ -76,15 +128,24 @@ export class RestaurantsGateway
   }
 
   @SubscribeMessage('restaurantAcceptWithAvailableDrivers')
-  async handleRestaurantAcceptWithDrivers(@MessageBody() data: any) {
+  async handleRestaurantAcceptWithDrivers(
+    @MessageBody() data: RestaurantAcceptData
+  ) {
     const { availableDrivers, orderDetails } = data;
-    // Forward to driver service for processing
+    // Fix the mapping to match the expected structure
+    const mappedDrivers = availableDrivers.map(item => ({
+      _id: item._id,
+      location: {
+        lat: item.lat,
+        lng: item.lng
+      },
+      active_points: 0,
+      current_order_id: []
+    }));
+
     const responsePrioritizeDrivers =
       await this.driverService.prioritizeAndAssignDriver(
-        availableDrivers.map(item => ({
-          _id: item._id,
-          location: { lat: item.lat, lng: item.lng }
-        })),
+        mappedDrivers,
         orderDetails
       );
     console.log('should here first', responsePrioritizeDrivers);
@@ -101,12 +162,6 @@ export class RestaurantsGateway
         driver_id: selectedDriver._id,
         driver_wage: FIXED_DELIVERY_DRIVER_WAGE
       };
-
-      console.log(
-        'chek  restaurantAcceptWithAvailableDrivers before order.assignedToDriver',
-        orderAssignment
-      );
-
       // Emit the event for the DriversGateway to pick up
       this.eventEmitter.emit('order.assignedToDriver', orderAssignment);
 
@@ -115,4 +170,10 @@ export class RestaurantsGateway
 
     return { error: 'No suitable driver found' };
   }
+
+  // @SubscribeMessage('test')
+  // handleTest(client: Socket) {
+  //   console.log('🧪 Test event received from client:', client.id);
+  //   return { event: 'test', data: 'Test successful!' };
+  // }
 }

@@ -1,8 +1,10 @@
+import { Location } from './Order';
+
 export type Type_Delivery_Order = {
   customer_id: string | null;
   restaurant_id: string;
-  customer_location: string | undefined; // Assuming it's a string  ID from an address
-  restaurant_location: string; // Assuming it's the restaurant's address
+  customer_location: Location; // Assuming it's a string  ID from an address
+  restaurant_location: Location; // Assuming it's the restaurant's address
   status: 'PENDING' | 'ACCEPTED' | 'IN_PROGRESS' | 'DELIVERED' | 'CANCELLED';
   payment_method: 'COD' | 'FWallet';
   total_amount: number;
