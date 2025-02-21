@@ -37,7 +37,8 @@ import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variant
 import { CartItemSchema } from 'src/cart_items/cart_items.schema';
 import { CartItemsModule } from 'src/cart_items/cart_items.module';
 import { CartItemsService } from 'src/cart_items/cart_items.service';
-
+import { OrderSchema } from 'src/orders/orders.schema';
+import { OrdersModule } from 'src/orders/orders.module';
 @Module({
   imports: [
     JwtModule.register({
@@ -74,7 +75,9 @@ import { CartItemsService } from 'src/cart_items/cart_items.service';
     MongooseModule.forFeature([
       { name: 'FoodCategory', schema: FoodCategorySchema }
     ]), // Register FoodCategorySchema
-    MailerCustomModule
+    MailerCustomModule,
+    MongooseModule.forFeature([{ name: 'Order', schema: OrderSchema }]),
+    OrdersModule
   ],
   providers: [
     AuthService,

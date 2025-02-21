@@ -14,6 +14,7 @@ import { UpdateMenuItemDto } from 'src/menu_items/dto/update-menu_item.dto';
 import { CreateMenuItemVariantDto } from 'src/menu_item_variants/dto/create-menu_item_variant.dto';
 import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_variants.service';
 import { UpdateMenuItemVariantDto } from 'src/menu_item_variants/dto/update-menu_item_variant.dto';
+import { Order } from 'src/orders/orders.schema';
 
 @Injectable()
 export class RestaurantsService {
@@ -24,6 +25,7 @@ export class RestaurantsService {
     @InjectModel('Promotion') private readonly promotionModel: Model<Promotion>,
     @InjectModel('AddressBook')
     private readonly addressbookModel: Model<AddressBook>,
+    @InjectModel('Order') private readonly orderModel: Model<Order>,
 
     private readonly menuItemsService: MenuItemsService,
     private readonly menuItemVariantsService: MenuItemVariantsService
@@ -410,5 +412,45 @@ export class RestaurantsService {
   ): Promise<any> {
     // Call the remove method from MenuItemVariantsService to delete the variant
     return this.menuItemVariantsService.remove(menuItemVariantId);
+  }
+
+  async getOrderById(orderId: string) {
+    return this.orderModel.findById(orderId).exec();
+  }
+
+  // Add new method to update order status
+  async updateOrderStatus(orderId: string, status: string): Promise<any> {
+    try {
+      const updateData: any = {
+        status,
+        updated_at: Math.floor(Date.now() / 1000)
+      };
+
+      // Update tracking_info when status is RESTAURANT_ACCEPTED
+      if (status === 'RESTAURANT_ACCEPTED') {
+        updateData.tracking_info = 'PREPARING';
+      }
+
+      const updatedOrder = await this.orderModel
+        .findByIdAndUpdate(orderId, updateData, { new: true })
+        .exec();
+
+      if (!updatedOrder) {
+        return createResponse('NotFound', null, 'Order not found');
+      }
+
+      return createResponse(
+        'OK',
+        updatedOrder,
+        'Order status updated successfully'
+      );
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while updating the order status'
+      );
+    }
   }
 }

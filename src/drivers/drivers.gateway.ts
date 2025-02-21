@@ -135,11 +135,6 @@ export class DriversGateway
   handleOrderAssignedToDriver(orderAssignment: any) {
     try {
       const driverId = orderAssignment.driver_id;
-      // console.log(
-      //   'Received order assignment for driver:',
-      //   driverId,
-      //   orderAssignment
-      // );
       if (driverId) {
         this.server
           .to(driverId)
@@ -167,7 +162,6 @@ export class DriversGateway
       await this.ordersService.update(data.orderId, {
         driver_id: data.driverId
       });
-
       // Then update the status
       const updatedOrder = await this.ordersService.updateOrderStatus(
         data.orderId,
@@ -181,6 +175,7 @@ export class DriversGateway
           data.restaurantLocation
         );
 
+        console.log('check acp order', updatedDriver);
         if (updatedDriver.EC === 0) {
           console.log('🔍 Driver accepted order:', updatedDriver.data);
           this.notifyAllParties(order);

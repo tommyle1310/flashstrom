@@ -11,8 +11,19 @@ import {
 
 export class UpdateOrderDto extends PartialType(CreateOrderDto) {
   @IsOptional()
-  @IsEnum(['PENDING', 'ACCEPTED', 'IN_PROGRESS', 'DELIVERED', 'CANCELLED'])
-  status?: 'PENDING' | 'ACCEPTED' | 'IN_PROGRESS' | 'DELIVERED' | 'CANCELLED'; // Status of the order
+  @IsEnum([
+    'PENDING',
+    'RESTAURANT_ACCEPTED',
+    'IN_PROGRESS',
+    'DELIVERED',
+    'CANCELLED'
+  ])
+  status?:
+    | 'PENDING'
+    | 'RESTAURANT_ACCEPTED'
+    | 'IN_PROGRESS'
+    | 'DELIVERED'
+    | 'CANCELLED'; // Status of the order
 
   @IsOptional()
   @IsNumber()

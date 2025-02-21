@@ -51,9 +51,19 @@ export class DriverProgressStagesService {
 
       // Update state history and add events
       if (stage.current_state !== updateData.current_state) {
+        // Mark the previous state as completed in state_history
+        const lastHistoryEntry =
+          stage.state_history[stage.state_history.length - 1];
+        if (lastHistoryEntry) {
+          lastHistoryEntry.status = 'completed';
+          lastHistoryEntry.duration =
+            Date.now() - lastHistoryEntry.timestamp.getTime();
+        }
+
         stage.previous_state = stage.current_state;
         stage.current_state = updateData.current_state;
 
+        // Add new state with in_progress status
         const newHistoryEntry = {
           state: updateData.current_state,
           status: 'in_progress' as const,
@@ -74,6 +84,15 @@ export class DriverProgressStagesService {
             }
           });
         } else if (updateData.current_state === 'delivery_complete') {
+          // Mark the current state as completed since this is the final state
+          const currentHistoryEntry =
+            stage.state_history[stage.state_history.length - 1];
+          if (currentHistoryEntry) {
+            currentHistoryEntry.status = 'completed';
+            currentHistoryEntry.duration =
+              Date.now() - currentHistoryEntry.timestamp.getTime();
+          }
+
           stage.events.push({
             event_type: 'delivery_complete',
             event_timestamp: new Date(),
@@ -82,6 +101,38 @@ export class DriverProgressStagesService {
               notes: updateData.details?.notes
             }
           });
+
+          // Update all associated orders' status to DELIVERED
+          await Promise.all([
+            ...stage.order_ids.map(orderId =>
+              this.orderModel.findByIdAndUpdate(orderId, {
+                status: 'DELIVERED',
+                tracking_info: 'DELIVERED',
+                updated_at: Math.floor(Date.now() / 1000)
+              })
+            ),
+            // Remove the completed order from driver's current_order_id array
+            (async () => {
+              const updatedDriver = await this.driverModel.findByIdAndUpdate(
+                stage.driver_id,
+                {
+                  $pullAll: { current_order_id: stage.order_ids }
+                },
+                { new: true }
+              );
+              return updatedDriver;
+            })()
+          ]);
+        } else if (updateData.current_state === 'en_route_to_customer') {
+          // Update all associated orders' tracking info to OUT_FOR_DELIVERY
+          await Promise.all(
+            stage.order_ids.map(orderId =>
+              this.orderModel.findByIdAndUpdate(orderId, {
+                tracking_info: 'OUT_FOR_DELIVERY',
+                updated_at: Math.floor(Date.now() / 1000)
+              })
+            )
+          );
         }
       }
 

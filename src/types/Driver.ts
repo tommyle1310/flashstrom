@@ -5,7 +5,12 @@ export type Type_Delivery_Order = {
   restaurant_id: string;
   customer_location: Location; // Assuming it's a string  ID from an address
   restaurant_location: Location; // Assuming it's the restaurant's address
-  status: 'PENDING' | 'ACCEPTED' | 'IN_PROGRESS' | 'DELIVERED' | 'CANCELLED';
+  status:
+    | 'PENDING'
+    | 'RESTAURANT_ACCEPTED'
+    | 'IN_PROGRESS'
+    | 'DELIVERED'
+    | 'CANCELLED';
   payment_method: 'COD' | 'FWallet';
   total_amount: number;
   order_items: Type_Delivery_OrderItem[];

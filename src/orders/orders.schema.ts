@@ -9,7 +9,13 @@ export const OrderSchema = new Schema({
   driver_id: { type: String, ref: 'Driver' }, // Reference to the restaurant
   status: {
     type: String,
-    enum: ['PENDING', 'ACCEPTED', 'IN_PROGRESS', 'DELIVERED', 'CANCELLED'], // Enum for order status
+    enum: [
+      'PENDING',
+      'RESTAURANT_ACCEPTED',
+      'IN_PROGRESS',
+      'DELIVERED',
+      'CANCELLED'
+    ], // Enum for order status
     required: true,
     default: 'PENDING'
   },
@@ -68,7 +74,12 @@ export interface Order extends Document {
   customer_id: string; // The ID of the customer who placed the order
   restaurant_id: string; // The ID of the restaurant where the order is placed
   driver_id: string; // The ID of the restaurant where the order is placed
-  status: 'PENDING' | 'ACCEPTED' | 'IN_PROGRESS' | 'DELIVERED' | 'CANCELLED'; // The current status of the order
+  status:
+    | 'PENDING'
+    | 'RESTAURANT_ACCEPTED'
+    | 'IN_PROGRESS'
+    | 'DELIVERED'
+    | 'CANCELLED'; // The current status of the order
   total_amount: number; // Total amount of the order
   delivery_fee: number; // Total amount of the order
   service_fee: number; // Total amount of the order

@@ -87,7 +87,7 @@ export class OrdersService {
           if (progressStage) {
             let newState = '';
             switch (updateOrderDto.status) {
-              case 'ACCEPTED':
+              case 'RESTAURANT_ACCEPTED':
                 newState = 'waiting_for_pickup';
                 break;
               case 'IN_PROGRESS':
@@ -99,6 +99,28 @@ export class OrdersService {
             }
 
             if (newState) {
+              await this.driverProgressStageModel.findByIdAndUpdate(
+                progressStage._id,
+                {
+                  $set: {
+                    'state_history.$[current].status': 'completed',
+                    'state_history.$[current].duration':
+                      (new Date().getTime() -
+                        new Date(
+                          progressStage.state_history[
+                            progressStage.state_history.length - 1
+                          ].timestamp
+                        ).getTime()) /
+                      1000
+                  }
+                },
+                {
+                  arrayFilters: [
+                    { 'current.state': progressStage.current_state }
+                  ]
+                }
+              );
+
               await this.driverProgressStageModel.findByIdAndUpdate(
                 progressStage._id,
                 {
@@ -163,7 +185,7 @@ export class OrdersService {
     orderId: string,
     newStatus:
       | 'PENDING'
-      | 'ACCEPTED'
+      | 'RESTAURANT_ACCEPTED'
       | 'IN_PROGRESS'
       | 'DELIVERED'
       | 'CANCELLED'
@@ -183,7 +205,7 @@ export class OrdersService {
       if (progressStage) {
         let newState = '';
         switch (newStatus) {
-          case 'ACCEPTED':
+          case 'RESTAURANT_ACCEPTED':
             newState = 'waiting_for_pickup';
             break;
           case 'IN_PROGRESS':
@@ -195,6 +217,28 @@ export class OrdersService {
         }
 
         if (newState) {
+          // First, update the current state to completed
+          await this.driverProgressStageModel.findByIdAndUpdate(
+            progressStage._id,
+            {
+              $set: {
+                'state_history.$[current].status': 'completed',
+                'state_history.$[current].duration':
+                  (new Date().getTime() -
+                    new Date(
+                      progressStage.state_history[
+                        progressStage.state_history.length - 1
+                      ].timestamp
+                    ).getTime()) /
+                  1000
+              }
+            },
+            {
+              arrayFilters: [{ 'current.state': progressStage.current_state }]
+            }
+          );
+
+          // Then add the new state
           await this.driverProgressStageModel.findByIdAndUpdate(
             progressStage._id,
             {
@@ -316,6 +360,7 @@ export class OrdersService {
   private async saveNewOrder(orderData: CreateOrderDto): Promise<Order> {
     const newOrder = new this.orderModel({
       ...orderData,
+      payment_status: orderData.payment_method === 'COD' ? 'PENDING' : 'PAID',
       created_at: new Date().getTime(),
       updated_at: new Date().getTime()
     });

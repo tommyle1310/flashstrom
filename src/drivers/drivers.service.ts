@@ -167,9 +167,7 @@ export class DriversService {
       const specificDriver = listAvailableDrivers.find(
         driver => driver._id === 'DRI_1bcb34fa-ac9d-4611-b432-4e05586e137c'
       );
-      console.log('specificDriver', listAvailableDrivers);
       const result = specificDriver ? [specificDriver] : [];
-
       return createResponse('OK', result, 'Driver selected successfully');
     } catch (error) {
       return this.handleError('Error prioritizing drivers:', error);

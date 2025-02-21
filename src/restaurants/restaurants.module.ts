@@ -21,7 +21,7 @@ import { RestaurantsGateway } from './restaurants.gateway';
 import { DriverSchema } from 'src/drivers/drivers.schema';
 import { DriversModule } from 'src/drivers/drivers.module';
 import { OrdersModule } from 'src/orders/orders.module';
-
+import { OrderSchema } from 'src/orders/orders.schema';
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -32,7 +32,8 @@ import { OrdersModule } from 'src/orders/orders.module';
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
       { name: 'AddressBook', schema: AddressBookSchema },
       { name: 'FoodCategory', schema: FoodCategorySchema },
-      { name: 'Promotion', schema: PromotionSchema }
+      { name: 'Promotion', schema: PromotionSchema },
+      { name: 'Order', schema: OrderSchema }
     ]),
     UserModule,
     forwardRef(() => DriversModule),

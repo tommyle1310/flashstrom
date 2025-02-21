@@ -86,7 +86,13 @@ export interface DriverProgressStage extends Document {
   id: string;
   driver_id: string;
   order_ids: string[];
-  current_state: string;
+  current_state:
+    | 'driver_ready'
+    | 'waiting_for_pickup'
+    | 'restaurant_pickup'
+    | 'en_route_to_customer'
+    | 'delivery_complete';
+
   previous_state?: string;
   state_history: Array<{
     state: string;

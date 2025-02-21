@@ -48,7 +48,12 @@ export class UpdateDriverProgressStageDto {
     'delivery_complete'
   ])
   @IsOptional()
-  current_state?: string;
+  current_state?:
+    | 'driver_ready'
+    | 'waiting_for_pickup'
+    | 'restaurant_pickup'
+    | 'en_route_to_customer'
+    | 'delivery_complete';
 
   @ValidateNested()
   @Type(() => DetailsDto)
