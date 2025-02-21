@@ -415,7 +415,11 @@ export class RestaurantsService {
   }
 
   async getOrderById(orderId: string) {
-    return this.orderModel.findById(orderId).exec();
+    return this.orderModel
+      .findById(orderId)
+      .populate('customer_location')
+      .populate('restaurant_location')
+      .exec();
   }
 
   // Add new method to update order status

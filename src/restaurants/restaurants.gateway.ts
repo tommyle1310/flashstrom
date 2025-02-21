@@ -11,10 +11,11 @@ import { Server, Socket } from 'socket.io';
 import { RestaurantsService } from './restaurants.service';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { DriversService } from 'src/drivers/drivers.service';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { forwardRef, Inject } from '@nestjs/common';
 import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
 import { Type_Delivery_Order } from 'src/types/Driver';
+import { calculateDistance } from 'src/utils/distance';
 
 interface AvailableDriver {
   _id: string;
@@ -150,19 +151,43 @@ export class RestaurantsGateway
       responsePrioritizeDrivers.data.length > 0
     ) {
       const selectedDriver = responsePrioritizeDrivers.data[0];
+      const res_location = fullOrderDetails.restaurant_location as unknown as {
+        location: { lat: number; lng: number };
+      };
+      // Calculate distance between restaurant and driver
+      const distance = calculateDistance(
+        selectedDriver.location.lat,
+        selectedDriver.location.lng,
+        res_location.location.lat,
+        res_location.location.lng
+      );
 
       const orderAssignment = {
         ...fullOrderDetails.toObject(),
         driver_id: selectedDriver._id,
         driver_wage: FIXED_DELIVERY_DRIVER_WAGE,
         tracking_info: 'PREPARING',
-        status: 'RESTAURANT_ACCEPTED'
+        status: 'RESTAURANT_ACCEPTED',
+        distance: distance // Add the calculated distance
       };
 
+      // Instead of directly emitting to the driver's room, use the event emitter
       this.eventEmitter.emit('order.assignedToDriver', orderAssignment);
       return orderAssignment;
     }
 
     return { error: 'No suitable driver found' };
+  }
+
+  @OnEvent('incomingOrder')
+  async handleIncomingOrder(@MessageBody() order: any) {
+    console.log('Received incomingOrder event:', order);
+
+    // Return the response that will be visible in Postman
+    return {
+      event: 'incomingOrder',
+      data: order,
+      message: 'Order received successfully'
+    };
   }
 }

@@ -51,7 +51,7 @@ export class DriversGateway
       const driverId = orderAssignment.driver_id;
       if (driverId) {
         this.server
-          .to(driverId)
+          .to(`driver_${driverId}`)
           .emit('incomingOrderForDriver', orderAssignment);
         console.log(
           'Forwarded order assignment to driver:',
@@ -60,6 +60,18 @@ export class DriversGateway
         );
       }
     });
+  }
+
+  @OnEvent('incomingOrderForDriver')
+  async handleIncomingOrderForDriver(@MessageBody() order: any) {
+    console.log('Received incomingOrderForDriver event:', order);
+
+    // Return the response that will be visible in Postman
+    return {
+      event: 'incomingOrder',
+      data: order,
+      message: 'Order received successfully'
+    };
   }
 
   // Handle new driver connections
@@ -137,9 +149,15 @@ export class DriversGateway
       const driverId = orderAssignment.driver_id;
       if (driverId) {
         this.server
-          .to(driverId)
+          .to(`driver_${driverId}`)
           .emit('incomingOrderForDriver', orderAssignment);
       }
+      console.log('orderAssignment', orderAssignment);
+      return {
+        event: 'incomingOrder',
+        data: orderAssignment,
+        message: 'Order received successfully'
+      };
     } catch (error) {
       console.error(
         'Error handling order.assignedToDriver in DriversGateway:',
