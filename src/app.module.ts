@@ -19,7 +19,9 @@ import { MenuItemsModule } from './menu_items/menu_items.module';
 import { MenuItemVariantsModule } from './menu_item_variants/menu_item_variants.module';
 import { CartItemsModule } from './cart_items/cart_items.module';
 import { OrdersModule } from './orders/orders.module';
-
+import { RatingsReviewsModule } from './ratings_reviews/ratings_reviews.module';
+import { AdminModule } from './admin/admin.module';
+import { CustomerCaresModule } from './customer_cares/customer_cares.module';
 @Module({
   imports: [
     MongooseModule.forRoot(process.env.MONGO_URI), // Your MongoDB URI
@@ -38,7 +40,10 @@ import { OrdersModule } from './orders/orders.module';
     MenuItemsModule,
     MenuItemVariantsModule,
     CartItemsModule,
-    OrdersModule, // Import the mailer module here
+    OrdersModule,
+    RatingsReviewsModule, // Import the mailer module here
+    AdminModule,
+    CustomerCaresModule,
   ],
   controllers: [AppController],
   providers: [AppService, EmailService],

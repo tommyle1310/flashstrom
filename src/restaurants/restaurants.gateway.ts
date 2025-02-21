@@ -51,7 +51,7 @@ export class RestaurantsGateway
 
     // Notify the restaurant about the new order
     await this.server.to(restaurantId).emit('incomingOrder', order);
-
+    console.log('check ku -2cm', order)
     return order;
   }
 }

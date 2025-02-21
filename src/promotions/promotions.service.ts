@@ -25,6 +25,7 @@ export class PromotionsService {
       food_categories,
       minimum_order_value,
       promotion_cost_price,
+      bogo_details,
     } = createPromotionDto;
 
     // Check if the promotion already exists by name or other unique fields
@@ -51,8 +52,9 @@ export class PromotionsService {
       food_categories,
       minimum_order_value,
       promotion_cost_price,
-      created_at: new Date().getTime(),
-      updated_at: new Date().getTime(),
+      bogo_details: discount_type === 'BOGO' ? bogo_details : undefined,
+      created_at: Math.floor(Date.now() / 1000),
+      updated_at: Math.floor(Date.now() / 1000),
     });
 
     // Save the promotion and return the success response
