@@ -175,11 +175,11 @@ export class DriversGateway
     }
   ) {
     try {
+      console.log('🔍 Driver accept order:', data);
       // First update the driver assignment
       await this.ordersService.update(data.orderId, {
         driver_id: data.driverId
       });
-
       // Then update the status
       const updatedOrder = await this.ordersService.updateOrderStatus(
         data.orderId,
@@ -192,14 +192,67 @@ export class DriversGateway
           order._id as string,
           data.restaurantLocation
         );
+        console.log('🔍 Driver accepted order:', updatedDriver);
 
         if (updatedDriver.EC === 0) {
-          // Create progress stage without 'stages' property
-          await this.driverProgressStageService.create({
-            driver_id: data.driverId,
-            order_ids: [order._id as string],
-            current_state: 'driver_ready'
-          });
+          // Check if driver already has an active progress stage
+          const existingStage =
+            await this.driverProgressStageService.getActiveStageByDriver(
+              data.driverId
+            );
+
+          console.log('🔍 Found existing stage:', existingStage);
+
+          if (existingStage.data) {
+            // Add 5 more stages for the new order
+            const newStages = [
+              'driver_ready',
+              'waiting_for_pickup',
+              'restaurant_pickup',
+              'en_route_to_customer',
+              'delivery_complete'
+            ].map(state => ({
+              state,
+              status: 'pending' as const,
+              timestamp: new Date(),
+              duration: 0,
+              details: {
+                location: null,
+                estimated_time: null,
+                actual_time: null,
+                notes: null,
+                tip: null,
+                weather: null
+              }
+            }));
+
+            const stageId = existingStage.data._id;
+            console.log('🔍 Updating existing stage:', stageId);
+
+            // Update the existing stage
+            const updateResult =
+              await this.driverProgressStageService.updateStage(
+                stageId as any,
+                {
+                  current_state: existingStage.data.current_state,
+                  order_ids: [
+                    ...existingStage.data.order_ids,
+                    order._id as string
+                  ],
+                  stages: newStages // Service will push these to existing stages
+                }
+              );
+
+            console.log('✅ Stage update result:', updateResult);
+          } else {
+            // Create new progress stage for first order
+            console.log('📝 Creating new stage for first order');
+            await this.driverProgressStageService.create({
+              driver_id: data.driverId,
+              order_ids: [order._id as string],
+              current_state: 'driver_ready'
+            });
+          }
 
           console.log('🔍 Driver accepted order:', updatedDriver.data);
           this.notifyAllParties(order);

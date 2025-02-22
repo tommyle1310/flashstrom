@@ -76,12 +76,40 @@ export class DriverProgressStagesService {
     updateData: UpdateDriverProgressStageDto
   ): Promise<ApiResponse<DriverProgressStage>> {
     try {
+      console.log('🔍 Updating stage:', stageId, 'with data:', updateData);
+
       const stage = await this.driverProgressStageModel.findById(stageId);
       if (!stage) {
         return createResponse('NotFound', null, 'Progress stage not found');
       }
 
-      // Update state history and add events
+      // Check for maximum orders (3)
+      if (updateData.order_ids && updateData.order_ids.length > 3) {
+        return createResponse(
+          'DRIVER_MAXIMUM_ORDER',
+          null,
+          'Driver cannot have more than 3 orders'
+        );
+      }
+
+      console.log('🔍 Found existing stage:', stage);
+
+      // Handle adding new order_ids and stages
+      if (updateData.order_ids) {
+        stage.order_ids = updateData.order_ids;
+      }
+
+      if (updateData.stages) {
+        // Push new stages instead of replacing
+        stage.stages.push(...updateData.stages);
+      }
+
+      // Ensure current_state is preserved if not explicitly changing it
+      if (!updateData.current_state) {
+        updateData.current_state = stage.current_state;
+      }
+
+      // Rest of the existing logic for state transitions
       if (stage.current_state !== updateData.current_state) {
         // Mark the previous state as completed in state_history
         const lastHistoryEntry = stage.stages[stage.stages.length - 1];
@@ -166,9 +194,18 @@ export class DriverProgressStagesService {
         }
       }
 
-      // Update other fields
-      Object.assign(stage, updateData);
+      // Update other fields while preserving required fields
+      const updatedData = {
+        ...stage.toObject(),
+        ...updateData,
+        current_state: updateData.current_state || stage.current_state,
+        stages: stage.stages // Ensure we keep the updated stages array
+      };
+
+      Object.assign(stage, updatedData);
       const updatedStage = await stage.save();
+
+      console.log('✅ Successfully updated stage:', updatedStage);
 
       return createResponse(
         'OK',
@@ -189,29 +226,26 @@ export class DriverProgressStagesService {
     driverId: string
   ): Promise<ApiResponse<DriverProgressStage>> {
     try {
+      console.log('🔍 Finding active stage for driver:', driverId);
+
+      // First try to find any existing stage for this driver
       const stage = await this.driverProgressStageModel
         .findOne({
-          driver_id: driverId,
-          current_state: { $ne: 'delivery_complete' }
+          driver_id: driverId
         })
         .exec();
 
+      console.log('🔍 Found stage:', stage);
+
       if (!stage) {
-        return createResponse(
-          'NotFound',
-          null,
-          'No active progress stage found for driver'
-        );
+        console.log('❌ No stage found for driver');
+        return createResponse('NotFound', null, 'No active stage found');
       }
 
-      return createResponse('OK', stage, 'Active progress stage found');
+      return createResponse('OK', stage, 'Active stage found');
     } catch (err) {
-      console.error('Error fetching driver progress stage:', err);
-      return createResponse(
-        'ServerError',
-        null,
-        'Error fetching driver progress stage'
-      );
+      console.error('Error finding active stage:', err);
+      return createResponse('ServerError', null, 'Error finding active stage');
     }
   }
 

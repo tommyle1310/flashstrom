@@ -48,7 +48,8 @@ export class UpdateDriverProgressStageDto {
     'en_route_to_customer',
     'delivery_complete'
   ])
-  current_state:
+  @IsOptional()
+  current_state?:
     | 'driver_ready'
     | 'waiting_for_pickup'
     | 'restaurant_pickup'
@@ -58,6 +59,11 @@ export class UpdateDriverProgressStageDto {
   @IsOptional()
   @IsString()
   previous_state?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  order_ids?: string[];
 
   @IsOptional()
   @IsArray()
