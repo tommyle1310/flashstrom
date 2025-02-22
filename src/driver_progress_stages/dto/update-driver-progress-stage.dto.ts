@@ -3,7 +3,8 @@ import {
   IsString,
   IsNumber,
   ValidateNested,
-  IsEnum
+  IsEnum,
+  IsArray
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -47,13 +48,39 @@ export class UpdateDriverProgressStageDto {
     'en_route_to_customer',
     'delivery_complete'
   ])
-  @IsOptional()
-  current_state?:
+  current_state:
     | 'driver_ready'
     | 'waiting_for_pickup'
     | 'restaurant_pickup'
     | 'en_route_to_customer'
     | 'delivery_complete';
+
+  @IsOptional()
+  @IsString()
+  previous_state?: string;
+
+  @IsOptional()
+  @IsArray()
+  stages?: Array<{
+    state: string;
+    status: 'completed' | 'in_progress' | 'pending' | 'failed';
+    timestamp: Date;
+    duration: number;
+    details?: {
+      location?: {
+        latitude: number;
+        longitude: number;
+      };
+      estimated_time?: number;
+      actual_time?: number;
+      notes?: string;
+      tip?: number;
+      weather?: {
+        temperature?: number;
+        condition?: string;
+      };
+    };
+  }>;
 
   @ValidateNested()
   @Type(() => DetailsDto)

@@ -22,8 +22,40 @@ export class DriverProgressStagesService {
     createDto: CreateDriverProgressStageDto
   ): Promise<ApiResponse<DriverProgressStage>> {
     try {
-      const newStage = new this.driverProgressStageModel(createDto);
+      // Initialize all 5 stages with their default states
+      const initialStages = [
+        'driver_ready',
+        'waiting_for_pickup',
+        'restaurant_pickup',
+        'en_route_to_customer',
+        'delivery_complete'
+      ].map((state, index) => ({
+        state,
+        status: index === 0 ? 'in_progress' : 'pending',
+        timestamp: new Date(),
+        duration: 0,
+        details: {
+          location: null,
+          estimated_time: null,
+          actual_time: null,
+          notes: null,
+          tip: null,
+          weather: null
+        }
+      }));
+      console.log('wtf is this', {
+        ...createDto,
+        stages: initialStages
+      });
+      // Create new stage with the initialized stages
+      const newStage = new this.driverProgressStageModel({
+        ...createDto,
+        stages: initialStages
+      });
+
       const savedStage = await newStage.save();
+      console.log('Created driver progress stage with stages:', savedStage);
+
       return createResponse(
         'OK',
         savedStage,
@@ -52,8 +84,7 @@ export class DriverProgressStagesService {
       // Update state history and add events
       if (stage.current_state !== updateData.current_state) {
         // Mark the previous state as completed in state_history
-        const lastHistoryEntry =
-          stage.state_history[stage.state_history.length - 1];
+        const lastHistoryEntry = stage.stages[stage.stages.length - 1];
         if (lastHistoryEntry) {
           lastHistoryEntry.status = 'completed';
           lastHistoryEntry.duration =
@@ -71,7 +102,7 @@ export class DriverProgressStagesService {
           duration: 0,
           details: updateData.details || {}
         };
-        stage.state_history.push(newHistoryEntry);
+        stage.stages.push(newHistoryEntry);
 
         // Add corresponding event based on state transition
         if (updateData.current_state === 'restaurant_pickup') {
@@ -85,8 +116,7 @@ export class DriverProgressStagesService {
           });
         } else if (updateData.current_state === 'delivery_complete') {
           // Mark the current state as completed since this is the final state
-          const currentHistoryEntry =
-            stage.state_history[stage.state_history.length - 1];
+          const currentHistoryEntry = stage.stages[stage.stages.length - 1];
           if (currentHistoryEntry) {
             currentHistoryEntry.status = 'completed';
             currentHistoryEntry.duration =
@@ -248,6 +278,28 @@ export class DriverProgressStagesService {
         null,
         'Error deleting driver progress stage'
       );
+    }
+  }
+
+  async updateStages(
+    stageId: string,
+    updatedStages: any[]
+  ): Promise<ApiResponse<DriverProgressStage>> {
+    try {
+      const stage = await this.driverProgressStageModel.findByIdAndUpdate(
+        stageId,
+        { stages: updatedStages },
+        { new: true }
+      );
+
+      if (!stage) {
+        return createResponse('NotFound', null, 'Progress stage not found');
+      }
+
+      return createResponse('OK', stage, 'Stages updated successfully');
+    } catch (err) {
+      console.error('Error updating stages:', err);
+      return createResponse('ServerError', null, 'Error updating stages');
     }
   }
 }

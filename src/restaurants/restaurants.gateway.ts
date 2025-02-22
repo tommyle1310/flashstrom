@@ -108,7 +108,6 @@ export class RestaurantsGateway
     await this.server
       .to(`restaurant_${restaurantId}`)
       .emit('incomingOrder', order);
-    console.log('chck rs orer', restaurantId);
 
     return order;
   }

@@ -20,11 +20,11 @@ const StateDetailsSchema = new Schema({
   weather: { type: WeatherSchema }
 });
 
-const StateHistorySchema = new Schema({
+const StageSchema = new Schema({
   state: { type: String, required: true },
   status: {
     type: String,
-    enum: ['completed', 'in_progress', 'failed'],
+    enum: ['completed', 'in_progress', 'pending', 'failed'],
     required: true
   },
   timestamp: { type: Date, required: true },
@@ -61,7 +61,7 @@ export const DriverProgressStageSchema = new Schema({
     required: true
   },
   previous_state: { type: String },
-  state_history: [StateHistorySchema],
+  stages: [StageSchema],
   next_state: { type: String },
   estimated_time_remaining: { type: Number },
   actual_time_spent: { type: Number },
@@ -94,9 +94,9 @@ export interface DriverProgressStage extends Document {
     | 'delivery_complete';
 
   previous_state?: string;
-  state_history: Array<{
+  stages: Array<{
     state: string;
-    status: 'completed' | 'in_progress' | 'failed';
+    status: 'completed' | 'in_progress' | 'pending' | 'failed';
     timestamp: Date;
     duration: number;
     details?: {
