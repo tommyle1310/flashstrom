@@ -100,8 +100,21 @@ export class DriverProgressStagesService {
       }
 
       if (updateData.stages) {
-        // Push new stages instead of replacing
-        stage.stages.push(...updateData.stages);
+        // Ensure the last stage of each order set is always pending
+        const updatedStages = updateData.stages.map((stage, index) => {
+          // Every 5th stage (index % 5 === 4) is a delivery_complete stage
+          if (index % 5 === 4) {
+            return {
+              ...stage,
+              status: 'pending' as 'pending' | 'completed' | 'in_progress' | 'failed',
+              duration: 0
+            };
+          }
+          return stage;
+        });
+        
+        // Replace stages with our modified version
+        stage.stages = updatedStages;
       }
 
       // Ensure current_state is preserved if not explicitly changing it
@@ -122,17 +135,7 @@ export class DriverProgressStagesService {
         stage.previous_state = stage.current_state;
         stage.current_state = updateData.current_state;
 
-        // Add new state with in_progress status
-        const newHistoryEntry = {
-          state: updateData.current_state,
-          status: 'in_progress' as const,
-          timestamp: new Date(),
-          duration: 0,
-          details: updateData.details || {}
-        };
-        stage.stages.push(newHistoryEntry);
-
-        // Add corresponding event based on state transition
+        // Update events based on state transition
         if (updateData.current_state === 'restaurant_pickup') {
           stage.events.push({
             event_type: 'pickup_complete',
@@ -143,14 +146,6 @@ export class DriverProgressStagesService {
             }
           });
         } else if (updateData.current_state === 'delivery_complete') {
-          // Mark the current state as completed since this is the final state
-          const currentHistoryEntry = stage.stages[stage.stages.length - 1];
-          if (currentHistoryEntry) {
-            currentHistoryEntry.status = 'completed';
-            currentHistoryEntry.duration =
-              Date.now() - currentHistoryEntry.timestamp.getTime();
-          }
-
           stage.events.push({
             event_type: 'delivery_complete',
             event_timestamp: new Date(),
@@ -203,6 +198,21 @@ export class DriverProgressStagesService {
       };
 
       Object.assign(stage, updatedData);
+
+      // Force the last stage of each set to be pending before saving
+      stage.stages = stage.stages.map((s, index) => {
+        if (index % 5 === 4) { // Every 5th stage is delivery_complete
+          // Only mark as completed if current_state is delivery_complete
+          const shouldBeCompleted = updateData.current_state === 'delivery_complete';
+          return {
+            ...s,
+            status: shouldBeCompleted ? 'completed' : 'pending' as 'pending' | 'completed' | 'in_progress' | 'failed',
+            duration: shouldBeCompleted ? (new Date().getTime() - new Date(s.timestamp).getTime()) / 1000 : 0
+          };
+        }
+        return s;
+      });
+
       const updatedStage = await stage.save();
 
       console.log('✅ Successfully updated stage:', updatedStage);

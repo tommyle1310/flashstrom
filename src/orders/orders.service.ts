@@ -182,7 +182,7 @@ export class OrdersService {
 
   async findOne(id: string): Promise<ApiResponse<Order>> {
     try {
-      const order = await this.orderModel.findById(id).exec();
+      const order = await this.orderModel.findById(id).populate('customer_location').exec();
       return this.handleOrderResponse(order);
     } catch (error) {
       return this.handleError('Error fetching order:', error);
