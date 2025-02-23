@@ -92,129 +92,46 @@ export class DriverProgressStagesService {
         );
       }
 
-      console.log('🔍 Found existing stage:', stage);
-
-      // Handle adding new order_ids and stages
+      // Handle adding new order_ids
       if (updateData.order_ids) {
         stage.order_ids = updateData.order_ids;
       }
 
+      // Handle stages updates
       if (updateData.stages) {
-        // Ensure the last stage of each order set is always pending
-        const updatedStages = updateData.stages.map((stage, index) => {
-          // Every 5th stage (index % 5 === 4) is a delivery_complete stage
-          if (index % 5 === 4) {
-            return {
-              ...stage,
-              status: 'pending' as 'pending' | 'completed' | 'in_progress' | 'failed',
-              duration: 0
-            };
+        // Keep existing stages and append new ones
+        const existingStages = stage.stages || [];
+        const newStages = updateData.stages.map(newStage => ({
+          ...newStage,
+          details: {
+            ...newStage.details,
+            // Safely handle potentially undefined details/location
+            location: newStage.details?.location
+              ? {
+                  lat: newStage.details.location.lat || null,
+                  lng: newStage.details.location.lng || null
+                }
+              : null,
+            estimated_time: newStage.details?.estimated_time || null,
+            actual_time: newStage.details?.actual_time || null,
+            notes: newStage.details?.notes || null,
+            tip: newStage.details?.tip || null,
+            weather: newStage.details?.weather || null
           }
-          return stage;
-        });
-        
-        // Replace stages with our modified version
-        stage.stages = updatedStages;
+        }));
+
+        // Combine existing and new stages
+        stage.stages = [...existingStages, ...newStages];
+
+        console.log('Updated stages count:', stage.stages.length);
       }
 
-      // Ensure current_state is preserved if not explicitly changing it
-      if (!updateData.current_state) {
-        updateData.current_state = stage.current_state;
-      }
-
-      // Rest of the existing logic for state transitions
-      if (stage.current_state !== updateData.current_state) {
-        // Mark the previous state as completed in state_history
-        const lastHistoryEntry = stage.stages[stage.stages.length - 1];
-        if (lastHistoryEntry) {
-          lastHistoryEntry.status = 'completed';
-          lastHistoryEntry.duration =
-            Date.now() - lastHistoryEntry.timestamp.getTime();
-        }
-
-        stage.previous_state = stage.current_state;
+      // Update current state if provided
+      if (updateData.current_state) {
         stage.current_state = updateData.current_state;
-
-        // Update events based on state transition
-        if (updateData.current_state === 'restaurant_pickup') {
-          stage.events.push({
-            event_type: 'pickup_complete',
-            event_timestamp: new Date(),
-            event_details: {
-              location: updateData.details?.location,
-              notes: updateData.details?.notes
-            }
-          });
-        } else if (updateData.current_state === 'delivery_complete') {
-          stage.events.push({
-            event_type: 'delivery_complete',
-            event_timestamp: new Date(),
-            event_details: {
-              location: updateData.details?.location,
-              notes: updateData.details?.notes
-            }
-          });
-
-          // Update all associated orders' status to DELIVERED
-          await Promise.all([
-            ...stage.order_ids.map(orderId =>
-              this.orderModel.findByIdAndUpdate(orderId, {
-                status: 'DELIVERED',
-                tracking_info: 'DELIVERED',
-                updated_at: Math.floor(Date.now() / 1000)
-              })
-            ),
-            // Remove the completed order from driver's current_order_id array
-            (async () => {
-              const updatedDriver = await this.driverModel.findByIdAndUpdate(
-                stage.driver_id,
-                {
-                  $pullAll: { current_order_id: stage.order_ids }
-                },
-                { new: true }
-              );
-              return updatedDriver;
-            })()
-          ]);
-        } else if (updateData.current_state === 'en_route_to_customer') {
-          // Update all associated orders' tracking info to OUT_FOR_DELIVERY
-          await Promise.all(
-            stage.order_ids.map(orderId =>
-              this.orderModel.findByIdAndUpdate(orderId, {
-                tracking_info: 'OUT_FOR_DELIVERY',
-                updated_at: Math.floor(Date.now() / 1000)
-              })
-            )
-          );
-        }
       }
-
-      // Update other fields while preserving required fields
-      const updatedData = {
-        ...stage.toObject(),
-        ...updateData,
-        current_state: updateData.current_state || stage.current_state,
-        stages: stage.stages // Ensure we keep the updated stages array
-      };
-
-      Object.assign(stage, updatedData);
-
-      // Force the last stage of each set to be pending before saving
-      stage.stages = stage.stages.map((s, index) => {
-        if (index % 5 === 4) { // Every 5th stage is delivery_complete
-          // Only mark as completed if current_state is delivery_complete
-          const shouldBeCompleted = updateData.current_state === 'delivery_complete';
-          return {
-            ...s,
-            status: shouldBeCompleted ? 'completed' : 'pending' as 'pending' | 'completed' | 'in_progress' | 'failed',
-            duration: shouldBeCompleted ? (new Date().getTime() - new Date(s.timestamp).getTime()) / 1000 : 0
-          };
-        }
-        return s;
-      });
 
       const updatedStage = await stage.save();
-
       console.log('✅ Successfully updated stage:', updatedStage);
 
       return createResponse(

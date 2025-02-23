@@ -177,15 +177,32 @@ export class DriversGateway
   ) {
     try {
       console.log('🔍 Driver accept order:', data);
+
+      // Check if driver already has an active progress stage
+      const existingStage =
+        await this.driverProgressStageService.getActiveStageByDriver(
+          data.driverId
+        );
+
+      // Check order limit
+      if (existingStage.data && existingStage.data.order_ids.length >= 3) {
+        return {
+          success: false,
+          message: 'Driver cannot accept more than 3 orders simultaneously'
+        };
+      }
+
       // First update the driver assignment
       await this.ordersService.update(data.orderId, {
         driver_id: data.driverId
       });
+
       // Then update the status
       const updatedOrder = await this.ordersService.updateOrderStatus(
         data.orderId,
         'IN_PROGRESS'
       );
+
       if (updatedOrder.EC === 0) {
         const order = updatedOrder.data;
         const updatedDriver = await this.driverService.addOrderToDriver(
@@ -193,75 +210,79 @@ export class DriversGateway
           order._id as string,
           data.restaurantLocation
         );
-        console.log('🔍 Driver accepted order:', updatedDriver);
 
         if (updatedDriver.EC === 0) {
-          // Check if driver already has an active progress stage
-          const existingStage =
-            await this.driverProgressStageService.getActiveStageByDriver(
-              data.driverId
-            );
-
           console.log('🔍 Found existing stage:', existingStage);
 
+          // Add 5 more stages for the new order
+          const newStages = [
+            'driver_ready',
+            'waiting_for_pickup',
+            'restaurant_pickup',
+            'en_route_to_customer',
+            'delivery_complete'
+          ].map(state => ({
+            state,
+            status: 'pending' as const,
+            timestamp: new Date(),
+            duration: 0,
+            details: {
+              location: this.getLocationForState(state, {
+                driverLocation: data.driverLocation,
+                restaurantLocation: data.restaurantLocation,
+                customerLocation: order.customer_location
+              }),
+              estimated_time: null,
+              actual_time: null,
+              notes: null,
+              tip: null,
+              weather: null
+            }
+          }));
+
           if (existingStage.data) {
-            // Add 5 more stages for the new order
-            const newStages = [
-              'driver_ready',
-              'waiting_for_pickup',
-              'restaurant_pickup',
-              'en_route_to_customer',
-              'delivery_complete'
-            ].map(state => {
-              let location = null;
-
-              if (state === 'driver_ready') {
-                location = data.driverLocation;
-              } else if (state === 'waiting_for_pickup' || state === 'restaurant_pickup') {
-                location = data.restaurantLocation;
-              } else if (state === 'en_route_to_customer' || state === 'delivery_complete') {
-                // We'll get the customer location from the order
-                location = order.customer_location;
-              }
-
-              return {
-                state,
-                status: 'pending' as const,
-                timestamp: new Date(),
-                duration: 0,
-                details: {
-                  location,
-                  estimated_time: null,
-                  actual_time: null,
-                  notes: null,
-                  tip: null,
-                  weather: null
-                }
-              };
-            });
-
             const stageId = existingStage.data._id;
             console.log('🔍 Updating existing stage:', stageId);
 
-            // Update the existing stage - but keep the existing stages and append new ones
-            const updateResult = await this.driverProgressStageService.updateStage(
-              stageId as any,
-              {
-                current_state: existingStage.data.current_state,
-                order_ids: [...existingStage.data.order_ids, order._id as string],
-                stages: [...existingStage.data.stages, ...newStages] // Merge existing stages with new ones
-              }
-            );
+            // Update the existing stage with new order and stages
+            const updateResult =
+              await this.driverProgressStageService.updateStage(
+                stageId as any,
+                {
+                  order_ids: [
+                    ...existingStage.data.order_ids,
+                    order._id as string
+                  ],
+                  stages: newStages, // Just pass the new stages, let the service handle merging
+                  current_state: existingStage.data.current_state
+                }
+              );
+
+            if (updateResult.EC !== 0) {
+              console.error('Failed to update stage:', updateResult);
+              return {
+                success: false,
+                message: 'Failed to update driver progress stage'
+              };
+            }
 
             console.log('✅ Stage update result:', updateResult);
           } else {
             // Create new progress stage for first order
             console.log('📝 Creating new stage for first order');
-            await this.driverProgressStageService.create({
+            const createResult = await this.driverProgressStageService.create({
               driver_id: data.driverId,
               order_ids: [order._id as string],
               current_state: 'driver_ready'
             });
+
+            if (createResult.EC !== 0) {
+              console.error('Failed to create stage:', createResult);
+              return {
+                success: false,
+                message: 'Failed to create driver progress stage'
+              };
+            }
           }
 
           console.log('🔍 Driver accepted order:', updatedDriver.data);
@@ -274,6 +295,30 @@ export class DriversGateway
       console.error('Error in handleDriverAcceptOrder:', error);
       return { success: false, message: 'Internal server error' };
     }
+  }
+
+  private getLocationForState(
+    state: string,
+    locations: {
+      driverLocation: { lat: number; lng: number };
+      restaurantLocation: { lat: number; lng: number };
+      customerLocation: any;
+    }
+  ) {
+    if (state === 'driver_ready') {
+      return locations.driverLocation;
+    } else if (
+      state === 'waiting_for_pickup' ||
+      state === 'restaurant_pickup'
+    ) {
+      return locations.restaurantLocation;
+    } else if (
+      state === 'en_route_to_customer' ||
+      state === 'delivery_complete'
+    ) {
+      return locations.customerLocation;
+    }
+    return null;
   }
 
   @SubscribeMessage('updateDriverProgress')
@@ -312,9 +357,10 @@ export class DriversGateway
       // Mark current stage as completed and next stage as in-progress
       const updatedStages = currentStage.data.stages.map((stage, index) => {
         // Only update stages that belong to the current order set
-        const currentOrderStartIndex = Math.floor(currentInProgressIndex / 5) * 5;
+        const currentOrderStartIndex =
+          Math.floor(currentInProgressIndex / 5) * 5;
         const currentOrderEndIndex = currentOrderStartIndex + 4;
-        
+
         // If this stage is not part of the current order's set, leave it unchanged
         if (index < currentOrderStartIndex || index > currentOrderEndIndex) {
           return stage;
@@ -325,20 +371,23 @@ export class DriversGateway
           return {
             ...stage,
             state: stage.state,
-            status: index === currentInProgressIndex
-              ? 'completed'
-              : index === currentInProgressIndex + 1
-                ? 'in_progress'
-                : index < currentInProgressIndex
-                  ? 'completed'
-                  : 'pending',
+            status:
+              index === currentInProgressIndex
+                ? 'completed'
+                : index === currentInProgressIndex + 1
+                  ? 'in_progress'
+                  : index < currentInProgressIndex
+                    ? 'completed'
+                    : 'pending',
             duration:
               index <= currentInProgressIndex
                 ? (new Date().getTime() - new Date(stage.timestamp).getTime()) /
                   1000
                 : 0,
             timestamp:
-              index === currentInProgressIndex + 1 ? new Date() : stage.timestamp
+              index === currentInProgressIndex + 1
+                ? new Date()
+                : stage.timestamp
           };
         }
 
