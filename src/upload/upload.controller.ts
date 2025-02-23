@@ -4,7 +4,7 @@ import {
   UseInterceptors,
   UploadedFile,
   Body,
-  Inject,
+  Inject
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadService } from './upload.service';
@@ -24,19 +24,19 @@ export class UploadController {
     private readonly uploadService: UploadService,
     private readonly driverService: DriversService,
     private readonly customerService: CustomersService,
-    private readonly menuItemService: MenuItemsService,
+    private readonly menuItemService: MenuItemsService
   ) {}
 
   @Post('avatar')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: memoryStorage(),
-    }),
+      storage: memoryStorage()
+    })
   )
   async uploadAvatar(
     @UploadedFile() file: Express.Multer.File,
     @Body('userType') userType: Enum_AvatarType,
-    @Body('entityId') entityId: string,
+    @Body('entityId') entityId: string
   ) {
     if (!file) {
       return createResponse('MissingInput', null, 'No file uploaded');
@@ -53,25 +53,25 @@ export class UploadController {
       case Enum_AvatarType.RESTAURANT_OWNER:
         updatedEntity = await this.restaurantService.updateEntityAvatar(
           uploadResult,
-          entityId,
+          entityId
         );
         break;
       case Enum_AvatarType.DRIVER:
         updatedEntity = await this.driverService.updateEntityAvatar(
           uploadResult,
-          entityId,
+          entityId
         );
         break;
       case Enum_AvatarType.CUSTOMER:
         updatedEntity = await this.customerService.updateEntityAvatar(
           uploadResult,
-          entityId,
+          entityId
         );
         break;
       case Enum_AvatarType.MENU_ITEM:
         updatedEntity = await this.menuItemService.updateEntityAvatar(
           uploadResult,
-          entityId,
+          entityId
         );
         break;
       default:
@@ -84,8 +84,8 @@ export class UploadController {
   @Post('image')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: memoryStorage(),
-    }),
+      storage: memoryStorage()
+    })
   )
   async uploadImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) {

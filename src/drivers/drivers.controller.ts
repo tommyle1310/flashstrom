@@ -5,7 +5,7 @@ import {
   Post,
   Get,
   Patch,
-  Delete,
+  Delete
 } from '@nestjs/common';
 import { DriversService } from './drivers.service'; // Corrected to use DriversService
 import { CreateDriverDto } from './dto/create-driver.dto'; // Corrected to use CreateDriverDto
@@ -23,6 +23,8 @@ export class DriversController {
 
   @Get()
   findAll() {
+    console.log('co lot vao');
+
     return this.driversService.findAll(); // Corrected service method to use driversService
   }
 
@@ -39,7 +41,7 @@ export class DriversController {
   @Patch(':id')
   update(
     @Param('id') id: string,
-    @Body() updateDriverDto: UpdateDriverDto, // Corrected DTO to UpdateDriverDto
+    @Body() updateDriverDto: UpdateDriverDto // Corrected DTO to UpdateDriverDto
   ) {
     return this.driversService.update(id, updateDriverDto); // Corrected service method to use driversService
   }

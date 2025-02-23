@@ -37,12 +37,13 @@ import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variant
 import { CartItemSchema } from 'src/cart_items/cart_items.schema';
 import { CartItemsModule } from 'src/cart_items/cart_items.module';
 import { CartItemsService } from 'src/cart_items/cart_items.service';
-
+import { OrderSchema } from 'src/orders/orders.schema';
+import { OrdersModule } from 'src/orders/orders.module';
 @Module({
   imports: [
     JwtModule.register({
       secret: process.env.JWT_SECRET, // Your JWT secret
-      signOptions: { expiresIn: '1h' }, // Token expiration time
+      signOptions: { expiresIn: '1h' } // Token expiration time
     }),
     MongooseModule.forFeature([{ name: 'User', schema: UserSchema }]),
     UserModule,
@@ -53,28 +54,30 @@ import { CartItemsService } from 'src/cart_items/cart_items.service';
     MongooseModule.forFeature([{ name: 'FWallet', schema: FWalletSchema }]),
     FwalletsModule,
     MongooseModule.forFeature([
-      { name: 'Restaurant', schema: RestaurantSchema },
+      { name: 'Restaurant', schema: RestaurantSchema }
     ]),
     RestaurantsModule,
     MongooseModule.forFeature([{ name: 'Promotion', schema: PromotionSchema }]),
     PromotionsModule,
     MongooseModule.forFeature([
-      { name: 'AddressBook', schema: AddressBookSchema },
+      { name: 'AddressBook', schema: AddressBookSchema }
     ]),
     AddressBook,
     MongooseModule.forFeature([{ name: 'MenuItem', schema: MenuItemSchema }]),
     MenuItemsModule,
     MongooseModule.forFeature([
-      { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
+      { name: 'MenuItemVariant', schema: MenuItemVariantSchema }
     ]),
     MenuItemVariantsModule,
     MongooseModule.forFeature([{ name: 'CartItem', schema: CartItemSchema }]),
     CartItemsModule,
     FoodCategoriesModule, // Import FoodCategoriesModule to make FoodCategoryModel available
     MongooseModule.forFeature([
-      { name: 'FoodCategory', schema: FoodCategorySchema },
+      { name: 'FoodCategory', schema: FoodCategorySchema }
     ]), // Register FoodCategorySchema
     MailerCustomModule,
+    MongooseModule.forFeature([{ name: 'Order', schema: OrderSchema }]),
+    OrdersModule
   ],
   providers: [
     AuthService,
@@ -88,9 +91,9 @@ import { CartItemsService } from 'src/cart_items/cart_items.service';
     CartItemsService,
     PromotionsService,
     MenuItemsService,
-    MenuItemVariantsService,
+    MenuItemVariantsService
   ],
   controllers: [AuthController],
-  exports: [AuthService, EmailService],
+  exports: [AuthService, EmailService]
 })
 export class AuthModule {}

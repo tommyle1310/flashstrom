@@ -6,7 +6,7 @@ import {
   IsInt,
   IsObject,
   IsNumber,
-  IsBoolean,
+  IsBoolean
 } from 'class-validator';
 import { Enum_AppTheme } from 'src/types/Payload'; // Importing Enum_AppTheme from the schema
 import { PartialType } from '@nestjs/mapped-types';

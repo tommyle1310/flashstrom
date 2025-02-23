@@ -6,12 +6,12 @@ export const FoodCategorySchema = new Schema({
   _id: { type: String }, // Custom _id field for food category
   name: { type: String, required: true }, // Name of the food category
   description: { type: String, required: true }, // Description of the food category
-  avatar: { 
+  avatar: {
     url: { type: String, required: false }, // URL for the category's avatar image
-    key: { type: String, required: false }, // Key for the avatar image
+    key: { type: String, required: false } // Key for the avatar image
   },
   created_at: { type: Number, required: false }, // Unix timestamp of creation
-  updated_at: { type: Number, required: false }, // Unix timestamp of last update
+  updated_at: { type: Number, required: false } // Unix timestamp of last update
 });
 
 // Pre-save hook to generate a custom ID with 'FF_FC_' prefix and a random UUID

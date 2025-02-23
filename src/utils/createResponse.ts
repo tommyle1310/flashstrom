@@ -2,57 +2,41 @@ import {
   ArgumentsHost,
   BadRequestException,
   Catch,
-  ExceptionFilter,
-  HttpException,
+  ExceptionFilter
 } from '@nestjs/common';
 import { ResponseStatus } from './constants';
 import { Response } from 'express';
 import { ValidationError } from 'class-validator';
 
-type ResponseData = {
-  EC: number; // Custom error code (from HttpStatus)
-  EM: string; // Custom message
-  data?: any; // Optional additional data
-};
+export type ResponseStatusType = keyof typeof ResponseStatus;
 
-export function createResponse(
-  httpStatus:
-    | 'OK'
-    | 'MissingInput'
-    | 'InvalidFormatInput'
-    | 'Unauthorized'
-    | 'ServerError'
-    | 'NotFound'
-    | 'DuplicatedRecord'
-    | 'Forbidden'
-    | 'InsufficientBalance'
-    | 'NotAcceptingOrders',
-  data?: any,
-  message?: string,
-): ResponseData {
-  // Access the corresponding status object from HttpStatus
-  const status = ResponseStatus[httpStatus]; // This will return the corresponding status object like { httpCode: 200, message: 'Success', code: 0 }
+export interface ApiResponse<T> {
+  EC: number;
+  EM: string;
+  data: T | null;
+}
 
-  // Use the provided message or fallback to the message in HttpStatus
-  const responseMessage = message || status.message;
-
-  // Create the response object
-  const response: ResponseData = {
-    EC: status.code,
-    EM: responseMessage,
+export function createResponse<T>(
+  status: ResponseStatusType,
+  data: T | null,
+  message?: string
+): ApiResponse<T> {
+  const statusInfo = ResponseStatus[status];
+  const response: ApiResponse<T> = {
+    EC: statusInfo.code,
+    EM: message || statusInfo.message,
+    data
   };
 
-  // Add data to response if it was provided
-  if (data !== undefined) {
-    response.data = data;
+  // If error code indicates an error, throw HttpException
+  if (statusInfo.code < 0 || statusInfo.code >= 2) {
+    return {
+      EC: statusInfo.code,
+      EM: message || statusInfo.message,
+      data: null
+    };
   }
 
-  // Check if it's an error status, and throw an HttpException
-  if (status.httpCode >= 400) {
-    throw new HttpException(response, status.httpCode); // Throw HttpException with the response and the status code
-  }
-
-  // If it's not an error, return the response
   return response;
 }
 
@@ -68,7 +52,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       return response.status(status).json({
         EC: 2,
         EM: 'InvalidFormatInput',
-        data: errorResponse, // Send the string as the response
+        data: errorResponse // Send the string as the response
       });
     }
 
@@ -81,7 +65,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       return response.status(status).json({
         EC: 2,
         EM: 'InvalidFormatInput',
-        data: errorResponse.message, // Access the message from the object
+        data: errorResponse.message // Access the message from the object
       });
     }
 
@@ -91,15 +75,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
         (error: ValidationError) => {
           return {
             field: error.property,
-            constraints: error.constraints,
+            constraints: error.constraints
           };
-        },
+        }
       );
 
       return response.status(status).json({
         EC: -6,
         EM: 'Controller error',
-        data: formattedErrors, // Send the formatted validation errors
+        data: formattedErrors // Send the formatted validation errors
       });
     }
 
@@ -107,7 +91,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     return response.status(status).json({
       EC: -6,
       EM: 'Controller error',
-      data: 'An unknown error occurred',
+      data: 'An unknown error occurred'
     });
   }
 }

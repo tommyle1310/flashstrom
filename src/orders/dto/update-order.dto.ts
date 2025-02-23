@@ -6,14 +6,24 @@ import {
   IsEnum,
   IsNumber,
   Min,
-  IsOptional,
-  IsUUID,
+  IsOptional
 } from 'class-validator';
 
 export class UpdateOrderDto extends PartialType(CreateOrderDto) {
   @IsOptional()
-  @IsEnum(['PENDING', 'ACCEPTED', 'IN_PROGRESS', 'DELIVERED', 'CANCELLED'])
-  status?: 'PENDING' | 'ACCEPTED' | 'IN_PROGRESS' | 'DELIVERED' | 'CANCELLED'; // Status of the order
+  @IsEnum([
+    'PENDING',
+    'RESTAURANT_ACCEPTED',
+    'IN_PROGRESS',
+    'DELIVERED',
+    'CANCELLED'
+  ])
+  status?:
+    | 'PENDING'
+    | 'RESTAURANT_ACCEPTED'
+    | 'IN_PROGRESS'
+    | 'DELIVERED'
+    | 'CANCELLED'; // Status of the order
 
   @IsOptional()
   @IsNumber()
@@ -22,11 +32,11 @@ export class UpdateOrderDto extends PartialType(CreateOrderDto) {
 
   @IsNumber()
   @Min(0)
-  delivery_fee: number; // Total amount for the order
+  delivery_fee?: number; // Total amount for the order
 
   @IsNumber()
   @Min(0)
-  service_fee: number; // Total amount for the order
+  service_fee?: number; // Total amount for the order
 
   @IsOptional()
   @IsEnum(['PENDING', 'PAID', 'FAILED'])
@@ -39,6 +49,10 @@ export class UpdateOrderDto extends PartialType(CreateOrderDto) {
   @IsOptional()
   @IsString()
   customer_location?: string; // Customer address (if updated)
+
+  @IsOptional()
+  @IsString()
+  driver_id?: string; // Driver ID (if updated)
 
   @IsOptional()
   @IsString()

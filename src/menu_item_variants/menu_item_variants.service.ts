@@ -13,11 +13,11 @@ export class MenuItemVariantsService {
     @InjectModel('MenuItemVariant')
     private readonly menuItemVariantModel: Model<MenuItemVariant>,
     @InjectModel('MenuItem')
-    private readonly menuItemModel: Model<MenuItem>,
+    private readonly menuItemModel: Model<MenuItem>
   ) {}
 
   async create(
-    createMenuItemVariantDto: CreateMenuItemVariantDto,
+    createMenuItemVariantDto: CreateMenuItemVariantDto
   ): Promise<any> {
     const {
       menu_id,
@@ -27,7 +27,7 @@ export class MenuItemVariantsService {
       availability,
       default_restaurant_notes,
       price,
-      discount_rate,
+      discount_rate
     } = createMenuItemVariantDto;
 
     // Check if the menu item variant already exists by variant or other unique fields
@@ -38,7 +38,7 @@ export class MenuItemVariantsService {
       return createResponse(
         'DuplicatedRecord',
         null,
-        'Menu Item Variant with this variant already exists for this menu',
+        'Menu Item Variant with this variant already exists for this menu'
       );
     }
 
@@ -53,7 +53,7 @@ export class MenuItemVariantsService {
       price,
       discount_rate,
       created_at: new Date().getTime(),
-      updated_at: new Date().getTime(),
+      updated_at: new Date().getTime()
     });
 
     // Save the new variant
@@ -65,23 +65,23 @@ export class MenuItemVariantsService {
         menu_id, // Find the menu item by its ID
         {
           $push: { variants: newVariant._id }, // Add the new variant's ID to the variants array
-          updated_at: new Date().getTime(), // Update the `updated_at` timestamp
+          updated_at: new Date().getTime() // Update the `updated_at` timestamp
         },
-        { new: true },
+        { new: true }
       )
       .exec();
 
     return createResponse(
       'OK',
       newVariant,
-      'Menu Item Variant created and added to the menu item successfully',
+      'Menu Item Variant created and added to the menu item successfully'
     );
   }
 
   // Update a menu item variant by ID
   async update(
     id: string,
-    updateMenuItemVariantDto: UpdateMenuItemVariantDto,
+    updateMenuItemVariantDto: UpdateMenuItemVariantDto
   ): Promise<any> {
     const updatedVariant = await this.menuItemVariantModel
       .findByIdAndUpdate(id, updateMenuItemVariantDto, { new: true })
@@ -95,13 +95,13 @@ export class MenuItemVariantsService {
       return createResponse(
         'OK',
         updatedVariant,
-        'Menu Item Variant updated successfully',
+        'Menu Item Variant updated successfully'
       );
     } catch (error) {
       return createResponse(
         'ServerError',
         null,
-        'An error occurred while updating the menu item variant',
+        'An error occurred while updating the menu item variant'
       );
     }
   }
@@ -112,7 +112,7 @@ export class MenuItemVariantsService {
     return createResponse(
       'OK',
       menuItemVariant,
-      'Fetched menu item variants successfully',
+      'Fetched menu item variants successfully'
     );
   }
 
@@ -127,13 +127,13 @@ export class MenuItemVariantsService {
       return createResponse(
         'OK',
         variant,
-        'Fetched menu item variant successfully',
+        'Fetched menu item variant successfully'
       );
     } catch (error) {
       return createResponse(
         'ServerError',
         null,
-        'An error occurred while fetching the menu item variant',
+        'An error occurred while fetching the menu item variant'
       );
     }
   }
@@ -141,7 +141,7 @@ export class MenuItemVariantsService {
   findOneByDetails(
     price: number,
     description: string,
-    menu_id: string,
+    menu_id: string
   ): Promise<MenuItemVariant> {
     return this.menuItemVariantModel
       .findOne({ price, description, menu_id })
@@ -162,7 +162,7 @@ export class MenuItemVariantsService {
     await this.menuItemModel
       .updateMany(
         { variants: id }, // Find menu items where the 'variants' array contains the variant ID
-        { $pull: { variants: id } }, // Remove the variant ID from the 'variants' array
+        { $pull: { variants: id } } // Remove the variant ID from the 'variants' array
       )
       .exec();
 

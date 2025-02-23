@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { RestaurantsService } from './restaurants.service';
 import { RestaurantsController } from './restaurants.controller';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -18,38 +18,39 @@ import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_varian
 import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
 import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variants.module';
 import { RestaurantsGateway } from './restaurants.gateway';
-
+import { DriverSchema } from 'src/drivers/drivers.schema';
+import { DriversModule } from 'src/drivers/drivers.module';
+import { OrdersModule } from 'src/orders/orders.module';
+import { OrderSchema } from 'src/orders/orders.schema';
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: 'Restaurant', schema: RestaurantSchema },
-    ]),
-    MongooseModule.forFeature([{ name: 'User', schema: UserSchema }]),
-    UserModule,
-    MongooseModule.forFeature([{ name: 'MenuItem', schema: MenuItemSchema }]),
-    MongooseModule.forFeature([
+      { name: 'User', schema: UserSchema },
+      { name: 'Driver', schema: DriverSchema },
+      { name: 'MenuItem', schema: MenuItemSchema },
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
-    ]),
-    PromotionsModule,
-    MongooseModule.forFeature([
       { name: 'AddressBook', schema: AddressBookSchema },
-    ]),
-    MongooseModule.forFeature([
       { name: 'FoodCategory', schema: FoodCategorySchema },
+      { name: 'Promotion', schema: PromotionSchema },
+      { name: 'Order', schema: OrderSchema }
     ]),
-    FoodCategoriesModule,
-    MongooseModule.forFeature([{ name: 'Promotion', schema: PromotionSchema }]),
+    UserModule,
+    forwardRef(() => DriversModule),
+    MenuItemsModule,
     PromotionsModule,
     AddressBook,
     FoodCategoriesModule,
+    forwardRef(() => OrdersModule),
+    MenuItemVariantsModule
   ],
   controllers: [RestaurantsController],
   providers: [
     RestaurantsService,
     MenuItemsService,
     MenuItemVariantsService,
-    RestaurantsGateway, // Add RestaurantsGateway to providers
+    RestaurantsGateway
   ],
-  exports: [RestaurantsService, RestaurantsGateway],
+  exports: [RestaurantsService, RestaurantsGateway]
 })
 export class RestaurantsModule {}

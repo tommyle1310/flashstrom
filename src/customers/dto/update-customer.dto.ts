@@ -1,12 +1,5 @@
-import {
-  IsString,
-  IsArray,
-  IsEnum,
-  IsOptional,
-  IsInt,
-  IsNumber,
-} from 'class-validator';
-import { Enum_AppTheme } from 'src/types/Payload'; // Importing Enum_AppTheme from the schema
+import { IsString, IsArray, IsEnum, IsOptional, IsInt } from 'class-validator';
+import { Enum_AppTheme } from 'src/types/Payload';
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateCustomerDto } from './create-customer.dto';
 

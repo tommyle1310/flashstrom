@@ -5,7 +5,7 @@ import {
   Body,
   Patch,
   Delete,
-  Param,
+  Param
 } from '@nestjs/common';
 import { AddressBookService } from './address_book.service';
 import { CreateAddressBookDto } from './dto/create-address_book.dto'; // Import the DTO
@@ -17,7 +17,7 @@ export class AddressBookController {
 
   @Post()
   async createAddressBook(
-    @Body() createAddressBookDto: CreateAddressBookDto, // Use the DTO here
+    @Body() createAddressBookDto: CreateAddressBookDto // Use the DTO here
   ) {
     return this.addressBookService.createAddressBook(createAddressBookDto);
   }
@@ -36,18 +36,18 @@ export class AddressBookController {
   @Patch(':id')
   async updateAddressBook(
     @Param('id') addressBookId: string,
-    @Body() updateAddressBookDto: UpdateAddressBookDto, // Use Update DTO
+    @Body() updateAddressBookDto: UpdateAddressBookDto // Use Update DTO
   ) {
     console.log(
       'check controller oaram, addressBookId:',
       addressBookId,
       'dto: ',
-      updateAddressBookDto,
+      updateAddressBookDto
     );
 
     return this.addressBookService.updateAddressBook(
       addressBookId,
-      updateAddressBookDto,
+      updateAddressBookDto
     );
   }
 

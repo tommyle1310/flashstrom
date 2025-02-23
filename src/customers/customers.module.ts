@@ -16,23 +16,18 @@ import { CustomersGateway } from './customers.gateway';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: 'Customer', schema: CustomerSchema }]),
-    MongooseModule.forFeature([{ name: 'CartItem', schema: CartItemSchema }]),
     MongooseModule.forFeature([
+      { name: 'Customer', schema: CustomerSchema },
+      { name: 'CartItem', schema: CartItemSchema },
       { name: 'Restaurant', schema: RestaurantSchema },
-    ]),
-    MongooseModule.forFeature([{ name: 'User', schema: UserSchema }]),
-    MongooseModule.forFeature([
+      { name: 'User', schema: UserSchema },
       { name: 'AddressBook', schema: AddressBookSchema },
+      { name: 'FoodCategory', schema: FoodCategorySchema }
     ]),
-    MongooseModule.forFeature([
-      { name: 'FoodCategory', schema: FoodCategorySchema },
-    ]),
-
-    // Import CartItemsModule here
-    CartItemsModule,
+    CartItemsModule
   ],
   controllers: [CustomersController],
   providers: [CustomersService, AddressBookService, CustomersGateway],
+  exports: [CustomersService, CustomersGateway]
 })
 export class CustomersModule {}

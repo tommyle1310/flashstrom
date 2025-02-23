@@ -10,7 +10,7 @@ export const MenuItemSchema = new Schema({
   category: [{ type: String, ref: 'FoodCategory' }], // Array of references to food categories
   avatar: {
     key: { type: String }, // Key for the avatar image (to manage Cloud storage)
-    url: { type: String }, // URL for the menu item's avatar image
+    url: { type: String } // URL for the menu item's avatar image
   },
   availability: { type: Boolean, default: false }, // Availability of the menu item
   suggest_notes: [{ type: String }], // Suggested notes (e.g., 'no spicy', 'more carrots')
@@ -36,9 +36,9 @@ export const MenuItemSchema = new Schema({
           value.start_date < value.end_date
         );
       },
-      message: 'Invalid discount structure or values',
-    },
-  },
+      message: 'Invalid discount structure or values'
+    }
+  }
 });
 
 // Pre-save hook to generate a custom ID with 'FF_MENU_ITEM_' prefix and a random UUID

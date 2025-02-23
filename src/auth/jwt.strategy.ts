@@ -6,16 +6,15 @@ import { UserService } from 'src/user/user.service'; // If you need UserService 
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
-    private readonly jwtService: JwtService,  // JwtService injected here
-    private readonly userService: UserService, // If you need user validation
+    private readonly jwtService: JwtService, // JwtService injected here
+    private readonly userService: UserService // If you need user validation
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: process.env.JWT_SECRET, // Ensure JWT_SECRET is passed here
+      secretOrKey: process.env.JWT_SECRET // Ensure JWT_SECRET is passed here
     });
   }
 

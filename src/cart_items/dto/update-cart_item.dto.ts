@@ -5,19 +5,19 @@ import { IsNumber, IsOptional, IsString } from 'class-validator';
 export class UpdateCartItemDto extends PartialType(CreateCartItemDto) {
   @IsOptional()
   @IsString()
-  item_id: String;
+  item_id: string;
 
   @IsOptional()
   variants: {
-    variant_id: String;
-    quantity: Number;
+    variant_id: string;
+    quantity: number;
   }[];
 
   @IsOptional()
   @IsString()
-  customer_id: String;
+  customer_id: string;
 
   @IsString()
   @IsOptional()
-  restaurant_id: String;
+  restaurant_id: string;
 }

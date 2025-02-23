@@ -5,7 +5,7 @@ import {
   Body,
   Patch,
   Param,
-  Delete,
+  Delete
 } from '@nestjs/common';
 import { MenuItemVariantsService } from './menu_item_variants.service';
 import { CreateMenuItemVariantDto } from './dto/create-menu_item_variant.dto';
@@ -14,7 +14,7 @@ import { UpdateMenuItemVariantDto } from './dto/update-menu_item_variant.dto';
 @Controller('menu-item-variants')
 export class MenuItemVariantsController {
   constructor(
-    private readonly menuItemVariantsService: MenuItemVariantsService,
+    private readonly menuItemVariantsService: MenuItemVariantsService
   ) {}
 
   // Create a new menu item variant
@@ -39,7 +39,7 @@ export class MenuItemVariantsController {
   @Patch(':id')
   update(
     @Param('id') id: string,
-    @Body() updateMenuItemVariantDto: UpdateMenuItemVariantDto,
+    @Body() updateMenuItemVariantDto: UpdateMenuItemVariantDto
   ) {
     return this.menuItemVariantsService.update(id, updateMenuItemVariantDto); // ID passed as string
   }

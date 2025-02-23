@@ -12,22 +12,18 @@ import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variant
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: 'MenuItem', schema: MenuItemSchema }]),
     MongooseModule.forFeature([
+      { name: 'MenuItem', schema: MenuItemSchema },
       { name: 'FoodCategory', schema: FoodCategorySchema },
+      { name: 'Restaurant', schema: RestaurantSchema },
+      { name: 'MenuItemVariant', schema: MenuItemVariantSchema }
     ]),
     FoodCategoriesModule,
-    MongooseModule.forFeature([
-      { name: 'Restaurant', schema: RestaurantSchema },
-    ]),
-    RestaurantsModule,
-    MongooseModule.forFeature([
-      { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
-    ]),
-    forwardRef(() => MenuItemVariantsModule), // ForwardRef to break circular dependency
+    forwardRef(() => RestaurantsModule),
+    forwardRef(() => MenuItemVariantsModule)
   ],
   controllers: [MenuItemsController],
   providers: [MenuItemsService],
-  exports: [MenuItemsService],
+  exports: [MenuItemsService]
 })
 export class MenuItemsModule {}

@@ -2,19 +2,19 @@ import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateCartItemDto {
   @IsString()
-  item_id: String;
+  item_id: string;
 
   @IsOptional()
   variants: {
-    variant_id: String;
-    quantity: Number;
+    variant_id: string;
+    quantity: number;
   }[];
 
   @IsString()
   @IsOptional()
-  customer_id: String;
+  customer_id: string;
 
   @IsString()
   @IsOptional()
-  restaurant_id: String;
+  restaurant_id: string;
 }

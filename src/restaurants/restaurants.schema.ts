@@ -12,32 +12,32 @@ export const RestaurantSchema = new Schema({
     {
       title: { type: String },
       is_default: { type: Boolean },
-      email: { type: String },
-    },
+      email: { type: String }
+    }
   ], // Contact email(s)
   contact_phone: [
     {
       title: { type: String },
       number: { type: String },
-      is_default: { type: Boolean },
-    },
+      is_default: { type: Boolean }
+    }
   ], // Contact phone(s)
   created_at: { type: Number }, // Unix timestamp for creation
   updated_at: { type: Number }, // Unix timestamp for last update
   avatar: {
     url: { type: String },
-    key: { type: String },
+    key: { type: String }
   }, // Avatar for the restaurant
   images_gallery: { type: [String] }, // Array of image URLs for the gallery
   status: {
     is_open: { type: Boolean },
     is_active: { type: Boolean },
-    is_accepted_orders: { type: Boolean },
+    is_accepted_orders: { type: Boolean }
   }, // Status of the restaurant (open, active, accepting orders)
   promotions: [{ type: String, ref: 'Promotion' }], // References to promotion IDs
   ratings: {
     average_rating: { type: Number },
-    review_count: { type: Number },
+    review_count: { type: Number }
   }, // Ratings for the restaurant
   description: { type: String },
   specialize_in: [{ type: String, ref: 'FoodCategory' }], // References to food categories
@@ -48,8 +48,8 @@ export const RestaurantSchema = new Schema({
     thu: { from: { type: Number }, to: { type: Number } },
     fri: { from: { type: Number }, to: { type: Number } },
     sat: { from: { type: Number }, to: { type: Number } },
-    sun: { from: { type: Number }, to: { type: Number } },
-  }, // Opening hours for each day of the week
+    sun: { from: { type: Number }, to: { type: Number } }
+  } // Opening hours for each day of the week
 });
 
 // Pre-save hook to generate a custom ID with 'RES_' prefix and a random UUID

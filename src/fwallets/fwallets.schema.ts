@@ -4,13 +4,21 @@ import { v4 as uuidv4 } from 'uuid';
 // Define the FWallet Schema
 export const FWalletSchema = new Schema({
   _id: { type: String }, // Custom _id field with the 'F_WALLET_' prefix
-  user_id: { type: String}, // Reference to User collection
+  user_id: { type: String }, // Reference to User collection
   balance: { type: Number, required: true, default: 0 }, // Wallet balance
   first_name: { type: String }, // User's first name
   last_name: { type: String }, // User's last name
   is_verified: { type: Boolean, default: false }, // Verification status
-    created_at: { type: Number, required: false, default: Math.floor(Date.now() / 1000) }, // Unix timestamp of creation
-  updated_at: { type: Number, required: false, default: Math.floor(Date.now() / 1000) }, // Unix timestamp of last update
+  created_at: {
+    type: Number,
+    required: false,
+    default: Math.floor(Date.now() / 1000)
+  }, // Unix timestamp of creation
+  updated_at: {
+    type: Number,
+    required: false,
+    default: Math.floor(Date.now() / 1000)
+  } // Unix timestamp of last update
 });
 
 // Pre-save hook to generate a custom ID with 'F_WALLET_' prefix and a random UUID

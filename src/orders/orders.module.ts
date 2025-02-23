@@ -1,45 +1,46 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CustomerSchema } from 'src/customers/customer.schema';
-import { CustomersModule } from 'src/customers/customers.module';
 import { RestaurantSchema } from 'src/restaurants/restaurants.schema';
-import { RestaurantsModule } from 'src/restaurants/restaurants.module';
 import { OrderSchema } from './orders.schema';
-import { AddressBook } from 'src/address_book/address_book.module';
 import { AddressBookSchema } from 'src/address_book/address_book.schema';
 import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
-import { MenuItemsModule } from 'src/menu_items/menu_items.module';
 import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
-import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variants.module';
 import { OrdersGateway } from './orders.gateway';
 import { DriversModule } from 'src/drivers/drivers.module';
 import { DriverSchema } from 'src/drivers/drivers.schema';
+import { RestaurantsModule } from 'src/restaurants/restaurants.module';
+import { CustomersModule } from 'src/customers/customers.module';
+import { MenuItemsModule } from 'src/menu_items/menu_items.module';
+import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variants.module';
+import { AddressBook } from 'src/address_book/address_book.module';
+import { DriverProgressStagesModule } from 'src/driver_progress_stages/driver_progress_stages.module';
+import { DriverProgressStageSchema } from 'src/driver_progress_stages/driver_progress_stages.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: 'Customer', schema: CustomerSchema }]),
-    CustomersModule,
-    MongooseModule.forFeature([{ name: 'MenuItem', schema: MenuItemSchema }]),
-    MenuItemsModule,
     MongooseModule.forFeature([
+      { name: 'Order', schema: OrderSchema },
+      { name: 'Customer', schema: CustomerSchema },
+      { name: 'MenuItem', schema: MenuItemSchema },
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
-    ]),
-    MenuItemVariantsModule,
-    MongooseModule.forFeature([
       { name: 'Restaurant', schema: RestaurantSchema },
-    ]),
-    RestaurantsModule,
-    MongooseModule.forFeature([{ name: 'Driver', schema: DriverSchema }]),
-    DriversModule,
-    MongooseModule.forFeature([
+      { name: 'Driver', schema: DriverSchema },
       { name: 'AddressBook', schema: AddressBookSchema },
+      { name: 'DriverProgressStage', schema: DriverProgressStageSchema }
     ]),
+    CustomersModule,
+    MenuItemsModule,
     AddressBook,
-    MongooseModule.forFeature([{ name: 'Order', schema: OrderSchema }]),
+    MenuItemVariantsModule,
+    forwardRef(() => RestaurantsModule),
+    forwardRef(() => DriversModule),
+    forwardRef(() => DriverProgressStagesModule)
   ],
   controllers: [OrdersController],
   providers: [OrdersService, OrdersGateway],
+  exports: [OrdersService, OrdersGateway]
 })
 export class OrdersModule {}

@@ -3,7 +3,7 @@ import {
   IsNumber,
   IsBoolean,
   IsArray,
-  IsObject,
+  IsObject
 } from 'class-validator';
 
 export class CreateAddressBookDto {

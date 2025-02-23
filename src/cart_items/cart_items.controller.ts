@@ -5,7 +5,7 @@ import {
   Body,
   Patch,
   Param,
-  Delete,
+  Delete
 } from '@nestjs/common';
 import { CartItemsService } from './cart_items.service';
 import { CreateCartItemDto } from './dto/create-cart_item.dto';
@@ -37,7 +37,7 @@ export class CartItemsController {
   @Patch(':id')
   update(
     @Param('id') id: string,
-    @Body() updateCartItemDto: UpdateCartItemDto,
+    @Body() updateCartItemDto: UpdateCartItemDto
   ) {
     console.log('check contro', updateCartItemDto);
 

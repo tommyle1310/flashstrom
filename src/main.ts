@@ -9,6 +9,9 @@ dotenv.config();
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Add this line for debug logging
+  app.useLogger(['debug', 'error', 'log', 'verbose', 'warn']);
+
   app.enableCors({
     origin: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
@@ -25,6 +28,7 @@ async function bootstrap() {
     // Prevent content type sniffing
     res.setHeader('X-Content-Type-Options', 'nosniff');
     next();
+
   });
 
   // Use the ValidationPipe globally with the whitelist option
@@ -32,15 +36,16 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true, // Automatically remove properties that do not exist in the DTO
       forbidNonWhitelisted: true, // Throw an error if there are non-whitelisted properties
-      transform: true, // Automatically transform payloads to the DTO class type
-    }),
+      transform: true // Automatically transform payloads to the DTO class type
+    })
   );
 
   // Register the custom HttpExceptionFilter globally
   app.useGlobalFilters(new HttpExceptionFilter());
 
   // Start the server
-  await app.listen(process.env.PORT ?? 2610);
+  await app.listen(process.env.PORT ?? 1310);
+  console.log('🚀 Server running on port', process.env.PORT ?? 1310);
 }
 
 bootstrap();

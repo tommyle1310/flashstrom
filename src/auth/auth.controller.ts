@@ -10,7 +10,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly emailService: EmailService,
-    private readonly userService: UserService,
+    private readonly userService: UserService
   ) {}
 
   @Post('register-customer')
@@ -22,32 +22,34 @@ export class AuthController {
       password: string;
       first_name: string;
       last_name: string;
-    },
+    }
   ) {
     // Step 1: Register the customer with the provided data
-    const registrationResponse =
-      await this.authService.register(userData, Enum_UserType.CUSTOMER);
+    const registrationResponse = await this.authService.register(
+      userData,
+      Enum_UserType.CUSTOMER
+    );
 
     // If registration is successful
     if (registrationResponse?.data?.data) {
       const code = await this.emailService.sendVerificationEmail(
-        userData.email,
+        userData.email
       ); // Send email to the user's email
       await this.userService.updateUser(
         registrationResponse.data.data.user_id,
-        { verification_code: code },
+        { verification_code: code }
       );
 
       return createResponse(
         'OK',
         null,
-        'Registration successful, verification email sent',
+        'Registration successful, verification email sent'
       );
     } else {
       return createResponse(
         'ServerError',
         null,
-        'Something went wrong in the server',
+        'Something went wrong in the server'
       );
     }
   }
@@ -60,32 +62,34 @@ export class AuthController {
       password: string;
       first_name: string;
       last_name: string;
-    },
+    }
   ) {
     // Step 1: Register the customer with the provided data
-    const registrationResponse =
-      await this.authService.register(userData, Enum_UserType.DRIVER);
+    const registrationResponse = await this.authService.register(
+      userData,
+      Enum_UserType.DRIVER
+    );
 
     // If registration is successful
     if (registrationResponse?.data?.data) {
       const code = await this.emailService.sendVerificationEmail(
-        userData.email,
+        userData.email
       ); // Send email to the user's email
       await this.userService.updateUser(
         registrationResponse.data.data.user_id,
-        { verification_code: code },
+        { verification_code: code }
       );
 
       return createResponse(
         'OK',
         null,
-        'Registration successful, verification email sent',
+        'Registration successful, verification email sent'
       );
     } else {
       return createResponse(
         'ServerError',
         null,
-        'Something went wrong in the server',
+        'Something went wrong in the server'
       );
     }
   }
@@ -99,76 +103,83 @@ export class AuthController {
       password: string;
       first_name: string;
       last_name: string;
-    },
+    }
   ) {
     // Step 1: Register the customer with the provided data
-    const registrationResponse =
-      await this.authService.register(userData, Enum_UserType.RESTAURANT_OWNER);
+    const registrationResponse = await this.authService.register(
+      userData,
+      Enum_UserType.RESTAURANT_OWNER
+    );
 
     // If registration is successful
     if (registrationResponse?.data?.data) {
       const code = await this.emailService.sendVerificationEmail(
-        userData.email,
+        userData.email
       ); // Send email to the user's email
       await this.userService.updateUser(
-        registrationResponse.data.data.user_id ?? registrationResponse.data.data.owner_id,
-        { verification_code: code },
+        registrationResponse.data.data.user_id ??
+          registrationResponse.data.data.owner_id,
+        { verification_code: code }
       );
 
       return createResponse(
         'OK',
         null,
-        'Registration successful, verification email sent',
+        'Registration successful, verification email sent'
       );
     } else {
       return createResponse(
         'ServerError',
         null,
-        'Something went wrong in the server',
+        'Something went wrong in the server'
       );
     }
   }
-  
+
   @Post('register-fwallet')
   async registerFWallet(
     @Body()
     userData: {
-      user_id: string,
-      email: string,
-      password: string
-      balance: string
-    },
+      user_id: string;
+      email: string;
+      password: string;
+      balance: string;
+    }
   ) {
     // Step 1: Register the customer with the provided data
-    const registrationResponse =
-      await this.authService.register(userData, Enum_UserType.F_WALLET);
+    const registrationResponse = await this.authService.register(
+      userData,
+      Enum_UserType.F_WALLET
+    );
 
     // If registration is successful
     if (registrationResponse?.data?.data) {
       const code = await this.emailService.sendVerificationEmail(
-        userData.email,
+        userData.email
       ); // Send email to the user's email
       await this.userService.updateUser(
         registrationResponse.data.data.user_id,
-        { verification_code: code },
+        { verification_code: code }
       );
 
       return createResponse(
         'OK',
         null,
-        'Registration successful, verification email sent',
+        'Registration successful, verification email sent'
       );
     } else {
       return createResponse(
         'ServerError',
         null,
-        'Something went wrong in the server',
+        'Something went wrong in the server'
       );
     }
   }
 
   @Post('login-customer')
-  async loginCustomer(@Body() credentials: { email: string; password: string }) {
+  async loginCustomer(
+    @Body() credentials: { email: string; password: string }
+  ) {
     return this.authService.login(credentials, Enum_UserType.CUSTOMER);
   }
   @Post('login-driver')
@@ -181,20 +192,22 @@ export class AuthController {
   }
 
   @Post('login-restaurant')
-  async loginRestaurant(@Body() credentials: { email: string; password: string }) {
+  async loginRestaurant(
+    @Body() credentials: { email: string; password: string }
+  ) {
     return this.authService.login(credentials, Enum_UserType.RESTAURANT_OWNER);
   }
 
   @Post('verify-email')
   async verifyEmail(
-    @Body() { email, code }: { email: string; code: string }, // Accept email and verification code
+    @Body() { email, code }: { email: string; code: string } // Accept email and verification code
   ) {
     try {
       if (!email || !code) {
         return createResponse(
           'InvalidFormatInput',
           null,
-          'You must provide a valid email and a verification code',
+          'You must provide a valid email and a verification code'
         );
       }
       const result = await this.emailService.verifyEmail(email, code); // Verify email with the code
@@ -204,7 +217,7 @@ export class AuthController {
       return createResponse(
         'ServerError',
         null,
-        'An error occurred during verification, please try again.',
+        'An error occurred during verification, please try again.'
       );
     }
   }

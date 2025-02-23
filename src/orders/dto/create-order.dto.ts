@@ -4,8 +4,7 @@ import {
   IsEnum,
   IsNumber,
   Min,
-  IsOptional,
-  IsUUID,
+  IsOptional
 } from 'class-validator';
 
 export class CreateOrderDto {
@@ -15,8 +14,19 @@ export class CreateOrderDto {
   @IsString()
   restaurant_id: string; // Restaurant ID
 
-  @IsEnum(['PENDING', 'ACCEPTED', 'IN_PROGRESS', 'DELIVERED', 'CANCELLED'])
-  status: 'PENDING' | 'ACCEPTED' | 'IN_PROGRESS' | 'DELIVERED' | 'CANCELLED'; // Status of the order
+  @IsEnum([
+    'PENDING',
+    'RESTAURANT_ACCEPTED',
+    'IN_PROGRESS',
+    'DELIVERED',
+    'CANCELLED'
+  ])
+  status:
+    | 'PENDING'
+    | 'RESTAURANT_ACCEPTED'
+    | 'IN_PROGRESS'
+    | 'DELIVERED'
+    | 'CANCELLED'; // Status of the order
 
   @IsNumber()
   @Min(0)

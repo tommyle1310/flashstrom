@@ -23,11 +23,16 @@ import { RatingsReviewsModule } from './ratings_reviews/ratings_reviews.module';
 import { AdminModule } from './admin/admin.module';
 import { CustomerCaresModule } from './customer_cares/customer_cares.module';
 import { FinanceAdminModule } from './admin/finance_admin/finance_admin.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { DriverProgressStagesModule } from './driver_progress_stages/driver_progress_stages.module';
+
+
 @Module({
   imports: [
     MongooseModule.forRoot(process.env.MONGO_URI), // Your MongoDB URI
     UserModule,
     AddressBookModule,
+    EventEmitterModule.forRoot(),
     CustomersModule,
     DriversModule,
     UploadModule,
@@ -45,9 +50,10 @@ import { FinanceAdminModule } from './admin/finance_admin/finance_admin.module';
     RatingsReviewsModule, // Import the mailer module here
     AdminModule,
     CustomerCaresModule,
-    FinanceAdminModule
+    FinanceAdminModule,
+    DriverProgressStagesModule
   ],
   controllers: [AppController],
-  providers: [AppService, EmailService],
+  providers: [AppService, EmailService]
 })
 export class AppModule {}

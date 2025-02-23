@@ -3,7 +3,7 @@ import {
   IsOptional,
   IsObject,
   IsBoolean,
-  IsNumber,
+  IsNumber
 } from 'class-validator';
 
 export class UpdateMenuItemVariantDto {
