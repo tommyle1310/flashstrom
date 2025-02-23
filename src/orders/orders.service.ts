@@ -161,6 +161,7 @@ export class OrdersService {
     const restaurant = await this.restaurantModel
       .findById(restaurant_id)
       .exec();
+    console.log('restaurant', restaurant);
     if (!restaurant) {
       return createResponse('NotFound', null, 'Restaurant not found');
     }

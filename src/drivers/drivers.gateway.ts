@@ -346,65 +346,51 @@ export class DriversGateway
       }
 
       // Find the current in-progress stage
-      const currentInProgressIndex = currentStage.data.stages.findIndex(
+      const currentInProgressStage = currentStage.data.stages.find(
         stage => stage.status === 'in_progress'
       );
 
-      if (currentInProgressIndex === -1) {
+      if (!currentInProgressStage) {
         return { success: false, message: 'No in-progress stage found' };
       }
 
-      // Mark current stage as completed and next stage as in-progress
-      const updatedStages = currentStage.data.stages.map((stage, index) => {
-        // Only update stages that belong to the current order set
-        const currentOrderStartIndex =
-          Math.floor(currentInProgressIndex / 5) * 5;
-        const currentOrderEndIndex = currentOrderStartIndex + 4;
+      // Find the next stage
+      const nextStage = currentStage.data.stages.find(
+        stage =>
+          stage.state ===
+          stageOrder[stageOrder.indexOf(currentInProgressStage.state) + 1]
+      );
 
-        // If this stage is not part of the current order's set, leave it unchanged
-        if (index < currentOrderStartIndex || index > currentOrderEndIndex) {
-          return stage;
-        }
+      if (!nextStage) {
+        return { success: false, message: 'No next stage found' };
+      }
 
-        // For all stages except the last one in the set
-        if (index !== currentOrderEndIndex) {
+      // Update the stages statuses
+      const updatedStages = currentStage.data.stages.map(stage => {
+        if (stage.state === currentInProgressStage.state) {
           return {
             ...stage,
-            state: stage.state,
-            status:
-              index === currentInProgressIndex
-                ? 'completed'
-                : index === currentInProgressIndex + 1
-                  ? 'in_progress'
-                  : index < currentInProgressIndex
-                    ? 'completed'
-                    : 'pending',
+            status: 'completed',
             duration:
-              index <= currentInProgressIndex
-                ? (new Date().getTime() - new Date(stage.timestamp).getTime()) /
-                  1000
-                : 0,
-            timestamp:
-              index === currentInProgressIndex + 1
-                ? new Date()
-                : stage.timestamp
+              (new Date().getTime() - new Date(stage.timestamp).getTime()) /
+              1000
           };
         }
-
-        // For the last stage, just return it unchanged
+        if (stage.state === nextStage.state) {
+          return {
+            ...stage,
+            status: 'in_progress',
+            timestamp: new Date()
+          };
+        }
         return stage;
       });
 
       const result = await this.driverProgressStageService.updateStage(
         data.stageId,
         {
-          current_state: stageOrder[currentInProgressIndex + 1] as
-            | 'driver_ready'
-            | 'waiting_for_pickup'
-            | 'restaurant_pickup'
-            | 'en_route_to_customer'
-            | 'delivery_complete',
-          previous_state: stageOrder[currentInProgressIndex],
+          current_state: nextStage.state as any,
+          previous_state: currentInProgressStage.state,
           stages: updatedStages as any
         }
       );

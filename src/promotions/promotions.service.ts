@@ -14,22 +14,6 @@ export class PromotionsService {
   ) {}
 
   // Create a new promotion
-
-  async create(createPromotionDto: CreatePromotionDto): Promise<any> {
-    const {
-      name,
-      description,
-      start_date,
-      end_date,
-      status,
-      discount_type,
-      discount_value,
-      food_categories,
-      minimum_order_value,
-      promotion_cost_price,
-      bogo_details,
-    } = createPromotionDto;
-
   async create(
     createPromotionDto: CreatePromotionDto
   ): Promise<ApiResponse<Promotion>> {
@@ -41,7 +25,6 @@ export class PromotionsService {
         return this.handleDuplicatePromotion();
       }
 
-
       const newPromotion = await this.saveNewPromotion(createPromotionDto);
       return createResponse(
         'OK',
@@ -51,29 +34,6 @@ export class PromotionsService {
     } catch (error) {
       return this.handleError('Error creating promotion:', error);
     }
-
-
-    // Create the new promotion
-    const newPromotion = new this.promotionModel({
-      name,
-      description,
-      start_date,
-      end_date,
-      status,
-      discount_type,
-      discount_value,
-      food_categories,
-      minimum_order_value,
-      promotion_cost_price,
-      bogo_details: discount_type === 'BOGO' ? bogo_details : undefined,
-      created_at: Math.floor(Date.now() / 1000),
-      updated_at: Math.floor(Date.now() / 1000),
-    });
-
-    // Save the promotion and return the success response
-    await newPromotion.save();
-    return createResponse('OK', newPromotion, 'Promotion created successfully');
-
   }
 
   // Get all promotions

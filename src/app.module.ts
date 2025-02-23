@@ -25,7 +25,7 @@ import { CustomerCaresModule } from './customer_cares/customer_cares.module';
 import { FinanceAdminModule } from './admin/finance_admin/finance_admin.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { DriverProgressStagesModule } from './driver_progress_stages/driver_progress_stages.module';
-
+import { CompanionAdminModule } from './admin/companion_admin/companion_admin.module';
 
 @Module({
   imports: [
@@ -51,7 +51,8 @@ import { DriverProgressStagesModule } from './driver_progress_stages/driver_prog
     AdminModule,
     CustomerCaresModule,
     FinanceAdminModule,
-    DriverProgressStagesModule
+    DriverProgressStagesModule,
+    CompanionAdminModule
   ],
   controllers: [AppController],
   providers: [AppService, EmailService]

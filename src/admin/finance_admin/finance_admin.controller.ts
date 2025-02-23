@@ -5,7 +5,7 @@ import {
   Body,
   Patch,
   Param,
-  Delete,
+  Delete
 } from '@nestjs/common';
 import { AdminService } from '../admin.service';
 import { PromotionsService } from '../../promotions/promotions.service';
@@ -19,7 +19,7 @@ import { AdminRole } from 'src/utils/types/admin';
 export class FinanceAdminController {
   constructor(
     private readonly adminService: AdminService,
-    private readonly promotionsService: PromotionsService,
+    private readonly promotionsService: PromotionsService
   ) {}
 
   // Admin Management Endpoints
@@ -30,7 +30,6 @@ export class FinanceAdminController {
     return this.adminService.create(createAdminDto);
   }
 
-  
   @Get()
   findAllFinanceAdmins() {
     // This should be modified in the service to filter only FINANCE_ADMIN roles
@@ -50,7 +49,7 @@ export class FinanceAdminController {
   @Patch('/:id')
   updateFinanceAdmin(
     @Param('id') id: string,
-    @Body() updateAdminDto: UpdateAdminDto,
+    @Body() updateAdminDto: UpdateAdminDto
   ) {
     // Ensure the role stays as FINANCE_ADMIN
     updateAdminDto.role = AdminRole.FINANCE_ADMIN;
@@ -68,8 +67,6 @@ export class FinanceAdminController {
     return this.promotionsService.create(createPromotionDto);
   }
 
-
-
   @Get('promotions/:id')
   findOnePromotion(@Param('id') id: string) {
     return this.promotionsService.findOne(id);
@@ -78,7 +75,7 @@ export class FinanceAdminController {
   @Patch('promotions/:id')
   updatePromotion(
     @Param('id') id: string,
-    @Body() updatePromotionDto: UpdatePromotionDto,
+    @Body() updatePromotionDto: UpdatePromotionDto
   ) {
     return this.promotionsService.update(id, updatePromotionDto);
   }
@@ -88,4 +85,3 @@ export class FinanceAdminController {
     return this.promotionsService.remove(id);
   }
 }
-

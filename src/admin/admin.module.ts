@@ -9,11 +9,11 @@ import { UserSchema } from '../user/user.schema';
   imports: [
     MongooseModule.forFeature([
       { name: 'Admin', schema: AdminSchema },
-      { name: 'User', schema: UserSchema },
-    ]),
+      { name: 'User', schema: UserSchema }
+    ])
   ],
   controllers: [AdminController],
   providers: [AdminService],
-  exports: [AdminService],
+  exports: [AdminService]
 })
 export class AdminModule {}

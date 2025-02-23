@@ -5,6 +5,6 @@ import { PromotionsModule } from '../../promotions/promotions.module';
 
 @Module({
   imports: [AdminModule, PromotionsModule],
-  controllers: [FinanceAdminController],
+  controllers: [FinanceAdminController]
 })
 export class FinanceAdminModule {}
