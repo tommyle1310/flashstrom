@@ -32,11 +32,10 @@ export const RolePermissions: Record<AdminRole, AdminPermission[]> = {
   ],
   [AdminRole.FINANCE_ADMIN]: [
     AdminPermission.MANAGE_PAYMENTS,
+    AdminPermission.MANAGE_PROMOTIONS,
     AdminPermission.VIEW_ANALYTICS,
   ],
 };
 
-
-let phucle = {}
-phucle['first_name'] = 'teo'
-
+let phucle = {};
+phucle['first_name'] = 'teo';

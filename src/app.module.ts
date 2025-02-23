@@ -22,6 +22,7 @@ import { OrdersModule } from './orders/orders.module';
 import { RatingsReviewsModule } from './ratings_reviews/ratings_reviews.module';
 import { AdminModule } from './admin/admin.module';
 import { CustomerCaresModule } from './customer_cares/customer_cares.module';
+import { FinanceAdminModule } from './admin/finance_admin/finance_admin.module';
 @Module({
   imports: [
     MongooseModule.forRoot(process.env.MONGO_URI), // Your MongoDB URI
@@ -44,6 +45,7 @@ import { CustomerCaresModule } from './customer_cares/customer_cares.module';
     RatingsReviewsModule, // Import the mailer module here
     AdminModule,
     CustomerCaresModule,
+    FinanceAdminModule
   ],
   controllers: [AppController],
   providers: [AppService, EmailService],
