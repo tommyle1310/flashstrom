@@ -1,12 +1,21 @@
-import { Entity, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  JoinColumn,
+  OneToOne
+} from 'typeorm';
 import { AdminRole, AdminPermission, AdminStatus } from 'src/utils/types/admin';
+import { User } from 'src/users/entities/user.entity';
 
 @Entity('admins')
 export class Admin {
   @Column({ primary: true })
   id: string;
 
-  @Column()
+  @OneToOne(() => User)
+  @JoinColumn({ name: 'user_id' })
   user_id: string;
 
   @Column({

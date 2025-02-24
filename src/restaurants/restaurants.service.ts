@@ -4,7 +4,6 @@ import { Model } from 'mongoose';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { Restaurant } from './restaurants.schema'; // Assuming the restaurant schema
-import { Promotion } from 'src/promotions/promotions.schema';
 import { createResponse } from 'src/utils/createResponse';
 import { AddressBook } from 'src/address_book/address_book.schema';
 import { MenuItemsService } from 'src/menu_items/menu_items.service';
@@ -15,6 +14,8 @@ import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_varian
 import { UpdateMenuItemVariantDto } from 'src/menu_item_variants/dto/update-menu_item_variant.dto';
 import { Order } from 'src/orders/orders.schema';
 import { UserRepository } from 'src/users/users.repository';
+import { ApiResponse } from 'src/utils/createResponse';
+import { PromotionsRepository } from 'src/promotions/promotions.repository';
 
 @Injectable()
 export class RestaurantsService {
@@ -22,7 +23,7 @@ export class RestaurantsService {
     @InjectModel('Restaurant')
     private readonly restaurantModel: Model<Restaurant>,
     private readonly userRepository: UserRepository,
-    @InjectModel('Promotion') private readonly promotionModel: Model<Promotion>,
+    private readonly promotionRepository: PromotionsRepository,
     @InjectModel('AddressBook')
     private readonly addressbookModel: Model<AddressBook>,
     @InjectModel('Order') private readonly orderModel: Model<Order>,
@@ -31,80 +32,19 @@ export class RestaurantsService {
     private readonly menuItemVariantsService: MenuItemVariantsService
   ) {}
 
-  // Create a new restaurant
-  async create(createRestaurantDto: CreateRestaurantDto): Promise<any> {
-    const { owner_id, promotions, address } = createRestaurantDto;
+  async create(
+    createRestaurantDto: CreateRestaurantDto
+  ): Promise<ApiResponse<Restaurant>> {
+    try {
+      const { owner_id, promotions, address } = createRestaurantDto;
 
-    // Check if owner_id exists in the User table
-    const owner = await this.userRepository.findById(owner_id);
-    if (!owner) {
-      return createResponse('NotFound', null, 'Owner not found');
-    }
-
-    // Check if the address exists in the AddressBook collection
-    const addressBookEntry = await this.addressbookModel
-      .findById(address)
-      .exec();
-    if (!addressBookEntry) {
-      return createResponse(
-        'NotFound',
-        null,
-        'Address not found in address book'
-      );
-    }
-
-    if (promotions) {
-      // Check if promotions exist in the Promotion collection
-      for (const promotionId of promotions) {
-        const promotion = await this.promotionModel
-          .findById(promotionId)
-          .exec();
-        if (!promotion) {
-          return createResponse(
-            'NotFound',
-            null,
-            `Promotion with ID ${promotionId} not found`
-          );
-        }
-      }
-    }
-
-    // Create a new restaurant
-    const newRestaurant = new this.restaurantModel(createRestaurantDto);
-    await newRestaurant.save();
-
-    return createResponse(
-      'OK',
-      newRestaurant,
-      'Restaurant created successfully'
-    );
-  }
-  // Update a restaurant
-  async update(
-    id: string,
-    updateRestaurantDto: UpdateRestaurantDto
-  ): Promise<any> {
-    const {
-      owner_id,
-      promotions,
-      address,
-      contact_phone,
-      contact_email,
-      description,
-      restaurant_name,
-      status
-    } = updateRestaurantDto;
-
-    // Check if owner_id exists in the User table
-    if (owner_id) {
+      // Check if owner exists using repository pattern
       const owner = await this.userRepository.findById(owner_id);
       if (!owner) {
         return createResponse('NotFound', null, 'Owner not found');
       }
-    }
 
-    // Check if the address exists in the AddressBook collection (if address is provided)
-    if (address) {
+      // Check if address exists
       const addressBookEntry = await this.addressbookModel
         .findById(address)
         .exec();
@@ -115,100 +55,170 @@ export class RestaurantsService {
           'Address not found in address book'
         );
       }
-    }
 
-    // Check if promotions exist in the Promotion collection (if promotions are provided)
-    if (promotions) {
-      for (const promotionId of promotions) {
-        const promotion = await this.promotionModel
-          .findById(promotionId)
-          .exec();
-        if (!promotion) {
+      // Check if promotions exist using repository
+      if (promotions) {
+        const foundPromotions =
+          await this.promotionRepository.findByIds(promotions);
+        if (foundPromotions.length !== promotions.length) {
           return createResponse(
             'NotFound',
             null,
-            `Promotion with ID ${promotionId} not found`
+            'One or more promotions not found'
           );
         }
       }
+
+      const newRestaurant = new this.restaurantModel(createRestaurantDto);
+      const savedRestaurant = await newRestaurant.save();
+
+      return createResponse(
+        'OK',
+        savedRestaurant,
+        'Restaurant created successfully'
+      );
+    } catch (error) {
+      console.error('Error creating restaurant:', error);
+      return createResponse('ServerError', null, 'Error creating restaurant');
     }
+  }
 
-    // Retrieve the current restaurant data before making changes
-    const updatedRestaurant = await this.restaurantModel.findById(id).exec();
+  async update(
+    id: string,
+    updateRestaurantDto: UpdateRestaurantDto
+  ): Promise<ApiResponse<Restaurant>> {
+    try {
+      const { owner_id, promotions, address } = updateRestaurantDto;
 
-    if (!updatedRestaurant) {
-      return createResponse('NotFound', null, 'Restaurant not found');
-    }
-
-    // Check and handle contact_phone numbers
-    if (contact_phone && contact_phone.length > 0) {
-      for (const newPhone of contact_phone) {
-        // Check if the phone number already exists in the restaurant's contact_phone
-        const existingPhone = updatedRestaurant.contact_phone.find(
-          phone => phone.number === newPhone.number
-        );
-
-        if (!existingPhone) {
-          // If phone number doesn't exist, push it to the contact_phone array
-          updatedRestaurant.contact_phone.push(newPhone);
+      // Check if owner exists
+      if (owner_id) {
+        const owner = await this.userRepository.findById(owner_id);
+        if (!owner) {
+          return createResponse('NotFound', null, 'Owner not found');
         }
       }
-    }
 
-    // Check and handle contact_email emails
-    if (contact_email && contact_email.length > 0) {
-      for (const newEmail of contact_email) {
-        // Check if the email already exists in the restaurant's contact_email
-        const existingEmail = updatedRestaurant.contact_email.find(
-          email => email.email === newEmail.email
-        );
-
-        if (!existingEmail) {
-          // If email doesn't exist, push it to the contact_email array
-          updatedRestaurant.contact_email.push(newEmail);
+      // Check if address exists
+      if (address) {
+        const addressBookEntry = await this.addressbookModel
+          .findById(address)
+          .exec();
+        if (!addressBookEntry) {
+          return createResponse(
+            'NotFound',
+            null,
+            'Address not found in address book'
+          );
         }
       }
-    }
 
-    // If a new description is provided, update the restaurant's description
-    if (description) {
-      updatedRestaurant.description = description;
-    }
+      // Check if promotions exist using TypeORM repository
+      if (promotions) {
+        const foundPromotions =
+          await this.promotionRepository.findByIds(promotions);
+        if (foundPromotions.length !== promotions.length) {
+          return createResponse(
+            'NotFound',
+            null,
+            'One or more promotions not found'
+          );
+        }
+      }
 
-    // Merge the status object if provided
-    if (status) {
-      console.log('check status payload', status);
+      // Retrieve the current restaurant data before making changes
+      const updatedRestaurant = await this.restaurantModel.findById(id).exec();
 
-      updatedRestaurant.status = {
-        ...updatedRestaurant.status,
-        ...(status.is_open !== undefined && { is_open: status.is_open }),
-        ...(status.is_active !== undefined && { is_active: status.is_active }),
-        ...(status.is_accepted_orders !== undefined && {
-          is_accepted_orders: status.is_accepted_orders
-        }),
-        ...(status.is_accepted_orders !== undefined && {
-          is_accepted_orders: status.is_accepted_orders
-        })
+      if (!updatedRestaurant) {
+        return createResponse('NotFound', null, 'Restaurant not found');
+      }
+
+      // Check and handle contact_phone numbers
+      if (
+        updateRestaurantDto.contact_phone &&
+        updateRestaurantDto.contact_phone.length > 0
+      ) {
+        for (const newPhone of updateRestaurantDto.contact_phone) {
+          // Check if the phone number already exists in the restaurant's contact_phone
+          const existingPhone = updatedRestaurant.contact_phone.find(
+            phone => phone.number === newPhone.number
+          );
+
+          if (!existingPhone) {
+            // If phone number doesn't exist, push it to the contact_phone array
+            updatedRestaurant.contact_phone.push(newPhone);
+          }
+        }
+      }
+
+      // Check and handle contact_email emails
+      if (
+        updateRestaurantDto.contact_email &&
+        updateRestaurantDto.contact_email.length > 0
+      ) {
+        for (const newEmail of updateRestaurantDto.contact_email) {
+          // Check if the email already exists in the restaurant's contact_email
+          const existingEmail = updatedRestaurant.contact_email.find(
+            email => email.email === newEmail.email
+          );
+
+          if (!existingEmail) {
+            // If email doesn't exist, push it to the contact_email array
+            updatedRestaurant.contact_email.push(newEmail);
+          }
+        }
+      }
+
+      // If a new description is provided, update the restaurant's description
+      if (updateRestaurantDto.description) {
+        updatedRestaurant.description = updateRestaurantDto.description;
+      }
+
+      // Merge the status object if provided
+      if (updateRestaurantDto.status) {
+        console.log('check status payload', updateRestaurantDto.status);
+
+        updatedRestaurant.status = {
+          ...updatedRestaurant.status,
+          ...(updateRestaurantDto.status.is_open !== undefined && {
+            is_open: updateRestaurantDto.status.is_open
+          }),
+          ...(updateRestaurantDto.status.is_active !== undefined && {
+            is_active: updateRestaurantDto.status.is_active
+          }),
+          ...(updateRestaurantDto.status.is_accepted_orders !== undefined && {
+            is_accepted_orders: updateRestaurantDto.status.is_accepted_orders
+          }),
+          ...(updateRestaurantDto.status.is_accepted_orders !== undefined && {
+            is_accepted_orders: updateRestaurantDto.status.is_accepted_orders
+          })
+        };
+      }
+
+      // Instead of spreading updatedRestaurant, directly assign values
+      const updateData: any = {
+        ...updatedRestaurant.toObject(), // Spread existing data
+        restaurant_name: updateRestaurantDto.restaurant_name, // Directly include the new restaurant_name
+        address: updateRestaurantDto.address // Directly include the new address
       };
+
+      // Update the restaurant with the modified contact details, restaurant_name, and description
+      const finalUpdatedRestaurant = await this.restaurantModel
+        .findByIdAndUpdate(id, updateData, { new: true })
+        .exec();
+
+      if (!finalUpdatedRestaurant) {
+        return createResponse('NotFound', null, 'Restaurant not found');
+      }
+
+      return createResponse(
+        'OK',
+        finalUpdatedRestaurant,
+        'Restaurant updated successfully'
+      );
+    } catch (error) {
+      console.error('Error updating restaurant:', error);
+      return createResponse('ServerError', null, 'Error updating restaurant');
     }
-
-    // Instead of spreading updatedRestaurant, directly assign values
-    const updateData: any = {
-      ...updatedRestaurant.toObject(), // Spread existing data
-      restaurant_name, // Directly include the new restaurant_name
-      address // Directly include the new address
-    };
-
-    // Update the restaurant with the modified contact details, restaurant_name, and description
-    const finalUpdatedRestaurant = await this.restaurantModel
-      .findByIdAndUpdate(id, updateData, { new: true })
-      .exec();
-
-    return createResponse(
-      'OK',
-      finalUpdatedRestaurant,
-      'Restaurant updated successfully'
-    );
   }
 
   // Get all restaurants

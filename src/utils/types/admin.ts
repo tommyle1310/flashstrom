@@ -36,6 +36,3 @@ export const RolePermissions: Record<AdminRole, AdminPermission[]> = {
     AdminPermission.VIEW_ANALYTICS
   ]
 };
-
-const phucle = {};
-phucle['first_name'] = 'teo';

@@ -5,7 +5,7 @@ import { UploadController } from './upload.controller';
 import { CustomersModule } from 'src/customers/customers.module';
 import { DriversModule } from 'src/drivers/drivers.module';
 import { RestaurantsModule } from 'src/restaurants/restaurants.module';
-import { PromotionsModule } from 'src/promotions/promotions.module';
+// import { PromotionsModule } from 'src/promotions/promotions.module';
 import { CustomerSchema } from 'src/customers/customer.schema';
 import { DriverSchema } from 'src/drivers/drivers.schema';
 import { RestaurantSchema } from 'src/restaurants/restaurants.schema';
@@ -25,6 +25,10 @@ import { OrdersModule } from 'src/orders/orders.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { UserRepository } from 'src/users/users.repository';
+import { PromotionsService } from 'src/promotions/promotions.service';
+import { PromotionsRepository } from 'src/promotions/promotions.repository';
+import { Promotion } from 'src/promotions/entities/promotion.entity';
+import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -34,18 +38,19 @@ import { UserRepository } from 'src/users/users.repository';
       { name: 'Driver', schema: DriverSchema },
       { name: 'Restaurant', schema: RestaurantSchema },
       { name: 'MenuItem', schema: MenuItemSchema },
+      { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
       { name: 'FoodCategory', schema: FoodCategorySchema }
     ]),
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, Promotion]),
     AddressBook,
     CustomersModule,
     DriversModule,
     RestaurantsModule,
-    PromotionsModule,
     MenuItemsModule,
     FoodCategoriesModule,
     MenuItemVariantsModule,
     OrdersModule
+    // PromotionsModule
   ],
   controllers: [UploadController],
   providers: [
@@ -54,7 +59,9 @@ import { UserRepository } from 'src/users/users.repository';
     DriversService,
     MenuItemsService,
     CustomersService,
-    UserRepository
+    UserRepository,
+    PromotionsService,
+    PromotionsRepository
   ]
 })
 export class UploadModule {}
