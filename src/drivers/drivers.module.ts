@@ -2,8 +2,9 @@ import { forwardRef, Module } from '@nestjs/common';
 import { DriversService } from './drivers.service';
 import { DriversController } from './drivers.controller';
 import { MongooseModule } from '@nestjs/mongoose';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { DriverSchema } from './drivers.schema';
-import { UserSchema } from 'src/user/user.schema';
+import { User } from '../users/entities/user.entity';
 import { DriversGateway } from './drivers.gateway';
 import { AddressBookSchema } from 'src/address_book/address_book.schema';
 import { AddressBookService } from 'src/address_book/address_book.service';
@@ -20,11 +21,11 @@ import { DriverProgressStagesModule } from 'src/driver_progress_stages/driver_pr
   imports: [
     MongooseModule.forFeature([
       { name: 'Driver', schema: DriverSchema },
-      { name: 'User', schema: UserSchema },
       { name: 'AddressBook', schema: AddressBookSchema },
       { name: 'Restaurant', schema: RestaurantSchema },
       { name: 'Customer', schema: CustomerSchema }
     ]),
+    TypeOrmModule.forFeature([User]),
     AddressBook,
     forwardRef(() => RestaurantsModule),
     forwardRef(() => OrdersModule),

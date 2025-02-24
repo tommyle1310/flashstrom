@@ -5,7 +5,6 @@ import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { Restaurant } from './restaurants.schema'; // Assuming the restaurant schema
 import { Promotion } from 'src/promotions/promotions.schema';
-import { User } from 'src/user/user.schema';
 import { createResponse } from 'src/utils/createResponse';
 import { AddressBook } from 'src/address_book/address_book.schema';
 import { MenuItemsService } from 'src/menu_items/menu_items.service';
@@ -15,13 +14,14 @@ import { CreateMenuItemVariantDto } from 'src/menu_item_variants/dto/create-menu
 import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_variants.service';
 import { UpdateMenuItemVariantDto } from 'src/menu_item_variants/dto/update-menu_item_variant.dto';
 import { Order } from 'src/orders/orders.schema';
+import { UserRepository } from 'src/users/users.repository';
 
 @Injectable()
 export class RestaurantsService {
   constructor(
     @InjectModel('Restaurant')
     private readonly restaurantModel: Model<Restaurant>,
-    @InjectModel('User') private readonly userModel: Model<User>,
+    private readonly userRepository: UserRepository,
     @InjectModel('Promotion') private readonly promotionModel: Model<Promotion>,
     @InjectModel('AddressBook')
     private readonly addressbookModel: Model<AddressBook>,
@@ -35,9 +35,8 @@ export class RestaurantsService {
   async create(createRestaurantDto: CreateRestaurantDto): Promise<any> {
     const { owner_id, promotions, address } = createRestaurantDto;
 
-    // Check if owner_id exists in the User collection
-    const owner = await this.userModel.findById(owner_id).exec();
-
+    // Check if owner_id exists in the User table
+    const owner = await this.userRepository.findById(owner_id);
     if (!owner) {
       return createResponse('NotFound', null, 'Owner not found');
     }
@@ -96,9 +95,9 @@ export class RestaurantsService {
       status
     } = updateRestaurantDto;
 
-    // Check if owner_id exists in the User collection
+    // Check if owner_id exists in the User table
     if (owner_id) {
-      const owner = await this.userModel.findById(owner_id).exec();
+      const owner = await this.userRepository.findById(owner_id);
       if (!owner) {
         return createResponse('NotFound', null, 'Owner not found');
       }

@@ -5,7 +5,7 @@ import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { Customer } from './customer.schema'; // Assuming a Customer schema similar to User schema
 import { createResponse, ApiResponse } from 'src/utils/createResponse'; // Importing the utility for response creation
-import { User } from 'src/user/user.schema';
+import { UserRepository } from '../users/users.repository';
 import { Restaurant } from 'src/restaurants/restaurants.schema';
 import { AddressBook } from 'src/address_book/address_book.schema';
 import { FoodCategory } from 'src/food_categories/food_categories.schema';
@@ -27,7 +27,7 @@ export class CustomersService {
     @InjectModel('Customer') private readonly customerModel: Model<Customer>,
     @InjectModel('Restaurant')
     private readonly restaurantModel: Model<Restaurant>,
-    @InjectModel('User') private readonly userModel: Model<User>,
+    private readonly userRepository: UserRepository,
     @InjectModel('FoodCategory')
     private readonly FoodCategoryModel: Model<FoodCategory>,
     @InjectModel('AddressBook')
@@ -39,9 +39,9 @@ export class CustomersService {
     createCustomerDto: CreateCustomerDto
   ): Promise<ApiResponse<Customer>> {
     try {
-      const existingUser = await this.userModel
-        .findById(createCustomerDto.user_id)
-        .exec();
+      const existingUser = await this.userRepository.findById(
+        createCustomerDto.user_id
+      );
       console.log('existingUser', existingUser);
       if (!existingUser) {
         return createResponse('NotFound', null, 'User not found');
@@ -89,23 +89,20 @@ export class CustomersService {
   // Get a customer by ID
   async findCustomerById(id: string): Promise<ApiResponse<any>> {
     try {
-      // Fetch customer by ID
       const customer = await this.customerModel.findById(id).exec();
       if (!customer) {
         return createResponse('NotFound', null, 'Customer not found');
       }
 
-      // Fetch user by user_id from the customer data
-      const user = await this.userModel.findById(customer.user_id).exec();
+      const user = await this.userRepository.findById(customer.user_id);
       if (!user) {
         return createResponse('NotFound', null, 'User not found');
       }
 
-      // Merge customer data with selected user data
       const customerWithUserData = {
         ...customer.toObject(),
         user: {
-          _id: user._id,
+          _id: user.id,
           first_name: user.first_name,
           last_name: user.last_name,
           email: user.email,

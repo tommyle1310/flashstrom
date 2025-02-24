@@ -6,15 +6,15 @@ import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { Transaction } from './transactions.schema';
 import { createResponse } from 'src/utils/createResponse';
 import { ApiResponse } from 'src/utils/createResponse';
-import { User } from 'src/user/user.schema';
 import { FWallet } from 'src/fwallets/fwallets.schema';
+import { UserRepository } from 'src/users/users.repository';
 
 @Injectable()
 export class TransactionService {
   constructor(
     @InjectModel('Transaction')
     private readonly transactionModel: Model<Transaction>,
-    @InjectModel('User') private readonly userModel: Model<User>,
+    private readonly userRepository: UserRepository,
     @InjectModel('FWallet') private readonly fWalletModel: Model<FWallet>
   ) {}
 
@@ -117,8 +117,8 @@ export class TransactionService {
   ): Promise<true | ApiResponse<null>> {
     const { user_id, transaction_type, amount, source } = createTransactionDto;
 
-    const user = await this.userModel.findById(user_id).exec();
-    if (!user) {
+    const userResponse = await this.userRepository.findById(user_id);
+    if (!userResponse) {
       return createResponse('NotFound', null, 'User not found');
     }
 
@@ -162,11 +162,12 @@ export class TransactionService {
       destinationWallet.balance += +amount;
       await destinationWallet.save();
     } else {
-      const destinationUser = await this.userModel.findById(destination).exec();
+      const destinationUser = await this.userRepository.findById(destination);
       if (destinationUser) {
-        destinationUser.temporary_wallet_balance =
-          (destinationUser.temporary_wallet_balance || 0) + +amount;
-        await destinationUser.save();
+        destinationUser.balance = (destinationUser.balance || 0) + +amount;
+        await this.userRepository.update(destination, {
+          balance: destinationUser.balance
+        });
       }
     }
   }

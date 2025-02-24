@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { MongooseModule } from '@nestjs/mongoose';
-import { UserModule } from './user/user.module';
 import { AddressBook as AddressBookModule } from './address_book/address_book.module';
 import { CustomersModule } from './customers/customers.module';
 import { DriversModule } from './drivers/drivers.module';
@@ -26,11 +25,12 @@ import { FinanceAdminModule } from './admin/finance_admin/finance_admin.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { DriverProgressStagesModule } from './driver_progress_stages/driver_progress_stages.module';
 import { CompanionAdminModule } from './admin/companion_admin/companion_admin.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
     MongooseModule.forRoot(process.env.MONGO_URI), // Your MongoDB URI
-    UserModule,
     AddressBookModule,
     EventEmitterModule.forRoot(),
     CustomersModule,
@@ -52,7 +52,19 @@ import { CompanionAdminModule } from './admin/companion_admin/companion_admin.mo
     CustomerCaresModule,
     FinanceAdminModule,
     DriverProgressStagesModule,
-    CompanionAdminModule
+    CompanionAdminModule,
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: process.env.NEON_HOST,
+      port: parseInt(process.env.NEON_PORT),
+      username: process.env.NEON_USER,
+      password: process.env.NEON_PASSWORD,
+      database: process.env.NEON_DATABASE,
+      ssl: true,
+      entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      synchronize: true // Set to false in production
+    }),
+    UsersModule
   ],
   controllers: [AppController],
   providers: [AppService, EmailService]

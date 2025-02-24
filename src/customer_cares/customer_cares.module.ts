@@ -3,17 +3,18 @@ import { CustomerCareService } from './customer_cares.service';
 import { CustomerCareController } from './customer_cares.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CustomerCareSchema } from './customer_cares.schema';
-import { UserSchema } from 'src/user/user.schema';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from '../users/entities/user.entity';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: 'CustomerCare', schema: CustomerCareSchema },
+      { name: 'CustomerCare', schema: CustomerCareSchema }
     ]),
-    MongooseModule.forFeature([{ name: 'User', schema: UserSchema }]),
+    TypeOrmModule.forFeature([User])
   ],
   controllers: [CustomerCareController],
   providers: [CustomerCareService],
-  exports: [CustomerCareService],
+  exports: [CustomerCareService]
 })
 export class CustomerCaresModule {}

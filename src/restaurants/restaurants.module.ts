@@ -3,8 +3,7 @@ import { RestaurantsService } from './restaurants.service';
 import { RestaurantsController } from './restaurants.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { RestaurantSchema } from './restaurants.schema';
-import { UserSchema } from 'src/user/user.schema';
-import { UserModule } from 'src/user/user.module';
+import { UsersModule } from 'src/users/users.module';
 import { PromotionsModule } from 'src/promotions/promotions.module';
 import { AddressBookSchema } from 'src/address_book/address_book.schema';
 import { AddressBook } from 'src/address_book/address_book.module';
@@ -22,11 +21,14 @@ import { DriverSchema } from 'src/drivers/drivers.schema';
 import { DriversModule } from 'src/drivers/drivers.module';
 import { OrdersModule } from 'src/orders/orders.module';
 import { OrderSchema } from 'src/orders/orders.schema';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from 'src/users/entities/user.entity';
+import { UserRepository } from 'src/users/users.repository';
+
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: 'Restaurant', schema: RestaurantSchema },
-      { name: 'User', schema: UserSchema },
       { name: 'Driver', schema: DriverSchema },
       { name: 'MenuItem', schema: MenuItemSchema },
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
@@ -35,7 +37,8 @@ import { OrderSchema } from 'src/orders/orders.schema';
       { name: 'Promotion', schema: PromotionSchema },
       { name: 'Order', schema: OrderSchema }
     ]),
-    UserModule,
+    TypeOrmModule.forFeature([User]),
+    UsersModule,
     forwardRef(() => DriversModule),
     MenuItemsModule,
     PromotionsModule,
@@ -49,7 +52,8 @@ import { OrderSchema } from 'src/orders/orders.schema';
     RestaurantsService,
     MenuItemsService,
     MenuItemVariantsService,
-    RestaurantsGateway
+    RestaurantsGateway,
+    UserRepository
   ],
   exports: [RestaurantsService, RestaurantsGateway]
 })

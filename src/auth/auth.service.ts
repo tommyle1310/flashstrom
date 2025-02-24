@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { User } from 'src/user/user.schema';
+import { User } from '../users/entities/user.entity';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { createResponse } from 'src/utils/createResponse';
@@ -20,11 +20,12 @@ import { FWallet } from 'src/fwallets/fwallets.schema';
 import { Restaurant } from 'src/restaurants/restaurants.schema';
 // import { CartItem } from 'src/cart_items/cart_items.schema';
 import { CartItemsService } from 'src/cart_items/cart_items.service';
+import { UserRepository } from 'src/users/users.repository';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectModel('User') private readonly userModel: Model<User>,
+    private readonly userRepository: UserRepository,
     @InjectModel('Customer') private readonly customerModel: Model<Customer>,
     @InjectModel('Driver') private readonly driverModel: Model<Driver>,
     @InjectModel('FWallet') private readonly fWalletModel: Model<FWallet>,
@@ -90,7 +91,7 @@ export class AuthService {
   }
 
   private async findUserByEmail(email: string): Promise<User | null> {
-    return this.userModel.findOne({ email });
+    return this.userRepository.findOne({ where: { email } });
   }
 
   private async validateUserCredentials(
@@ -340,10 +341,8 @@ export class AuthService {
           ...userData,
           password: existingUser.password,
           user_id: existingUser.id,
-          balance: existingUser.temporary_wallet_balance
+          balance: 0
         });
-        existingUser.temporary_wallet_balance = 0;
-        await existingUser.save();
         break;
 
       default:
@@ -357,7 +356,9 @@ export class AuthService {
     await newUserWithRole.save();
     if (!existingUser.user_type.includes(type)) {
       existingUser.user_type.push(type);
-      await existingUser.save();
+      await this.userRepository.update(existingUser.id, {
+        user_type: existingUser.user_type
+      });
     }
 
     const responseData = {
@@ -388,14 +389,17 @@ export class AuthService {
     phone: string
   ) {
     const hashedPassword = await bcrypt.hash(userData.password, 10);
-    const newUser = new this.userModel({
+
+    // Create new user using repository
+    const newUser = await this.userRepository.create({
       ...userData,
       phone,
       password: hashedPassword,
       user_type: [type]
     });
-
-    await newUser.save();
+    await this.userRepository.update(newUser.id, {
+      user_type: newUser.user_type
+    });
     let newUserWithRole;
     let fWallet;
 
@@ -421,7 +425,9 @@ export class AuthService {
 
         // Add F_WALLET to user_type
         newUser.user_type.push(Enum_UserType.F_WALLET);
-        await newUser.save();
+        await this.userRepository.update(newUser.id, {
+          user_type: newUser.user_type
+        });
 
         if (type === 'DRIVER') {
           newUserWithRole = new this.driverModel({
@@ -484,11 +490,11 @@ export class AuthService {
 
   // Utility methods
   async validateUser(payload: any): Promise<User> {
-    return this.userModel.findById(payload.userId);
+    return this.userRepository.findById(payload.userId);
   }
 
   async hasRole(userId: string, role: Enum_UserType): Promise<boolean> {
-    const user = await this.userModel.findById(userId);
-    return user.user_type.includes(role);
+    const user = await this.userRepository.findById(userId);
+    return user?.user_type.includes(role) || false;
   }
 }
