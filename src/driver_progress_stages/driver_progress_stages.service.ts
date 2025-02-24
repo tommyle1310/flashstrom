@@ -83,52 +83,26 @@ export class DriverProgressStagesService {
         return createResponse('NotFound', null, 'Progress stage not found');
       }
 
-      // Check for maximum orders (3)
-      if (updateData.order_ids && updateData.order_ids.length > 3) {
-        return createResponse(
-          'DRIVER_MAXIMUM_ORDER',
-          null,
-          'Driver cannot have more than 3 orders'
-        );
-      }
-
-      // Handle adding new order_ids
+      // Handle order_ids updates if provided
       if (updateData.order_ids) {
+        if (updateData.order_ids.length > 3) {
+          return createResponse(
+            'DRIVER_MAXIMUM_ORDER',
+            null,
+            'Driver cannot have more than 3 orders'
+          );
+        }
         stage.order_ids = updateData.order_ids;
-      }
-
-      // Handle stages updates
-      if (updateData.stages) {
-        // Keep existing stages and append new ones
-        const existingStages = stage.stages || [];
-        const newStages = updateData.stages.map(newStage => ({
-          ...newStage,
-          details: {
-            ...newStage.details,
-            // Safely handle potentially undefined details/location
-            location: newStage.details?.location
-              ? {
-                  lat: newStage.details.location.lat || null,
-                  lng: newStage.details.location.lng || null
-                }
-              : null,
-            estimated_time: newStage.details?.estimated_time || null,
-            actual_time: newStage.details?.actual_time || null,
-            notes: newStage.details?.notes || null,
-            tip: newStage.details?.tip || null,
-            weather: newStage.details?.weather || null
-          }
-        }));
-
-        // Combine existing and new stages
-        stage.stages = [...existingStages, ...newStages];
-
-        console.log('Updated stages count:', stage.stages.length);
       }
 
       // Update current state if provided
       if (updateData.current_state) {
         stage.current_state = updateData.current_state;
+      }
+
+      // Update stages statuses if provided
+      if (updateData.stages) {
+        stage.stages = updateData.stages;
       }
 
       const updatedStage = await stage.save();

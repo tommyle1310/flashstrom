@@ -273,7 +273,8 @@ export class DriversGateway
             const createResult = await this.driverProgressStageService.create({
               driver_id: data.driverId,
               order_ids: [order._id as string],
-              current_state: 'driver_ready'
+              current_state: 'driver_ready',
+              stages: newStages
             });
 
             if (createResult.EC !== 0) {
@@ -306,6 +307,7 @@ export class DriversGateway
     }
   ) {
     if (state === 'driver_ready') {
+      console.log('check locations.driverLocation', locations.driverLocation);
       return locations.driverLocation;
     } else if (
       state === 'waiting_for_pickup' ||
@@ -351,18 +353,73 @@ export class DriversGateway
       );
 
       if (!currentInProgressStage) {
-        return { success: false, message: 'No in-progress stage found' };
+        // If no in-progress stage, start with the first stage
+        const firstStage = currentStage.data.stages[0];
+        const updatedStages = currentStage.data.stages.map(stage => ({
+          ...stage,
+          status: stage.state === firstStage.state ? 'in_progress' : 'pending',
+          timestamp:
+            stage.state === firstStage.state ? new Date() : stage.timestamp
+        }));
+
+        const result = await this.driverProgressStageService.updateStage(
+          data.stageId,
+          {
+            current_state: firstStage.state as any,
+            stages: updatedStages as any
+          }
+        );
+
+        if (result.EC === 0) {
+          this.server
+            .to(result.data.driver_id)
+            .emit('progressUpdated', result.data);
+          return { success: true, stage: result.data };
+        }
+        return { success: false, message: 'Failed to start progress' };
       }
 
-      // Find the next stage
-      const nextStage = currentStage.data.stages.find(
-        stage =>
-          stage.state ===
-          stageOrder[stageOrder.indexOf(currentInProgressStage.state) + 1]
+      // Find the next stage in the sequence
+      const currentStateIndex = stageOrder.indexOf(
+        currentInProgressStage.state
       );
+      const nextState = stageOrder[currentStateIndex + 1];
 
-      if (!nextStage) {
-        return { success: false, message: 'No next stage found' };
+      // Handle the final 'delivery_complete' state
+      if (currentInProgressStage.state === 'delivery_complete') {
+        const updatedStages = currentStage.data.stages.map(stage => {
+          if (stage.state === 'delivery_complete') {
+            return {
+              ...stage,
+              status: 'completed',
+              duration:
+                (new Date().getTime() - new Date(stage.timestamp).getTime()) /
+                1000
+            };
+          }
+          return stage;
+        });
+
+        const result = await this.driverProgressStageService.updateStage(
+          data.stageId,
+          {
+            current_state: 'delivery_complete' as any,
+            stages: updatedStages as any
+          }
+        );
+
+        if (result.EC === 0) {
+          this.server
+            .to(result.data.driver_id)
+            .emit('progressUpdated', result.data);
+          return { success: true, stage: result.data };
+        }
+        return { success: false, message: 'Failed to complete delivery' };
+      }
+
+      // If no next state available
+      if (!nextState) {
+        return { success: false, message: 'No next stage available' };
       }
 
       // Update the stages statuses
@@ -376,7 +433,7 @@ export class DriversGateway
               1000
           };
         }
-        if (stage.state === nextStage.state) {
+        if (stage.state === nextState) {
           return {
             ...stage,
             status: 'in_progress',
@@ -389,8 +446,7 @@ export class DriversGateway
       const result = await this.driverProgressStageService.updateStage(
         data.stageId,
         {
-          current_state: nextStage.state as any,
-          previous_state: currentInProgressStage.state,
+          current_state: nextState as any,
           stages: updatedStages as any
         }
       );

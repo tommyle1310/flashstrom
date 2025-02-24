@@ -10,6 +10,28 @@ export class CreateDriverProgressStageDto {
   @IsString()
   driver_id: string;
 
+  @IsOptional()
+  stages: Array<{
+    state: string;
+    status: 'completed' | 'in_progress' | 'pending' | 'failed';
+    timestamp: Date;
+    duration: number;
+    details?: {
+      location?: {
+        lat: number;
+        lng: number;
+      };
+      estimated_time?: number;
+      actual_time?: number;
+      notes?: string;
+      tip?: number;
+      weather?: {
+        temperature?: number;
+        condition?: string;
+      };
+    };
+  }>;
+
   @IsArray()
   @IsString({ each: true })
   order_ids: string[];
