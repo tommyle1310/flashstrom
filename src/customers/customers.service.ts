@@ -6,9 +6,10 @@ import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { Customer } from './customer.schema'; // Assuming a Customer schema similar to User schema
 import { createResponse, ApiResponse } from 'src/utils/createResponse'; // Importing the utility for response creation
 import { UserRepository } from '../users/users.repository';
-import { Restaurant } from 'src/restaurants/restaurants.schema';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 export interface AddressPopulate {
   _id?: string;
   street?: string;
@@ -24,8 +25,7 @@ export interface AddressPopulate {
 export class CustomersService {
   constructor(
     @InjectModel('Customer') private readonly customerModel: Model<Customer>,
-    @InjectModel('Restaurant')
-    private readonly restaurantModel: Model<Restaurant>,
+    private readonly restaurantRepository: RestaurantsRepository,
     private readonly userRepository: UserRepository,
     private readonly addressRepository: AddressBookRepository,
     private readonly foodCategoriesRepository: FoodCategoriesRepository
@@ -304,12 +304,7 @@ export class CustomersService {
       const customerAddressArray = customerAddress as AddressPopulate[];
 
       // Fetch all restaurants
-      const restaurants = await this.restaurantModel
-        .find()
-        .populate('address', '-created_at -updated_at') // Populate restaurant address
-        .populate('promotions', '-created_at -updated_at')
-        .populate('specialize_in', '-created_at -updated_at')
-        .exec();
+      const restaurants = await this.restaurantRepository.findAll();
 
       // Prioritize restaurants based on the preferred categories, restaurant history, and distance
       const prioritizedRestaurants = restaurants
@@ -327,14 +322,14 @@ export class CustomersService {
 
           // If either location is missing, return the restaurant with a priority score of 0
           if (!customerLocation || !restaurantAddress?.location) {
-            return { ...restaurant.toObject(), priorityScore: 0 }; // Default score if no address or location
+            return { ...restaurant, priorityScore: 0 }; // Default score if no address or location
           }
 
           const restaurantLocation = restaurantAddress.location;
 
           // Check if the restaurant matches the customer's preferred category
           const isPreferred = restaurant.specialize_in.some(category =>
-            preferred_category.includes(category)
+            preferred_category.includes(category as unknown as string)
           );
 
           // Find how many times the customer has visited this restaurant
@@ -359,7 +354,7 @@ export class CustomersService {
             (isPreferred ? 1 : 0) * 3 + visitCount * 2 + distanceWeight * 5; // Add distance weighting here
 
           return {
-            ...restaurant.toObject(),
+            ...restaurant,
             priorityScore // Add the score to the restaurant object
           };
         })
@@ -402,9 +397,8 @@ export class CustomersService {
     customer: Customer,
     restaurantId: string
   ): Promise<boolean> {
-    const restaurantExists = await this.restaurantModel
-      .findById(restaurantId)
-      .exec();
+    const restaurantExists =
+      await this.restaurantRepository.findById(restaurantId);
     if (!restaurantExists) return false;
 
     const restaurantIndex = customer.favorite_restaurants.indexOf(restaurantId);

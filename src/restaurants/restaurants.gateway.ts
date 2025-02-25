@@ -90,7 +90,7 @@ export class RestaurantsGateway
     @MessageBody() updateRestaurantDto: UpdateRestaurantDto
   ) {
     const restaurant = await this.restaurantsService.update(
-      updateRestaurantDto._id,
+      updateRestaurantDto.id,
       updateRestaurantDto
     );
     this.server.emit('restaurantUpdated', restaurant);
@@ -100,8 +100,6 @@ export class RestaurantsGateway
   @SubscribeMessage('newOrderForRestaurant')
   async handleNewOrder(@MessageBody() order: any) {
     const restaurantId = await order.restaurant_id;
-
-
 
     // Add this log to verify the room name matches
     console.log('Emitting to room:', `restaurant_${restaurantId}`);

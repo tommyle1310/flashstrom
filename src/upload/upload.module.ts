@@ -8,7 +8,6 @@ import { RestaurantsModule } from 'src/restaurants/restaurants.module';
 // import { PromotionsModule } from 'src/promotions/promotions.module';
 import { CustomerSchema } from 'src/customers/customer.schema';
 import { DriverSchema } from 'src/drivers/drivers.schema';
-import { RestaurantSchema } from 'src/restaurants/restaurants.schema';
 import { RestaurantsService } from 'src/restaurants/restaurants.service';
 import { DriversService } from 'src/drivers/drivers.service';
 import { CustomersService } from 'src/customers/customers.service';
@@ -30,17 +29,24 @@ import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: 'Order', schema: OrderSchema },
       { name: 'Customer', schema: CustomerSchema },
       { name: 'Driver', schema: DriverSchema },
-      { name: 'Restaurant', schema: RestaurantSchema },
       { name: 'MenuItem', schema: MenuItemSchema },
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema }
     ]),
-    TypeOrmModule.forFeature([User, Promotion, AddressBook, FoodCategory]),
+    TypeOrmModule.forFeature([
+      User,
+      Promotion,
+      AddressBook,
+      FoodCategory,
+      Restaurant
+    ]),
     CustomersModule,
     DriversModule,
     RestaurantsModule,
@@ -60,7 +66,8 @@ import { FoodCategoriesRepository } from 'src/food_categories/food_categories.re
     PromotionsService,
     PromotionsRepository,
     AddressBookRepository,
-    FoodCategoriesRepository
+    FoodCategoriesRepository,
+    RestaurantsRepository
   ]
 })
 export class UploadModule {}

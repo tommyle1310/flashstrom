@@ -5,7 +5,6 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { Order } from './orders.schema'; // Assuming you have an Order schema
 import { Customer } from 'src/customers/customer.schema'; // Customer schema (assumed)
-import { Restaurant } from 'src/restaurants/restaurants.schema'; // Restaurant schema (assumed)
 import { createResponse } from 'src/utils/createResponse'; // Utility for creating responses
 import { MenuItem } from 'src/menu_items/menu_items.schema';
 import { MenuItemVariant } from 'src/menu_item_variants/menu_item_variants.schema';
@@ -15,7 +14,7 @@ import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
 import { ApiResponse } from 'src/utils/createResponse';
 import { DriverProgressStage } from 'src/driver_progress_stages/driver_progress_stages.schema';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
-
+import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 @Injectable()
 export class OrdersService {
   constructor(
@@ -25,8 +24,7 @@ export class OrdersService {
     private readonly menuItemVariantModel: Model<MenuItemVariant>,
     private readonly addressRepository: AddressBookRepository,
     @InjectModel('Customer') private readonly customerModel: Model<Customer>,
-    @InjectModel('Restaurant')
-    private readonly restaurantModel: Model<Restaurant>,
+    private readonly restaurantRepository: RestaurantsRepository,
     private readonly restaurantsGateway: RestaurantsGateway,
     @InjectModel('DriverProgressStage')
     private readonly driverProgressStageModel: Model<DriverProgressStage>
@@ -157,9 +155,7 @@ export class OrdersService {
       return createResponse('NotFound', null, 'Customer not found');
     }
 
-    const restaurant = await this.restaurantModel
-      .findById(restaurant_id)
-      .exec();
+    const restaurant = await this.restaurantRepository.findById(restaurant_id);
     console.log('restaurant', restaurant);
     if (!restaurant) {
       return createResponse('NotFound', null, 'Restaurant not found');

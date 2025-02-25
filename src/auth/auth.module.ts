@@ -33,8 +33,6 @@ import { UserRepository } from 'src/users/users.repository';
 // Import your Mongoose schemas
 import { CustomerSchema } from 'src/customers/customer.schema';
 import { DriverSchema } from 'src/drivers/drivers.schema';
-import { FWalletSchema } from 'src/fwallets/fwallets.schema';
-import { RestaurantSchema } from 'src/restaurants/restaurants.schema';
 import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
 import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
 import { OrderSchema } from 'src/orders/orders.schema';
@@ -44,6 +42,9 @@ import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
+import { FWallet } from 'src/fwallets/entities/fwallet.entity';
+import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 @Module({
   imports: [
     JwtModule.register({
@@ -62,14 +63,12 @@ import { FoodCategoriesRepository } from 'src/food_categories/food_categories.re
     MongooseModule.forFeature([
       { name: 'Customer', schema: CustomerSchema },
       { name: 'Driver', schema: DriverSchema },
-      { name: 'FWallet', schema: FWalletSchema },
-      { name: 'Restaurant', schema: RestaurantSchema },
       { name: 'MenuItem', schema: MenuItemSchema },
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
       { name: 'CartItem', schema: CartItemSchema },
       { name: 'Order', schema: OrderSchema }
     ]),
-
+    TypeOrmModule.forFeature([FWallet, Restaurant]),
     CustomersModule,
     DriversModule,
     FwalletsModule,
@@ -97,7 +96,8 @@ import { FoodCategoriesRepository } from 'src/food_categories/food_categories.re
     MenuItemVariantsService,
     UserRepository,
     AddressBookRepository,
-    FoodCategoriesRepository
+    FoodCategoriesRepository,
+    FWalletsRepository
   ],
   controllers: [AuthController],
   exports: [AuthService, EmailService]

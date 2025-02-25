@@ -5,16 +5,15 @@ import { MenuItem } from './menu_items.schema';
 import { createResponse } from 'src/utils/createResponse';
 import { CreateMenuItemDto } from './dto/create-menu_item.dto';
 import { UpdateMenuItemDto } from './dto/update-menu_item.dto';
-import { Restaurant } from 'src/restaurants/restaurants.schema';
 import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_variants.service';
 import { ApiResponse } from 'src/utils/createResponse';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
+import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 @Injectable()
 export class MenuItemsService {
   constructor(
     @InjectModel('MenuItem') private readonly menuItemModel: Model<MenuItem>,
-    @InjectModel('Restaurant')
-    private readonly restaurantModel: Model<Restaurant>,
+    private readonly restaurantRepository: RestaurantsRepository,
     private readonly foodCategoriesRepository: FoodCategoriesRepository,
     private readonly menuItemVariantsService: MenuItemVariantsService
   ) {}
@@ -141,9 +140,7 @@ export class MenuItemsService {
   ): Promise<true | ApiResponse<null>> {
     const { restaurant_id, category } = createMenuItemDto;
 
-    const restaurant = await this.restaurantModel
-      .findById(restaurant_id)
-      .exec();
+    const restaurant = await this.restaurantRepository.findById(restaurant_id);
     if (!restaurant) {
       return createResponse('NotFound', null, 'Restaurant not found');
     }

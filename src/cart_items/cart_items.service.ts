@@ -8,15 +8,14 @@ import { createResponse } from 'src/utils/createResponse'; // Utility for creati
 import { Customer } from 'src/customers/customer.schema';
 import { MenuItem } from 'src/menu_items/menu_items.schema';
 import { MenuItemVariant } from 'src/menu_item_variants/menu_item_variants.schema';
-import { Restaurant } from 'src/restaurants/restaurants.schema';
+import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 
 @Injectable()
 export class CartItemsService {
   constructor(
     @InjectModel('CartItem')
     private readonly cartItemModel: Model<CartItem>,
-    @InjectModel('Restaurant')
-    private readonly restaurantModel: Model<Restaurant>,
+    private readonly restaurantRepository: RestaurantsRepository,
     @InjectModel('MenuItemVariant')
     private readonly menuItemVariantModel: Model<MenuItemVariant>,
     @InjectModel('Customer')
@@ -222,13 +221,15 @@ export class CartItemsService {
         'Cart item updated successfully'
       );
     } catch (error) {
+      console.log('error', error);
       return createResponse('ServerError', null, 'Failed to update cart item');
     }
   }
 
   async findAll(query: Record<string, any> = {}): Promise<any> {
+    // Use the query parameter in the find operation
     const cartItems = await this.cartItemModel
-      .find()
+      .find(query)
       // .populate('item_id')
       .exec();
 
@@ -272,14 +273,13 @@ export class CartItemsService {
       transformedCartItems.map(async item => {
         // Fetch the item object using the item_id (which is the item reference)
         const menuItem = await this.menuItemModel.findById(item.item);
-        // console.log('cehck here', item, 'and check here', menuItem);
 
         if (!menuItem) {
           return createResponse('NotFound', null, 'Menu item not found');
         }
 
         const itemObj = menuItem as { restaurant_id: string };
-        const restaurantDetails = await this.restaurantModel.findById(
+        const restaurantDetails = await this.restaurantRepository.findById(
           itemObj.restaurant_id
         );
 
@@ -293,11 +293,7 @@ export class CartItemsService {
       })
     );
 
-    return createResponse(
-      'OK',
-      finalResult, // Return the final result with restaurant details
-      'Cart items fetched successfully'
-    );
+    return createResponse('OK', finalResult, 'Cart items fetched successfully');
   }
 
   // Get a cart item by ID
@@ -333,6 +329,7 @@ export class CartItemsService {
         'Fetched cart item successfully'
       );
     } catch (error) {
+      console.log('error', error);
       return createResponse(
         'ServerError',
         null,
@@ -351,6 +348,7 @@ export class CartItemsService {
 
       return createResponse('OK', cartItem, 'Fetched cart item successfully');
     } catch (error) {
+      console.log('error', error);
       return createResponse(
         'ServerError',
         null,
@@ -374,6 +372,7 @@ export class CartItemsService {
     try {
       return createResponse('OK', null, 'Cart item deleted successfully');
     } catch (error) {
+      console.log('error', error);
       return createResponse(
         'ServerError',
         null,

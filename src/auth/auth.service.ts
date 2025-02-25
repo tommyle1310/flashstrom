@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from '../users/entities/user.entity';
@@ -7,30 +6,19 @@ import { JwtService } from '@nestjs/jwt';
 import { createResponse } from 'src/utils/createResponse';
 import { Customer } from 'src/customers/customer.schema';
 import { Driver } from 'src/drivers/drivers.schema';
-import {
-  BasePayload,
-  // CustomerPayload,
-  // DriverPayload,
-  Enum_UserType
-  // FWalletPayload,
-  // Payload,
-  // RestaurantOwnerPayload
-} from 'src/types/Payload';
-import { FWallet } from 'src/fwallets/fwallets.schema';
-import { Restaurant } from 'src/restaurants/restaurants.schema';
-// import { CartItem } from 'src/cart_items/cart_items.schema';
+import { BasePayload, Enum_UserType } from 'src/types/Payload';
 import { CartItemsService } from 'src/cart_items/cart_items.service';
 import { UserRepository } from 'src/users/users.repository';
-
-@Injectable()
+import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
+import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 export class AuthService {
   constructor(
     private readonly userRepository: UserRepository,
+    private readonly fWalletsRepository: FWalletsRepository,
+    private readonly restaurantsRepository: RestaurantsRepository,
     @InjectModel('Customer') private readonly customerModel: Model<Customer>,
     @InjectModel('Driver') private readonly driverModel: Model<Driver>,
-    @InjectModel('FWallet') private readonly fWalletModel: Model<FWallet>,
-    @InjectModel('Restaurant')
-    private readonly restaurantModel: Model<Restaurant>,
+
     private readonly jwtService: JwtService,
     private readonly cartItemService: CartItemsService
   ) {}
@@ -145,7 +133,7 @@ export class AuthService {
       return createResponse('NotFound', null, 'Driver not found');
     }
 
-    const fWalletData = await this.fWalletModel.findOne({ user_id: user.id });
+    const fWalletData = await this.fWalletsRepository.findByUserId(user.id);
     console.log('check user id', fWalletData);
 
     if (!fWalletData) {
@@ -212,7 +200,7 @@ export class AuthService {
   }
 
   private async handleFWalletLogin(user: User, basePayload: BasePayload) {
-    const userWithRole = await this.fWalletModel.findOne({ user_id: user.id });
+    const userWithRole = await this.fWalletsRepository.findByUserId(user.id);
     if (!userWithRole) {
       return createResponse('NotFound', null, 'FWallet not found');
     }
@@ -235,9 +223,9 @@ export class AuthService {
     user: User,
     basePayload: BasePayload
   ) {
-    const userWithRole = await this.restaurantModel.findOne({
-      owner_id: user.id
-    });
+    const userWithRole = await this.restaurantsRepository.findByOwnerId(
+      user.id
+    );
     if (!userWithRole) {
       return createResponse('NotFound', null, 'Restaurant owner not found');
     }
@@ -246,7 +234,7 @@ export class AuthService {
       ...basePayload,
       owner_id: userWithRole.owner_id,
       owner_name: userWithRole.owner_name,
-      restaurant_id: userWithRole._id ?? userWithRole.id,
+      restaurant_id: userWithRole.id ?? userWithRole.id,
       address: userWithRole.address,
       restaurant_name: userWithRole.restaurant_name,
       contact_email: userWithRole.contact_email,
@@ -302,17 +290,16 @@ export class AuthService {
       case 'DRIVER':
       case 'RESTAURANT_OWNER':
         // Check if user already has an FWallet
-        fWallet = await this.fWalletModel.findOne({ user_id: existingUser.id });
+        fWallet = await this.fWalletsRepository.findByUserId(existingUser.id);
 
         if (!fWallet) {
           // Create FWallet if it doesn't exist
-          fWallet = new this.fWalletModel({
+          fWallet = await this.fWalletsRepository.create({
             ...userData,
             password: existingUser.password,
             user_id: existingUser.id,
             balance: 0
           });
-          await fWallet.save();
 
           // Add F_WALLET to user_type if not present
           if (!existingUser.user_type.includes(Enum_UserType.F_WALLET)) {
@@ -328,7 +315,7 @@ export class AuthService {
             available_for_work: false
           });
         } else {
-          newUserWithRole = new this.restaurantModel({
+          newUserWithRole = await this.restaurantsRepository.create({
             ...userData,
             password: existingUser.password,
             owner_id: existingUser.id
@@ -337,7 +324,7 @@ export class AuthService {
         break;
 
       case Enum_UserType.F_WALLET:
-        newUserWithRole = new this.fWalletModel({
+        newUserWithRole = await this.fWalletsRepository.create({
           ...userData,
           password: existingUser.password,
           user_id: existingUser.id,
@@ -388,7 +375,17 @@ export class AuthService {
     type: Enum_UserType,
     phone: string
   ) {
-    const hashedPassword = await bcrypt.hash(userData.password, 10);
+    const { email, password } = userData;
+
+    if (!this.validateRegistrationInput(email, password)) {
+      return createResponse(
+        'InvalidFormatInput',
+        null,
+        'Email & Password cannot be empty'
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create new user using repository
     const newUser = await this.userRepository.create({
@@ -415,13 +412,12 @@ export class AuthService {
       case 'DRIVER':
       case 'RESTAURANT_OWNER':
         // Create FWallet for new drivers and restaurant owners
-        fWallet = new this.fWalletModel({
+        fWallet = await this.fWalletsRepository.create({
           ...userData,
           password: hashedPassword,
           user_id: newUser.id,
           balance: 0
         });
-        await fWallet.save();
 
         // Add F_WALLET to user_type
         newUser.user_type.push(Enum_UserType.F_WALLET);
@@ -437,7 +433,7 @@ export class AuthService {
             available_for_work: false
           });
         } else {
-          newUserWithRole = new this.restaurantModel({
+          newUserWithRole = await this.restaurantsRepository.create({
             ...userData,
             password: hashedPassword,
             user_id: newUser.id,
@@ -447,7 +443,7 @@ export class AuthService {
         break;
 
       case 'F_WALLET':
-        newUserWithRole = new this.fWalletModel({
+        newUserWithRole = await this.fWalletsRepository.create({
           ...userData,
           password: hashedPassword,
           user_id: newUser.id,

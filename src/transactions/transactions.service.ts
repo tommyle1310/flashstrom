@@ -6,16 +6,16 @@ import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { Transaction } from './transactions.schema';
 import { createResponse } from 'src/utils/createResponse';
 import { ApiResponse } from 'src/utils/createResponse';
-import { FWallet } from 'src/fwallets/fwallets.schema';
 import { UserRepository } from 'src/users/users.repository';
-
+import { FWallet } from 'src/fwallets/entities/fwallet.entity';
+import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 @Injectable()
 export class TransactionService {
   constructor(
     @InjectModel('Transaction')
     private readonly transactionModel: Model<Transaction>,
     private readonly userRepository: UserRepository,
-    @InjectModel('FWallet') private readonly fWalletModel: Model<FWallet>
+    private readonly fWalletsRepository: FWalletsRepository
   ) {}
 
   async create(
@@ -32,9 +32,7 @@ export class TransactionService {
         createTransactionDto;
 
       if (transaction_type === 'WITHDRAW' || transaction_type === 'PURCHASE') {
-        const sourceWallet = await this.fWalletModel
-          .findOne({ user_id: source })
-          .exec();
+        const sourceWallet = await this.fWalletsRepository.findByUserId(source);
         await this.handleSourceWalletTransaction(sourceWallet, amount);
       }
 
@@ -123,9 +121,7 @@ export class TransactionService {
     }
 
     if (transaction_type === 'WITHDRAW' || transaction_type === 'PURCHASE') {
-      const sourceWallet = await this.fWalletModel
-        .findOne({ user_id: source })
-        .exec();
+      const sourceWallet = await this.fWalletsRepository.findByUserId(source);
       if (!sourceWallet) {
         return createResponse('NotFound', null, 'Source wallet not found');
       }
@@ -147,20 +143,23 @@ export class TransactionService {
     amount: number
   ): Promise<void> {
     sourceWallet.balance -= +amount;
-    await sourceWallet.save();
+    await this.fWalletsRepository.update(sourceWallet.id, {
+      balance: sourceWallet.balance
+    });
   }
 
   private async handleDestinationWalletTransaction(
     destination: string,
     amount: number
   ): Promise<void> {
-    const destinationWallet = await this.fWalletModel
-      .findById(destination)
-      .exec();
+    const destinationWallet =
+      await this.fWalletsRepository.findByUserId(destination);
 
     if (destinationWallet) {
       destinationWallet.balance += +amount;
-      await destinationWallet.save();
+      await this.fWalletsRepository.update(destinationWallet.id, {
+        balance: destinationWallet.balance
+      });
     } else {
       const destinationUser = await this.userRepository.findById(destination);
       if (destinationUser) {

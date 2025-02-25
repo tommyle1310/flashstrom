@@ -5,22 +5,21 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { TransactionSchema } from './transactions.schema';
 import { User } from 'src/users/entities/user.entity';
 import { UsersModule } from 'src/users/users.module';
-import { FWalletSchema } from 'src/fwallets/fwallets.schema';
 import { FwalletsModule } from 'src/fwallets/fwallets.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserRepository } from 'src/users/users.repository';
-
+import { FWallet } from 'src/fwallets/entities/fwallet.entity';
+import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: 'Transaction', schema: TransactionSchema } // Register the FWallet model
     ]),
-    TypeOrmModule.forFeature([User]), // Added TypeORM for User
+    TypeOrmModule.forFeature([User, FWallet]), // Added TypeORM for User
     UsersModule, // Changed from UserModule
-    MongooseModule.forFeature([{ name: 'FWallet', schema: FWalletSchema }]), // fwallet model
     FwalletsModule
   ],
   controllers: [TransactionsController],
-  providers: [TransactionService, UserRepository]
+  providers: [TransactionService, UserRepository, FWalletsRepository]
 })
 export class TransactionsModule {}
