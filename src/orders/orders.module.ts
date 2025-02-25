@@ -5,7 +5,6 @@ import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
 import { OrdersGateway } from './orders.gateway';
 import { OrderSchema } from './orders.schema';
-import { CustomerSchema } from 'src/customers/customer.schema';
 import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
 import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
 import { DriverSchema } from 'src/drivers/drivers.schema';
@@ -23,18 +22,19 @@ import { DriverProgressStagesModule } from 'src/driver_progress_stages/driver_pr
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 import { FoodCategoriesModule } from 'src/food_categories/food_categories.module';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
+import { Customer } from 'src/customers/entities/customer.entity';
+import { CustomersRepository } from 'src/customers/customers.repository';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: 'Order', schema: OrderSchema },
-      { name: 'Customer', schema: CustomerSchema },
       { name: 'MenuItem', schema: MenuItemSchema },
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
       { name: 'Driver', schema: DriverSchema },
       { name: 'DriverProgressStage', schema: DriverProgressStageSchema }
     ]),
-    TypeOrmModule.forFeature([AddressBook, Restaurant, FoodCategory]),
+    TypeOrmModule.forFeature([AddressBook, Restaurant, FoodCategory, Customer]),
     FoodCategoriesModule,
     forwardRef(() => CustomersModule),
     forwardRef(() => MenuItemsModule),
@@ -49,7 +49,8 @@ import { FoodCategoriesRepository } from 'src/food_categories/food_categories.re
     OrdersGateway,
     AddressBookRepository,
     RestaurantsRepository,
-    FoodCategoriesRepository
+    FoodCategoriesRepository,
+    CustomersRepository
   ],
   exports: [OrdersService, OrdersGateway]
 })

@@ -31,7 +31,6 @@ import { UsersService } from 'src/users/users.service';
 import { UserRepository } from 'src/users/users.repository';
 
 // Import your Mongoose schemas
-import { CustomerSchema } from 'src/customers/customer.schema';
 import { DriverSchema } from 'src/drivers/drivers.schema';
 import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
 import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
@@ -45,6 +44,8 @@ import { FoodCategoriesRepository } from 'src/food_categories/food_categories.re
 import { FWallet } from 'src/fwallets/entities/fwallet.entity';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import { Customer } from 'src/customers/entities/customer.entity';
+import { CustomersRepository } from 'src/customers/customers.repository';
 @Module({
   imports: [
     JwtModule.register({
@@ -56,19 +57,20 @@ import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
       Admin,
       Promotion,
       AddressBook,
-      FoodCategory
+      FoodCategory,
+      Customer,
+      FWallet,
+      Restaurant
     ]),
 
     // Add Mongoose models
     MongooseModule.forFeature([
-      { name: 'Customer', schema: CustomerSchema },
       { name: 'Driver', schema: DriverSchema },
       { name: 'MenuItem', schema: MenuItemSchema },
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
       { name: 'CartItem', schema: CartItemSchema },
       { name: 'Order', schema: OrderSchema }
     ]),
-    TypeOrmModule.forFeature([FWallet, Restaurant]),
     CustomersModule,
     DriversModule,
     FwalletsModule,
@@ -97,7 +99,8 @@ import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
     UserRepository,
     AddressBookRepository,
     FoodCategoriesRepository,
-    FWalletsRepository
+    FWalletsRepository,
+    CustomersRepository
   ],
   controllers: [AuthController],
   exports: [AuthService, EmailService]

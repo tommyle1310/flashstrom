@@ -4,7 +4,6 @@ import { Model } from 'mongoose';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { Order } from './orders.schema'; // Assuming you have an Order schema
-import { Customer } from 'src/customers/customer.schema'; // Customer schema (assumed)
 import { createResponse } from 'src/utils/createResponse'; // Utility for creating responses
 import { MenuItem } from 'src/menu_items/menu_items.schema';
 import { MenuItemVariant } from 'src/menu_item_variants/menu_item_variants.schema';
@@ -15,6 +14,7 @@ import { ApiResponse } from 'src/utils/createResponse';
 import { DriverProgressStage } from 'src/driver_progress_stages/driver_progress_stages.schema';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
+import { CustomersRepository } from 'src/customers/customers.repository';
 @Injectable()
 export class OrdersService {
   constructor(
@@ -23,7 +23,7 @@ export class OrdersService {
     @InjectModel('MenuItemVariant')
     private readonly menuItemVariantModel: Model<MenuItemVariant>,
     private readonly addressRepository: AddressBookRepository,
-    @InjectModel('Customer') private readonly customerModel: Model<Customer>,
+    private readonly customersRepository: CustomersRepository,
     private readonly restaurantRepository: RestaurantsRepository,
     private readonly restaurantsGateway: RestaurantsGateway,
     @InjectModel('DriverProgressStage')
@@ -150,7 +150,7 @@ export class OrdersService {
       return createResponse('MissingInput', null, 'Customer ID is required');
     }
 
-    const customer = await this.customerModel.findById(customer_id).exec();
+    const customer = await this.customersRepository.findById(customer_id);
     if (!customer) {
       return createResponse('NotFound', null, 'Customer not found');
     }

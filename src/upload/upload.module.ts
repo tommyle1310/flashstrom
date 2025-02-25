@@ -5,8 +5,6 @@ import { UploadController } from './upload.controller';
 import { CustomersModule } from 'src/customers/customers.module';
 import { DriversModule } from 'src/drivers/drivers.module';
 import { RestaurantsModule } from 'src/restaurants/restaurants.module';
-// import { PromotionsModule } from 'src/promotions/promotions.module';
-import { CustomerSchema } from 'src/customers/customer.schema';
 import { DriverSchema } from 'src/drivers/drivers.schema';
 import { RestaurantsService } from 'src/restaurants/restaurants.service';
 import { DriversService } from 'src/drivers/drivers.service';
@@ -31,11 +29,12 @@ import { FoodCategory } from 'src/food_categories/entities/food_category.entity'
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
+import { Customer } from 'src/customers/entities/customer.entity';
+import { CustomersRepository } from 'src/customers/customers.repository';
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: 'Order', schema: OrderSchema },
-      { name: 'Customer', schema: CustomerSchema },
       { name: 'Driver', schema: DriverSchema },
       { name: 'MenuItem', schema: MenuItemSchema },
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema }
@@ -45,7 +44,8 @@ import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
       Promotion,
       AddressBook,
       FoodCategory,
-      Restaurant
+      Restaurant,
+      Customer
     ]),
     CustomersModule,
     DriversModule,
@@ -67,7 +67,8 @@ import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
     PromotionsRepository,
     AddressBookRepository,
     FoodCategoriesRepository,
-    RestaurantsRepository
+    RestaurantsRepository,
+    CustomersRepository
   ]
 })
 export class UploadModule {}

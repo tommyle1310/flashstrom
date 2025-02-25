@@ -5,10 +5,10 @@ import { CreateCartItemDto } from './dto/create-cart_item.dto';
 import { UpdateCartItemDto } from './dto/update-cart_item.dto';
 import { CartItem } from './cart_items.schema'; // Assuming the CartItem schema is defined like the one we discussed
 import { createResponse } from 'src/utils/createResponse'; // Utility for creating responses
-import { Customer } from 'src/customers/customer.schema';
 import { MenuItem } from 'src/menu_items/menu_items.schema';
 import { MenuItemVariant } from 'src/menu_item_variants/menu_item_variants.schema';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
+import { CustomersRepository } from 'src/customers/customers.repository';
 
 @Injectable()
 export class CartItemsService {
@@ -18,8 +18,7 @@ export class CartItemsService {
     private readonly restaurantRepository: RestaurantsRepository,
     @InjectModel('MenuItemVariant')
     private readonly menuItemVariantModel: Model<MenuItemVariant>,
-    @InjectModel('Customer')
-    private readonly customerModel: Model<Customer>,
+    private readonly customersRepository: CustomersRepository,
     @InjectModel('MenuItem')
     private readonly menuItemModel: Model<MenuItem>
   ) {}
@@ -49,7 +48,7 @@ export class CartItemsService {
     }
 
     // Check if Customer exists
-    const customer = await this.customerModel.findById(customer_id);
+    const customer = await this.customersRepository.findById(customer_id);
     if (!customer) {
       return createResponse(
         'NotFound',
@@ -166,7 +165,7 @@ export class CartItemsService {
 
       // Check if Customer exists
       if (customer_id) {
-        const customer = await this.customerModel.findById(customer_id);
+        const customer = await this.customersRepository.findById(customer_id);
         if (!customer) {
           return createResponse(
             'NotFound',

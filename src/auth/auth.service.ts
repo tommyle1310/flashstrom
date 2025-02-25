@@ -4,19 +4,20 @@ import { User } from '../users/entities/user.entity';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { createResponse } from 'src/utils/createResponse';
-import { Customer } from 'src/customers/customer.schema';
 import { Driver } from 'src/drivers/drivers.schema';
 import { BasePayload, Enum_UserType } from 'src/types/Payload';
 import { CartItemsService } from 'src/cart_items/cart_items.service';
 import { UserRepository } from 'src/users/users.repository';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
+import { CustomersRepository } from 'src/customers/customers.repository';
+
 export class AuthService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly fWalletsRepository: FWalletsRepository,
     private readonly restaurantsRepository: RestaurantsRepository,
-    @InjectModel('Customer') private readonly customerModel: Model<Customer>,
+    private readonly customersRepository: CustomersRepository,
     @InjectModel('Driver') private readonly driverModel: Model<Driver>,
 
     private readonly jwtService: JwtService,
@@ -168,15 +169,13 @@ export class AuthService {
   }
 
   private async handleCustomerLogin(user: User, basePayload: BasePayload) {
-    const userWithRole = await this.customerModel
-      .findOne({ user_id: user.id })
-      .populate('address');
+    const userWithRole = await this.customersRepository.findByUserId(user.id);
     if (!userWithRole) {
       return createResponse('NotFound', null, 'Customer not found');
     }
 
     const cartItems = await this.cartItemService.findAll({
-      customer_id: userWithRole._id
+      customer_id: userWithRole.id
     });
 
     const customerPayload = {
@@ -184,7 +183,7 @@ export class AuthService {
       preferred_category: userWithRole.preferred_category,
       favorite_restaurants: userWithRole.favorite_restaurants,
       favorite_items: userWithRole.favorite_items,
-      user_id: userWithRole._id,
+      user_id: userWithRole.id,
       avatar: userWithRole?.avatar,
       support_tickets: userWithRole.support_tickets,
       address: userWithRole?.address,
@@ -280,7 +279,7 @@ export class AuthService {
 
     switch (type) {
       case 'CUSTOMER':
-        newUserWithRole = new this.customerModel({
+        newUserWithRole = await this.customersRepository.create({
           ...userData,
           password: existingUser.password,
           user_id: existingUser.id
@@ -402,7 +401,7 @@ export class AuthService {
 
     switch (type) {
       case 'CUSTOMER':
-        newUserWithRole = new this.customerModel({
+        newUserWithRole = await this.customersRepository.create({
           ...userData,
           password: hashedPassword,
           user_id: newUser.id

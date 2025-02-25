@@ -7,7 +7,6 @@ import { DriverSchema } from './drivers.schema';
 import { User } from '../users/entities/user.entity';
 import { DriversGateway } from './drivers.gateway';
 import { AddressBookService } from 'src/address_book/address_book.service';
-import { CustomerSchema } from 'src/customers/customer.schema';
 import { RestaurantsModule } from 'src/restaurants/restaurants.module';
 import { OrdersModule } from 'src/orders/orders.module';
 import { OrdersGateway } from 'src/orders/orders.gateway';
@@ -20,14 +19,19 @@ import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 import { FoodCategoriesModule } from 'src/food_categories/food_categories.module';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
+import { Customer } from 'src/customers/entities/customer.entity';
+import { CustomersRepository } from 'src/customers/customers.repository';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: 'Driver', schema: DriverSchema },
-      { name: 'Customer', schema: CustomerSchema }
+    MongooseModule.forFeature([{ name: 'Driver', schema: DriverSchema }]),
+    TypeOrmModule.forFeature([
+      User,
+      AddressBook,
+      Restaurant,
+      FoodCategory,
+      Customer
     ]),
-    TypeOrmModule.forFeature([User, AddressBook, Restaurant, FoodCategory]),
     forwardRef(() => RestaurantsModule),
     forwardRef(() => OrdersModule),
     DriverProgressStagesModule,
@@ -42,7 +46,8 @@ import { FoodCategoriesRepository } from 'src/food_categories/food_categories.re
     OrdersGateway,
     AddressBookRepository,
     RestaurantsRepository,
-    FoodCategoriesRepository
+    FoodCategoriesRepository,
+    CustomersRepository
   ],
   exports: [DriversService, DriversGateway]
 })

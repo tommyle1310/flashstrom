@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CustomersController } from './customers.controller';
 import { MongooseModule } from '@nestjs/mongoose';
-import { CustomerSchema } from './customer.schema';
 import { User } from '../users/entities/user.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CartItemSchema } from 'src/cart_items/cart_items.schema';
@@ -21,13 +20,18 @@ import { FoodCategoriesRepository } from 'src/food_categories/food_categories.re
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { RestaurantsModule } from 'src/restaurants/restaurants.module';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
+import { Customer } from './entities/customer.entity';
+import { CustomersRepository } from './customers.repository';
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: 'Customer', schema: CustomerSchema },
-      { name: 'CartItem', schema: CartItemSchema }
+    MongooseModule.forFeature([{ name: 'CartItem', schema: CartItemSchema }]),
+    TypeOrmModule.forFeature([
+      User,
+      AddressBook,
+      FoodCategory,
+      Restaurant,
+      Customer
     ]),
-    TypeOrmModule.forFeature([User, AddressBook, FoodCategory, Restaurant]),
     CartItemsModule,
     UsersModule,
     AddressBookModule,
@@ -41,8 +45,9 @@ import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
     UserRepository,
     AddressBookRepository,
     FoodCategoriesRepository,
-    RestaurantsRepository
+    RestaurantsRepository,
+    CustomersRepository
   ],
-  exports: [CustomersService, CustomersGateway]
+  exports: [CustomersService, CustomersGateway, CustomersRepository]
 })
 export class CustomersModule {}
