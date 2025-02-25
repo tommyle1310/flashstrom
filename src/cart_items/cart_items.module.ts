@@ -16,6 +16,7 @@ import { Customer } from 'src/customers/entities/customer.entity';
 import { CustomersRepository } from 'src/customers/customers.repository';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
+import { CustomersModule } from 'src/customers/customers.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { AddressBookRepository } from 'src/address_book/address_book.repository'
     ]),
     TypeOrmModule.forFeature([Restaurant, FoodCategory, Customer, AddressBook]),
     forwardRef(() => RestaurantsModule),
+    forwardRef(() => CustomersModule),
     FoodCategoriesModule
   ],
   controllers: [CartItemsController],

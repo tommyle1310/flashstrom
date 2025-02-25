@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CustomersController } from './customers.controller';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -32,10 +32,10 @@ import { CustomersRepository } from './customers.repository';
       Restaurant,
       Customer
     ]),
-    CartItemsModule,
+    forwardRef(() => CartItemsModule),
     UsersModule,
     AddressBookModule,
-    RestaurantsModule
+    forwardRef(() => RestaurantsModule)
   ],
   controllers: [CustomersController],
   providers: [

@@ -111,7 +111,7 @@ export class DriversGateway
   @SubscribeMessage('updateDriver')
   async handleUpdateDriver(@MessageBody() updateDriverDto: UpdateDriverDto) {
     const driver = await this.driverService.update(
-      updateDriverDto._id,
+      updateDriverDto.id,
       updateDriverDto
     );
     this.server.emit('driverUpdated', driver);

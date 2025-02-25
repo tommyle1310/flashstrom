@@ -19,6 +19,7 @@ import { AddressBookRepository } from 'src/address_book/address_book.repository'
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 import { OrderSchema } from 'src/orders/orders.schema';
+import { CartItemsModule } from 'src/cart_items/cart_items.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { OrderSchema } from 'src/orders/orders.schema';
     forwardRef(() => OrdersModule),
     forwardRef(() => MenuItemsModule),
     forwardRef(() => MenuItemVariantsModule),
+    forwardRef(() => CartItemsModule),
     PromotionsModule,
     FoodCategoriesModule
   ],

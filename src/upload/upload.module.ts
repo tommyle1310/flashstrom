@@ -5,7 +5,6 @@ import { UploadController } from './upload.controller';
 import { CustomersModule } from 'src/customers/customers.module';
 import { DriversModule } from 'src/drivers/drivers.module';
 import { RestaurantsModule } from 'src/restaurants/restaurants.module';
-import { DriverSchema } from 'src/drivers/drivers.schema';
 import { RestaurantsService } from 'src/restaurants/restaurants.service';
 import { DriversService } from 'src/drivers/drivers.service';
 import { CustomersService } from 'src/customers/customers.service';
@@ -31,11 +30,17 @@ import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { Customer } from 'src/customers/entities/customer.entity';
 import { CustomersRepository } from 'src/customers/customers.repository';
+import { Driver } from 'src/drivers/entities/driver.entity';
+import { DriversRepository } from 'src/drivers/drivers.repository';
+import { DriversGateway } from 'src/drivers/drivers.gateway';
+import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
+import { DriverProgressStagesModule } from 'src/driver_progress_stages/driver_progress_stages.module';
+import { DriverProgressStageSchema } from 'src/driver_progress_stages/driver_progress_stages.schema';
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: 'Order', schema: OrderSchema },
-      { name: 'Driver', schema: DriverSchema },
+      { name: 'DriverProgressStage', schema: DriverProgressStageSchema },
       { name: 'MenuItem', schema: MenuItemSchema },
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema }
     ]),
@@ -45,7 +50,9 @@ import { CustomersRepository } from 'src/customers/customers.repository';
       AddressBook,
       FoodCategory,
       Restaurant,
-      Customer
+      Customer,
+      Driver,
+      Restaurant
     ]),
     CustomersModule,
     DriversModule,
@@ -53,6 +60,7 @@ import { CustomersRepository } from 'src/customers/customers.repository';
     MenuItemsModule,
     FoodCategoriesModule,
     MenuItemVariantsModule,
+    DriverProgressStagesModule,
     OrdersModule
   ],
   controllers: [UploadController],
@@ -68,7 +76,11 @@ import { CustomersRepository } from 'src/customers/customers.repository';
     AddressBookRepository,
     FoodCategoriesRepository,
     RestaurantsRepository,
-    CustomersRepository
+    CustomersRepository,
+    DriversRepository,
+    DriversGateway,
+    RestaurantsRepository,
+    DriverProgressStagesService
   ]
 })
 export class UploadModule {}

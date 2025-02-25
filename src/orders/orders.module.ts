@@ -7,7 +7,6 @@ import { OrdersGateway } from './orders.gateway';
 import { OrderSchema } from './orders.schema';
 import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
 import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
-import { DriverSchema } from 'src/drivers/drivers.schema';
 import { DriverProgressStageSchema } from 'src/driver_progress_stages/driver_progress_stages.schema';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
@@ -24,6 +23,8 @@ import { FoodCategoriesModule } from 'src/food_categories/food_categories.module
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 import { Customer } from 'src/customers/entities/customer.entity';
 import { CustomersRepository } from 'src/customers/customers.repository';
+import { Driver } from 'src/drivers/entities/driver.entity';
+import { DriversRepository } from 'src/drivers/drivers.repository';
 
 @Module({
   imports: [
@@ -31,10 +32,15 @@ import { CustomersRepository } from 'src/customers/customers.repository';
       { name: 'Order', schema: OrderSchema },
       { name: 'MenuItem', schema: MenuItemSchema },
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
-      { name: 'Driver', schema: DriverSchema },
       { name: 'DriverProgressStage', schema: DriverProgressStageSchema }
     ]),
-    TypeOrmModule.forFeature([AddressBook, Restaurant, FoodCategory, Customer]),
+    TypeOrmModule.forFeature([
+      AddressBook,
+      Restaurant,
+      FoodCategory,
+      Customer,
+      Driver
+    ]),
     FoodCategoriesModule,
     forwardRef(() => CustomersModule),
     forwardRef(() => MenuItemsModule),
@@ -50,7 +56,8 @@ import { CustomersRepository } from 'src/customers/customers.repository';
     AddressBookRepository,
     RestaurantsRepository,
     FoodCategoriesRepository,
-    CustomersRepository
+    CustomersRepository,
+    DriversRepository
   ],
   exports: [OrdersService, OrdersGateway]
 })

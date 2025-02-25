@@ -6,16 +6,15 @@ import { CreateDriverProgressStageDto } from './dto/create-driver-progress-stage
 import { createResponse } from 'src/utils/createResponse';
 import { ApiResponse } from 'src/utils/createResponse';
 import { Order } from 'src/orders/orders.schema';
-import { Driver } from 'src/drivers/drivers.schema';
 import { UpdateDriverProgressStageDto } from './dto/update-driver-progress-stage.dto';
-
+import { DriversRepository } from 'src/drivers/drivers.repository';
 @Injectable()
 export class DriverProgressStagesService {
   constructor(
     @InjectModel('DriverProgressStage')
     private readonly driverProgressStageModel: Model<DriverProgressStage>,
-    @InjectModel('Order') private readonly orderModel: Model<Order>,
-    @InjectModel('Driver') private readonly driverModel: Model<Driver>
+    private readonly driverRepository: DriversRepository,
+    @InjectModel('Order') private readonly orderModel: Model<Order>
   ) {}
 
   async create(
