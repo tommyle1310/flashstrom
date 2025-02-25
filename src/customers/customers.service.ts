@@ -7,9 +7,8 @@ import { Customer } from './customer.schema'; // Assuming a Customer schema simi
 import { createResponse, ApiResponse } from 'src/utils/createResponse'; // Importing the utility for response creation
 import { UserRepository } from '../users/users.repository';
 import { Restaurant } from 'src/restaurants/restaurants.schema';
-import { FoodCategory } from 'src/food_categories/food_categories.schema';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
-
+import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 export interface AddressPopulate {
   _id?: string;
   street?: string;
@@ -29,8 +28,7 @@ export class CustomersService {
     private readonly restaurantModel: Model<Restaurant>,
     private readonly userRepository: UserRepository,
     private readonly addressRepository: AddressBookRepository,
-    @InjectModel('FoodCategory')
-    private readonly FoodCategoryModel: Model<FoodCategory>
+    private readonly foodCategoriesRepository: FoodCategoriesRepository
   ) {}
 
   // Create a new customer
@@ -423,7 +421,7 @@ export class CustomersService {
     categoryId: string
   ): Promise<boolean> {
     const categoryExists =
-      await this.FoodCategoryModel.findById(categoryId).exec();
+      await this.foodCategoriesRepository.findById(categoryId);
     if (!categoryExists) return false;
 
     const categoryIndex = customer.preferred_category.indexOf(categoryId);

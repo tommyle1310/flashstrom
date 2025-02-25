@@ -15,7 +15,6 @@ import { CustomersService } from 'src/customers/customers.service';
 import { MenuItemsModule } from 'src/menu_items/menu_items.module';
 import { MenuItemsService } from 'src/menu_items/menu_items.service';
 import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
-import { FoodCategorySchema } from 'src/food_categories/food_categories.schema';
 import { FoodCategoriesModule } from 'src/food_categories/food_categories.module';
 import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variants.module';
 import { OrderSchema } from 'src/orders/orders.schema';
@@ -29,6 +28,8 @@ import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
+import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
+import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -37,10 +38,9 @@ import { AddressBookRepository } from 'src/address_book/address_book.repository'
       { name: 'Driver', schema: DriverSchema },
       { name: 'Restaurant', schema: RestaurantSchema },
       { name: 'MenuItem', schema: MenuItemSchema },
-      { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
-      { name: 'FoodCategory', schema: FoodCategorySchema }
+      { name: 'MenuItemVariant', schema: MenuItemVariantSchema }
     ]),
-    TypeOrmModule.forFeature([User, Promotion, AddressBook]),
+    TypeOrmModule.forFeature([User, Promotion, AddressBook, FoodCategory]),
     CustomersModule,
     DriversModule,
     RestaurantsModule,
@@ -59,7 +59,8 @@ import { AddressBookRepository } from 'src/address_book/address_book.repository'
     UserRepository,
     PromotionsService,
     PromotionsRepository,
-    AddressBookRepository
+    AddressBookRepository,
+    FoodCategoriesRepository
   ]
 })
 export class UploadModule {}

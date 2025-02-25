@@ -6,7 +6,6 @@ import { CustomerSchema } from './customer.schema';
 import { User } from '../users/entities/user.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RestaurantSchema } from 'src/restaurants/restaurants.schema';
-import { FoodCategorySchema } from 'src/food_categories/food_categories.schema';
 import { CartItemSchema } from 'src/cart_items/cart_items.schema';
 
 // Import CartItemsModule to make CartItemsService available
@@ -18,15 +17,16 @@ import { UsersModule } from 'src/users/users.module';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { AddressBookModule } from 'src/address_book/address_book.module';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
+import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
+import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: 'Customer', schema: CustomerSchema },
       { name: 'CartItem', schema: CartItemSchema },
-      { name: 'Restaurant', schema: RestaurantSchema },
-      { name: 'FoodCategory', schema: FoodCategorySchema }
+      { name: 'Restaurant', schema: RestaurantSchema }
     ]),
-    TypeOrmModule.forFeature([User, AddressBook]),
+    TypeOrmModule.forFeature([User, AddressBook, FoodCategory]),
     CartItemsModule,
     UsersModule,
     AddressBookModule
@@ -37,7 +37,8 @@ import { AddressBookRepository } from 'src/address_book/address_book.repository'
     AddressBookService,
     CustomersGateway,
     UserRepository,
-    AddressBookRepository
+    AddressBookRepository,
+    FoodCategoriesRepository
   ],
   exports: [CustomersService, CustomersGateway]
 })

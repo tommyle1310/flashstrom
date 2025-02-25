@@ -9,7 +9,6 @@ import { MenuItemsService } from 'src/menu_items/menu_items.service';
 import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
 import { MenuItemsModule } from 'src/menu_items/menu_items.module';
 import { FoodCategoriesModule } from 'src/food_categories/food_categories.module';
-import { FoodCategorySchema } from 'src/food_categories/food_categories.schema';
 import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_variants.service';
 import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
 import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variants.module';
@@ -24,6 +23,8 @@ import { UserRepository } from 'src/users/users.repository';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
+import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
+import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -31,10 +32,9 @@ import { AddressBookRepository } from 'src/address_book/address_book.repository'
       { name: 'Driver', schema: DriverSchema },
       { name: 'MenuItem', schema: MenuItemSchema },
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
-      { name: 'FoodCategory', schema: FoodCategorySchema },
       { name: 'Order', schema: OrderSchema }
     ]),
-    TypeOrmModule.forFeature([User, Promotion, AddressBook]),
+    TypeOrmModule.forFeature([User, Promotion, AddressBook, FoodCategory]),
     UsersModule,
     forwardRef(() => DriversModule),
     MenuItemsModule,
@@ -50,7 +50,8 @@ import { AddressBookRepository } from 'src/address_book/address_book.repository'
     MenuItemVariantsService,
     RestaurantsGateway,
     UserRepository,
-    AddressBookRepository
+    AddressBookRepository,
+    FoodCategoriesRepository
   ],
   exports: [RestaurantsService, RestaurantsGateway]
 })

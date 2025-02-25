@@ -38,18 +38,25 @@ import { RestaurantSchema } from 'src/restaurants/restaurants.schema';
 import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
 import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
 import { OrderSchema } from 'src/orders/orders.schema';
-import { FoodCategorySchema } from 'src/food_categories/food_categories.schema';
 import { CartItemSchema } from 'src/cart_items/cart_items.schema';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
+import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
+import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 @Module({
   imports: [
     JwtModule.register({
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '1h' }
     }),
-    TypeOrmModule.forFeature([User, Admin, Promotion, AddressBook]),
+    TypeOrmModule.forFeature([
+      User,
+      Admin,
+      Promotion,
+      AddressBook,
+      FoodCategory
+    ]),
 
     // Add Mongoose models
     MongooseModule.forFeature([
@@ -60,8 +67,7 @@ import { AddressBookRepository } from 'src/address_book/address_book.repository'
       { name: 'MenuItem', schema: MenuItemSchema },
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
       { name: 'CartItem', schema: CartItemSchema },
-      { name: 'Order', schema: OrderSchema },
-      { name: 'FoodCategory', schema: FoodCategorySchema }
+      { name: 'Order', schema: OrderSchema }
     ]),
 
     CustomersModule,
@@ -90,7 +96,8 @@ import { AddressBookRepository } from 'src/address_book/address_book.repository'
     MenuItemsService,
     MenuItemVariantsService,
     UserRepository,
-    AddressBookRepository
+    AddressBookRepository,
+    FoodCategoriesRepository
   ],
   controllers: [AuthController],
   exports: [AuthService, EmailService]
