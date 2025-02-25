@@ -4,8 +4,6 @@ import { CartItemsController } from './cart_items.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CartItemSchema } from './cart_items.schema'; // Assuming you have the CartItem schema
-import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
-import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { RestaurantsModule } from 'src/restaurants/restaurants.module';
@@ -17,15 +15,24 @@ import { CustomersRepository } from 'src/customers/customers.repository';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { CustomersModule } from 'src/customers/customers.module';
+import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
+import { MenuItemVariant } from 'src/menu_item_variants/entities/menu_item_variant.entity';
+import { MenuItemVariantsRepository } from 'src/menu_item_variants/menu_item_variants.repository';
+import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: 'MenuItem', schema: MenuItemSchema }, // Injecting Customer schema
-      { name: 'MenuItemVariant', schema: MenuItemVariantSchema }, // Injecting Customer schema
       { name: 'CartItem', schema: CartItemSchema } // Injecting CartItem schema
     ]),
-    TypeOrmModule.forFeature([Restaurant, FoodCategory, Customer, AddressBook]),
+    TypeOrmModule.forFeature([
+      Restaurant,
+      FoodCategory,
+      Customer,
+      AddressBook,
+      MenuItem,
+      MenuItemVariant
+    ]),
     forwardRef(() => RestaurantsModule),
     forwardRef(() => CustomersModule),
     FoodCategoriesModule
@@ -36,7 +43,9 @@ import { CustomersModule } from 'src/customers/customers.module';
     RestaurantsRepository,
     FoodCategoriesRepository,
     CustomersRepository,
-    AddressBookRepository
+    AddressBookRepository,
+    MenuItemsRepository,
+    MenuItemVariantsRepository
   ],
   exports: [CartItemsService]
 })

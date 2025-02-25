@@ -1,34 +1,28 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
-import { Order } from './orders.schema'; // Assuming you have an Order schema
-import { createResponse } from 'src/utils/createResponse'; // Utility for creating responses
-import { MenuItem } from 'src/menu_items/menu_items.schema';
-import { MenuItemVariant } from 'src/menu_item_variants/menu_item_variants.schema';
-import { RestaurantsGateway } from '../restaurants/restaurants.gateway';
-// import { DriversGateway } from 'src/drivers/drivers.gateway';
-import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
+import { Order } from './entities/order.entity';
+import { createResponse } from 'src/utils/createResponse';
 import { ApiResponse } from 'src/utils/createResponse';
-import { DriverProgressStage } from 'src/driver_progress_stages/driver_progress_stages.schema';
+import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
+import { OrdersRepository } from './orders.repository';
+import { RestaurantsGateway } from '../restaurants/restaurants.gateway';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { CustomersRepository } from 'src/customers/customers.repository';
+import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
+import { MenuItemVariantsRepository } from 'src/menu_item_variants/menu_item_variants.repository';
+
 @Injectable()
 export class OrdersService {
   constructor(
-    @InjectModel('Order') private readonly orderModel: Model<Order>,
-    @InjectModel('MenuItem') private readonly menuItemModel: Model<MenuItem>,
-    @InjectModel('MenuItemVariant')
-    private readonly menuItemVariantModel: Model<MenuItemVariant>,
+    private readonly ordersRepository: OrdersRepository,
+    private readonly menuItemsRepository: MenuItemsRepository,
+    private readonly menuItemVariantsRepository: MenuItemVariantsRepository,
     private readonly addressRepository: AddressBookRepository,
     private readonly customersRepository: CustomersRepository,
     private readonly restaurantRepository: RestaurantsRepository,
-    private readonly restaurantsGateway: RestaurantsGateway,
-    @InjectModel('DriverProgressStage')
-    private readonly driverProgressStageModel: Model<DriverProgressStage>
-    // private readonly driversGateway: DriversGateway
+    private readonly restaurantsGateway: RestaurantsGateway
   ) {}
 
   async createOrder(createOrderDto: CreateOrderDto): Promise<ApiResponse<any>> {
@@ -38,7 +32,7 @@ export class OrdersService {
         return validationResult;
       }
 
-      const newOrder = await this.saveNewOrder(createOrderDto);
+      const newOrder = await this.ordersRepository.create(createOrderDto);
       await this.updateMenuItemPurchaseCount(createOrderDto.order_items);
 
       const orderResponse = await this.notifyRestaurantAndDriver(newOrder);
@@ -53,14 +47,15 @@ export class OrdersService {
     updateOrderDto: UpdateOrderDto
   ): Promise<ApiResponse<Order>> {
     try {
-      const order = await this.orderModel.findById(id);
+      const order = await this.ordersRepository.findById(id);
       if (!order) {
         return createResponse('NotFound', null, 'Order not found');
       }
 
-      const updatedOrder = await this.orderModel
-        .findByIdAndUpdate(id, updateOrderDto, { new: true })
-        .exec();
+      const updatedOrder = await this.ordersRepository.update(
+        id,
+        updateOrderDto
+      );
 
       return createResponse('OK', updatedOrder, 'Order updated successfully');
     } catch (error) {
@@ -70,7 +65,7 @@ export class OrdersService {
 
   async findAll(): Promise<ApiResponse<Order[]>> {
     try {
-      const orders = await this.orderModel.find().exec();
+      const orders = await this.ordersRepository.findAll();
       return createResponse('OK', orders, 'Fetched all orders');
     } catch (error) {
       return this.handleError('Error fetching orders:', error);
@@ -79,10 +74,7 @@ export class OrdersService {
 
   async findOne(id: string): Promise<ApiResponse<Order>> {
     try {
-      const order = await this.orderModel
-        .findById(id)
-        .populate('customer_location')
-        .exec();
+      const order = await this.ordersRepository.findById(id);
       return this.handleOrderResponse(order);
     } catch (error) {
       return this.handleError('Error fetching order:', error);
@@ -91,7 +83,7 @@ export class OrdersService {
 
   async remove(id: string): Promise<ApiResponse<null>> {
     try {
-      const deletedOrder = await this.orderModel.findByIdAndDelete(id).exec();
+      const deletedOrder = await this.ordersRepository.delete(id);
       if (!deletedOrder) {
         return createResponse('NotFound', null, 'Order not found');
       }
@@ -106,22 +98,20 @@ export class OrdersService {
     status: string
   ): Promise<ApiResponse<Order>> {
     try {
-      const order = await this.orderModel.findById(orderId);
+      const order = await this.ordersRepository.findById(orderId);
       if (!order) {
         return createResponse('NotFound', null, 'Order not found');
       }
 
-      const updatedOrder = await this.orderModel
-        .findByIdAndUpdate(
-          orderId,
-          {
-            status,
-            tracking_info: status,
-            updated_at: Math.floor(Date.now() / 1000)
-          },
-          { new: true }
-        )
-        .exec();
+      const updatedOrder = await this.ordersRepository.updateStatus(
+        orderId,
+        status as
+          | 'PENDING'
+          | 'RESTAURANT_ACCEPTED'
+          | 'IN_PROGRESS'
+          | 'DELIVERED'
+          | 'CANCELLED'
+      );
 
       return createResponse(
         'OK',
@@ -193,7 +183,7 @@ export class OrdersService {
     orderItems: any[]
   ): Promise<true | ApiResponse<null>> {
     for (const item of orderItems) {
-      const menuItem = await this.menuItemModel.findById(item.item_id).exec();
+      const menuItem = await this.menuItemsRepository.findById(item.item_id);
       if (!menuItem) {
         return createResponse(
           'NotFound',
@@ -202,9 +192,9 @@ export class OrdersService {
         );
       }
 
-      const variant = await this.menuItemVariantModel
-        .findById(item.variant_id)
-        .exec();
+      const variant = await this.menuItemVariantsRepository.findById(
+        item.variant_id
+      );
       if (!variant) {
         return createResponse(
           'NotFound',
@@ -216,35 +206,27 @@ export class OrdersService {
     return true;
   }
 
-  private async saveNewOrder(orderData: CreateOrderDto): Promise<Order> {
-    const newOrder = new this.orderModel({
-      ...orderData,
-      payment_status: orderData.payment_method === 'COD' ? 'PENDING' : 'PAID',
-      created_at: new Date().getTime(),
-      updated_at: new Date().getTime()
-    });
-    return newOrder.save();
-  }
-
   private async updateMenuItemPurchaseCount(orderItems: any[]): Promise<void> {
     for (const item of orderItems) {
-      const menuItem = await this.menuItemModel.findById(item.item_id).exec();
+      const menuItem = await this.menuItemsRepository.findById(item.item_id);
       if (menuItem) {
-        menuItem.purchase_count += 1;
-        await menuItem.save();
+        const updateData = {
+          purchase_count: (menuItem.purchase_count || 0) + 1,
+          updated_at: Math.floor(Date.now() / 1000)
+        };
+
+        await this.menuItemsRepository.update(menuItem.id, updateData);
       }
     }
   }
 
   private async notifyRestaurantAndDriver(order: Order): Promise<any> {
     const orderWithDriverWage = {
-      ...order.toObject(),
+      ...order,
       driver_wage: FIXED_DELIVERY_DRIVER_WAGE
     };
 
     await this.restaurantsGateway.handleNewOrder(orderWithDriverWage);
-    // Uncomment when driver notification is needed
-    // await this.driverGateway.handleNewOrder(order);
 
     return orderWithDriverWage;
   }

@@ -207,7 +207,7 @@ export class DriversGateway
         const order = updatedOrder.data;
         const updatedDriver = await this.driverService.addOrderToDriver(
           data.driverId,
-          order._id as string,
+          order.id as string,
           data.restaurantLocation
         );
 
@@ -251,7 +251,7 @@ export class DriversGateway
                 {
                   order_ids: [
                     ...existingStage.data.order_ids,
-                    order._id as string
+                    order.id as string
                   ],
                   stages: newStages, // Just pass the new stages, let the service handle merging
                   current_state: existingStage.data.current_state
@@ -272,7 +272,7 @@ export class DriversGateway
             console.log('📝 Creating new stage for first order');
             const createResult = await this.driverProgressStageService.create({
               driver_id: data.driverId,
-              order_ids: [order._id as string],
+              order_ids: [order.id as string],
               current_state: 'driver_ready',
               stages: newStages
             });

@@ -29,9 +29,6 @@ import { User } from '../users/entities/user.entity';
 import { Admin } from '../admin/entities/admin.entity';
 import { UsersService } from 'src/users/users.service';
 import { UserRepository } from 'src/users/users.repository';
-import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
-import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
-import { OrderSchema } from 'src/orders/orders.schema';
 import { CartItemSchema } from 'src/cart_items/cart_items.schema';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
@@ -45,6 +42,12 @@ import { Customer } from 'src/customers/entities/customer.entity';
 import { CustomersRepository } from 'src/customers/customers.repository';
 import { Driver } from 'src/drivers/entities/driver.entity';
 import { DriversRepository } from 'src/drivers/drivers.repository';
+import { MenuItemVariant } from 'src/menu_item_variants/entities/menu_item_variant.entity';
+import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
+import { MenuItemVariantsRepository } from 'src/menu_item_variants/menu_item_variants.repository';
+import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
+import { Order } from 'src/orders/entities/order.entity';
+import { OrdersRepository } from 'src/orders/orders.repository';
 @Module({
   imports: [
     JwtModule.register({
@@ -60,16 +63,14 @@ import { DriversRepository } from 'src/drivers/drivers.repository';
       Customer,
       FWallet,
       Driver,
-      Restaurant
+      Restaurant,
+      MenuItem,
+      MenuItemVariant,
+      Order
     ]),
 
     // Add Mongoose models
-    MongooseModule.forFeature([
-      { name: 'MenuItem', schema: MenuItemSchema },
-      { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
-      { name: 'CartItem', schema: CartItemSchema },
-      { name: 'Order', schema: OrderSchema }
-    ]),
+    MongooseModule.forFeature([{ name: 'CartItem', schema: CartItemSchema }]),
     CustomersModule,
     DriversModule,
     FwalletsModule,
@@ -100,7 +101,10 @@ import { DriversRepository } from 'src/drivers/drivers.repository';
     FoodCategoriesRepository,
     FWalletsRepository,
     DriversRepository,
-    CustomersRepository
+    CustomersRepository,
+    MenuItemsRepository,
+    MenuItemVariantsRepository,
+    OrdersRepository
   ],
   controllers: [AuthController],
   exports: [AuthService, EmailService]

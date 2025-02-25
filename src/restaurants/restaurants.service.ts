@@ -14,9 +14,8 @@ import { PromotionsRepository } from 'src/promotions/promotions.repository';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { Restaurant } from './entities/restaurant.entity';
 import { RestaurantsRepository } from './restaurants.repository';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Order } from 'src/orders/orders.schema';
+import { OrdersRepository } from 'src/orders/orders.repository';
+import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
 
 @Injectable()
 export class RestaurantsService {
@@ -25,10 +24,10 @@ export class RestaurantsService {
     private readonly userRepository: UserRepository,
     private readonly promotionRepository: PromotionsRepository,
     private readonly addressRepository: AddressBookRepository,
-    @InjectModel('Order')
-    private readonly orderModel: Model<Order>,
+    private readonly ordersRepository: OrdersRepository,
     private readonly menuItemsService: MenuItemsService,
-    private readonly menuItemVariantsService: MenuItemVariantsService
+    private readonly menuItemVariantsService: MenuItemVariantsService,
+    private readonly restaurantsGateway: RestaurantsGateway
   ) {}
 
   async create(
@@ -253,28 +252,33 @@ export class RestaurantsService {
   }
 
   async getOrderById(orderId: string) {
-    return this.orderModel
-      .findById(orderId)
-      .populate('customer_location')
-      .populate('restaurant_location')
-      .exec();
+    return this.ordersRepository.findById(orderId);
   }
 
   async updateOrderStatus(orderId: string, status: string): Promise<any> {
     try {
-      const updateData = {
-        status,
-        tracking_info:
-          status === 'RESTAURANT_ACCEPTED' ? 'PREPARING' : undefined,
-        updated_at: Math.floor(Date.now() / 1000)
-      };
+      // Define tracking info based on status
+      // const tracking_info =
+      //   status === 'RESTAURANT_ACCEPTED' ? 'PREPARING' : status;
 
-      const updatedOrder = await this.orderModel
-        .findByIdAndUpdate(orderId, updateData, { new: true })
-        .exec();
+      // Use the OrdersRepository updateStatus method
+      const updatedOrder = await this.ordersRepository.updateStatus(
+        orderId,
+        status as
+          | 'PENDING'
+          | 'RESTAURANT_ACCEPTED'
+          | 'IN_PROGRESS'
+          | 'DELIVERED'
+          | 'CANCELLED'
+      );
 
       if (!updatedOrder) {
         return createResponse('NotFound', null, 'Order not found');
+      }
+
+      // Emit socket event if needed
+      if (this.restaurantsGateway) {
+        this.restaurantsGateway.emitOrderStatusUpdate(updatedOrder);
       }
 
       return createResponse(

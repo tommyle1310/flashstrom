@@ -10,10 +10,8 @@ import { DriversService } from 'src/drivers/drivers.service';
 import { CustomersService } from 'src/customers/customers.service';
 import { MenuItemsModule } from 'src/menu_items/menu_items.module';
 import { MenuItemsService } from 'src/menu_items/menu_items.service';
-import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
 import { FoodCategoriesModule } from 'src/food_categories/food_categories.module';
 import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variants.module';
-import { OrderSchema } from 'src/orders/orders.schema';
 import { OrdersModule } from 'src/orders/orders.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/users/entities/user.entity';
@@ -21,7 +19,6 @@ import { UserRepository } from 'src/users/users.repository';
 import { PromotionsService } from 'src/promotions/promotions.service';
 import { PromotionsRepository } from 'src/promotions/promotions.repository';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
-import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
@@ -36,13 +33,16 @@ import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
 import { DriverProgressStagesModule } from 'src/driver_progress_stages/driver_progress_stages.module';
 import { DriverProgressStageSchema } from 'src/driver_progress_stages/driver_progress_stages.schema';
+import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
+import { MenuItemVariant } from 'src/menu_item_variants/entities/menu_item_variant.entity';
+import { MenuItemVariantsRepository } from 'src/menu_item_variants/menu_item_variants.repository';
+import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
+import { Order } from 'src/orders/entities/order.entity';
+import { OrdersRepository } from 'src/orders/orders.repository';
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: 'Order', schema: OrderSchema },
-      { name: 'DriverProgressStage', schema: DriverProgressStageSchema },
-      { name: 'MenuItem', schema: MenuItemSchema },
-      { name: 'MenuItemVariant', schema: MenuItemVariantSchema }
+      { name: 'DriverProgressStage', schema: DriverProgressStageSchema }
     ]),
     TypeOrmModule.forFeature([
       User,
@@ -52,7 +52,9 @@ import { DriverProgressStageSchema } from 'src/driver_progress_stages/driver_pro
       Restaurant,
       Customer,
       Driver,
-      Restaurant
+      MenuItem,
+      MenuItemVariant,
+      Order
     ]),
     CustomersModule,
     DriversModule,
@@ -79,8 +81,10 @@ import { DriverProgressStageSchema } from 'src/driver_progress_stages/driver_pro
     CustomersRepository,
     DriversRepository,
     DriversGateway,
-    RestaurantsRepository,
-    DriverProgressStagesService
+    DriverProgressStagesService,
+    MenuItemsRepository,
+    MenuItemVariantsRepository,
+    OrdersRepository
   ]
 })
 export class UploadModule {}

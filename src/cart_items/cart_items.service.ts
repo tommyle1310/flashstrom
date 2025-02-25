@@ -5,10 +5,10 @@ import { CreateCartItemDto } from './dto/create-cart_item.dto';
 import { UpdateCartItemDto } from './dto/update-cart_item.dto';
 import { CartItem } from './cart_items.schema'; // Assuming the CartItem schema is defined like the one we discussed
 import { createResponse } from 'src/utils/createResponse'; // Utility for creating responses
-import { MenuItem } from 'src/menu_items/menu_items.schema';
-import { MenuItemVariant } from 'src/menu_item_variants/menu_item_variants.schema';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { CustomersRepository } from 'src/customers/customers.repository';
+import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
+import { MenuItemVariantsRepository } from 'src/menu_item_variants/menu_item_variants.repository';
 
 @Injectable()
 export class CartItemsService {
@@ -16,11 +16,9 @@ export class CartItemsService {
     @InjectModel('CartItem')
     private readonly cartItemModel: Model<CartItem>,
     private readonly restaurantRepository: RestaurantsRepository,
-    @InjectModel('MenuItemVariant')
-    private readonly menuItemVariantModel: Model<MenuItemVariant>,
     private readonly customersRepository: CustomersRepository,
-    @InjectModel('MenuItem')
-    private readonly menuItemModel: Model<MenuItem>
+    private readonly menuItemsRepository: MenuItemsRepository,
+    private readonly menuItemVariantsRepository: MenuItemVariantsRepository
   ) {}
 
   async create(createCartItemDto: CreateCartItemDto): Promise<any> {
@@ -38,7 +36,7 @@ export class CartItemsService {
     }
 
     // Check if MenuItem exists
-    const menuItem = await this.menuItemModel.findById(item_id);
+    const menuItem = await this.menuItemsRepository.findById(item_id);
     if (!menuItem) {
       return createResponse(
         'NotFound',
@@ -78,7 +76,7 @@ export class CartItemsService {
           existingVariant.quantity += +newVariant.quantity;
         } else {
           // If the variant doesn't exist, fetch variant details and add it to the cart
-          const variantDetails = await this.menuItemVariantModel.findById(
+          const variantDetails = await this.menuItemVariantsRepository.findById(
             newVariant.variant_id
           );
           if (variantDetails) {
@@ -114,7 +112,7 @@ export class CartItemsService {
     // If no existing cart item, create a new one
     const populatedVariants = await Promise.all(
       variants.map(async variant => {
-        const variantDetails = await this.menuItemVariantModel.findById(
+        const variantDetails = await this.menuItemVariantsRepository.findById(
           variant.variant_id
         );
         if (!variantDetails) {
@@ -153,7 +151,7 @@ export class CartItemsService {
     try {
       // Check if MenuItem exists
       if (item_id) {
-        const menuItem = await this.menuItemModel.findById(item_id);
+        const menuItem = await this.menuItemsRepository.findById(item_id);
         if (!menuItem) {
           return createResponse(
             'NotFound',
@@ -179,9 +177,10 @@ export class CartItemsService {
         // Populate variants
         const populatedVariants = await Promise.all(
           variants.map(async variant => {
-            const variantDetails = await this.menuItemVariantModel.findById(
-              variant.variant_id
-            );
+            const variantDetails =
+              await this.menuItemVariantsRepository.findById(
+                variant.variant_id
+              );
             if (!variantDetails) {
               return createResponse(
                 'NotFound',
@@ -241,9 +240,10 @@ export class CartItemsService {
         // Map over the variants and populate their names
         const populatedVariants = await Promise.all(
           cartItemObj.variants.map(async variant => {
-            const variantDetails = await this.menuItemVariantModel.findById(
-              variant.variant_id
-            );
+            const variantDetails =
+              await this.menuItemVariantsRepository.findById(
+                variant.variant_id
+              );
             return {
               ...variant,
               variant_name: variantDetails ? variantDetails.variant : 'Unknown'
@@ -271,7 +271,7 @@ export class CartItemsService {
     const finalResult = await Promise.all(
       transformedCartItems.map(async item => {
         // Fetch the item object using the item_id (which is the item reference)
-        const menuItem = await this.menuItemModel.findById(item.item);
+        const menuItem = await this.menuItemsRepository.findById(item.item);
 
         if (!menuItem) {
           return createResponse('NotFound', null, 'Menu item not found');
@@ -285,7 +285,7 @@ export class CartItemsService {
         return {
           ...item,
           item: {
-            ...menuItem.toObject(), // Now spread the full item object here
+            ...menuItem, // Now spread the full item object here
             restaurantDetails // Add restaurantDetails inside the item object
           }
         };

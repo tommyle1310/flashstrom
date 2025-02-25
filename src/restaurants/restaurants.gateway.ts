@@ -44,6 +44,7 @@ export class RestaurantsGateway
   server: Server;
 
   constructor(
+    @Inject(forwardRef(() => RestaurantsService))
     private readonly restaurantsService: RestaurantsService,
     @Inject(forwardRef(() => DriversService))
     private readonly driverService: DriversService,
@@ -162,7 +163,7 @@ export class RestaurantsGateway
       );
 
       const orderAssignment = {
-        ...fullOrderDetails.toObject(),
+        ...fullOrderDetails,
         driver_id: selectedDriver._id,
         driver_wage: FIXED_DELIVERY_DRIVER_WAGE,
         tracking_info: 'PREPARING',
@@ -188,5 +189,32 @@ export class RestaurantsGateway
       data: order,
       message: 'Order received successfully'
     };
+  }
+
+  async emitOrderStatusUpdate(order: any) {
+    try {
+      // Emit to restaurant room
+      this.server
+        .to(`restaurant_${order.restaurant_id}`)
+        .emit('orderStatusUpdated', order);
+
+      // Emit to customer room if needed
+      if (order.customer_id) {
+        this.server
+          .to(`customer_${order.customer_id}`)
+          .emit('orderStatusUpdated', order);
+      }
+
+      // Emit to driver room if assigned
+      if (order.driver_id) {
+        this.server
+          .to(`driver_${order.driver_id}`)
+          .emit('orderStatusUpdated', order);
+      }
+
+      console.log('✅ Order status update emitted successfully');
+    } catch (error) {
+      console.error('❌ Error emitting order status update:', error);
+    }
   }
 }

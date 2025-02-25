@@ -31,10 +31,13 @@ export class MenuItemsRepository {
   }
 
   async update(id: string, data: Partial<MenuItem>): Promise<MenuItem> {
-    await this.menuItemRepository.update(id, {
-      ...data,
-      updated_at: Math.floor(Date.now() / 1000)
-    });
+    await this.menuItemRepository
+      .createQueryBuilder()
+      .update(MenuItem)
+      .set(data)
+      .where('id = :id', { id })
+      .execute();
+
     return this.findById(id);
   }
 
