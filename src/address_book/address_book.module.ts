@@ -1,19 +1,19 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AddressBookService } from './address_book.service';
 import { AddressBookController } from './address_book.controller';
-import { AddressBookSchema } from './address_book.schema';
+import { AddressBook } from './entities/address_book.entity';
+import { AddressBookRepository } from './address_book.repository';
 import { CustomerSchema } from 'src/customers/customer.schema';
+import { MongooseModule } from '@nestjs/mongoose';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: 'AddressBook', schema: AddressBookSchema }
-    ]),
+    TypeOrmModule.forFeature([AddressBook]),
     MongooseModule.forFeature([{ name: 'Customer', schema: CustomerSchema }])
   ],
   controllers: [AddressBookController],
-  providers: [AddressBookService],
+  providers: [AddressBookService, AddressBookRepository],
   exports: [AddressBookService]
 })
-export class AddressBook {}
+export class AddressBookModule {}

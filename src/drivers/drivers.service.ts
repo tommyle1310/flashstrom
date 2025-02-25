@@ -7,13 +7,13 @@ import { Driver } from './drivers.schema'; // Assuming a Driver schema similar t
 import { createResponse } from 'src/utils/createResponse'; // Utility for creating responses
 import { ApiResponse } from 'src/utils/createResponse';
 import { Type_Delivery_Order } from 'src/types/Driver';
-import { AddressBookService } from 'src/address_book/address_book.service';
 import { calculateDistance } from 'src/utils/distance';
+import { AddressBookRepository } from 'src/address_book/address_book.repository';
 
 @Injectable()
 export class DriversService {
   constructor(
-    private readonly addressBookService: AddressBookService,
+    private readonly addressRepository: AddressBookRepository,
     @InjectModel('Driver') private readonly driverModel: Model<Driver>
   ) {}
 
@@ -314,9 +314,8 @@ export class DriversService {
     location: { lat: number; lng: number } | string
   ): Promise<any> {
     if (typeof location === 'string') {
-      const response =
-        await this.addressBookService.getAddressBookById(location);
-      return response.EC === 0 ? response.data.location : null;
+      const response = await this.addressRepository.findById(location);
+      return response ? response.location : null;
     }
     return location;
   }

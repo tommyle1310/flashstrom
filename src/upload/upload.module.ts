@@ -12,8 +12,6 @@ import { RestaurantSchema } from 'src/restaurants/restaurants.schema';
 import { RestaurantsService } from 'src/restaurants/restaurants.service';
 import { DriversService } from 'src/drivers/drivers.service';
 import { CustomersService } from 'src/customers/customers.service';
-import { AddressBookSchema } from 'src/address_book/address_book.schema';
-import { AddressBook } from 'src/address_book/address_book.module';
 import { MenuItemsModule } from 'src/menu_items/menu_items.module';
 import { MenuItemsService } from 'src/menu_items/menu_items.service';
 import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
@@ -29,10 +27,11 @@ import { PromotionsService } from 'src/promotions/promotions.service';
 import { PromotionsRepository } from 'src/promotions/promotions.repository';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
+import { AddressBook } from 'src/address_book/entities/address_book.entity';
+import { AddressBookRepository } from 'src/address_book/address_book.repository';
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: 'AddressBook', schema: AddressBookSchema },
       { name: 'Order', schema: OrderSchema },
       { name: 'Customer', schema: CustomerSchema },
       { name: 'Driver', schema: DriverSchema },
@@ -41,8 +40,7 @@ import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
       { name: 'FoodCategory', schema: FoodCategorySchema }
     ]),
-    TypeOrmModule.forFeature([User, Promotion]),
-    AddressBook,
+    TypeOrmModule.forFeature([User, Promotion, AddressBook]),
     CustomersModule,
     DriversModule,
     RestaurantsModule,
@@ -50,7 +48,6 @@ import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants
     FoodCategoriesModule,
     MenuItemVariantsModule,
     OrdersModule
-    // PromotionsModule
   ],
   controllers: [UploadController],
   providers: [
@@ -61,7 +58,8 @@ import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants
     CustomersService,
     UserRepository,
     PromotionsService,
-    PromotionsRepository
+    PromotionsRepository,
+    AddressBookRepository
   ]
 })
 export class UploadModule {}

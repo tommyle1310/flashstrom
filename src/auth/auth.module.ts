@@ -14,7 +14,6 @@ import { FwalletsModule } from 'src/fwallets/fwallets.module';
 import { RestaurantsModule } from 'src/restaurants/restaurants.module';
 import { RestaurantsService } from 'src/restaurants/restaurants.service';
 import { PromotionsModule } from 'src/promotions/promotions.module';
-import { AddressBook } from 'src/address_book/address_book.module';
 import { AddressBookService } from 'src/address_book/address_book.service';
 import { PromotionsService } from 'src/promotions/promotions.service';
 import { MenuItemsService } from 'src/menu_items/menu_items.service';
@@ -36,30 +35,28 @@ import { CustomerSchema } from 'src/customers/customer.schema';
 import { DriverSchema } from 'src/drivers/drivers.schema';
 import { FWalletSchema } from 'src/fwallets/fwallets.schema';
 import { RestaurantSchema } from 'src/restaurants/restaurants.schema';
-import { AddressBookSchema } from 'src/address_book/address_book.schema';
 import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
-import { PromotionSchema } from 'src/promotions/promotions.schema';
 import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
 import { OrderSchema } from 'src/orders/orders.schema';
 import { FoodCategorySchema } from 'src/food_categories/food_categories.schema';
 import { CartItemSchema } from 'src/cart_items/cart_items.schema';
-
+import { Promotion } from 'src/promotions/entities/promotion.entity';
+import { AddressBook } from 'src/address_book/entities/address_book.entity';
+import { AddressBookRepository } from 'src/address_book/address_book.repository';
 @Module({
   imports: [
     JwtModule.register({
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '1h' }
     }),
-    TypeOrmModule.forFeature([User, Admin]),
+    TypeOrmModule.forFeature([User, Admin, Promotion, AddressBook]),
 
     // Add Mongoose models
     MongooseModule.forFeature([
       { name: 'Customer', schema: CustomerSchema },
       { name: 'Driver', schema: DriverSchema },
       { name: 'FWallet', schema: FWalletSchema },
-      { name: 'AddressBook', schema: AddressBookSchema },
       { name: 'Restaurant', schema: RestaurantSchema },
-      { name: 'Promotion', schema: PromotionSchema },
       { name: 'MenuItem', schema: MenuItemSchema },
       { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
       { name: 'CartItem', schema: CartItemSchema },
@@ -72,7 +69,6 @@ import { CartItemSchema } from 'src/cart_items/cart_items.schema';
     FwalletsModule,
     RestaurantsModule,
     PromotionsModule,
-    AddressBook,
     MenuItemsModule,
     MenuItemVariantsModule,
     CartItemsModule,
@@ -93,7 +89,8 @@ import { CartItemSchema } from 'src/cart_items/cart_items.schema';
     PromotionsService,
     MenuItemsService,
     MenuItemVariantsService,
-    UserRepository
+    UserRepository,
+    AddressBookRepository
   ],
   controllers: [AuthController],
   exports: [AuthService, EmailService]

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { MongooseModule } from '@nestjs/mongoose';
-import { AddressBook as AddressBookModule } from './address_book/address_book.module';
+import { AddressBookModule } from './address_book/address_book.module';
 import { CustomersModule } from './customers/customers.module';
 import { DriversModule } from './drivers/drivers.module';
 import { UploadModule } from './upload/upload.module';

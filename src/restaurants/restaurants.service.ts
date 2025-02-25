@@ -5,7 +5,6 @@ import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { Restaurant } from './restaurants.schema'; // Assuming the restaurant schema
 import { createResponse } from 'src/utils/createResponse';
-import { AddressBook } from 'src/address_book/address_book.schema';
 import { MenuItemsService } from 'src/menu_items/menu_items.service';
 import { CreateMenuItemDto } from 'src/menu_items/dto/create-menu_item.dto';
 import { UpdateMenuItemDto } from 'src/menu_items/dto/update-menu_item.dto';
@@ -16,6 +15,7 @@ import { Order } from 'src/orders/orders.schema';
 import { UserRepository } from 'src/users/users.repository';
 import { ApiResponse } from 'src/utils/createResponse';
 import { PromotionsRepository } from 'src/promotions/promotions.repository';
+import { AddressBookRepository } from 'src/address_book/address_book.repository';
 
 @Injectable()
 export class RestaurantsService {
@@ -24,8 +24,7 @@ export class RestaurantsService {
     private readonly restaurantModel: Model<Restaurant>,
     private readonly userRepository: UserRepository,
     private readonly promotionRepository: PromotionsRepository,
-    @InjectModel('AddressBook')
-    private readonly addressbookModel: Model<AddressBook>,
+    private readonly addressRepository: AddressBookRepository,
     @InjectModel('Order') private readonly orderModel: Model<Order>,
 
     private readonly menuItemsService: MenuItemsService,
@@ -45,9 +44,7 @@ export class RestaurantsService {
       }
 
       // Check if address exists
-      const addressBookEntry = await this.addressbookModel
-        .findById(address)
-        .exec();
+      const addressBookEntry = await this.addressRepository.findById(address);
       if (!addressBookEntry) {
         return createResponse(
           'NotFound',
@@ -100,9 +97,7 @@ export class RestaurantsService {
 
       // Check if address exists
       if (address) {
-        const addressBookEntry = await this.addressbookModel
-          .findById(address)
-          .exec();
+        const addressBookEntry = await this.addressRepository.findById(address);
         if (!addressBookEntry) {
           return createResponse(
             'NotFound',
