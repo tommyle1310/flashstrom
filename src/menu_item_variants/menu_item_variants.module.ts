@@ -1,21 +1,19 @@
-import { forwardRef, Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { MenuItemVariantSchema } from './menu_item_variants.schema';
-import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { MenuItemVariant } from './entities/menu_item_variant.entity';
 import { MenuItemVariantsController } from './menu_item_variants.controller';
 import { MenuItemVariantsService } from './menu_item_variants.service';
-import { MenuItemsModule } from 'src/menu_items/menu_items.module';
-
+import { MenuItemVariantsRepository } from './menu_item_variants.repository';
+import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
+import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
 @Module({
-  imports: [
-    MongooseModule.forFeature([
-      { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
-      { name: 'MenuItem', schema: MenuItemSchema }
-    ]),
-    forwardRef(() => MenuItemsModule)
-  ],
+  imports: [TypeOrmModule.forFeature([MenuItemVariant, MenuItem])],
   controllers: [MenuItemVariantsController],
-  providers: [MenuItemVariantsService],
-  exports: [MenuItemVariantsService]
+  providers: [
+    MenuItemVariantsService,
+    MenuItemVariantsRepository,
+    MenuItemsRepository
+  ],
+  exports: [MenuItemVariantsService, MenuItemVariantsRepository]
 })
 export class MenuItemVariantsModule {}
