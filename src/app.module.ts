@@ -27,7 +27,7 @@ import { DriverProgressStagesModule } from './driver_progress_stages/driver_prog
 import { CompanionAdminModule } from './admin/companion_admin/companion_admin.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './users/users.module';
-
+import { CustomerCareInquiriesModule } from './customer_cares_inquires/customer_cares_inquires.module';
 @Module({
   imports: [
     MongooseModule.forRoot(process.env.MONGO_URI), // Your MongoDB URI
@@ -53,6 +53,7 @@ import { UsersModule } from './users/users.module';
     FinanceAdminModule,
     DriverProgressStagesModule,
     CompanionAdminModule,
+    CustomerCareInquiriesModule,
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.NEON_HOST,

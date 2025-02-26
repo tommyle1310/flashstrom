@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
 import { UploadService } from './upload.service';
 import { UploadController } from './upload.controller';
 import { CustomersModule } from 'src/customers/customers.module';
@@ -32,18 +31,17 @@ import { DriversRepository } from 'src/drivers/drivers.repository';
 import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
 import { DriverProgressStagesModule } from 'src/driver_progress_stages/driver_progress_stages.module';
-import { DriverProgressStageSchema } from 'src/driver_progress_stages/driver_progress_stages.schema';
 import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 import { MenuItemVariant } from 'src/menu_item_variants/entities/menu_item_variant.entity';
 import { MenuItemVariantsRepository } from 'src/menu_item_variants/menu_item_variants.repository';
 import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
 import { Order } from 'src/orders/entities/order.entity';
 import { OrdersRepository } from 'src/orders/orders.repository';
+import { CustomerCareInquiry } from 'src/customer_cares_inquires/entities/customer_care_inquiry.entity';
+import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
+import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: 'DriverProgressStage', schema: DriverProgressStageSchema }
-    ]),
     TypeOrmModule.forFeature([
       User,
       Promotion,
@@ -54,7 +52,9 @@ import { OrdersRepository } from 'src/orders/orders.repository';
       Driver,
       MenuItem,
       MenuItemVariant,
-      Order
+      Order,
+      DriverProgressStage,
+      CustomerCareInquiry
     ]),
     CustomersModule,
     DriversModule,
@@ -77,6 +77,7 @@ import { OrdersRepository } from 'src/orders/orders.repository';
     PromotionsRepository,
     AddressBookRepository,
     FoodCategoriesRepository,
+    DriverProgressStagesRepository,
     RestaurantsRepository,
     CustomersRepository,
     DriversRepository,

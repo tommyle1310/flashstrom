@@ -30,13 +30,11 @@ import { MenuItemsService } from 'src/menu_items/menu_items.service';
 import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_variants.service';
 import { DriversRepository } from 'src/drivers/drivers.repository';
 import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
-import { DriverProgressStageSchema } from 'src/driver_progress_stages/driver_progress_stages.schema';
-import { MongooseModule } from '@nestjs/mongoose';
+import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
+import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
+
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: 'DriverProgressStage', schema: DriverProgressStageSchema }
-    ]),
     TypeOrmModule.forFeature([
       Order,
       MenuItem,
@@ -48,7 +46,8 @@ import { MongooseModule } from '@nestjs/mongoose';
       Restaurant,
       Driver,
       User,
-      Promotion
+      Promotion,
+      DriverProgressStage
     ])
   ],
   controllers: [OrdersController],
@@ -71,7 +70,8 @@ import { MongooseModule } from '@nestjs/mongoose';
     PromotionsRepository,
     MenuItemsService,
     DriverProgressStagesService,
-    MenuItemVariantsService
+    MenuItemVariantsService,
+    DriverProgressStagesRepository
   ],
   exports: [OrdersService]
 })

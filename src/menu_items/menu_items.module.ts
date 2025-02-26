@@ -11,12 +11,14 @@ import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_varian
 import { MenuItemVariant } from 'src/menu_item_variants/entities/menu_item_variant.entity';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
+import { CartItemsModule } from 'src/cart_items/cart_items.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([MenuItem, MenuItemVariant, FoodCategory]),
     forwardRef(() => FoodCategoriesModule),
     forwardRef(() => RestaurantsModule),
-    forwardRef(() => MenuItemVariantsModule)
+    forwardRef(() => MenuItemVariantsModule),
+    forwardRef(() => CartItemsModule)
   ],
   controllers: [MenuItemsController],
   providers: [

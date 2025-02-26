@@ -224,7 +224,7 @@ export class DriversGateway
           ].map(state => ({
             state,
             status: 'pending' as const,
-            timestamp: new Date(),
+            timestamp: Math.floor(Date.now() / 1000),
             duration: 0,
             details: {
               location: this.getLocationForState(state, {
@@ -241,7 +241,7 @@ export class DriversGateway
           }));
 
           if (existingStage.data) {
-            const stageId = existingStage.data._id;
+            const stageId = existingStage.data.id;
             console.log('🔍 Updating existing stage:', stageId);
 
             // Update the existing stage with new order and stages

@@ -1,10 +1,8 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CustomersController } from './customers.controller';
-import { MongooseModule } from '@nestjs/mongoose';
 import { User } from '../users/entities/user.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { CartItemSchema } from 'src/cart_items/cart_items.schema';
 
 // Import CartItemsModule to make CartItemsService available
 import { CartItemsModule } from 'src/cart_items/cart_items.module';
@@ -22,15 +20,17 @@ import { RestaurantsModule } from 'src/restaurants/restaurants.module';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { Customer } from './entities/customer.entity';
 import { CustomersRepository } from './customers.repository';
+import { CartItem } from 'src/cart_items/entities/cart_item.entity';
+import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: 'CartItem', schema: CartItemSchema }]),
     TypeOrmModule.forFeature([
       User,
       AddressBook,
       FoodCategory,
       Restaurant,
-      Customer
+      Customer,
+      CartItem
     ]),
     forwardRef(() => CartItemsModule),
     UsersModule,
@@ -46,7 +46,8 @@ import { CustomersRepository } from './customers.repository';
     AddressBookRepository,
     FoodCategoriesRepository,
     RestaurantsRepository,
-    CustomersRepository
+    CustomersRepository,
+    CartItemsRepository
   ],
   exports: [CustomersService, CustomersGateway, CustomersRepository]
 })

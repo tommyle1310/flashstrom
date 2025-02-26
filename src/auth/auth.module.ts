@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
-import { MongooseModule } from '@nestjs/mongoose';
 import { JwtStrategy } from './jwt.strategy';
 import { AuthService } from './auth.service';
 import { CustomersModule } from 'src/customers/customers.module';
@@ -29,7 +28,6 @@ import { User } from '../users/entities/user.entity';
 import { Admin } from '../admin/entities/admin.entity';
 import { UsersService } from 'src/users/users.service';
 import { UserRepository } from 'src/users/users.repository';
-import { CartItemSchema } from 'src/cart_items/cart_items.schema';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
@@ -48,6 +46,8 @@ import { MenuItemVariantsRepository } from 'src/menu_item_variants/menu_item_var
 import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
 import { Order } from 'src/orders/entities/order.entity';
 import { OrdersRepository } from 'src/orders/orders.repository';
+import { CartItem } from 'src/cart_items/entities/cart_item.entity';
+import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
 @Module({
   imports: [
     JwtModule.register({
@@ -66,11 +66,11 @@ import { OrdersRepository } from 'src/orders/orders.repository';
       Restaurant,
       MenuItem,
       MenuItemVariant,
-      Order
+      Order,
+      CartItem
     ]),
 
     // Add Mongoose models
-    MongooseModule.forFeature([{ name: 'CartItem', schema: CartItemSchema }]),
     CustomersModule,
     DriversModule,
     FwalletsModule,
@@ -104,7 +104,8 @@ import { OrdersRepository } from 'src/orders/orders.repository';
     CustomersRepository,
     MenuItemsRepository,
     MenuItemVariantsRepository,
-    OrdersRepository
+    OrdersRepository,
+    CartItemsRepository
   ],
   controllers: [AuthController],
   exports: [AuthService, EmailService]
