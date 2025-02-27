@@ -1,6 +1,21 @@
 import { Entity, Column, PrimaryColumn, BeforeInsert } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 
+export enum OrderTrackingInfo {
+  ORDER_PLACED = 'ORDER_PLACED',
+  PREPARING = 'PREPARING',
+  OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY',
+  DELIVERED = 'DELIVERED'
+}
+
+export enum OrderStatus {
+  PENDING = 'PENDING',
+  RESTAURANT_ACCEPTED = 'RESTAURANT_ACCEPTED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  DELIVERED = 'DELIVERED',
+  CANCELLED = 'CANCELLED'
+}
+
 @Entity('orders')
 export class Order {
   @PrimaryColumn()

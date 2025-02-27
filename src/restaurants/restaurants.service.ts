@@ -16,6 +16,7 @@ import { Restaurant } from './entities/restaurant.entity';
 import { RestaurantsRepository } from './restaurants.repository';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
+import { OrderStatus } from 'src/orders/entities/order.entity';
 
 @Injectable()
 export class RestaurantsService {
@@ -264,12 +265,7 @@ export class RestaurantsService {
       // Use the OrdersRepository updateStatus method
       const updatedOrder = await this.ordersRepository.updateStatus(
         orderId,
-        status as
-          | 'PENDING'
-          | 'RESTAURANT_ACCEPTED'
-          | 'IN_PROGRESS'
-          | 'DELIVERED'
-          | 'CANCELLED'
+        status as OrderStatus
       );
 
       if (!updatedOrder) {

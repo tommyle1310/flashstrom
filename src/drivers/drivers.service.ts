@@ -175,7 +175,7 @@ export class DriversService {
 
       // Hard-coded to return specific driver only
       const specificDriver = listAvailableDrivers.find(
-        driver => driver._id === 'DRI_1bcb34fa-ac9d-4611-b432-4e05586e137c'
+        driver => driver._id === 'FF_DRI_8d242394-4fb6-4630-b1fc-cc0a23a8ed1f'
       );
       const result = specificDriver ? [specificDriver] : [];
       return createResponse('OK', result, 'Driver selected successfully');
@@ -276,6 +276,30 @@ export class DriversService {
         null,
         'An error occurred while updating driver status'
       );
+    }
+  }
+
+  async updateDriverOrder(
+    driverId: string,
+    orderId: string
+  ): Promise<ApiResponse<any>> {
+    try {
+      const driver = await this.driversRepository.findById(driverId);
+      if (!driver) {
+        return createResponse('NotFound', null, 'Driver not found');
+      }
+
+      const updatedDriver = await this.driversRepository.update(driverId, {
+        current_order_id: [orderId],
+        updated_at: Math.floor(Date.now() / 1000),
+        created_at: driver.created_at,
+        last_login: driver.last_login
+      });
+
+      return createResponse('OK', updatedDriver, 'Driver updated successfully');
+    } catch (error) {
+      console.error('Error updating driver order:', error);
+      return createResponse('ServerError', null, 'Error updating driver order');
     }
   }
 

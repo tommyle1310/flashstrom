@@ -4,6 +4,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { OrderStatus, OrderTrackingInfo } from './entities/order.entity';
+
+type OrderTrackingInfoType =
+  | 'ORDER_PLACED'
+  | 'PREPARING'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED';
 
 @Injectable()
 export class OrdersRepository {
@@ -38,20 +45,22 @@ export class OrdersRepository {
     return result.affected > 0;
   }
 
-  async updateStatus(
-    id: string,
-    status:
-      | 'PENDING'
-      | 'RESTAURANT_ACCEPTED'
-      | 'IN_PROGRESS'
-      | 'DELIVERED'
-      | 'CANCELLED'
-  ): Promise<Order> {
+  async updateStatus(id: string, status: OrderStatus): Promise<Order> {
     await this.repository.update(id, {
       status,
-      tracking_info: status as any,
       updated_at: Math.floor(Date.now() / 1000)
     });
-    return await this.findById(id);
+    return this.findById(id);
+  }
+
+  async updateTrackingInfo(
+    id: string,
+    tracking_info: OrderTrackingInfo
+  ): Promise<Order> {
+    await this.repository.update(id, {
+      tracking_info: tracking_info as OrderTrackingInfoType,
+      updated_at: Math.floor(Date.now() / 1000)
+    });
+    return this.findById(id);
   }
 }

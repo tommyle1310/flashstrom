@@ -12,6 +12,7 @@ import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { CustomersRepository } from 'src/customers/customers.repository';
 import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
 import { MenuItemVariantsRepository } from 'src/menu_item_variants/menu_item_variants.repository';
+import { OrderStatus, OrderTrackingInfo } from './entities/order.entity';
 
 @Injectable()
 export class OrdersService {
@@ -25,20 +26,22 @@ export class OrdersService {
     private readonly restaurantsGateway: RestaurantsGateway
   ) {}
 
-  async createOrder(createOrderDto: CreateOrderDto): Promise<ApiResponse<any>> {
+  async createOrder(
+    createOrderDto: CreateOrderDto
+  ): Promise<ApiResponse<Order>> {
     try {
       const validationResult = await this.validateOrderData(createOrderDto);
       if (validationResult !== true) {
         return validationResult;
       }
-
       const newOrder = await this.ordersRepository.create(createOrderDto);
       await this.updateMenuItemPurchaseCount(createOrderDto.order_items);
 
       const orderResponse = await this.notifyRestaurantAndDriver(newOrder);
       return createResponse('OK', orderResponse, 'Order created successfully');
     } catch (error) {
-      return this.handleError('Error creating order:', error);
+      console.error('Error creating order:', error);
+      return createResponse('ServerError', null, 'Error creating order');
     }
   }
 
@@ -95,7 +98,7 @@ export class OrdersService {
 
   async updateOrderStatus(
     orderId: string,
-    status: string
+    status: OrderStatus
   ): Promise<ApiResponse<Order>> {
     try {
       const order = await this.ordersRepository.findById(orderId);
@@ -103,15 +106,22 @@ export class OrdersService {
         return createResponse('NotFound', null, 'Order not found');
       }
 
+      // Update status
       const updatedOrder = await this.ordersRepository.updateStatus(
         orderId,
-        status as
-          | 'PENDING'
-          | 'RESTAURANT_ACCEPTED'
-          | 'IN_PROGRESS'
-          | 'DELIVERED'
-          | 'CANCELLED'
+        status
       );
+
+      // Update tracking info based on status
+      const trackingInfo = {
+        [OrderStatus.RESTAURANT_ACCEPTED]: OrderTrackingInfo.PREPARING,
+        [OrderStatus.IN_PROGRESS]: OrderTrackingInfo.OUT_FOR_DELIVERY,
+        [OrderStatus.DELIVERED]: OrderTrackingInfo.DELIVERED
+      }[status];
+
+      if (trackingInfo) {
+        await this.ordersRepository.updateTrackingInfo(orderId, trackingInfo);
+      }
 
       return createResponse(
         'OK',

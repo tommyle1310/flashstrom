@@ -72,24 +72,19 @@ export class DriverProgressStagesService {
     try {
       console.log('🔍 Updating stage:', stageId, 'with data:', updateData);
 
-      const stage = await this.driverProgressStagesRepository.findById(stageId);
-      if (!stage) {
+      const existingStage =
+        await this.driverProgressStagesRepository.findById(stageId);
+      if (!existingStage) {
         return createResponse('NotFound', null, 'Progress stage not found');
       }
 
-      if (updateData.order_ids && updateData.order_ids.length > 3) {
-        return createResponse(
-          'DRIVER_MAXIMUM_ORDER',
-          null,
-          'Driver cannot have more than 3 orders'
-        );
-      }
-
+      // Only update the current_state and stages array
       const updatedStage = await this.driverProgressStagesRepository.update(
         stageId,
         {
-          ...updateData,
-          stages: updateData.stages as DriverProgressStage['stages']
+          current_state: updateData.current_state,
+          stages: updateData.stages,
+          updated_at: Math.floor(Date.now() / 1000)
         }
       );
 

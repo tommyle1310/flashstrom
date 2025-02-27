@@ -16,6 +16,9 @@ import { forwardRef, Inject } from '@nestjs/common';
 import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
 import { Type_Delivery_Order } from 'src/types/Driver';
 import { calculateDistance } from 'src/utils/distance';
+import { OrderStatus } from 'src/orders/entities/order.entity';
+import { OrderTrackingInfo } from 'src/orders/entities/order.entity';
+import { WsResponse } from '@nestjs/websockets';
 
 interface AvailableDriver {
   _id: string;
@@ -116,67 +119,88 @@ export class RestaurantsGateway
   @SubscribeMessage('restaurantAcceptWithAvailableDrivers')
   async handleRestaurantAcceptWithDrivers(
     @MessageBody() data: RestaurantAcceptData
-  ) {
-    const { availableDrivers, orderDetails: orderId } = data;
+  ): Promise<WsResponse<any>> {
+    try {
+      const { availableDrivers, orderDetails: orderId } = data;
 
-    // Fetch the full order details using the ID
-    const fullOrderDetails =
-      await this.restaurantsService.getOrderById(orderId);
+      // Fetch the full order details using the ID
+      const fullOrderDetails =
+        await this.restaurantsService.getOrderById(orderId);
+      if (!fullOrderDetails) {
+        return {
+          event: 'error',
+          data: { message: 'Order not found' }
+        };
+      }
 
-    // Update order status to RESTAURANT_ACCEPTED
-    await this.restaurantsService.updateOrderStatus(
-      orderId,
-      'RESTAURANT_ACCEPTED'
-    );
-
-    // Map the drivers as before
-    const mappedDrivers = availableDrivers.map(item => ({
-      _id: item._id,
-      location: {
-        lat: item.lat,
-        lng: item.lng
-      },
-      active_points: 0,
-      current_order_id: []
-    }));
-
-    const responsePrioritizeDrivers =
-      await this.driverService.prioritizeAndAssignDriver(
-        mappedDrivers,
-        fullOrderDetails as unknown as Type_Delivery_Order
+      // Update order status
+      await this.restaurantsService.updateOrderStatus(
+        orderId,
+        OrderStatus.RESTAURANT_ACCEPTED
       );
 
-    if (
-      responsePrioritizeDrivers.EC === 0 &&
-      responsePrioritizeDrivers.data.length > 0
-    ) {
-      const selectedDriver = responsePrioritizeDrivers.data[0];
-      const res_location = fullOrderDetails.restaurant_location as unknown as {
-        location: { lat: number; lng: number };
-      };
-      // Calculate distance between restaurant and driver
-      const distance = calculateDistance(
-        selectedDriver.location.lat,
-        selectedDriver.location.lng,
-        res_location.location.lat,
-        res_location.location.lng
-      );
+      const mappedDrivers = availableDrivers.map(item => ({
+        _id: item._id,
+        location: {
+          lat: item.lat,
+          lng: item.lng
+        },
+        active_points: 0,
+        current_order_id: []
+      }));
 
-      const orderAssignment = {
-        ...fullOrderDetails,
-        driver_id: selectedDriver._id,
-        driver_wage: FIXED_DELIVERY_DRIVER_WAGE,
-        tracking_info: 'PREPARING',
-        status: 'RESTAURANT_ACCEPTED',
-        distance: distance // Add the calculated distance
-      };
+      const responsePrioritizeDrivers =
+        await this.driverService.prioritizeAndAssignDriver(
+          mappedDrivers,
+          fullOrderDetails as unknown as Type_Delivery_Order
+        );
 
-      // Instead of directly emitting to the driver's room, use the event emitter
-      this.eventEmitter.emit('order.assignedToDriver', orderAssignment);
-      return orderAssignment;
+      if (
+        responsePrioritizeDrivers.EC === 0 &&
+        responsePrioritizeDrivers.data.length > 0
+      ) {
+        const selectedDriver = responsePrioritizeDrivers.data[0];
+        const res_location =
+          fullOrderDetails.restaurant_location as unknown as {
+            location: { lat: number; lng: number };
+          };
+
+        const distance = calculateDistance(
+          selectedDriver.location.lat,
+          selectedDriver.location.lng,
+          res_location?.location?.lat ?? 0,
+          res_location?.location?.lng ?? 0
+        );
+
+        const orderAssignment = {
+          ...fullOrderDetails,
+          driver_id: selectedDriver._id,
+          driver_wage: FIXED_DELIVERY_DRIVER_WAGE,
+          tracking_info: OrderTrackingInfo.PREPARING,
+          status: OrderStatus.RESTAURANT_ACCEPTED,
+          distance: distance
+        };
+
+        // Emit only once
+        await this.eventEmitter.emit('order.assignedToDriver', orderAssignment);
+
+        return {
+          event: 'orderAssigned',
+          data: orderAssignment
+        };
+      }
+
+      return {
+        event: 'noDriver',
+        data: { message: 'No suitable driver found' }
+      };
+    } catch (error) {
+      console.error('Error in handleRestaurantAcceptWithDrivers:', error);
+      return {
+        event: 'error',
+        data: { message: 'Internal server error' }
+      };
     }
-
-    return { error: 'No suitable driver found' };
   }
 
   @OnEvent('incomingOrder')
