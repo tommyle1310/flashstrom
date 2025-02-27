@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { MongooseModule } from '@nestjs/mongoose';
+// import { MongooseModule } from '@nestjs/mongoose';
 import { AddressBookModule } from './address_book/address_book.module';
 import { CustomersModule } from './customers/customers.module';
 import { DriversModule } from './drivers/drivers.module';
@@ -30,7 +30,7 @@ import { UsersModule } from './users/users.module';
 import { CustomerCareInquiriesModule } from './customer_cares_inquires/customer_cares_inquires.module';
 @Module({
   imports: [
-    MongooseModule.forRoot(process.env.MONGO_URI), // Your MongoDB URI
+    // MongooseModule.forRoot(process.env.MONGO_URI), // Your MongoDB URI
     AddressBookModule,
     EventEmitterModule.forRoot(),
     CustomersModule,

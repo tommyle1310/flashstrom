@@ -2,7 +2,9 @@ import {
   ArgumentsHost,
   BadRequestException,
   Catch,
-  ExceptionFilter
+  ExceptionFilter,
+  HttpException,
+  HttpStatus
 } from '@nestjs/common';
 import { ResponseStatus } from './constants';
 import { Response } from 'express';
@@ -28,13 +30,16 @@ export function createResponse<T>(
     data
   };
 
-  // If error code indicates an error, throw HttpException
+  // If error code indicates an error, throw an appropriate HttpException
   if (statusInfo.code < 0 || statusInfo.code >= 2) {
-    return {
-      EC: statusInfo.code,
-      EM: message || statusInfo.message,
-      data: null
-    };
+    throw new HttpException(
+      {
+        EC: statusInfo.code,
+        EM: message || statusInfo.message,
+        data: null
+      },
+      HttpStatus.BAD_REQUEST
+    );
   }
 
   return response;

@@ -1,5 +1,14 @@
-import { Entity, Column, PrimaryColumn, BeforeInsert } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryColumn,
+  BeforeInsert,
+  ManyToOne,
+  JoinColumn
+} from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
+import { User } from 'src/users/entities/user.entity';
+import { FWallet } from 'src/fwallets/entities/fwallet.entity';
 
 @Entity('transactions')
 export class Transaction {
@@ -9,8 +18,16 @@ export class Transaction {
   @Column()
   user_id: string;
 
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'user_id' })
+  user: User;
+
   @Column()
   fwallet_id: string;
+
+  @ManyToOne(() => FWallet)
+  @JoinColumn({ name: 'fwallet_id' })
+  fwallet: FWallet;
 
   @Column({
     type: 'enum',

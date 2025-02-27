@@ -8,24 +8,24 @@ import { UpdateUserDto } from './dto/update-user.dto';
 export class UserRepository {
   constructor(
     @InjectRepository(User)
-    private userRepository: Repository<User>
+    private readonly repository: Repository<User>
   ) {}
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { email } });
+    return await this.repository.findOneBy({ email });
   }
 
   async create(userData: Partial<User>): Promise<User> {
-    const newUser = this.userRepository.create(userData);
-    return this.userRepository.save(newUser);
+    const newUser = this.repository.create(userData);
+    return this.repository.save(newUser);
   }
 
   async findAll(): Promise<User[]> {
-    return this.userRepository.find();
+    return this.repository.find();
   }
 
   async findById(id: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { id } });
+    return this.repository.findOne({ where: { id } });
   }
 
   async update(id: string, updateData: UpdateUserDto): Promise<void> {
@@ -36,15 +36,20 @@ export class UserRepository {
         ? parseInt(updateData.verification_code)
         : undefined
     } as Partial<User>;
-
-    await this.userRepository.update(id, sanitizedData);
+    console.log('sanitizedData', sanitizedData);
+    await this.repository.update(id, sanitizedData);
   }
 
   async delete(id: string): Promise<{ affected?: number }> {
-    return this.userRepository.delete(id);
+    return this.repository.delete(id);
   }
 
-  async findOne(condition: { [key: string]: any }): Promise<User | null> {
-    return this.userRepository.findOne({ where: condition });
+  async findOne(conditions: any): Promise<User | null> {
+    // If conditions has a where clause, use it directly
+    if (conditions.where) {
+      return await this.repository.findOne(conditions);
+    }
+    // Otherwise use findOneBy for direct conditions
+    return await this.repository.findOneBy(conditions);
   }
 }
