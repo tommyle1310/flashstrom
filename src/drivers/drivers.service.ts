@@ -281,7 +281,7 @@ export class DriversService {
 
   async updateDriverOrder(
     driverId: string,
-    orderId: string
+    orderIds: string[]
   ): Promise<ApiResponse<any>> {
     try {
       const driver = await this.driversRepository.findById(driverId);
@@ -290,7 +290,8 @@ export class DriversService {
       }
 
       const updatedDriver = await this.driversRepository.update(driverId, {
-        current_order_id: [orderId],
+        current_order_id: orderIds,
+        is_on_delivery: orderIds.length > 0,
         updated_at: Math.floor(Date.now() / 1000),
         created_at: driver.created_at,
         last_login: driver.last_login
