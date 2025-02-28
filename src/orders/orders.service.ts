@@ -77,7 +77,9 @@ export class OrdersService {
 
   async findOne(id: string): Promise<ApiResponse<Order>> {
     try {
+      // console.log('check id', id);
       const order = await this.ordersRepository.findById(id);
+      // console.log('check order', this.handleOrderResponse(order));
       return this.handleOrderResponse(order);
     } catch (error) {
       return this.handleError('Error fetching order:', error);

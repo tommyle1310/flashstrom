@@ -29,7 +29,8 @@ export class OrdersRepository {
   }
 
   async findById(id: string): Promise<Order> {
-    return await this.repository.findOne({ where: { id } });
+    const result = await this.repository.findOne({ where: { id } });
+    return result;
   }
 
   async update(id: string, updateDto: UpdateOrderDto): Promise<Order> {

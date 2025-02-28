@@ -1,12 +1,14 @@
-import { Entity, Column, PrimaryColumn, BeforeInsert } from 'typeorm';
+import { Entity, Column, PrimaryColumn, BeforeInsert, Index } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 
 @Entity('driver_progress_stages')
+@Index(['driver_id', 'current_state'])
 export class DriverProgressStage {
   @PrimaryColumn()
   id: string;
 
   @Column()
+  @Index()
   driver_id: string;
 
   @Column('text', { array: true })

@@ -7,6 +7,7 @@ import {
   OnGatewayDisconnect,
   OnGatewayInit,
   WsException
+  // ConnectedSocket
 } from '@nestjs/websockets';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Server, Socket } from 'socket.io';
@@ -17,10 +18,13 @@ import { forwardRef, Inject } from '@nestjs/common';
 import { OrdersService } from 'src/orders/orders.service';
 import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
 import { OrderStatus } from 'src/orders/entities/order.entity';
+import { DataSource } from 'typeorm';
+import { Not } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 // import { UpdateDriverProgressStageDto } from 'src/driver_progress_stages/dto/update-driver-progress-stage.dto';
 
 // Add type for status
-type StageStatus = 'pending' | 'completed' | 'in_progress' | 'failed';
+// type StageStatus = 'pending' | 'completed' | 'in_progress' | 'failed';
 
 @WebSocketGateway({
   namespace: 'driver',
@@ -38,6 +42,10 @@ export class DriversGateway
   server: Server;
 
   private driverSockets: Map<string, Set<string>> = new Map();
+  private processingOrders: Map<string, boolean> = new Map();
+  private notificationLock = new Map<string, boolean>();
+  private activeConnections = new Map<string, Socket>();
+  private dpsCreationLocks = new Set<string>(); // New lock for DPS creation
 
   constructor(
     private readonly restaurantsService: RestaurantsService,
@@ -45,7 +53,8 @@ export class DriversGateway
     private readonly driverService: DriversService,
     private eventEmitter: EventEmitter2,
     private readonly ordersService: OrdersService,
-    private readonly driverProgressStageService: DriverProgressStagesService
+    private readonly driverProgressStageService: DriverProgressStagesService,
+    private readonly dataSource: DataSource
   ) {}
 
   afterInit() {
@@ -84,13 +93,32 @@ export class DriversGateway
   // Handle new driver connections
   handleConnection(client: Socket) {
     console.log(`Driver connected: ${client.id}`);
-    // You might want to add logic here to track which driver this socket belongs to
+    const driverId = client.handshake.query.driverId as string;
+
+    if (driverId) {
+      // Remove any existing connections for this driver
+      for (const [id, socket] of this.activeConnections.entries()) {
+        if (socket.handshake.query.driverId === driverId) {
+          socket.disconnect();
+          this.activeConnections.delete(id);
+          this.processingOrders.delete(`${driverId}_*`);
+          this.dpsCreationLocks.delete(driverId);
+        }
+      }
+    }
+
+    this.activeConnections.set(client.id, client);
   }
 
   // Handle driver disconnections
   handleDisconnect(client: Socket) {
     console.log(`Driver disconnected: ${client.id}`);
-    // Clean up socket tracking
+    const driverId = client.handshake.query.driverId as string;
+    this.activeConnections.delete(client.id);
+    if (driverId) {
+      this.processingOrders.delete(`${driverId}_*`);
+      this.dpsCreationLocks.delete(driverId);
+    }
   }
 
   // Handle joining a specific room for the driver
@@ -145,19 +173,6 @@ export class DriversGateway
     return order;
   }
 
-  // @SubscribeMessage('assignOrderToDriver')
-  // async handleReceiveOrderAssignment(@MessageBody() order: any) {
-  //   const driverId = order.driver_id; // Removed the 'await' as it's not needed here
-
-  //   console.log(
-  //     'Received assignOrderToDriver event for driver:',
-  //     driverId,
-  //     order
-  //   );
-
-  //   return order;
-  // }
-
   @OnEvent('order.assignedToDriver')
   async handleOrderAssignedToDriver(orderAssignment: any) {
     try {
@@ -195,84 +210,125 @@ export class DriversGateway
 
   @SubscribeMessage('driverAcceptOrder')
   async handleDriverAcceptOrder(@MessageBody() data: any) {
-    try {
-      const { orderId, driverId } = data;
-      const order = await this.ordersService.findOne(orderId);
-      if (!order.data) {
-        return { success: false, message: 'Order not found' };
-      }
+    const { driverId, orderId } = data;
+    const lockKey = `${driverId}_${orderId}`;
 
-      // Check if driver already has an active DPS
-      const existingDPS =
-        await this.driverProgressStageService.getActiveStageByDriver(driverId);
-      if (existingDPS.data) {
+    if (this.processingOrders.get(lockKey)) {
+      return { success: false, message: 'Order is already being processed' };
+    }
+
+    try {
+      this.processingOrders.set(lockKey, true);
+      const timestamp = Math.floor(Date.now() / 1000);
+
+      // First check if driver already has an active DPS
+      const existingDPS = await this.dataSource
+        .getRepository('DriverProgressStage')
+        .findOne({
+          where: {
+            driver_id: driverId,
+            current_state: Not('delivery_complete')
+          }
+        });
+
+      if (existingDPS) {
         return {
           success: false,
           message: 'Driver already has an active delivery'
         };
       }
 
-      // Update driver and order status
-      const updatedDriver = await this.driverService.updateDriverOrder(
-        driverId,
-        orderId
-      );
-      if (updatedDriver.EC === 0) {
-        const updatedOrder = await this.ordersService.updateOrderStatus(
-          orderId,
-          OrderStatus.IN_PROGRESS
-        );
-
-        if (updatedOrder.EC === 0) {
-          // Create initial progress stage (only once)
-          const newStages = [
-            'driver_ready',
-            'waiting_for_pickup',
-            'restaurant_pickup',
-            'en_route_to_customer',
-            'delivery_complete'
-          ].map(state => ({
-            state,
-            status: state === 'driver_ready' ? 'in_progress' : 'pending',
-            timestamp: Math.floor(Date.now() / 1000),
-            duration: 0,
-            details: {
-              location: null,
-              estimated_time: null,
-              actual_time: null,
-              notes: null,
-              tip: null,
-              weather: null
+      // Create single DPS with proper ID
+      const dps = await this.dataSource.transaction(async manager => {
+        // Create DPS with proper ID
+        const newDPS = manager.create('DriverProgressStage', {
+          id: `FF_DPS_${uuidv4()}`,
+          driver_id: driverId,
+          order_ids: [orderId],
+          current_state: 'driver_ready',
+          stages: [
+            {
+              state: 'driver_ready',
+              status: 'in_progress',
+              timestamp,
+              duration: 0,
+              details: {}
+            },
+            {
+              state: 'waiting_for_pickup',
+              status: 'pending',
+              timestamp,
+              duration: 0,
+              details: {}
+            },
+            {
+              state: 'restaurant_pickup',
+              status: 'pending',
+              timestamp,
+              duration: 0,
+              details: {}
+            },
+            {
+              state: 'en_route_to_customer',
+              status: 'pending',
+              timestamp,
+              duration: 0,
+              details: {}
+            },
+            {
+              state: 'delivery_complete',
+              status: 'pending',
+              timestamp,
+              duration: 0,
+              details: {}
             }
-          }));
+          ],
+          events: [],
+          created_at: timestamp,
+          updated_at: timestamp
+        });
 
-          const createResult = await this.driverProgressStageService.create({
-            driver_id: data.driverId,
-            order_ids: [order.data.id],
-            current_state: 'driver_ready',
-            stages: newStages as any
-          });
+        const savedDPS = await manager.save('DriverProgressStage', newDPS);
 
-          if (createResult.EC !== 0) {
-            console.error('Failed to create stage:', createResult);
-            return {
-              success: false,
-              message: 'Failed to create driver progress stage'
-            };
-          }
+        // Update order and driver in the same transaction
+        await Promise.all([
+          manager.update(
+            'orders',
+            { id: orderId },
+            { status: OrderStatus.IN_PROGRESS, updated_at: timestamp }
+          ),
+          manager.update(
+            'drivers',
+            { id: driverId },
+            { current_order_id: [orderId], updated_at: timestamp }
+          )
+        ]);
 
-          this.notifyAllParties(order.data);
-          return {
-            success: true,
-            order: order.data,
-            driver: updatedDriver.data
-          };
-        }
+        return savedDPS;
+      });
+
+      // Get updated data for response
+      const [updatedOrder, updatedDriver] = await Promise.all([
+        this.ordersService.findOne(orderId),
+        this.driverService.findDriverById(driverId)
+      ]);
+
+      // Notify parties
+      if (updatedOrder.data) {
+        await this.notifyPartiesOnce(updatedOrder.data);
       }
-      return { success: false, message: 'Failed to update order or driver' };
+
+      return {
+        success: true,
+        order: updatedOrder.data,
+        driver: updatedDriver.data,
+        dps
+      };
     } catch (error) {
       console.error('Error in handleDriverAcceptOrder:', error);
-      return { success: false, message: 'Internal server error' };
+      return { success: false, message: 'Failed to process order acceptance' };
+    } finally {
+      this.processingOrders.delete(lockKey);
     }
   }
 
@@ -302,13 +358,9 @@ export class DriversGateway
   }
 
   @SubscribeMessage('updateDriverProgress')
-  async handleDriverProgressUpdate(
-    @MessageBody()
-    data: {
-      stageId: string;
-    }
-  ) {
+  async handleDriverProgressUpdate(@MessageBody() data: { stageId: string }) {
     try {
+      const timestamp = Math.floor(Date.now() / 1000);
       const stageOrder = [
         'driver_ready',
         'waiting_for_pickup',
@@ -317,85 +369,104 @@ export class DriversGateway
         'delivery_complete'
       ];
 
-      // Get the current progress stage
-      const currentStage = await this.driverProgressStageService.findById(
-        data.stageId
-      );
-      if (!currentStage.data) {
+      // Get existing DPS
+      const dps = await this.dataSource
+        .getRepository('DriverProgressStage')
+        .findOne({
+          where: { id: data.stageId }
+        });
+
+      if (!dps) {
         return { success: false, message: 'Stage not found' };
       }
 
-      // Find the current in-progress stage
-      const currentInProgressStage = currentStage.data.stages.find(
-        stage => stage.status === 'in_progress'
-      );
-
-      if (!currentInProgressStage) {
+      const currentStage = dps.stages.find(s => s.status === 'in_progress');
+      if (!currentStage) {
         return { success: false, message: 'No in-progress stage found' };
       }
 
-      // Update only the statuses in the existing stages array
-      const updatedStages = currentStage.data.stages.map(stage => {
-        if (stage === currentInProgressStage) {
-          return {
-            ...currentInProgressStage,
-            status: 'completed' as StageStatus,
-            duration:
-              (new Date().getTime() -
-                new Date(currentInProgressStage.timestamp).getTime()) /
-              1000
-          };
-        }
-        if (
-          stage.state ===
-          stageOrder[stageOrder.indexOf(currentInProgressStage.state) + 1]
-        ) {
+      const nextState = stageOrder[stageOrder.indexOf(currentStage.state) + 1];
+      if (!nextState) {
+        return { success: false, message: 'Already at final stage' };
+      }
+
+      // Update stages
+      const updatedStages = dps.stages.map(stage => {
+        if (stage.state === currentStage.state) {
           return {
             ...stage,
-            status: 'in_progress' as StageStatus,
-            timestamp: Math.floor(Date.now() / 1000)
+            status: 'completed',
+            duration: timestamp - stage.timestamp
           };
+        }
+        if (stage.state === nextState) {
+          return { ...stage, status: 'in_progress', timestamp };
         }
         return stage;
       });
 
-      // Update the existing stage document
-      const result = await this.driverProgressStageService.updateStage(
-        data.stageId,
+      // Update DPS
+      await this.dataSource.getRepository('DriverProgressStage').update(
+        { id: data.stageId },
         {
-          current_state: stageOrder[
-            stageOrder.indexOf(currentInProgressStage.state) + 1
-          ] as any,
-          stages: updatedStages
+          current_state: nextState,
+          stages: updatedStages,
+          updated_at: timestamp
         }
       );
 
-      if (result.EC === 0) {
-        this.server
-          .to(result.data.driver_id)
-          .emit('progressUpdated', result.data);
-        return { success: true, stage: result.data };
+      // If completed, update driver and order
+      if (nextState === 'delivery_complete') {
+        await Promise.all([
+          this.dataSource
+            .getRepository('drivers')
+            .update(
+              { id: dps.driver_id },
+              { current_order_id: [], updated_at: timestamp }
+            ),
+          this.dataSource
+            .getRepository('orders')
+            .update(
+              { id: dps.order_ids[0] },
+              { status: OrderStatus.DELIVERED, updated_at: timestamp }
+            )
+        ]);
       }
 
-      return { success: false, message: 'Failed to update progress' };
+      const updatedDPS = await this.dataSource
+        .getRepository('DriverProgressStage')
+        .findOne({
+          where: { id: data.stageId }
+        });
+
+      return { success: true, stage: updatedDPS };
     } catch (error) {
       console.error('Error in handleDriverProgressUpdate:', error);
       return { success: false, message: 'Internal server error' };
     }
   }
 
-  private notifyAllParties(order: any) {
-    const restaurantRoom = `restaurant_${order.restaurant_id}`;
-    const customerRoom = `customer_${order.customer_id}`;
-    const driverRoom = `driver_${order.driver_id}`;
+  private async notifyPartiesOnce(order: any) {
+    const notifyKey = `notify_${order.id}`;
 
-    console.log(`Notifying restaurant room: ${restaurantRoom}`);
-    this.server.to(restaurantRoom).emit('orderStatusUpdated', order);
+    if (this.notificationLock.get(notifyKey)) {
+      return;
+    }
 
-    console.log(`Notifying customer room: ${customerRoom}`);
-    this.server.to(customerRoom).emit('orderStatusUpdated', order);
+    try {
+      this.notificationLock.set(notifyKey, true);
 
-    console.log(`Notifying driver room: ${driverRoom}`);
-    this.server.to(driverRoom).emit('orderStatusUpdated', order);
+      const restaurantRoom = `restaurant_${order.restaurant_id}`;
+      const customerRoom = `customer_${order.customer_id}`;
+      const driverRoom = `driver_${order.driver_id}`;
+
+      await Promise.all([
+        this.server.to(restaurantRoom).emit('orderStatusUpdated', order),
+        this.server.to(customerRoom).emit('orderStatusUpdated', order),
+        this.server.to(driverRoom).emit('orderStatusUpdated', order)
+      ]);
+    } finally {
+      this.notificationLock.delete(notifyKey);
+    }
   }
 }

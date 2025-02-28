@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { Repository } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { DriverProgressStage } from './entities/driver_progress_stage.entity';
 import { CreateDriverProgressStageDto } from './dto/create-driver-progress-stage.dto';
 import { UpdateDriverProgressStageDto } from './dto/update-driver-progress-stage.dto';
@@ -9,14 +9,55 @@ import { UpdateDriverProgressStageDto } from './dto/update-driver-progress-stage
 export class DriverProgressStagesRepository {
   constructor(
     @InjectRepository(DriverProgressStage)
-    private repository: Repository<DriverProgressStage>
+    private repository: Repository<DriverProgressStage>,
+    @InjectDataSource() private dataSource: DataSource
   ) {}
 
   async create(
     createDto: CreateDriverProgressStageDto
   ): Promise<DriverProgressStage> {
-    const stage = this.repository.create(createDto);
-    return await this.repository.save(stage);
+    return await this.dataSource.transaction(
+      async transactionalEntityManager => {
+        // First, check for any active stage (not completed) for this driver
+        const existingActive = await transactionalEntityManager
+          .createQueryBuilder(DriverProgressStage, 'dps')
+          .where('dps.driver_id = :driverId', { driverId: createDto.driver_id })
+          .andWhere('dps.current_state != :completeState', {
+            completeState: 'delivery_complete'
+          })
+          .orderBy('dps.created_at', 'DESC')
+          .setLock('pessimistic_write')
+          .getOne();
+
+        if (existingActive) {
+          console.log('Found existing active stage:', existingActive.id);
+          return existingActive;
+        }
+
+        // If no active stage exists, create a new one
+        const stage = this.repository.create(createDto);
+
+        try {
+          const savedStage = await transactionalEntityManager.save(
+            DriverProgressStage,
+            stage
+          );
+          console.log('Created new stage:', savedStage.id);
+          return savedStage;
+        } catch (error) {
+          console.error('Error creating stage:', error);
+          // Double-check if a stage was created while we were trying to save
+          const lastMinuteCheck = await this.findByDriverId(
+            createDto.driver_id
+          );
+          if (lastMinuteCheck) {
+            console.log('Found stage after save error:', lastMinuteCheck.id);
+            return lastMinuteCheck;
+          }
+          throw error;
+        }
+      }
+    );
   }
 
   async findAll(): Promise<DriverProgressStage[]> {
@@ -28,7 +69,14 @@ export class DriverProgressStagesRepository {
   }
 
   async findByDriverId(driverId: string): Promise<DriverProgressStage> {
-    return await this.repository.findOne({ where: { driver_id: driverId } });
+    return await this.repository
+      .createQueryBuilder('dps')
+      .where('dps.driver_id = :driverId', { driverId })
+      .andWhere('dps.current_state != :completeState', {
+        completeState: 'delivery_complete'
+      })
+      .orderBy('dps.created_at', 'DESC')
+      .getOne();
   }
 
   async update(

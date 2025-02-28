@@ -175,7 +175,7 @@ export class DriversService {
 
       // Hard-coded to return specific driver only
       const specificDriver = listAvailableDrivers.find(
-        driver => driver._id === 'FF_DRI_8d242394-4fb6-4630-b1fc-cc0a23a8ed1f'
+        driver => driver._id === 'FF_DRI_dfc9f674-e334-4bfc-b639-065c40cb301f'
       );
       const result = specificDriver ? [specificDriver] : [];
       return createResponse('OK', result, 'Driver selected successfully');
