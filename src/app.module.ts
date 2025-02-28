@@ -28,6 +28,7 @@ import { CompanionAdminModule } from './admin/companion_admin/companion_admin.mo
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './users/users.module';
 import { CustomerCareInquiriesModule } from './customer_cares_inquires/customer_cares_inquires.module';
+import { FchatModule } from './FChat/fchat.module';
 @Module({
   imports: [
     // MongooseModule.forRoot(process.env.MONGO_URI), // Your MongoDB URI
@@ -54,6 +55,7 @@ import { CustomerCareInquiriesModule } from './customer_cares_inquires/customer_
     DriverProgressStagesModule,
     CompanionAdminModule,
     CustomerCareInquiriesModule,
+    FchatModule,
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.NEON_HOST,
