@@ -10,13 +10,13 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { FchatService } from './fchat.service';
-// import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { User } from 'src/users/entities/user.entity';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { RoomType } from './entities/chat-room.entity';
+import { CreateRoomDto } from './dto/create-room.dto';
 
 @WebSocketGateway({
   namespace: 'chat',
@@ -65,6 +65,48 @@ export class FchatGateway
     console.log('❌ Client disconnected from chat namespace:', client.id);
     this.activeConnections.delete(client.id);
     this.fchatService.removeConnection(client.id);
+  }
+
+  @SubscribeMessage('createRoom')
+  async handleCreateRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: CreateRoomDto
+  ) {
+    try {
+      // Create the room
+      const room = await this.fchatService.createRoom({
+        type: data.type,
+        participants: data.participants,
+        createdAt: new Date(),
+        lastActivity: new Date()
+      });
+
+      // Join the creator to the room
+      await client.join(`chat_${room.id}`);
+      console.log('check room', `chat_${room.id}`);
+      // Track room membership
+      const userId = client.data.user.id;
+      if (!this.userRooms.has(userId)) {
+        this.userRooms.set(userId, new Set());
+      }
+      this.userRooms.get(userId).add(room.id);
+
+      // Notify all participants
+      for (const participant of data.participants) {
+        this.server.to(`user_${participant.userId}`).emit('roomCreated', room);
+      }
+
+      return {
+        event: 'roomCreated',
+        data: room
+      };
+    } catch (error) {
+      console.error('Error creating room:', error);
+      return {
+        event: 'error',
+        data: 'Failed to create room'
+      };
+    }
   }
 
   @SubscribeMessage('joinRoom')
@@ -161,11 +203,17 @@ export class FchatGateway
   }
 
   private async validateToken(client: Socket): Promise<User | null> {
-    const token = client.handshake.auth.token;
+    const authHeader = client.handshake.headers.auth as string;
+
+    if (!authHeader?.startsWith('Bearer ')) return null;
+
+    const token = authHeader.slice(7); // Remove 'Bearer ' prefix
     if (!token) return null;
 
     try {
-      const decoded = this.jwtService.verify(token);
+      const decoded = this.jwtService.verify(token, {
+        secret: process.env.JWT_SECRET
+      });
       const response = await this.usersService.findById(decoded.id);
       return response.EC === 0 ? response.data : null;
     } catch (error) {

@@ -34,6 +34,7 @@ export class FchatService {
   }
 
   async createRoom(roomData: Partial<ChatRoom>): Promise<ChatRoom> {
+    console.log('check room created', roomData);
     const room = this.roomRepository.create(roomData);
     return this.roomRepository.save(room);
   }

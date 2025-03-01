@@ -62,7 +62,6 @@ export class EmailService {
         subject: 'Email Verification Code',
         html: emailTemplate // HTML content with injected verification code
       });
-      console.log('Verification email sent!');
       return verificationCode; // Return the code so it can be saved in the user record
     } catch (error) {
       console.error('Error sending verification email:', error);

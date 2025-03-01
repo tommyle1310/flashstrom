@@ -48,6 +48,8 @@ import { Order } from 'src/orders/entities/order.entity';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { CartItem } from 'src/cart_items/entities/cart_item.entity';
 import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
+import { CustomerCaresRepository } from 'src/customer_cares/customer_cares.repository';
+import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
 @Module({
   imports: [
     JwtModule.register({
@@ -67,7 +69,8 @@ import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
       MenuItem,
       MenuItemVariant,
       Order,
-      CartItem
+      CartItem,
+      CustomerCare
     ]),
 
     // Add Mongoose models
@@ -105,7 +108,8 @@ import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
     MenuItemsRepository,
     MenuItemVariantsRepository,
     OrdersRepository,
-    CartItemsRepository
+    CartItemsRepository,
+    CustomerCaresRepository
   ],
   controllers: [AuthController],
   exports: [AuthService, EmailService]

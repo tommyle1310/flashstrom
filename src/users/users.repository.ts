@@ -36,7 +36,6 @@ export class UserRepository {
         ? parseInt(updateData.verification_code)
         : undefined
     } as Partial<User>;
-    console.log('sanitizedData', sanitizedData);
     await this.repository.update(id, sanitizedData);
   }
 

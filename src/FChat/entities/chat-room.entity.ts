@@ -1,3 +1,10 @@
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn
+} from 'typeorm';
 import { Enum_UserType } from 'src/types/Payload';
 
 export enum RoomType {
@@ -6,14 +13,30 @@ export enum RoomType {
   GENERAL = 'GENERAL'
 }
 
+@Entity()
 export class ChatRoom {
+  @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({
+    type: 'enum',
+    enum: RoomType,
+    default: RoomType.GENERAL
+  })
   type: RoomType;
-  relatedId?: string; // Order ID, support ticket ID, etc.
+
+  @Column({ nullable: true })
+  relatedId?: string;
+
+  @Column('jsonb')
   participants: {
     userId: string;
     userType: Enum_UserType;
   }[];
+
+  @CreateDateColumn()
   createdAt: Date;
+
+  @UpdateDateColumn()
   lastActivity: Date;
 }

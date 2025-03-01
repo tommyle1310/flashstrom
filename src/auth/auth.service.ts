@@ -12,6 +12,7 @@ import { DriversRepository } from 'src/drivers/drivers.repository';
 import { Injectable } from '@nestjs/common';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 import { v4 as uuidv4 } from 'uuid';
+import { CustomerCaresRepository } from 'src/customer_cares/customer_cares.repository';
 
 @Injectable()
 export class AuthService {
@@ -21,7 +22,7 @@ export class AuthService {
     private readonly restaurantsRepository: RestaurantsRepository,
     private readonly customersRepository: CustomersRepository,
     private readonly driverRepository: DriversRepository,
-
+    private readonly customerCareRepository: CustomerCaresRepository,
     private readonly jwtService: JwtService,
     private readonly cartItemService: CartItemsService
   ) {}
@@ -118,7 +119,10 @@ export class AuthService {
       DRIVER: () => this.handleDriverLogin(user, basePayload),
       CUSTOMER: () => this.handleCustomerLogin(user, basePayload),
       F_WALLET: () => this.handleFWalletLogin(user, basePayload),
-      RESTAURANT_OWNER: () => this.handleRestaurantOwnerLogin(user, basePayload)
+      RESTAURANT_OWNER: () =>
+        this.handleRestaurantOwnerLogin(user, basePayload),
+      CUSTOMER_CARE_REPRESENTATIVE: () =>
+        this.handleCustomerCareLogin(user, basePayload)
     };
 
     const handler = loginHandlers[type];
@@ -147,6 +151,8 @@ export class AuthService {
 
     const driverPayload = {
       ...basePayload,
+      id: userWithRole.id,
+
       user_id: userWithRole.user_id,
       first_name: userWithRole.first_name,
       last_name: userWithRole.last_name,
@@ -184,6 +190,7 @@ export class AuthService {
 
     const customerPayload = {
       ...basePayload,
+      id: userWithRole.id,
       preferred_category: userWithRole.preferred_category,
       favorite_restaurants: userWithRole.favorite_restaurants,
       favorite_items: userWithRole.favorite_items,
@@ -210,6 +217,8 @@ export class AuthService {
 
     const fWalletPayload = {
       ...basePayload,
+      id: userWithRole.id,
+
       balance: userWithRole.balance,
       fWallet_id: userWithRole.id
     };
@@ -235,6 +244,7 @@ export class AuthService {
 
     const restaurantPayload = {
       ...basePayload,
+      id: userWithRole.id,
       owner_id: userWithRole.owner_id,
       owner_name: userWithRole.owner_name,
       restaurant_id: userWithRole.id ?? userWithRole.id,
@@ -254,6 +264,44 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(restaurantPayload);
+    return createResponse(
+      'OK',
+      {
+        access_token: accessToken,
+        user_data: userWithRole
+      },
+      'Login successful'
+    );
+  }
+
+  private async handleCustomerCareLogin(user: User, basePayload: BasePayload) {
+    const userWithRole = await this.customerCareRepository.findOne({
+      user_id: user.id
+    });
+
+    if (!userWithRole) {
+      return createResponse(
+        'NotFound',
+        null,
+        'Customer Care representative not found'
+      );
+    }
+
+    const customerCarePayload = {
+      ...basePayload,
+      id: userWithRole.id,
+      user_id: userWithRole.user_id,
+      first_name: userWithRole.first_name,
+      last_name: userWithRole.last_name,
+      contact_email: userWithRole.contact_email,
+      contact_phone: userWithRole.contact_phone,
+      assigned_tickets: userWithRole.assigned_tickets,
+      avatar: userWithRole.avatar,
+      available_for_work: userWithRole.available_for_work,
+      is_assigned: userWithRole.is_assigned
+    };
+
+    const accessToken = this.jwtService.sign(customerCarePayload);
     return createResponse(
       'OK',
       {
@@ -288,7 +336,6 @@ export class AuthService {
         );
       }
     }
-    console.log('check is it here');
 
     let newUserWithRole;
     let fWallet;
@@ -433,6 +480,26 @@ export class AuthService {
           password: existingUser.password,
           user_id: existingUser.id,
           balance: 0
+        });
+        break;
+
+      case Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
+        newUserWithRole = await this.customerCareRepository.create({
+          user_id: existingUser.id,
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          contact_email: [
+            { title: 'Primary', is_default: true, email: userData.email }
+          ],
+          contact_phone: [
+            { title: 'Primary', is_default: true, number: userData.phone }
+          ],
+          assigned_tickets: [],
+          available_for_work: false,
+          is_assigned: false,
+          created_at: Math.floor(Date.now() / 1000),
+          updated_at: Math.floor(Date.now() / 1000),
+          last_login: Math.floor(Date.now() / 1000)
         });
         break;
 
@@ -590,6 +657,16 @@ export class AuthService {
         }
         break;
 
+      case Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
+        if (!userData.first_name || !userData.last_name) {
+          return createResponse(
+            'InvalidFormatInput',
+            null,
+            'First name and last name are required'
+          );
+        }
+        break;
+
       default:
         return createResponse(
           'Unauthorized',
@@ -691,6 +768,26 @@ export class AuthService {
           password: hashedPassword,
           user_id: newUser.id,
           balance: 0
+        });
+        break;
+
+      case Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
+        newUserWithRole = await this.customerCareRepository.create({
+          user_id: newUser.id,
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          contact_email: [
+            { title: 'Primary', is_default: true, email: userData.email }
+          ],
+          contact_phone: [
+            { title: 'Primary', is_default: true, number: userData.phone }
+          ],
+          assigned_tickets: [],
+          available_for_work: false,
+          is_assigned: false,
+          created_at: Math.floor(Date.now() / 1000),
+          updated_at: Math.floor(Date.now() / 1000),
+          last_login: Math.floor(Date.now() / 1000)
         });
         break;
 
