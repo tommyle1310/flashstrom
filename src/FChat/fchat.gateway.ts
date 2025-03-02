@@ -14,7 +14,8 @@ import { FchatService } from './fchat.service';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import {
-  EventEmitter2
+  EventEmitter2,
+  OnEvent
   //  OnEvent
 } from '@nestjs/event-emitter';
 // import { RoomType } from './entities/chat-room.entity';
@@ -224,8 +225,10 @@ export class FchatGateway
     }
   ) {
     try {
+      console.log('check dog here');
       const user = client.data.user;
       const chat = this.activeChats.get(data.chatId);
+      console.log('chat', data);
 
       if (!chat || !chat.participants.includes(user.id)) {
         throw new WsException('Chat not found or unauthorized');
@@ -237,22 +240,9 @@ export class FchatGateway
         console.log(`Rejoined sender ${user.id} to room ${data.chatId}`);
       }
 
-      // Ensure recipient is in the room
-      const recipientId = chat.participants.find(id => id !== user.id);
-      const recipientSocket = this.userSockets.get(recipientId);
-      if (
-        recipientSocket &&
-        !(await this.server.in(data.chatId).allSockets()).has(
-          recipientSocket.id
-        )
-      ) {
-        await recipientSocket.join(data.chatId);
-        console.log(`Rejoined recipient ${recipientId} to room ${data.chatId}`);
-      }
-
       // Create message in database
       const dbMessage = await this.fchatService.createMessage({
-        roomId: chat.dbRoomId,
+        roomId: data.chatId,
         senderId: user.id,
         senderType: user.logged_in_as,
         content: data.content,
@@ -275,22 +265,20 @@ export class FchatGateway
       // Log before emitting
       console.log(`Emitting newMessage to room ${data.chatId}:`, message);
 
-      // Emit to room
+      // Emit to room only once
       this.server.to(data.chatId).emit('newMessage', message);
 
-      // Double-check by emitting directly to both participants
-      chat.participants.forEach(participantId => {
-        const socket = this.userSockets.get(participantId);
-        if (socket) {
-          socket.emit('newMessage', message);
-        }
-      });
-
-      return message;
+      return message; // Return the message to the client if needed
     } catch (error) {
       console.error('Error in sendMessage:', error);
       throw new WsException(error.message || 'Failed to send message');
     }
+  }
+
+  @OnEvent('getChatHistory')
+  handleGetChatHistoryEvent(data: { chatId: string; messages: any[] }) {
+    console.log(`Chat history for ${data.chatId}:`, data.messages);
+    return data.messages;
   }
 
   @SubscribeMessage('getChatHistory')
@@ -298,21 +286,29 @@ export class FchatGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { chatId: string }
   ) {
-    const user = client.data.user;
-    const chat = this.activeChats.get(data.chatId);
+    try {
+      const user = client.data.user;
 
-    if (!chat || !chat.participants.includes(user.id)) {
-      client.emit('error', { message: 'Chat not found or unauthorized' });
-      return;
+      // Get messages directly from database service
+      const messages = await this.fchatService.getRoomMessages(data.chatId);
+
+      // Emit the event to other listeners
+      this.server.emit('getChatHistory', { chatId: data.chatId, messages });
+
+      // Optionally return messages to the original client
+      return messages || [];
+    } catch (error) {
+      console.error('Error getting chat history:', error);
+      client.emit('error', { message: 'Failed to get chat history' });
+      // Emit an error event to other listeners if needed
+      this.server.emit('getChatHistory', { chatId: data.chatId, messages: [] });
+      return [];
     }
-
-    const messages = await this.fchatService.getRoomMessages(data.chatId);
-    return messages;
   }
 
   private isValidChatCombination(
     userType: string,
-    chatType: string,
+    chatType: 'ORDER' | 'SUPPORT',
     recipientType: string
   ): boolean {
     // For SUPPORT chats, validate specific combinations
