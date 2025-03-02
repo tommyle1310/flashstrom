@@ -152,7 +152,7 @@ export class AuthService {
     const driverPayload = {
       ...basePayload,
       id: userWithRole.id,
-
+      logged_in_as: Enum_UserType.DRIVER,
       user_id: userWithRole.user_id,
       first_name: userWithRole.first_name,
       last_name: userWithRole.last_name,
@@ -191,10 +191,11 @@ export class AuthService {
     const customerPayload = {
       ...basePayload,
       id: userWithRole.id,
+      logged_in_as: Enum_UserType.CUSTOMER,
       preferred_category: userWithRole.preferred_category,
       favorite_restaurants: userWithRole.favorite_restaurants,
       favorite_items: userWithRole.favorite_items,
-      user_id: userWithRole.id,
+      user_id: user.id,
       avatar: userWithRole?.avatar,
       support_tickets: userWithRole.support_tickets,
       address: userWithRole?.address,
@@ -218,7 +219,8 @@ export class AuthService {
     const fWalletPayload = {
       ...basePayload,
       id: userWithRole.id,
-
+      logged_in_as: Enum_UserType.F_WALLET,
+      user_id: userWithRole.user_id,
       balance: userWithRole.balance,
       fWallet_id: userWithRole.id
     };
@@ -245,6 +247,7 @@ export class AuthService {
     const restaurantPayload = {
       ...basePayload,
       id: userWithRole.id,
+      logged_in_as: Enum_UserType.RESTAURANT_OWNER,
       owner_id: userWithRole.owner_id,
       owner_name: userWithRole.owner_name,
       restaurant_id: userWithRole.id ?? userWithRole.id,
@@ -290,6 +293,7 @@ export class AuthService {
     const customerCarePayload = {
       ...basePayload,
       id: userWithRole.id,
+      logged_in_as: Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE,
       user_id: userWithRole.user_id,
       first_name: userWithRole.first_name,
       last_name: userWithRole.last_name,
