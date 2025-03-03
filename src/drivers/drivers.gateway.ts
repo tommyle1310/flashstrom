@@ -233,7 +233,7 @@ export class DriversGateway
         const driver = await this.driverService.findDriverById(driverId);
         if (driver.data) {
           // Add the new orderId to the current_order_id array
-          const updatedOrderIds = [...driver.data.current_order_id, orderId];
+          const updatedOrderIds = [...driver.data.current_orders, orderId];
 
           // Update the driver with the new order list
           await this.driverService.updateDriverOrder(driverId, updatedOrderIds);
@@ -343,17 +343,17 @@ export class DriversGateway
         const driver = await this.driverService.findDriverById(dps.driver_id);
         if (driver.data) {
           // Filter out only the completed order
-          const remainingOrders = driver.data.current_order_id.filter(
-            id => id !== dps.order_ids[0]
+          const remainingOrders = driver.data.current_orders.filter(
+            order => order.id !== dps.orders[0]?.id
           );
 
           await Promise.all([
             this.driverService.updateDriverOrder(
               dps.driver_id,
-              remainingOrders
+              remainingOrders.map(order => order.id)
             ),
             this.ordersService.updateOrderStatus(
-              dps.order_ids[0],
+              dps.orders[0]?.id,
               OrderStatus.DELIVERED
             )
           ]);

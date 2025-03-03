@@ -8,6 +8,7 @@ import { Type_Delivery_Order } from 'src/types/Driver';
 import { calculateDistance } from 'src/utils/distance';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { DriversRepository } from './drivers.repository';
+import { Order } from 'src/orders/entities/order.entity';
 
 @Injectable()
 export class DriversService {
@@ -41,7 +42,6 @@ export class DriversService {
     }
   }
 
-  // Get all drivers
   async findAll(): Promise<ApiResponse<Driver[]>> {
     try {
       const drivers = await this.driversRepository.findAll();
@@ -51,7 +51,6 @@ export class DriversService {
     }
   }
 
-  // Get a driver by ID
   async findDriverById(id: string): Promise<ApiResponse<Driver>> {
     try {
       const driver = await this.driversRepository.findById(id);
@@ -70,7 +69,6 @@ export class DriversService {
     }
   }
 
-  // Update a driver by ID
   async update(
     id: string,
     updateDriverDto: UpdateDriverDto
@@ -110,7 +108,6 @@ export class DriversService {
     }
   }
 
-  // Delete a driver by ID
   async remove(id: string): Promise<ApiResponse<null>> {
     try {
       const deletedDriver = await this.driversRepository.remove(id);
@@ -141,13 +138,12 @@ export class DriversService {
     }
   }
 
-  // prioritize drivers when app finding driver
   async prioritizeAndAssignDriver(
     listAvailableDrivers: Array<{
       _id: string;
       location: { lng: number; lat: number };
       active_points?: number;
-      current_order_id?: string[];
+      current_order_id?: string[]; // Đổi thành current_orders nếu cần
     }>,
     orderDetails: Type_Delivery_Order
   ): Promise<ApiResponse<any>> {
@@ -167,13 +163,6 @@ export class DriversService {
         );
       }
 
-      // Temporarily disabled prioritization logic
-      // const prioritizedDrivers = this.calculateDriverPriorities(
-      //   listAvailableDrivers,
-      //   restaurantLocation
-      // );
-
-      // Hard-coded to return specific driver only
       const specificDriver = listAvailableDrivers.find(
         driver => driver._id === 'FF_DRI_dfc9f674-e334-4bfc-b639-065c40cb301f'
       );
@@ -190,13 +179,15 @@ export class DriversService {
     restaurantLocation: { lat: number; lng: number }
   ): Promise<ApiResponse<Driver>> {
     try {
-      const driver = await this.driversRepository.findById(driverId);
+      const driver = await this.driversRepository.findById(driverId, {
+        relations: ['current_orders'] // Load quan hệ current_orders
+      });
       if (!driver) {
         return createResponse('NotFound', null, 'Driver not found');
       }
 
-      // Add order to driver's current orders (max 3)
-      if (driver.current_order_id.length >= 3) {
+      // Check max 3 orders
+      if (driver.current_orders.length >= 3) {
         return createResponse(
           'DRIVER_MAXIMUM_ORDER',
           null,
@@ -204,7 +195,12 @@ export class DriversService {
         );
       }
 
-      // Calculate active points based on distance
+      // Lấy Order từ DB để thêm vào current_orders
+      const order = new Order();
+      order.id = orderId; // Giả sử chỉ cần ID, nếu cần thêm field thì query Order từ repo
+      const updatedOrders = [...driver.current_orders, order];
+
+      // Calculate active points
       const points = this.calculateActivePoints(
         driver.current_location?.lat || 10.826411,
         driver.current_location?.lng || 106.617353,
@@ -214,11 +210,11 @@ export class DriversService {
 
       // Update driver
       const updatedDriver = await this.driversRepository.update(driverId, {
-        current_order_id: [...driver.current_order_id, orderId],
+        current_orders: updatedOrders, // Dùng mảng Order[]
         active_points: driver.active_points + points,
         is_on_delivery: true,
         created_at: driver.created_at,
-        updated_at: driver.updated_at,
+        updated_at: Math.floor(Date.now() / 1000),
         last_login: driver.last_login
       });
 
@@ -230,11 +226,13 @@ export class DriversService {
 
   async updateDriverDeliveryStatus(
     driverId: string,
-    orderId: string,
+    orderId: Order['id'],
     status: boolean
   ): Promise<ApiResponse<Driver>> {
     try {
-      const driver = await this.driversRepository.findById(driverId);
+      const driver = await this.driversRepository.findById(driverId, {
+        relations: ['current_orders'] // Load quan hệ
+      });
       if (!driver) {
         return createResponse('NotFound', null, 'Driver not found');
       }
@@ -242,21 +240,23 @@ export class DriversService {
       const updateData: UpdateDriverDto = {
         is_on_delivery: status,
         created_at: driver.created_at,
-        updated_at: driver.updated_at,
+        updated_at: Math.floor(Date.now() / 1000),
         last_login: driver.last_login
       };
 
       if (status) {
-        // Adding order to current orders
-        updateData.current_order_id = [
-          ...(driver.current_order_id || []),
-          orderId
+        // Thêm order vào current_orders
+        const newOrder = new Order();
+        newOrder.id = orderId;
+        updateData.current_orders = [
+          ...(driver.current_orders || []),
+          newOrder
         ];
         updateData.active_points = (driver.active_points || 0) + 1;
       } else {
-        // Removing order from current orders
-        updateData.current_order_id = (driver.current_order_id || []).filter(
-          id => id !== orderId
+        // Xóa order khỏi current_orders
+        updateData.current_orders = (driver.current_orders || []).filter(
+          order => order.id !== orderId
         );
       }
 
@@ -281,17 +281,26 @@ export class DriversService {
 
   async updateDriverOrder(
     driverId: string,
-    orderIds: string[]
+    orderIds: string[] // Đổi từ string[] sang Order[] nếu cần
   ): Promise<ApiResponse<any>> {
     try {
-      const driver = await this.driversRepository.findById(driverId);
+      const driver = await this.driversRepository.findById(driverId, {
+        relations: ['current_orders']
+      });
       if (!driver) {
         return createResponse('NotFound', null, 'Driver not found');
       }
 
+      // Chuyển orderIds thành mảng Order[]
+      const orders = orderIds.map(id => {
+        const order = new Order();
+        order.id = id;
+        return order;
+      });
+
       const updatedDriver = await this.driversRepository.update(driverId, {
-        current_order_id: orderIds,
-        is_on_delivery: orderIds.length > 0,
+        current_orders: orders, // Dùng Order[] thay vì string[]
+        is_on_delivery: orders.length > 0,
         updated_at: Math.floor(Date.now() / 1000),
         created_at: driver.created_at,
         last_login: driver.last_login
@@ -316,13 +325,11 @@ export class DriversService {
       restaurantLat,
       restaurantLng
     );
-
     if (distance <= 2) return 3;
     if (distance <= 5) return 6;
     return 10;
   }
 
-  // Private helper methods
   private handleDriverResponse(driver: Driver | null): ApiResponse<Driver> {
     if (!driver) {
       return createResponse('NotFound', null, 'Driver not found');
@@ -354,7 +361,7 @@ export class DriversService {
           restaurantLocation.lng
         ),
         active_points: driver.active_points || 0,
-        current_order_id: driver.current_order_id || []
+        current_orders: driver.current_orders || [] // Đổi từ current_order_id
       }))
       .sort((a, b) => this.compareDriverPriorities(a, b));
   }
@@ -363,9 +370,7 @@ export class DriversService {
     if (a.distance !== b.distance) return a.distance - b.distance;
     if (a.active_points !== b.active_points)
       return b.active_points - a.active_points;
-    return (
-      (a.current_order_id?.length || 0) - (b.current_order_id?.length || 0)
-    );
+    return (a.current_orders?.length || 0) - (b.current_orders?.length || 0); // Đổi từ current_order_id
   }
 
   private handleError(message: string, error: any): ApiResponse<null> {

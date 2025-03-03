@@ -489,7 +489,7 @@ export class AuthService {
 
       case Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
         newUserWithRole = await this.customerCareRepository.create({
-          user_id: existingUser.id,
+          user_id: existingUser.id as unknown as User,
           first_name: userData.first_name,
           last_name: userData.last_name,
           contact_email: [
@@ -777,7 +777,7 @@ export class AuthService {
 
       case Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
         newUserWithRole = await this.customerCareRepository.create({
-          user_id: newUser.id,
+          user_id: newUser.id as unknown as User,
           first_name: userData.first_name,
           last_name: userData.last_name,
           contact_email: [
