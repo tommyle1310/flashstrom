@@ -5,19 +5,34 @@ import { Restaurant } from './entities/restaurant.entity';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { FoodCategory } from '../food_categories/entities/food_category.entity';
-
+import { createResponse } from 'src/utils/createResponse';
+import { UserRepository } from 'src/users/users.repository';
+import { AddressBookRepository } from 'src/address_book/address_book.repository';
 @Injectable()
 export class RestaurantsRepository {
   constructor(
     @InjectRepository(Restaurant)
     private repository: Repository<Restaurant>,
     @InjectRepository(FoodCategory)
-    private foodCategoryRepository: Repository<FoodCategory>
+    private foodCategoryRepository: Repository<FoodCategory>,
+    private userRepository: UserRepository,
+    private addressRepository: AddressBookRepository
   ) {}
 
-  async create(createDto: CreateRestaurantDto): Promise<Restaurant> {
+  async create(createDto: CreateRestaurantDto): Promise<any> {
     // Handle food categories if provided
     let specialize_in: FoodCategory[] = [];
+    const owner = await this.userRepository.findById(createDto.owner_id);
+    if (!owner) {
+      return createResponse('NotFound', null, 'Owner not found');
+    }
+
+    // Check if address exists
+    const address = await this.addressRepository.findById(createDto.address_id);
+    if (!address) {
+      return createResponse('NotFound', null, 'Address not found');
+    }
+
     if (createDto.food_category_ids?.length) {
       specialize_in = await this.foodCategoryRepository.findBy({
         id: In(createDto.food_category_ids)

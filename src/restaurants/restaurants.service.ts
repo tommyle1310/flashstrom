@@ -35,7 +35,43 @@ export class RestaurantsService {
     createRestaurantDto: CreateRestaurantDto
   ): Promise<ApiResponse<Restaurant>> {
     try {
-      const { owner_id, promotions, address_id } = createRestaurantDto;
+      const {
+        owner_id,
+        promotions,
+        address_id,
+        contact_email,
+        contact_phone,
+        opening_hours,
+        owner_name,
+        restaurant_name,
+        status
+      } = createRestaurantDto;
+
+      console.log('createRestaurantDto:', createRestaurantDto);
+      if (
+        !owner_id ||
+        !promotions ||
+        !address_id ||
+        !contact_email ||
+        !contact_phone ||
+        !opening_hours ||
+        !owner_name ||
+        !restaurant_name ||
+        !status
+      ) {
+        return createResponse(
+          'MissingInput',
+          null,
+          'Missing required fields: contact_email, contact_phone, opening_hours, owner_name, restaurant_name, status'
+        );
+      }
+      if (!opening_hours) {
+        return createResponse(
+          'MissingInput',
+          null,
+          'Missing required field: opening_hours'
+        );
+      }
 
       // Check if owner exists using repository pattern
       const owner = await this.userRepository.findById(owner_id);
