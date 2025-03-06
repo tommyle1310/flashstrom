@@ -277,9 +277,11 @@ export class AuthService {
   }
 
   private async handleCustomerCareLogin(user: User, basePayload: BasePayload) {
-    const userWithRole = await this.customerCareRepository.findOne({
-      user_id: user.id
-    });
+    console.log('cehck user', user);
+    const userWithRole = await this.customerCareRepository.findByUserId(
+      user.id
+    );
+    console.log('check suerwithrole', userWithRole);
 
     if (!userWithRole) {
       return createResponse(
@@ -288,7 +290,7 @@ export class AuthService {
         'Customer Care representative not found'
       );
     }
-
+    console.log('check user with role', userWithRole, 'user', user);
     const customerCarePayload = {
       ...basePayload,
       id: userWithRole.id,
@@ -303,6 +305,7 @@ export class AuthService {
       available_for_work: userWithRole.available_for_work,
       is_assigned: userWithRole.is_assigned
     };
+    console.log('check customer care payload', customerCarePayload);
 
     const accessToken = this.jwtService.sign(customerCarePayload);
     return createResponse(

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Message } from './entities/message.entity';
-import { ChatRoom } from './entities/chat-room.entity';
+import { ChatRoom, RoomType } from './entities/chat-room.entity';
 import { User } from 'src/users/entities/user.entity';
 
 @Injectable()
@@ -26,6 +26,25 @@ export class FchatService {
 
   async getRoomById(roomId: string): Promise<ChatRoom | null> {
     return this.roomRepository.findOne({ where: { id: roomId } });
+  }
+
+  async getRoomByParticipantsAndType(
+    participantIds: string[],
+    type: RoomType
+  ): Promise<ChatRoom | null> {
+    try {
+      const room = await this.roomRepository
+        .createQueryBuilder('chatRoom')
+        .where('chatRoom.type = :type', { type })
+        .andWhere('chatRoom.participants @> :participants', {
+          participants: participantIds.map(id => ({ userId: id }))
+        })
+        .getOne();
+      return room || null;
+    } catch (error) {
+      console.error('Error finding room by participants and type:', error);
+      return null;
+    }
   }
 
   async createMessage(messageData: Partial<Message>): Promise<Message> {

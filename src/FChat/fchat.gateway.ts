@@ -203,7 +203,7 @@ export class FchatGateway
     @ConnectedSocket() client: Socket,
     @MessageBody()
     data: {
-      chatId: string; // This should be the dbRoomId (UUID), not socket chatId
+      roomId: string; // This should be the dbRoomId (UUID), not socket chatId
       content: string;
       type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'ORDER_INFO';
     }
@@ -215,9 +215,9 @@ export class FchatGateway
       console.log('Received sendMessage data:', data);
 
       // Fetch the room from the database using the dbRoomId (UUID)
-      const dbRoom = await this.fchatService.getRoomById(data.chatId);
+      const dbRoom = await this.fchatService.getRoomById(data.roomId);
       if (!dbRoom) {
-        console.error(`Chat room not found for chatId: ${data.chatId}`);
+        console.error(`Chat room not found for roomId: ${data.roomId}`);
         throw new WsException('Chat room not found');
       }
 
@@ -225,14 +225,23 @@ export class FchatGateway
       const isParticipant = dbRoom.participants.some(p => p.userId === user.id);
       if (!isParticipant) {
         console.error(
-          `User ${user.id} is not a participant in room ${data.chatId}`
+          `User ${user.id} is not a participant in room ${data.roomId}`
         );
         throw new WsException('Unauthorized to send message in this chat');
       }
 
+      console.log('check askdjb', {
+        roomId: data.roomId, // This is the UUID
+        senderId: user.id,
+        senderType: user.logged_in_as,
+        content: data.content,
+        messageType: data.type as MessageType,
+        readBy: [user.id],
+        timestamp: new Date()
+      });
       // Create message in database
       const dbMessage = await this.fchatService.createMessage({
-        roomId: data.chatId, // This is the UUID
+        roomId: data.roomId, // This is the UUID
         senderId: user.id,
         senderType: user.logged_in_as,
         content: data.content,
@@ -241,14 +250,14 @@ export class FchatGateway
         timestamp: new Date()
       });
 
-      await this.fchatService.updateRoomActivity(data.chatId);
+      await this.fchatService.updateRoomActivity(data.roomId);
 
       const message = {
         from: user.id,
         content: data.content,
         type: data.type,
         timestamp: new Date(),
-        chatId: data.chatId, // Return dbRoomId to client
+        roomId: data.roomId, // Return dbRoomId to client
         messageId: dbMessage.id
       };
 

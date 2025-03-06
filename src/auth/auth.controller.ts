@@ -236,6 +236,9 @@ export class AuthController {
   async loginCustomerCare(
     @Body() credentials: { email: string; password: string }
   ) {
+    console.log('fall here contorller', {
+      credentials
+    });
     return this.authService.login(
       credentials,
       Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE
