@@ -9,11 +9,14 @@ import { calculateDistance } from 'src/utils/distance';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { DriversRepository } from './drivers.repository';
 import { Order } from 'src/orders/entities/order.entity';
+import { HARDED_CODE_TEST } from 'src/utils/types/harded_code_test';
+import { OrdersRepository } from 'src/orders/orders.repository';
 
 @Injectable()
 export class DriversService {
   constructor(
     private readonly driversRepository: DriversRepository,
+    private readonly ordersRepository: OrdersRepository,
     private readonly addressRepository: AddressBookRepository
   ) {}
 
@@ -51,9 +54,12 @@ export class DriversService {
     }
   }
 
-  async findDriverById(id: string): Promise<ApiResponse<Driver>> {
+  async findDriverById(
+    id: string,
+    options?: { relations?: string[] }
+  ): Promise<ApiResponse<Driver>> {
     try {
-      const driver = await this.driversRepository.findById(id);
+      const driver = await this.driversRepository.findById(id, options);
       return this.handleDriverResponse(driver);
     } catch (error) {
       return this.handleError('Error fetching driver:', error);
@@ -164,7 +170,7 @@ export class DriversService {
       }
 
       const specificDriver = listAvailableDrivers.find(
-        driver => driver._id === 'FF_DRI_dfc9f674-e334-4bfc-b639-065c40cb301f'
+        driver => driver._id === HARDED_CODE_TEST.prioritised_drivers[0]
       );
       const result = specificDriver ? [specificDriver] : [];
       return createResponse('OK', result, 'Driver selected successfully');
@@ -279,37 +285,16 @@ export class DriversService {
     }
   }
 
-  async updateDriverOrder(
-    driverId: string,
-    orderIds: string[] // Đổi từ string[] sang Order[] nếu cần
-  ): Promise<ApiResponse<any>> {
-    try {
-      const driver = await this.driversRepository.findById(driverId, {
-        relations: ['current_orders']
-      });
-      if (!driver) {
-        return createResponse('NotFound', null, 'Driver not found');
-      }
-
-      // Chuyển orderIds thành mảng Order[]
-      const orders = orderIds.map(id => {
-        const order = new Order();
-        order.id = id;
-        return order;
-      });
-
-      const updatedDriver = await this.driversRepository.update(driverId, {
-        current_orders: orders, // Dùng Order[] thay vì string[]
-        is_on_delivery: orders.length > 0,
-        updated_at: Math.floor(Date.now() / 1000),
-        created_at: driver.created_at,
-        last_login: driver.last_login
-      });
-
-      return createResponse('OK', updatedDriver, 'Driver updated successfully');
-    } catch (error) {
-      console.error('Error updating driver order:', error);
-      return createResponse('ServerError', null, 'Error updating driver order');
+  async updateDriverOrder(driverId: string, orderIds: string[]): Promise<void> {
+    const driver = await this.driversRepository.findById(driverId, {
+      relations: ['current_orders']
+    });
+    if (driver) {
+      const orders = await Promise.all(
+        orderIds.map(id => this.ordersRepository.findById(id))
+      );
+      driver.current_orders = orders.filter(order => order !== null); // Cập nhật danh sách orders
+      await this.driversRepository.save(driver); // Lưu để cập nhật bảng join
     }
   }
 

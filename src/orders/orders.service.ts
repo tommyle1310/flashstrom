@@ -108,21 +108,23 @@ export class OrdersService {
         return createResponse('NotFound', null, 'Order not found');
       }
 
-      // Update status
+      // Cập nhật status
       const updatedOrder = await this.ordersRepository.updateStatus(
         orderId,
         status
       );
 
-      // Update tracking info based on status
-      const trackingInfo = {
+      // Cập nhật tracking_info dựa trên status
+      const trackingInfoMap = {
         [OrderStatus.RESTAURANT_ACCEPTED]: OrderTrackingInfo.PREPARING,
         [OrderStatus.IN_PROGRESS]: OrderTrackingInfo.OUT_FOR_DELIVERY,
         [OrderStatus.DELIVERED]: OrderTrackingInfo.DELIVERED
-      }[status];
-
+      };
+      const trackingInfo = trackingInfoMap[status];
       if (trackingInfo) {
         await this.ordersRepository.updateTrackingInfo(orderId, trackingInfo);
+      } else {
+        console.warn(`No tracking info mapped for status: ${status}`);
       }
 
       return createResponse(

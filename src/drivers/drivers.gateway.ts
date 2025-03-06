@@ -17,10 +17,14 @@ import { RestaurantsService } from 'src/restaurants/restaurants.service';
 import { forwardRef, Inject } from '@nestjs/common';
 import { OrdersService } from 'src/orders/orders.service';
 import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
-import { OrderStatus } from 'src/orders/entities/order.entity';
+import {
+  OrderStatus,
+  OrderTrackingInfo
+} from 'src/orders/entities/order.entity';
 import { DataSource, Not } from 'typeorm';
 // import { v4 as uuidv4 } from 'uuid';
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
+import { Driver } from './entities/driver.entity';
 // import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver-progress-stage.entity';
 
 // Add type for status
@@ -163,7 +167,6 @@ export class DriversGateway
   @OnEvent('order.assignedToDriver')
   async handleOrderAssignedToDriver(orderAssignment: any) {
     try {
-      console.log('Received order.assignedToDriver event:', orderAssignment);
       const driverId = orderAssignment.driver_id;
 
       if (!driverId) {
@@ -171,15 +174,13 @@ export class DriversGateway
       }
 
       // Emit only once to the driver's room
-      const emitted = await this.server
+      await this.server
         .to(`driver_${driverId}`)
         .emit('incomingOrderForDriver', {
           event: 'incomingOrder',
           data: orderAssignment,
           message: 'Order received successfully'
         });
-
-      console.log(`Emitted to driver ${driverId}:`, emitted);
 
       // Return immediately after emission
       return {
@@ -194,64 +195,62 @@ export class DriversGateway
       throw new WsException('Internal server error');
     }
   }
-
   @SubscribeMessage('driverAcceptOrder')
   async handleDriverAcceptOrder(@MessageBody() data: any) {
     const { driverId, orderId } = data;
 
-    // Use a lock to prevent concurrent processing
     if (this.processingOrders.get(driverId)) {
       return { success: false, message: 'Order is already being processed' };
     }
     this.processingOrders.set(driverId, true);
 
     try {
-      // Use a transaction to ensure atomicity
-      await this.dataSource.transaction(async transactionalEntityManager => {
-        // Check for existing active DPS
-        const existingDPS = await transactionalEntityManager
-          .getRepository(DriverProgressStage)
-          .findOne({
-            where: {
-              driver_id: driverId,
-              current_state: Not('delivery_complete')
-            }
+      const result = await this.dataSource.transaction(
+        async transactionalEntityManager => {
+          const existingDPS = await transactionalEntityManager
+            .getRepository(DriverProgressStage)
+            .findOne({
+              where: {
+                driver_id: driverId,
+                current_state: Not('delivery_complete')
+              }
+            });
+
+          if (existingDPS) {
+            throw new WsException('Driver already has an active delivery');
+          }
+
+          const dps = await this.driverProgressStageService.create({
+            driver_id: driverId,
+            order_ids: [orderId],
+            current_state: 'driver_ready'
           });
 
-        if (existingDPS) {
-          throw new WsException('Driver already has an active delivery');
+          // Lấy driver và cập nhật current_orders
+          const driver = await this.driverService.findDriverById(driverId, {
+            relations: ['current_orders']
+          });
+          if (driver.data) {
+            const order = await this.ordersService.findOne(orderId);
+            driver.data.current_orders = driver.data.current_orders || [];
+            driver.data.current_orders.push(order.data); // Thêm order vào current_orders
+            await transactionalEntityManager.save(Driver, driver.data); // Lưu lại để cập nhật bảng join
+          }
+
+          await this.ordersService.updateOrderStatus(
+            orderId,
+            OrderStatus.IN_PROGRESS
+          );
+
+          return { success: true, dps: dps.data };
         }
+      );
 
-        // Create exactly one DPS
-        const dps = await this.driverProgressStageService.create({
-          driver_id: driverId,
-          order_ids: [orderId],
-          current_state: 'driver_ready'
-        });
-
-        // Fetch the current driver to update their orders
-        const driver = await this.driverService.findDriverById(driverId);
-        if (driver.data) {
-          // Add the new orderId to the current_order_id array
-          const updatedOrderIds = [...driver.data.current_orders, orderId];
-
-          // Update the driver with the new order list
-          await this.driverService.updateDriverOrder(driverId, updatedOrderIds);
-        }
-
-        // Update order status
-        await this.ordersService.updateOrderStatus(
-          orderId,
-          OrderStatus.IN_PROGRESS
-        );
-
-        return { success: true, dps: dps.data };
-      });
+      return result;
     } catch (error) {
       console.error('Error in handleDriverAcceptOrder:', error);
       return { success: false, message: 'Internal server error' };
     } finally {
-      // Release the lock
       this.processingOrders.delete(driverId);
     }
   }
@@ -342,7 +341,6 @@ export class DriversGateway
       if (nextState === 'delivery_complete') {
         const driver = await this.driverService.findDriverById(dps.driver_id);
         if (driver.data) {
-          // Filter out only the completed order
           const remainingOrders = driver.data.current_orders.filter(
             order => order.id !== dps.orders[0]?.id
           );
@@ -354,9 +352,23 @@ export class DriversGateway
             ),
             this.ordersService.updateOrderStatus(
               dps.orders[0]?.id,
-              OrderStatus.DELIVERED
+              OrderStatus.DELIVERED // Đảm bảo cập nhật thành DELIVERED
             )
           ]);
+
+          // Kiểm tra kết quả cập nhật
+          const updatedOrder = await this.ordersService.findOne(
+            dps.orders[0]?.id
+          );
+          if (
+            updatedOrder.data.status !== OrderStatus.DELIVERED ||
+            updatedOrder.data.tracking_info !== OrderTrackingInfo.DELIVERED
+          ) {
+            console.error(
+              'Failed to update order status or tracking_info correctly:',
+              updatedOrder
+            );
+          }
         }
       }
 
