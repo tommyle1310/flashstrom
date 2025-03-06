@@ -10,13 +10,15 @@ import { ApiResponse } from 'src/utils/createResponse';
 import { DriverProgressStage } from './entities/driver_progress_stage.entity';
 import { DriversRepository } from 'src/drivers/drivers.repository';
 import { OrdersRepository } from 'src/orders/orders.repository';
+import { DataSource } from 'typeorm';
 
 @Injectable()
 export class DriverProgressStagesService {
   constructor(
     private readonly driverProgressStagesRepository: DriverProgressStagesRepository,
     private readonly driversRepository: DriversRepository,
-    private readonly ordersRepository: OrdersRepository
+    private readonly ordersRepository: OrdersRepository,
+    private readonly dataSource: DataSource
   ) {}
 
   async create(
@@ -44,11 +46,43 @@ export class DriverProgressStagesService {
         }
       }));
 
-      const newStage = await this.driverProgressStagesRepository.create({
-        ...createDto,
-        stages: initialStages,
-        events: [] // Initialize empty events array
-      });
+      // Tạo transaction để đảm bảo đồng bộ
+      const newStage = await this.dataSource.transaction(
+        async transactionalEntityManager => {
+          // Tạo DriverProgressStage
+          const stage = await this.driverProgressStagesRepository.create({
+            ...createDto,
+            stages: initialStages,
+            events: [] // Initialize empty events array
+          });
+
+          // Lưu stage vào database
+          const savedStage = await transactionalEntityManager.save(
+            DriverProgressStage,
+            stage
+          );
+
+          // Lưu quan hệ orders vào bảng driver_progress_orders
+          if (createDto.order_ids && createDto.order_ids.length > 0) {
+            const orderId = createDto.order_ids[0]; // Lấy orderId đầu tiên
+            await transactionalEntityManager
+              .createQueryBuilder()
+              .insert()
+              .into('driver_progress_orders')
+              .values({ driver_progress_id: savedStage.id, order_id: orderId })
+              .onConflict('DO NOTHING') // Bỏ qua nếu đã tồn tại
+              .execute();
+
+            console.log(
+              `Linked order ${orderId} to DPS ${savedStage.id} in driver_progress_orders`
+            );
+          } else {
+            console.warn('No order_ids provided in createDto:', createDto);
+          }
+
+          return savedStage;
+        }
+      );
 
       return createResponse(
         'OK',

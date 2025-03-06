@@ -12,10 +12,11 @@ export class DriversRepository {
     id: string,
     options?: { relations?: string[] }
   ): Promise<Driver> {
-    return await this.driverRepository.findOne({
+    const driver = await this.driverRepository.findOne({
       where: { id },
-      relations: options?.relations || ['user'] // Default là 'user' nếu không truyền
+      relations: options?.relations || ['user']
     });
+    return driver || null;
   }
 
   // Các hàm khác như findOne, findAll, create, update, save, remove giữ nguyên
