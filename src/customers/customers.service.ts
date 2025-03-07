@@ -129,6 +129,13 @@ export class CustomersService {
         id,
         updateCustomerDto
       );
+      console.log(
+        'check toggle favourite restaurant',
+        id,
+        updatedCustomer,
+        'customerdto',
+        updateCustomerDto
+      );
       if (!updatedCustomer) {
         return createResponse('NotFound', null, 'Customer not found');
       }
@@ -241,6 +248,8 @@ export class CustomersService {
         return createResponse('NotFound', null, 'Customer not found');
       }
 
+      console.log('check customer', customer);
+
       const {
         preferred_category,
         restaurant_history,
@@ -252,6 +261,7 @@ export class CustomersService {
 
       // Fetch all restaurants
       const restaurants = await this.restaurantRepository.findAll();
+      console.log('check restaurants', restaurants);
 
       // Prioritize restaurants based on the preferred categories, restaurant history, and distance
       const prioritizedRestaurants = restaurants
@@ -279,10 +289,12 @@ export class CustomersService {
             preferred_category.includes(category as unknown as FoodCategory)
           );
 
-          // Find how many times the customer has visited this restaurant
-          const visitHistory = restaurant_history.find(
-            history => history.restaurant_id === restaurant.id
-          );
+          // Find how many times the customer has visited this restaurant, default to 0 if restaurant_history is null
+          const visitHistory = restaurant_history
+            ? restaurant_history.find(
+                history => history.restaurant_id === restaurant.id
+              )
+            : null;
           const visitCount = visitHistory ? visitHistory.count : 0;
 
           // Calculate distance between customer and restaurant (in km)
@@ -322,57 +334,6 @@ export class CustomersService {
       );
     }
   }
-
-  // // Private helper methods
-  // private async validateAndUpdateAddress(
-  //   customer: Customer,
-  //   addressId: string
-  // ): Promise<boolean> {
-  //   const addressExists = await this.addressRepository.findById(addressId);
-  //   if (!addressExists) return false;
-
-  //   const addressIndex = customer.address.indexOf(addressId);
-  //   if (addressIndex !== -1) {
-  //     customer.address.splice(addressIndex, 1);
-  //   } else {
-  //     customer.address.push(addressId);
-  //   }
-  //   return true;
-  // }
-
-  // private async validateAndUpdateFavoriteRestaurants(
-  //   customer: Customer,
-  //   restaurantId: string
-  // ): Promise<boolean> {
-  //   const restaurantExists =
-  //     await this.restaurantRepository.findById(restaurantId);
-  //   if (!restaurantExists) return false;
-
-  //   const restaurantIndex = customer.favorite_restaurants.indexOf(restaurantId);
-  //   if (restaurantIndex !== -1) {
-  //     customer.favorite_restaurants.splice(restaurantIndex, 1);
-  //   } else {
-  //     customer.favorite_restaurants.push(restaurantId);
-  //   }
-  //   return true;
-  // }
-
-  // private async validateAndUpdatePreferredCategory(
-  //   customer: Customer,
-  //   categoryId: string
-  // ): Promise<boolean> {
-  //   const categoryExists =
-  //     await this.foodCategoriesRepository.findById(categoryId);
-  //   if (!categoryExists) return false;
-
-  //   const categoryIndex = customer.preferred_category.indexOf(categoryId);
-  //   if (categoryIndex !== -1) {
-  //     customer.preferred_category.splice(categoryIndex, 1);
-  //   } else {
-  //     customer.preferred_category.push(categoryId);
-  //   }
-  //   return true;
-  // }
 
   async findOne(conditions: Partial<Customer>): Promise<ApiResponse<Customer>> {
     try {
