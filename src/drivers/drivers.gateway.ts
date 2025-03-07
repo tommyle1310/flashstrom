@@ -128,7 +128,7 @@ export class DriversGateway
       this.driverSockets.get(driverId)?.add(client.id);
 
       client.join(`driver_${driverId}`);
-      console.log(`Driver ${driverId} joined room with socket ${client.id}`);
+      console.log(`Driver joined driver_${driverId}`);
 
       return {
         event: 'joinRoomDriver',
@@ -297,7 +297,10 @@ export class DriversGateway
             order_ids: [orderId],
             current_state: 'driver_ready'
           });
-
+          await this.ordersService.update(orderId, {
+            driver_id: driverId,
+            status: OrderStatus.IN_PROGRESS
+          });
           await this.ordersService.updateOrderStatus(
             orderId,
             OrderStatus.IN_PROGRESS
@@ -394,20 +397,17 @@ export class DriversGateway
           });
 
           // Cập nhật DPS
-          const result = await this.driverProgressStageService.updateStage(
-            data.stageId,
-            {
+          const updateResult =
+            await this.driverProgressStageService.updateStage(data.stageId, {
               current_state: nextState as any,
               stages: updatedStages as any
-            }
-          );
+            });
 
-          // Nếu là delivery_complete, xóa bản ghi khỏi driver_current_orders
+          let updatedOrder = null;
           if (nextState === 'delivery_complete') {
-            const orderId = dps.orders?.[0]?.id; // Kiểm tra an toàn
+            const orderId = dps.orders?.[0]?.id;
             if (!orderId) {
               console.warn(`No order found for DPS ${data.stageId}`);
-              // Có thể trả về lỗi hoặc tiếp tục tùy theo yêu cầu nghiệp vụ
               return {
                 success: false,
                 message: 'No order associated with this stage'
@@ -433,8 +433,8 @@ export class DriversGateway
               OrderStatus.DELIVERED
             );
 
-            // Kiểm tra kết quả cập nhật
-            const updatedOrder = await this.ordersService.findOne(orderId);
+            // Lấy thông tin order đã cập nhật
+            updatedOrder = await this.ordersService.findOne(orderId);
             if (
               updatedOrder.data.status !== OrderStatus.DELIVERED ||
               updatedOrder.data.tracking_info !== OrderTrackingInfo.DELIVERED
@@ -444,9 +444,23 @@ export class DriversGateway
                 updatedOrder
               );
             }
+          } else {
+            // Lấy order để emit thông tin cập nhật
+            const orderId = dps.orders?.[0]?.id;
+            if (orderId) {
+              updatedOrder = await this.ordersService.findOne(orderId);
+            }
           }
 
-          return { success: true, stage: result.data };
+          // Emit sự kiện cho tất cả các bên liên quan
+          if (updatedOrder?.data) {
+            await this.notifyPartiesOnce(updatedOrder.data);
+            console.log(
+              `Notified parties about progress update for order ${updatedOrder.data.id}`
+            );
+          }
+
+          return { success: true, stage: updateResult.data };
         }
       );
 
@@ -457,7 +471,8 @@ export class DriversGateway
     }
   }
 
-  private async notifyPartiesOnce(order: any) {
+  // Hàm notifyPartiesOnce (đã có, nhưng thêm emit sự kiện mới)
+  private async notifyPartiesOnce(order: Order) {
     const notifyKey = `notify_${order.id}`;
 
     if (this.notificationLock.get(notifyKey)) {
@@ -466,15 +481,46 @@ export class DriversGateway
 
     try {
       this.notificationLock.set(notifyKey, true);
-
+      console.log(
+        'check resroom ',
+        order.restaurant_id,
+        'check driver room',
+        order.driver_id,
+        'check customer room',
+        order.customer_id,
+        'and ordereded',
+        order
+      );
       const restaurantRoom = `restaurant_${order.restaurant_id}`;
       const customerRoom = `customer_${order.customer_id}`;
       const driverRoom = `driver_${order.driver_id}`;
 
+      const trackingUpdate = {
+        orderId: order.id,
+        status: order.status,
+        tracking_info: order.tracking_info,
+        updated_at: order.updated_at
+      };
+      console.log('check tracking update', trackingUpdate);
+
+      // Emit sự kiện hiện tại (orderStatusUpdated)
       await Promise.all([
         this.server.to(restaurantRoom).emit('orderStatusUpdated', order),
         this.server.to(customerRoom).emit('orderStatusUpdated', order),
         this.server.to(driverRoom).emit('orderStatusUpdated', order)
+      ]);
+
+      // Emit sự kiện mới (listenUpdateOrderTracking)
+      await Promise.all([
+        this.server
+          .to(restaurantRoom)
+          .emit('listenUpdateOrderTracking', trackingUpdate),
+        this.server
+          .to(customerRoom)
+          .emit('listenUpdateOrderTracking', trackingUpdate),
+        this.server
+          .to(driverRoom)
+          .emit('listenUpdateOrderTracking', trackingUpdate)
       ]);
     } finally {
       this.notificationLock.delete(notifyKey);

@@ -127,10 +127,10 @@ export class Order {
   @Column({ nullable: true })
   restaurant_note: string;
 
-  @Column()
+  @Column({ type: 'bigint' })
   order_time: number;
 
-  @Column()
+  @Column({ type: 'bigint' })
   delivery_time: number;
 
   @Column({

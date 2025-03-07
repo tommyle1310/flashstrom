@@ -39,7 +39,7 @@ export class OrdersService {
       if (validationResult !== true) {
         return validationResult;
       }
-
+      console.log('check input', createOrderDto);
       // Tạo transaction để đảm bảo đồng bộ giữa Order và CartItem
       const result = await this.dataSource.transaction(
         async transactionalEntityManager => {

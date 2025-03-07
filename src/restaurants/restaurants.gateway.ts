@@ -73,8 +73,7 @@ export class RestaurantsGateway
 
     try {
       client.join(`restaurant_${restaurantId}`);
-      console.log('✅ Successfully joined room');
-      console.log(`restaurant_${restaurantId}`);
+      console.log(`restaurant_${restaurantId} joined`);
 
       return {
         event: 'joinRoomRestaurant',
