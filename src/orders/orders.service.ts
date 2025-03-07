@@ -13,7 +13,9 @@ import { CustomersRepository } from 'src/customers/customers.repository';
 import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
 import { MenuItemVariantsRepository } from 'src/menu_item_variants/menu_item_variants.repository';
 import { OrderStatus, OrderTrackingInfo } from './entities/order.entity';
-
+import { DataSource } from 'typeorm';
+import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
+import { CartItem } from 'src/cart_items/entities/cart_item.entity';
 @Injectable()
 export class OrdersService {
   constructor(
@@ -23,22 +25,117 @@ export class OrdersService {
     private readonly addressRepository: AddressBookRepository,
     private readonly customersRepository: CustomersRepository,
     private readonly restaurantRepository: RestaurantsRepository,
-    private readonly restaurantsGateway: RestaurantsGateway
+    private readonly restaurantsGateway: RestaurantsGateway,
+    private readonly dataSource: DataSource,
+    private readonly cartItemsRepository: CartItemsRepository
   ) {}
 
   async createOrder(
     createOrderDto: CreateOrderDto
   ): Promise<ApiResponse<Order>> {
     try {
+      // Validate dữ liệu đầu vào
       const validationResult = await this.validateOrderData(createOrderDto);
       if (validationResult !== true) {
         return validationResult;
       }
-      const newOrder = await this.ordersRepository.create(createOrderDto);
-      await this.updateMenuItemPurchaseCount(createOrderDto.order_items);
 
-      const orderResponse = await this.notifyRestaurantAndDriver(newOrder);
-      return createResponse('OK', orderResponse, 'Order created successfully');
+      // Tạo transaction để đảm bảo đồng bộ giữa Order và CartItem
+      const result = await this.dataSource.transaction(
+        async transactionalEntityManager => {
+          // Lấy danh sách CartItem của customer thông qua transaction
+          const cartItems = await transactionalEntityManager
+            .getRepository(CartItem)
+            .find({
+              where: { customer_id: createOrderDto.customer_id }
+            });
+
+          // Kiểm tra và xử lý từng order_item dựa trên CartItem
+          for (const orderItem of createOrderDto.order_items) {
+            const cartItem = cartItems.find(
+              ci => ci.item_id === orderItem.item_id
+            );
+            if (!cartItem) {
+              return createResponse(
+                'NotFound',
+                null,
+                `Cart item with item_id ${orderItem.item_id} not found for customer ${createOrderDto.customer_id}`
+              );
+            }
+
+            // Tìm variant tương ứng trong CartItem
+            const cartVariant = cartItem.variants.find(
+              v => v.variant_id === orderItem.variant_id
+            );
+            if (!cartVariant) {
+              return createResponse(
+                'NotFound',
+                null,
+                `Variant ${orderItem.variant_id} not found in cart item ${cartItem.id}`
+              );
+            }
+
+            const orderQuantity = orderItem.quantity;
+            const cartQuantity = cartVariant.quantity;
+
+            // Kiểm tra quantity
+            if (orderQuantity > cartQuantity) {
+              return createResponse(
+                'NotAcceptingOrders',
+                null,
+                `Order quantity (${orderQuantity}) exceeds cart quantity (${cartQuantity}) for item ${orderItem.item_id}, variant ${orderItem.variant_id}`
+              );
+            }
+
+            // Xử lý CartItem dựa trên quantity
+            if (orderQuantity === cartQuantity) {
+              // Xóa CartItem nếu quantity bằng nhau
+              await transactionalEntityManager
+                .getRepository(CartItem)
+                .delete(cartItem.id);
+              console.log(
+                `Deleted cart item ${cartItem.id} as order quantity matches cart quantity`
+              );
+            } else if (orderQuantity < cartQuantity) {
+              // Cập nhật CartItem nếu quantity nhỏ hơn
+              const updatedVariants = cartItem.variants.map(v => {
+                if (v.variant_id === orderItem.variant_id) {
+                  return { ...v, quantity: v.quantity - orderQuantity };
+                }
+                return v;
+              });
+
+              await transactionalEntityManager
+                .getRepository(CartItem)
+                .update(cartItem.id, {
+                  variants: updatedVariants,
+                  updated_at: Math.floor(Date.now() / 1000),
+                  item_id: cartItem.item_id,
+                  customer_id: cartItem.customer_id,
+                  restaurant_id: cartItem.restaurant_id
+                });
+              console.log(
+                `Updated cart item ${cartItem.id} with reduced quantity`
+              );
+            }
+          }
+
+          // Tạo Order sau khi xử lý CartItem
+          const newOrder = await transactionalEntityManager
+            .getRepository(Order)
+            .save(transactionalEntityManager.create(Order, createOrderDto));
+
+          // Cập nhật purchase count cho menu items
+          await this.updateMenuItemPurchaseCount(createOrderDto.order_items);
+
+          // Thông báo cho restaurant và driver
+          const orderResponse = await this.notifyRestaurantAndDriver(newOrder);
+
+          return orderResponse;
+        }
+      );
+
+      return createResponse('OK', result, 'Order created successfully');
     } catch (error) {
       console.error('Error creating order:', error);
       return createResponse('ServerError', null, 'Error creating order');

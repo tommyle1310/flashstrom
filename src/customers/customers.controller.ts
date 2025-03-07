@@ -45,7 +45,6 @@ export class CustomersController {
 
   @Get('/cart-items/:customerId')
   findAllCartItemByCustomerId(@Param('customerId') customerId: string) {
-    console.log('go into this route');
     return this.cartItemService.findAll({ customer_id: customerId });
   }
 
@@ -56,7 +55,6 @@ export class CustomersController {
 
   @Get(':field/:value')
   findOne(@Param('field') field: string, @Param('value') value: string) {
-    console.log('go into this route');
     return this.customersService.findOne({ [field]: value });
   }
 
@@ -92,8 +90,6 @@ export class CustomersController {
     @Param('id') customerId: string, // Get the customer ID from the route param
     @Body() createCartItemDto: CreateCartItemDto // Get the rest of the data from the body
   ) {
-    console.log('check famm me');
-
     // Pass the customerId and the rest of the DTO to the service
     return this.cartItemService.create({
       ...createCartItemDto,

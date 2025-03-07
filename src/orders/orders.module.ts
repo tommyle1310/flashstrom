@@ -32,7 +32,8 @@ import { DriversRepository } from 'src/drivers/drivers.repository';
 import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
 import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
-
+import { CartItem } from 'src/cart_items/entities/cart_item.entity';
+import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -47,7 +48,8 @@ import { DriverProgressStagesRepository } from 'src/driver_progress_stages/drive
       Driver,
       User,
       Promotion,
-      DriverProgressStage
+      DriverProgressStage,
+      CartItem
     ])
   ],
   controllers: [OrdersController],
@@ -71,7 +73,8 @@ import { DriverProgressStagesRepository } from 'src/driver_progress_stages/drive
     MenuItemsService,
     DriverProgressStagesService,
     MenuItemVariantsService,
-    DriverProgressStagesRepository
+    DriverProgressStagesRepository,
+    CartItemsRepository
   ],
   exports: [OrdersService]
 })
