@@ -57,12 +57,17 @@ export class FchatService {
     const room = this.roomRepository.create(roomData);
     return this.roomRepository.save(room);
   }
-
   async getRoomMessages(roomId: string): Promise<Message[]> {
-    return this.messageRepository.find({
-      where: { roomId },
-      order: { timestamp: 'ASC' }
-    });
+    try {
+      const messages = await this.messageRepository.find({
+        where: { roomId },
+        order: { timestamp: 'ASC' }
+      });
+      return messages;
+    } catch (error) {
+      console.error(`Error fetching messages for room ${roomId}:`, error);
+      return [];
+    }
   }
 
   async canUserJoinRoom(userId: string, roomId: string): Promise<boolean> {

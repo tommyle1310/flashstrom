@@ -203,7 +203,7 @@ export class FchatGateway
     @ConnectedSocket() client: Socket,
     @MessageBody()
     data: {
-      roomId: string; // This should be the dbRoomId (UUID), not socket chatId
+      roomId: string;
       content: string;
       type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'ORDER_INFO';
     }
@@ -211,17 +211,17 @@ export class FchatGateway
     try {
       const user = client.data.user;
 
-      // Debugging: Log the incoming data
+      // Debugging: Log incoming data
       console.log('Received sendMessage data:', data);
 
-      // Fetch the room from the database using the dbRoomId (UUID)
+      // Fetch room từ database
       const dbRoom = await this.fchatService.getRoomById(data.roomId);
       if (!dbRoom) {
         console.error(`Chat room not found for roomId: ${data.roomId}`);
         throw new WsException('Chat room not found');
       }
 
-      // Check if the user is a participant in the room
+      // Kiểm tra participant
       const isParticipant = dbRoom.participants.some(p => p.userId === user.id);
       if (!isParticipant) {
         console.error(
@@ -230,18 +230,9 @@ export class FchatGateway
         throw new WsException('Unauthorized to send message in this chat');
       }
 
-      console.log('check askdjb', {
-        roomId: data.roomId, // This is the UUID
-        senderId: user.id,
-        senderType: user.logged_in_as,
-        content: data.content,
-        messageType: data.type as MessageType,
-        readBy: [user.id],
-        timestamp: new Date()
-      });
-      // Create message in database
+      // Tạo message trong database
       const dbMessage = await this.fchatService.createMessage({
-        roomId: data.roomId, // This is the UUID
+        roomId: data.roomId,
         senderId: user.id,
         senderType: user.logged_in_as,
         content: data.content,
@@ -257,21 +248,21 @@ export class FchatGateway
         content: data.content,
         type: data.type,
         timestamp: new Date(),
-        roomId: data.roomId, // Return dbRoomId to client
+        roomId: data.roomId,
         messageId: dbMessage.id
       };
 
-      // Emit to all participants who are online
+      // Emit đến tất cả participant (bao gồm sender) một lần duy nhất
       const participants = dbRoom.participants.map(p => p.userId);
       for (const participantId of participants) {
         const participantSocket = this.userSockets.get(participantId);
         if (participantSocket) {
           participantSocket.emit('newMessage', message);
+          console.log(`Emitted newMessage to ${participantId}`);
+        } else {
+          console.log(`Participant ${participantId} is offline`);
         }
       }
-
-      // Emit to sender
-      client.emit('newMessage', message);
 
       return message;
     } catch (error) {
@@ -287,7 +278,7 @@ export class FchatGateway
     return chatIdRegex.test(chatId);
   }
 
-  @OnEvent('getChatHistory')
+  @OnEvent('chatHistory')
   handleGetChatHistoryEvent(data: { chatId: string; messages: any[] }) {
     console.log(`Chat history for ${data.chatId}:`, data.messages);
     return data.messages;
@@ -296,19 +287,57 @@ export class FchatGateway
   @SubscribeMessage('getChatHistory')
   async handleGetChatHistory(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { chatId: string }
+    @MessageBody() data: { roomId: string } // Đổi từ chatId sang roomId
   ) {
     try {
       const user = client.data.user;
-      console.log('check user', user);
-      const messages = await this.fchatService.getRoomMessages(data.chatId);
-      this.server.emit('getChatHistory', { chatId: data.chatId, messages });
-      return messages || [];
+      if (!user) {
+        throw new WsException('Unauthorized');
+      }
+
+      console.log(
+        'User requesting chat history:',
+        user.id,
+        'for room:',
+        data.roomId
+      );
+
+      // Kiểm tra xem phòng chat có tồn tại không
+      const dbRoom = await this.fchatService.getRoomById(data.roomId);
+      if (!dbRoom) {
+        console.error(`Chat room not found for roomId: ${data.roomId}`);
+        throw new WsException('Chat room not found');
+      }
+
+      // Kiểm tra xem user có phải là participant không
+      const isParticipant = dbRoom.participants.some(p => p.userId === user.id);
+      if (!isParticipant) {
+        console.error(
+          `User ${user.id} is not a participant in room ${data.roomId}`
+        );
+        throw new WsException('Unauthorized to access this chat history');
+      }
+
+      // Lấy lịch sử tin nhắn từ service
+      const messages = await this.fchatService.getRoomMessages(data.roomId);
+      if (!messages || messages.length === 0) {
+        console.log(`No messages found for room ${data.roomId}`);
+      } else {
+        console.log(
+          `Retrieved ${messages.length} messages for room ${data.roomId}`
+        );
+      }
+
+      // Gửi lịch sử tin nhắn về client yêu cầu
+      client.emit('chatHistory', { roomId: data.roomId, messages });
+
+      return { roomId: data.roomId, messages }; // Trả về để xác nhận
     } catch (error) {
       console.error('Error getting chat history:', error);
-      client.emit('error', { message: 'Failed to get chat history' });
-      this.server.emit('getChatHistory', { chatId: data.chatId, messages: [] });
-      return [];
+      client.emit('error', {
+        message: error.message || 'Failed to get chat history'
+      });
+      return { roomId: data.roomId, messages: [] };
     }
   }
 

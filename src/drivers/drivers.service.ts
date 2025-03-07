@@ -9,7 +9,7 @@ import { calculateDistance } from 'src/utils/distance';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { DriversRepository } from './drivers.repository';
 import { Order } from 'src/orders/entities/order.entity';
-import { HARDED_CODE_TEST } from 'src/utils/types/harded_code_test';
+import { HARDED_CODE_TEST } from 'src/utils/harded_code_test';
 import { OrdersRepository } from 'src/orders/orders.repository';
 
 @Injectable()
