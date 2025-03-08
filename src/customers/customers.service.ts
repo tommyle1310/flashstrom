@@ -4,13 +4,13 @@ import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { Customer } from './entities/customer.entity';
 import { createResponse, ApiResponse } from 'src/utils/createResponse';
 import { UserRepository } from '../users/users.repository';
-import { AddressBookRepository } from 'src/address_book/address_book.repository';
-import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
+// import { AddressBookRepository } from 'src/address_book/address_book.repository';
+// import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { CustomersRepository } from './customers.repository';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
-import { OrdersRepository } from 'src/orders/orders.repository';
+// import { OrdersRepository } from 'src/orders/orders.repository';
 import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 import { DataSource } from 'typeorm';
 import { Order } from 'src/orders/entities/order.entity';
@@ -250,8 +250,6 @@ export class CustomersService {
         return createResponse('NotFound', null, 'Customer not found');
       }
 
-      console.log('check customer', customer);
-
       const {
         preferred_category,
         restaurant_history,
@@ -351,7 +349,9 @@ export class CustomersService {
         relations: [
           'restaurant', // Populate restaurant
           'customer', // Populate customer (nếu cần)
-          'driver' // Populate driver (tuỳ chọn)
+          'driver', // Populate driver (tuỳ chọn)
+          'customerAddress', // Populate customer_location từ AddressBook
+          'restaurantAddress' // Populate restaurant_location từ AddressBook
         ],
         select: {
           id: true,
@@ -419,7 +419,9 @@ export class CustomersService {
 
           return {
             ...order,
-            order_items: populatedOrderItems // Thay order_items bằng dữ liệu đã populate
+            order_items: populatedOrderItems, // Thay order_items bằng dữ liệu đã populate
+            customer_address: order.customerAddress, // Thêm thông tin từ AddressBook
+            restaurant_address: order.restaurantAddress // Thêm thông tin từ AddressBook
           };
         })
       );

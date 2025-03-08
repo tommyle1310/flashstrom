@@ -305,7 +305,6 @@ export class AuthService {
       available_for_work: userWithRole.available_for_work,
       is_assigned: userWithRole.is_assigned
     };
-    console.log('check customer care payload', customerCarePayload);
 
     const accessToken = this.jwtService.sign(customerCarePayload);
     return createResponse(

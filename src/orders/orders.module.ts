@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
@@ -34,6 +34,8 @@ import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_
 import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
 import { CartItem } from 'src/cart_items/entities/cart_item.entity';
 import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
+import { DriversModule } from 'src/drivers/drivers.module'; // Đảm bảo import
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -44,13 +46,13 @@ import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
       Restaurant,
       Customer,
       FoodCategory,
-      Restaurant,
-      Driver,
+      Driver, // Cung cấp Repository<Driver>
       User,
       Promotion,
       DriverProgressStage,
       CartItem
-    ])
+    ]),
+    forwardRef(() => DriversModule) // Tham chiếu đến DriversModule
   ],
   controllers: [OrdersController],
   providers: [

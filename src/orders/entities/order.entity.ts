@@ -53,6 +53,9 @@ export class Order {
   @Column({ nullable: true })
   driver_id: string;
 
+  @Column({ nullable: true, type: 'decimal' })
+  distance: number;
+
   @ManyToOne(() => Driver, driver => driver.orders) // Ref tới Driver
   @JoinColumn({ name: 'driver_id' })
   driver: Driver;

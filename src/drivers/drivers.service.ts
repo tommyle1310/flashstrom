@@ -11,10 +11,14 @@ import { DriversRepository } from './drivers.repository';
 import { Order } from 'src/orders/entities/order.entity';
 import { HARDED_CODE_TEST } from 'src/utils/harded_code_test';
 import { OrdersRepository } from 'src/orders/orders.repository';
+import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
 export class DriversService {
   constructor(
+    @InjectRepository(Driver)
+    private driverRepository: Repository<Driver>,
     private readonly driversRepository: DriversRepository,
     private readonly ordersRepository: OrdersRepository,
     private readonly addressRepository: AddressBookRepository
@@ -179,57 +183,6 @@ export class DriversService {
     }
   }
 
-  async addOrderToDriver(
-    driverId: string,
-    orderId: string,
-    restaurantLocation: { lat: number; lng: number }
-  ): Promise<ApiResponse<Driver>> {
-    try {
-      const driver = await this.driversRepository.findById(driverId, {
-        relations: ['current_orders'] // Load quan hệ current_orders
-      });
-      if (!driver) {
-        return createResponse('NotFound', null, 'Driver not found');
-      }
-
-      // Check max 3 orders
-      if (driver.current_orders.length >= 3) {
-        return createResponse(
-          'DRIVER_MAXIMUM_ORDER',
-          null,
-          'Driver already has maximum orders'
-        );
-      }
-
-      // Lấy Order từ DB để thêm vào current_orders
-      const order = new Order();
-      order.id = orderId; // Giả sử chỉ cần ID, nếu cần thêm field thì query Order từ repo
-      const updatedOrders = [...driver.current_orders, order];
-
-      // Calculate active points
-      const points = this.calculateActivePoints(
-        driver.current_location?.lat || 10.826411,
-        driver.current_location?.lng || 106.617353,
-        restaurantLocation.lat || 0,
-        restaurantLocation.lng || 0
-      );
-
-      // Update driver
-      const updatedDriver = await this.driversRepository.update(driverId, {
-        current_orders: updatedOrders, // Dùng mảng Order[]
-        active_points: driver.active_points + points,
-        is_on_delivery: true,
-        created_at: driver.created_at,
-        updated_at: Math.floor(Date.now() / 1000),
-        last_login: driver.last_login
-      });
-
-      return createResponse('OK', updatedDriver, 'Driver updated successfully');
-    } catch (error) {
-      return this.handleError('Error updating driver:', error);
-    }
-  }
-
   async updateDriverDeliveryStatus(
     driverId: string,
     orderId: Order['id'],
@@ -295,6 +248,75 @@ export class DriversService {
       );
       driver.current_orders = orders.filter(order => order !== null); // Cập nhật danh sách orders
       await this.driversRepository.save(driver); // Lưu để cập nhật bảng join
+    }
+  }
+
+  async addOrderToDriver(
+    driverId: string,
+    orderId: string,
+    restaurantLocation: { lat: number; lng: number }
+  ): Promise<ApiResponse<Driver>> {
+    try {
+      console.log(
+        'Starting addOrderToDriver with driverId:',
+        driverId,
+        'orderId:',
+        orderId
+      );
+
+      // Sử dụng findById từ DriversRepository
+      const driver = await this.driversRepository.findById(driverId);
+      if (!driver) {
+        return createResponse('NotFound', null, 'Driver not found');
+      }
+      console.log('check fall ehre ', driver);
+
+      // Tải lại driver để cập nhật
+      const driverToSave = await this.driversRepository.findOneOrFail({
+        where: { id: driverId }
+      });
+      console.log('check is it here?', driverToSave);
+
+      // Calculate active points
+      const points = this.calculateActivePoints(
+        driver.current_location?.lat || 10.826411,
+        driver.current_location?.lng || 106.617353,
+        restaurantLocation.lat || 0,
+        restaurantLocation.lng || 0
+      );
+      console.log('check is it calculate active point', points);
+
+      // Calculate distance
+      const distance = calculateDistance(
+        driver.current_location?.lat || 10.826411,
+        driver.current_location?.lng || 106.617353,
+        restaurantLocation.lat || 0,
+        restaurantLocation.lng || 0
+      );
+      console.log('check distance', distance);
+      if (distance) {
+        await this.ordersRepository.update(orderId, { distance });
+        const updatedOrder = await this.ordersRepository.findOne({
+          id: orderId
+        }); // Format lại, bỏ where
+        console.log(
+          'order with new distance',
+          updatedOrder?.distance,
+          updatedOrder
+        );
+      }
+
+      // Cập nhật driver bằng save
+      driverToSave.active_points = driver.active_points + points;
+      driverToSave.is_on_delivery = true;
+      driverToSave.updated_at = Math.floor(Date.now() / 1000);
+
+      const savedDriver = await this.driversRepository.save(driverToSave);
+
+      return createResponse('OK', savedDriver, 'Driver updated successfully');
+    } catch (error) {
+      console.error('Error in addOrderToDriver:', error);
+      return this.handleError('Error updating driver:', error);
     }
   }
 

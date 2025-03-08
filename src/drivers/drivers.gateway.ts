@@ -27,6 +27,8 @@ import { DataSource, Not } from 'typeorm';
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
 import { Driver } from './entities/driver.entity';
 import { createResponse } from 'src/utils/createResponse';
+import { AddressBookRepository } from 'src/address_book/address_book.repository';
+import { DriversRepository } from './drivers.repository';
 // import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver-progress-stage.entity';
 
 // Add type for status
@@ -56,10 +58,12 @@ export class DriversGateway
     private readonly restaurantsService: RestaurantsService,
     @Inject(forwardRef(() => DriversService))
     private readonly driverService: DriversService,
+    private readonly driverRepository: DriversRepository,
     private eventEmitter: EventEmitter2,
     private readonly ordersService: OrdersService,
     private readonly driverProgressStageService: DriverProgressStagesService,
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
+    private readonly addressBookRepository: AddressBookRepository
   ) {}
 
   afterInit() {
@@ -223,8 +227,7 @@ export class DriversGateway
 
           // Lấy driver trong transaction
           const driver = await transactionalEntityManager.findOne(Driver, {
-            where: { id: driverId },
-            relations: ['current_orders']
+            where: { id: driverId }
           });
           if (!driver) {
             console.log('Driver not found:', driverId);
@@ -238,72 +241,42 @@ export class DriversGateway
             return createResponse('NotFound', null, 'Order not found');
           }
 
-          // Kiểm tra trực tiếp trong database
-          const orderExistsInDb = await transactionalEntityManager
-            .createQueryBuilder()
-            .select('*')
-            .from('driver_current_orders', 'dco')
-            .where('dco.driver_id = :driverId', { driverId })
-            .andWhere('dco.order_id = :orderId', { orderId })
-            .getRawOne();
-
-          if (!orderExistsInDb) {
-            // Chèn thủ công vào bảng join thay vì dùng save
-            console.log(
-              'Current orders before:',
-              driver.current_orders.map(o => o.id)
-            );
-            if (!orderExistsInDb) {
-              await transactionalEntityManager
-                .createQueryBuilder()
-                .insert()
-                .into('driver_current_orders')
-                .values({ driver_id: driverId, order_id: orderId })
-                .onConflict('DO NOTHING')
-                .execute();
-              if (!driver.current_orders.some(ord => ord.id === orderId)) {
-                driver.current_orders.push(order);
-              }
-              console.log(
-                'Current orders after:',
-                driver.current_orders.map(o => o.id)
-              );
-            }
-            await transactionalEntityManager
-              .createQueryBuilder()
-              .insert()
-              .into('driver_current_orders')
-              .values({ driver_id: driverId, order_id: orderId })
-              .onConflict('DO NOTHING') // Bỏ qua nếu đã tồn tại
-              .execute();
-            console.log(
-              `Added order ${orderId} to driver ${driverId}'s current_orders in database`
-            );
-
-            // Cập nhật driver.current_orders trong bộ nhớ (không cần save lại)
-            driver.current_orders = driver.current_orders || [];
-            if (!driver.current_orders.some(ord => ord.id === orderId)) {
-              driver.current_orders.push(order);
-            }
-          } else {
-            console.log(
-              `Order ${orderId} already exists in driver ${driverId}'s current_orders`
-            );
-          }
-
           const dps = await this.driverProgressStageService.create({
             driver_id: driverId,
             order_ids: [orderId],
             current_state: 'driver_ready'
           });
+
           await this.ordersService.update(orderId, {
             driver_id: driverId,
             status: OrderStatus.IN_PROGRESS
           });
-          await this.ordersService.updateOrderStatus(
+
+          const orderWithStatus = await this.ordersService.updateOrderStatus(
             orderId,
             OrderStatus.IN_PROGRESS
           );
+          console.log('check orderWithStatus', orderWithStatus);
+
+          const restaurantLocation = await this.addressBookRepository.findById(
+            orderWithStatus.data.restaurant_location
+          );
+          if (!restaurantLocation) {
+            throw new WsException('Restaurant location not found');
+          }
+          console.log(
+            'check paảẩm addorder to driver',
+            driverId,
+            orderId,
+            restaurantLocation
+          );
+
+          const orderWithDistance = await this.driverService.addOrderToDriver(
+            driverId,
+            orderId,
+            restaurantLocation.location as any
+          );
+          console.log('check orderWithDistance', orderWithDistance);
 
           return { success: true, dps: dps.data };
         }

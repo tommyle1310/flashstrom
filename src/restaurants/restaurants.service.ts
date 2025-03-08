@@ -17,6 +17,8 @@ import { RestaurantsRepository } from './restaurants.repository';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
 import { OrderStatus } from 'src/orders/entities/order.entity';
+import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
+import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 
 @Injectable()
 export class RestaurantsService {
@@ -28,7 +30,8 @@ export class RestaurantsService {
     private readonly ordersRepository: OrdersRepository,
     private readonly menuItemsService: MenuItemsService,
     private readonly menuItemVariantsService: MenuItemVariantsService,
-    private readonly restaurantsGateway: RestaurantsGateway
+    private readonly restaurantsGateway: RestaurantsGateway,
+    private readonly foodCategoryRepository: FoodCategoriesRepository
   ) {}
 
   async create(
@@ -44,13 +47,13 @@ export class RestaurantsService {
         opening_hours,
         owner_name,
         restaurant_name,
-        status
+        status,
+        images_gallery,
+        food_category_ids
       } = createRestaurantDto;
 
-      console.log('createRestaurantDto:', createRestaurantDto);
       if (
         !owner_id ||
-        !promotions ||
         !address_id ||
         !contact_email ||
         !contact_phone ||
@@ -62,14 +65,7 @@ export class RestaurantsService {
         return createResponse(
           'MissingInput',
           null,
-          'Missing required fields: contact_email, contact_phone, opening_hours, owner_name, restaurant_name, status'
-        );
-      }
-      if (!opening_hours) {
-        return createResponse(
-          'MissingInput',
-          null,
-          'Missing required field: opening_hours'
+          'Missing required fields: owner_id, address_id, contact_email, contact_phone, opening_hours, owner_name, restaurant_name, status'
         );
       }
 
@@ -91,7 +87,7 @@ export class RestaurantsService {
       }
 
       // Check if promotions exist using repository
-      if (promotions) {
+      if (promotions && promotions.length > 0) {
         const foundPromotions =
           await this.promotionRepository.findByIds(promotions);
         if (foundPromotions.length !== promotions.length) {
@@ -103,8 +99,42 @@ export class RestaurantsService {
         }
       }
 
-      const savedRestaurant =
-        await this.restaurantsRepository.create(createRestaurantDto);
+      // Check if food categories exist
+      let specializeIn: FoodCategory[] = [];
+      if (food_category_ids && food_category_ids.length > 0) {
+        const foundCategories =
+          await this.foodCategoryRepository.findByIds(food_category_ids);
+        if (foundCategories.length !== food_category_ids.length) {
+          return createResponse(
+            'NotFound',
+            null,
+            'One or more food categories not found'
+          );
+        }
+        specializeIn = foundCategories;
+      }
+
+      // Chuẩn bị restaurantDto, thêm specialize_in
+      const restaurantDto: Partial<CreateRestaurantDto> & {
+        specialize_in?: FoodCategory[];
+      } = {
+        owner_id,
+        promotions: promotions || [],
+        address_id,
+        contact_email,
+        contact_phone,
+        opening_hours,
+        owner_name,
+        restaurant_name,
+        status,
+        images_gallery: images_gallery || [],
+        specialize_in: specializeIn // Thêm specialize_in vào DTO
+      };
+
+      // Tạo restaurant
+      const savedRestaurant = await this.restaurantsRepository.create(
+        restaurantDto as CreateRestaurantDto
+      );
 
       return createResponse(
         'OK',
@@ -122,7 +152,13 @@ export class RestaurantsService {
     updateRestaurantDto: UpdateRestaurantDto
   ): Promise<ApiResponse<Restaurant>> {
     try {
-      const { owner_id, promotions, address_id } = updateRestaurantDto;
+      const {
+        owner_id,
+        promotions,
+        address_id,
+        images_gallery,
+        food_category_ids
+      } = updateRestaurantDto;
 
       // Check if restaurant exists
       const existingRestaurant = await this.restaurantsRepository.findById(id);
@@ -152,7 +188,7 @@ export class RestaurantsService {
       }
 
       // Check if promotions exist
-      if (promotions) {
+      if (promotions && promotions.length > 0) {
         const foundPromotions =
           await this.promotionRepository.findByIds(promotions);
         if (foundPromotions.length !== promotions.length) {
@@ -164,9 +200,37 @@ export class RestaurantsService {
         }
       }
 
+      // Check if food categories exist
+      let specializeIn: FoodCategory[] = [];
+      if (food_category_ids && food_category_ids.length > 0) {
+        const foundCategories =
+          await this.foodCategoryRepository.findByIds(food_category_ids);
+        if (foundCategories.length !== food_category_ids.length) {
+          return createResponse(
+            'NotFound',
+            null,
+            'One or more food categories not found'
+          );
+        }
+        specializeIn = foundCategories;
+      }
+
+      // Chuẩn bị updatedDto, thêm specialize_in
+      const updatedDto: Partial<UpdateRestaurantDto> & {
+        specialize_in?: FoodCategory[];
+      } = {
+        owner_id,
+        promotions: promotions || undefined,
+        address_id,
+        images_gallery: images_gallery || undefined,
+        specialize_in:
+          specializeIn.length > 0 ? (specializeIn as any) : undefined // Chỉ cập nhật nếu có giá trị
+      };
+
+      // Cập nhật restaurant
       const updatedRestaurant = await this.restaurantsRepository.update(
         id,
-        updateRestaurantDto
+        updatedDto as UpdateRestaurantDto & { specialize_in?: FoodCategory[] }
       );
 
       return createResponse(
@@ -179,7 +243,7 @@ export class RestaurantsService {
       return createResponse('ServerError', null, 'Error updating restaurant');
     }
   }
-
+  // Các phương thức khác giữ nguyên
   async updateEntityAvatar(
     uploadResult: { url: string; public_id: string },
     entityId: string
@@ -199,7 +263,6 @@ export class RestaurantsService {
     );
   }
 
-  // Menu Item Methods
   async createMenuItemForRestaurant(
     restaurantId: string,
     createMenuItemDto: CreateMenuItemDto
@@ -261,7 +324,6 @@ export class RestaurantsService {
     );
   }
 
-  // Menu Item Variant Methods
   async createMenuItemVariantForRestaurant(
     menuId: string,
     createMenuItemVariantDto: CreateMenuItemVariantDto
@@ -294,11 +356,6 @@ export class RestaurantsService {
 
   async updateOrderStatus(orderId: string, status: string): Promise<any> {
     try {
-      // Define tracking info based on status
-      // const tracking_info =
-      //   status === 'RESTAURANT_ACCEPTED' ? 'PREPARING' : status;
-
-      // Use the OrdersRepository updateStatus method
       const updatedOrder = await this.ordersRepository.updateStatus(
         orderId,
         status as OrderStatus
@@ -308,7 +365,6 @@ export class RestaurantsService {
         return createResponse('NotFound', null, 'Order not found');
       }
 
-      // Emit socket event if needed
       if (this.restaurantsGateway) {
         this.restaurantsGateway.emitOrderStatusUpdate(updatedOrder);
       }
