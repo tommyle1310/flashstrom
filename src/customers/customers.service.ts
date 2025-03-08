@@ -10,7 +10,10 @@ import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { CustomersRepository } from './customers.repository';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
-
+import { OrdersRepository } from 'src/orders/orders.repository';
+import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
+import { DataSource } from 'typeorm';
+import { Order } from 'src/orders/entities/order.entity';
 export interface AddressPopulate {
   id?: string;
   street?: string;
@@ -27,8 +30,7 @@ export class CustomersService {
   constructor(
     private readonly restaurantRepository: RestaurantsRepository,
     private readonly userRepository: UserRepository,
-    private readonly addressRepository: AddressBookRepository,
-    private readonly foodCategoriesRepository: FoodCategoriesRepository,
+    private readonly dataSource: DataSource,
     private readonly customerRepository: CustomersRepository
   ) {}
 
@@ -331,6 +333,109 @@ export class CustomersService {
         'ServerError',
         null,
         'An error occurred while fetching and prioritizing restaurants'
+      );
+    }
+  }
+  async getAllOrders(customerId: string): Promise<any> {
+    try {
+      // Fetch customer data để kiểm tra tồn tại
+      const customer = await this.customerRepository.findById(customerId);
+
+      if (!customer) {
+        return createResponse('NotFound', null, 'Customer not found');
+      }
+
+      // Fetch orders của customer với các quan hệ cần thiết bằng DataSource
+      const orders = await this.dataSource.getRepository(Order).find({
+        where: { customer_id: customerId }, // Lọc theo customerId
+        relations: [
+          'restaurant', // Populate restaurant
+          'customer', // Populate customer (nếu cần)
+          'driver' // Populate driver (tuỳ chọn)
+        ],
+        select: {
+          id: true,
+          customer_id: true,
+          restaurant_id: true,
+          driver_id: true,
+          status: true,
+          total_amount: true,
+          payment_status: true,
+          payment_method: true,
+          customer_location: true,
+          restaurant_location: true,
+          order_items: true, // Lấy order_items
+          customer_note: true,
+          restaurant_note: true,
+          order_time: true,
+          delivery_time: true,
+          tracking_info: true
+        }
+      });
+
+      if (!orders || orders.length === 0) {
+        return createResponse('OK', [], 'No orders found for this customer');
+      }
+
+      console.log('check orders', orders);
+
+      // Populate thông tin MenuItem cho từng order_items
+      const populatedOrders = await Promise.all(
+        orders.map(async order => {
+          const populatedOrderItems = await Promise.all(
+            order.order_items.map(async item => {
+              // Tìm MenuItem theo item_id
+              const menuItem = await this.dataSource
+                .getRepository(MenuItem)
+                .findOne({
+                  where: { id: item.item_id },
+                  relations: ['restaurant', 'variants'], // Populate restaurant và variants
+                  select: {
+                    id: true,
+                    name: true,
+                    price: true,
+                    avatar: {
+                      url: true,
+                      key: true
+                    },
+                    restaurant: {
+                      id: true,
+                      restaurant_name: true,
+                      address_id: true,
+                      avatar: {
+                        url: true,
+                        key: true
+                      }
+                    }
+                  }
+                });
+
+              return {
+                ...item,
+                menu_item: menuItem || null // Nếu không tìm thấy MenuItem, trả về null
+              };
+            })
+          );
+
+          return {
+            ...order,
+            order_items: populatedOrderItems // Thay order_items bằng dữ liệu đã populate
+          };
+        })
+      );
+
+      // Trả về danh sách orders đã được populate
+      return createResponse(
+        'OK',
+        populatedOrders,
+        'Fetched orders successfully'
+      );
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while fetching orders'
       );
     }
   }

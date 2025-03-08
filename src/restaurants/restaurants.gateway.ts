@@ -34,7 +34,7 @@ interface RestaurantAcceptData {
 @WebSocketGateway({
   namespace: 'restaurant',
   cors: {
-    origin: ['*', 'localhost:1310'],
+    origin: ['*', process.env.FULL_BACKEND_URL],
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -239,5 +239,31 @@ export class RestaurantsGateway
     } catch (error) {
       console.error('❌ Error emitting order status update:', error);
     }
+  }
+
+  @OnEvent('orderTrackingUpdate')
+  async handleOrderTrackingUpdate(@MessageBody() order: any) {
+    // Return the response that will be visible in Postman
+    return {
+      event: 'orderTrackingUpdate',
+      data: order,
+      message: `orderTrackingUpdate: ${order}`
+    };
+  }
+  @OnEvent('listenUpdateOrderTracking')
+  async handleListenUpdateOrderTracking(@MessageBody() order: any) {
+    await this.server
+      .to(`restaurant_${order.restaurant_id}`)
+      .emit('orderTrackingUpdate', {
+        event: 'orderTrackingUpdate',
+        data: order,
+        message: 'Order received successfully'
+      });
+    // Return the response that will be visible in Postman
+    return {
+      event: 'listenUpdateOrderTracking',
+      data: order,
+      message: `listenUpdateOrderTracking ${order}`
+    };
   }
 }

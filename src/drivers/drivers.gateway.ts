@@ -35,7 +35,7 @@ import { createResponse } from 'src/utils/createResponse';
 @WebSocketGateway({
   namespace: 'driver',
   cors: {
-    origin: ['*', 'localhost:1310'],
+    origin: ['*', process.env.FULL_BACKEND_URL],
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -46,7 +46,6 @@ export class DriversGateway
 {
   @WebSocketServer()
   server: Server;
-
   private driverSockets: Map<string, Set<string>> = new Map();
   private processingOrders: Map<string, boolean> = new Map();
   private notificationLock = new Map<string, boolean>();
@@ -451,7 +450,7 @@ export class DriversGateway
               updatedOrder = await this.ordersService.findOne(orderId);
             }
           }
-
+          console.log('check updatedOrder', updatedOrder.data, updatedOrder);
           // Emit sự kiện cho tất cả các bên liên quan
           if (updatedOrder?.data) {
             await this.notifyPartiesOnce(updatedOrder.data);
@@ -481,49 +480,50 @@ export class DriversGateway
 
     try {
       this.notificationLock.set(notifyKey, true);
-      console.log(
-        'check resroom ',
-        order.restaurant_id,
-        'check driver room',
-        order.driver_id,
-        'check customer room',
-        order.customer_id,
-        'and ordereded',
-        order
-      );
-      const restaurantRoom = `restaurant_${order.restaurant_id}`;
-      const customerRoom = `customer_${order.customer_id}`;
-      const driverRoom = `driver_${order.driver_id}`;
 
       const trackingUpdate = {
         orderId: order.id,
         status: order.status,
         tracking_info: order.tracking_info,
-        updated_at: order.updated_at
+        updated_at: order.updated_at,
+        customer_id: order.customer_id,
+        driver_id: order.driver_id,
+        restaurant_id: order.restaurant_id
       };
-      console.log('check tracking update', trackingUpdate);
 
-      // Emit sự kiện hiện tại (orderStatusUpdated)
-      await Promise.all([
-        this.server.to(restaurantRoom).emit('orderStatusUpdated', order),
-        this.server.to(customerRoom).emit('orderStatusUpdated', order),
-        this.server.to(driverRoom).emit('orderStatusUpdated', order)
-      ]);
-
-      // Emit sự kiện mới (listenUpdateOrderTracking)
-      await Promise.all([
-        this.server
-          .to(restaurantRoom)
-          .emit('listenUpdateOrderTracking', trackingUpdate),
-        this.server
-          .to(customerRoom)
-          .emit('listenUpdateOrderTracking', trackingUpdate),
-        this.server
-          .to(driverRoom)
-          .emit('listenUpdateOrderTracking', trackingUpdate)
-      ]);
+      // Chỉ giữ lại emit qua EventEmitter (vì đây là phần hoạt động)
+      this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
+      console.log(
+        `Emitted listenUpdateOrderTracking via EventEmitter for order ${order.id}`
+      );
     } finally {
       this.notificationLock.delete(notifyKey);
     }
+  }
+
+  @OnEvent('orderTrackingUpdate')
+  async handleOrderTrackingUpdate(@MessageBody() order: any) {
+    // Return the response that will be visible in Postman
+    return {
+      event: 'orderTrackingUpdate',
+      data: order,
+      message: `orderTrackingUpdate: ${order}`
+    };
+  }
+  @OnEvent('listenUpdateOrderTracking')
+  async handleListenUpdateOrderTracking(@MessageBody() order: any) {
+    await this.server
+      .to(`driver_${order.driver_id}`)
+      .emit('orderTrackingUpdate', {
+        event: 'orderTrackingUpdate',
+        data: order,
+        message: 'Order received successfully'
+      });
+    // Return the response that will be visible in Postman
+    return {
+      event: 'listenUpdateOrderTracking',
+      data: order,
+      message: `listenUpdateOrderTracking ${order}`
+    };
   }
 }

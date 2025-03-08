@@ -40,6 +40,7 @@ export class OrdersService {
         return validationResult;
       }
       console.log('check input', createOrderDto);
+
       // Tạo transaction để đảm bảo đồng bộ giữa Order và CartItem
       const result = await this.dataSource.transaction(
         async transactionalEntityManager => {
@@ -51,28 +52,30 @@ export class OrdersService {
             });
 
           // Kiểm tra và xử lý từng order_item dựa trên CartItem
+          let hasCartItems = false; // Biến để kiểm tra xem có xử lý CartItem hay không
           for (const orderItem of createOrderDto.order_items) {
             const cartItem = cartItems.find(
               ci => ci.item_id === orderItem.item_id
             );
+
             if (!cartItem) {
-              return createResponse(
-                'NotFound',
-                null,
-                `Cart item with item_id ${orderItem.item_id} not found for customer ${createOrderDto.customer_id}`
+              console.log(
+                `Cart item with item_id ${orderItem.item_id} not found for customer ${createOrderDto.customer_id}. Proceeding without modifying cart.`
               );
+              continue; // Bỏ qua xử lý CartItem và tiếp tục tạo order
             }
+
+            hasCartItems = true; // Đánh dấu rằng có CartItem được xử lý
 
             // Tìm variant tương ứng trong CartItem
             const cartVariant = cartItem.variants.find(
               v => v.variant_id === orderItem.variant_id
             );
             if (!cartVariant) {
-              return createResponse(
-                'NotFound',
-                null,
-                `Variant ${orderItem.variant_id} not found in cart item ${cartItem.id}`
+              console.log(
+                `Variant ${orderItem.variant_id} not found in cart item ${cartItem.id}. Proceeding without modifying cart.`
               );
+              continue; // Bỏ qua xử lý variant và tiếp tục
             }
 
             const orderQuantity = orderItem.quantity;
@@ -120,7 +123,7 @@ export class OrdersService {
             }
           }
 
-          // Tạo Order sau khi xử lý CartItem
+          // Tạo Order sau khi xử lý CartItem (hoặc không nếu không có CartItem)
           const newOrder = await transactionalEntityManager
             .getRepository(Order)
             .save(transactionalEntityManager.create(Order, createOrderDto));

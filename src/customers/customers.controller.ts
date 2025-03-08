@@ -44,6 +44,11 @@ export class CustomersController {
     return this.customersService.getAllRestaurants(id);
   }
 
+  @Get('/orders/:id')
+  getAllOrders(@Param('id') id: string) {
+    return this.customersService.getAllOrders(id);
+  }
+
   @Get('/cart-items/:customerId')
   findAllCartItemByCustomerId(@Param('customerId') customerId: string) {
     return this.cartItemService.findAll({ customer_id: customerId });
