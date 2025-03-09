@@ -13,9 +13,11 @@ import { CustomersRepository } from 'src/customers/customers.repository';
 import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
 import { MenuItemVariantsRepository } from 'src/menu_item_variants/menu_item_variants.repository';
 import { OrderStatus, OrderTrackingInfo } from './entities/order.entity';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
 import { CartItem } from 'src/cart_items/entities/cart_item.entity';
+import { CustomersGateway } from 'src/customers/customers.gateway';
+
 @Injectable()
 export class OrdersService {
   constructor(
@@ -27,7 +29,8 @@ export class OrdersService {
     private readonly restaurantRepository: RestaurantsRepository,
     private readonly restaurantsGateway: RestaurantsGateway,
     private readonly dataSource: DataSource,
-    private readonly cartItemsRepository: CartItemsRepository
+    private readonly cartItemsRepository: CartItemsRepository,
+    private readonly customersGateway: CustomersGateway
   ) {}
 
   async createOrder(
@@ -51,8 +54,6 @@ export class OrdersService {
               where: { customer_id: createOrderDto.customer_id }
             });
 
-          // Kiểm tra và xử lý từng order_item dựa trên CartItem
-          let hasCartItems = false; // Biến để kiểm tra xem có xử lý CartItem hay không
           for (const orderItem of createOrderDto.order_items) {
             const cartItem = cartItems.find(
               ci => ci.item_id === orderItem.item_id
@@ -62,12 +63,9 @@ export class OrdersService {
               console.log(
                 `Cart item with item_id ${orderItem.item_id} not found for customer ${createOrderDto.customer_id}. Proceeding without modifying cart.`
               );
-              continue; // Bỏ qua xử lý CartItem và tiếp tục tạo order
+              continue;
             }
 
-            hasCartItems = true; // Đánh dấu rằng có CartItem được xử lý
-
-            // Tìm variant tương ứng trong CartItem
             const cartVariant = cartItem.variants.find(
               v => v.variant_id === orderItem.variant_id
             );
@@ -75,13 +73,12 @@ export class OrdersService {
               console.log(
                 `Variant ${orderItem.variant_id} not found in cart item ${cartItem.id}. Proceeding without modifying cart.`
               );
-              continue; // Bỏ qua xử lý variant và tiếp tục
+              continue;
             }
 
             const orderQuantity = orderItem.quantity;
             const cartQuantity = cartVariant.quantity;
 
-            // Kiểm tra quantity
             if (orderQuantity > cartQuantity) {
               return createResponse(
                 'NotAcceptingOrders',
@@ -90,9 +87,7 @@ export class OrdersService {
               );
             }
 
-            // Xử lý CartItem dựa trên quantity
             if (orderQuantity === cartQuantity) {
-              // Xóa CartItem nếu quantity bằng nhau
               await transactionalEntityManager
                 .getRepository(CartItem)
                 .delete(cartItem.id);
@@ -100,7 +95,6 @@ export class OrdersService {
                 `Deleted cart item ${cartItem.id} as order quantity matches cart quantity`
               );
             } else if (orderQuantity < cartQuantity) {
-              // Cập nhật CartItem nếu quantity nhỏ hơn
               const updatedVariants = cartItem.variants.map(v => {
                 if (v.variant_id === orderItem.variant_id) {
                   return { ...v, quantity: v.quantity - orderQuantity };
@@ -123,15 +117,12 @@ export class OrdersService {
             }
           }
 
-          // Tạo Order sau khi xử lý CartItem (hoặc không nếu không có CartItem)
           const newOrder = await transactionalEntityManager
             .getRepository(Order)
             .save(transactionalEntityManager.create(Order, createOrderDto));
 
-          // Cập nhật purchase count cho menu items
           await this.updateMenuItemPurchaseCount(createOrderDto.order_items);
 
-          // Thông báo cho restaurant và driver
           const orderResponse = await this.notifyRestaurantAndDriver(newOrder);
 
           return orderResponse;
@@ -147,22 +138,62 @@ export class OrdersService {
 
   async update(
     id: string,
-    updateOrderDto: UpdateOrderDto
+    updateOrderDto: UpdateOrderDto,
+    transactionalEntityManager?: EntityManager
   ): Promise<ApiResponse<Order>> {
     try {
-      const order = await this.ordersRepository.findById(id);
+      const manager = transactionalEntityManager || this.dataSource.manager;
+      const order = await manager.findOne(Order, { where: { id } });
       if (!order) {
         return createResponse('NotFound', null, 'Order not found');
       }
 
-      const updatedOrder = await this.ordersRepository.update(
-        id,
-        updateOrderDto
-      );
-
+      const updatedOrder = await manager.save(Order, {
+        ...order,
+        ...updateOrderDto
+      });
       return createResponse('OK', updatedOrder, 'Order updated successfully');
     } catch (error) {
       return this.handleError('Error updating order:', error);
+    }
+  }
+
+  async updateOrderStatus(
+    orderId: string,
+    status: OrderStatus,
+    transactionalEntityManager?: EntityManager
+  ): Promise<ApiResponse<Order>> {
+    try {
+      const manager = transactionalEntityManager || this.dataSource.manager;
+      const order = await manager.findOne(Order, { where: { id: orderId } });
+      if (!order) {
+        return createResponse('NotFound', null, 'Order not found');
+      }
+
+      order.status = status;
+      const updatedOrder = await manager.save(Order, order);
+
+      const trackingInfoMap = {
+        [OrderStatus.RESTAURANT_ACCEPTED]: OrderTrackingInfo.PREPARING,
+        [OrderStatus.IN_PROGRESS]: OrderTrackingInfo.OUT_FOR_DELIVERY,
+        [OrderStatus.DELIVERED]: OrderTrackingInfo.DELIVERED
+      };
+      const trackingInfo = trackingInfoMap[status];
+      if (trackingInfo) {
+        order.tracking_info = trackingInfo;
+        await manager.save(Order, order);
+      } else {
+        console.warn(`No tracking info mapped for status: ${status}`);
+      }
+
+      return createResponse(
+        'OK',
+        updatedOrder,
+        'Order status updated successfully'
+      );
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      return createResponse('ServerError', null, 'Error updating order status');
     }
   }
 
@@ -177,9 +208,7 @@ export class OrdersService {
 
   async findOne(id: string): Promise<ApiResponse<Order>> {
     try {
-      // console.log('check id', id);
       const order = await this.ordersRepository.findById(id);
-      // console.log('check order', this.handleOrderResponse(order));
       return this.handleOrderResponse(order);
     } catch (error) {
       return this.handleError('Error fetching order:', error);
@@ -195,46 +224,6 @@ export class OrdersService {
       return createResponse('OK', null, 'Order deleted successfully');
     } catch (error) {
       return this.handleError('Error deleting order:', error);
-    }
-  }
-
-  async updateOrderStatus(
-    orderId: string,
-    status: OrderStatus
-  ): Promise<ApiResponse<Order>> {
-    try {
-      const order = await this.ordersRepository.findById(orderId);
-      if (!order) {
-        return createResponse('NotFound', null, 'Order not found');
-      }
-
-      // Cập nhật status
-      const updatedOrder = await this.ordersRepository.updateStatus(
-        orderId,
-        status
-      );
-
-      // Cập nhật tracking_info dựa trên status
-      const trackingInfoMap = {
-        [OrderStatus.RESTAURANT_ACCEPTED]: OrderTrackingInfo.PREPARING,
-        [OrderStatus.IN_PROGRESS]: OrderTrackingInfo.OUT_FOR_DELIVERY,
-        [OrderStatus.DELIVERED]: OrderTrackingInfo.DELIVERED
-      };
-      const trackingInfo = trackingInfoMap[status];
-      if (trackingInfo) {
-        await this.ordersRepository.updateTrackingInfo(orderId, trackingInfo);
-      } else {
-        console.warn(`No tracking info mapped for status: ${status}`);
-      }
-
-      return createResponse(
-        'OK',
-        updatedOrder,
-        'Order status updated successfully'
-      );
-    } catch (error) {
-      console.error('Error updating order status:', error);
-      return createResponse('ServerError', null, 'Error updating order status');
     }
   }
 
@@ -260,7 +249,6 @@ export class OrdersService {
     }
 
     const restaurant = await this.restaurantRepository.findById(restaurant_id);
-    console.log('restaurant', restaurant);
     if (!restaurant) {
       return createResponse('NotFound', null, 'Restaurant not found');
     }
@@ -341,6 +329,7 @@ export class OrdersService {
     };
 
     await this.restaurantsGateway.handleNewOrder(orderWithDriverWage);
+    await this.customersGateway.handleCustomerPlaceOrder(orderWithDriverWage);
 
     return orderWithDriverWage;
   }

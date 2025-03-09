@@ -261,7 +261,6 @@ export class CustomersService {
 
       // Fetch all restaurants
       const restaurants = await this.restaurantRepository.findAll();
-      console.log('check restaurants', restaurants);
 
       // Prioritize restaurants based on the preferred categories, restaurant history, and distance
       const prioritizedRestaurants = restaurants
@@ -401,13 +400,10 @@ export class CustomersService {
         .groupBy('rs.restaurant_id')
         .getRawMany();
 
-      console.log('Fetched specializations:', specializations); // Debug để kiểm tra dữ liệu
-
       // Map specializations vào orders
       const specializationMap = new Map(
         specializations.map(spec => [spec.restaurant_id, spec.specializations])
       );
-      console.log('Specialization map:', Object.fromEntries(specializationMap)); // Debug map
 
       // Populate thông tin MenuItem và specializations cho từng order
       const populatedOrders = await Promise.all(
@@ -463,8 +459,6 @@ export class CustomersService {
           };
         })
       );
-
-      console.log('check populated orders:', populatedOrders);
 
       // Trả về danh sách orders đã được populate
       return createResponse(

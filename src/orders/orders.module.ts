@@ -35,6 +35,8 @@ import { DriverProgressStagesRepository } from 'src/driver_progress_stages/drive
 import { CartItem } from 'src/cart_items/entities/cart_item.entity';
 import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
 import { DriversModule } from 'src/drivers/drivers.module'; // Đảm bảo import
+import { CustomersGateway } from 'src/customers/customers.gateway';
+import { CustomersService } from 'src/customers/customers.service';
 
 @Module({
   imports: [
@@ -70,13 +72,15 @@ import { DriversModule } from 'src/drivers/drivers.module'; // Đảm bảo impo
     DriversService,
     DriversGateway,
     UserRepository,
+    CustomersService,
     DriversRepository,
     PromotionsRepository,
     MenuItemsService,
     DriverProgressStagesService,
     MenuItemVariantsService,
     DriverProgressStagesRepository,
-    CartItemsRepository
+    CartItemsRepository,
+    CustomersGateway
   ],
   exports: [OrdersService]
 })

@@ -45,6 +45,7 @@ export class RestaurantsGateway
 {
   @WebSocketServer()
   server: Server;
+  private notificationLock = new Map<string, boolean>();
 
   constructor(
     @Inject(forwardRef(() => RestaurantsService))
@@ -180,6 +181,8 @@ export class RestaurantsGateway
           distance: distance
         };
 
+        await this.notifyPartiesOnce(orderAssignment);
+
         // Emit only once
         await this.eventEmitter.emit('order.assignedToDriver', orderAssignment);
 
@@ -265,5 +268,33 @@ export class RestaurantsGateway
       data: order,
       message: `listenUpdateOrderTracking ${order}`
     };
+  }
+
+  private async notifyPartiesOnce(order: any) {
+    const notifyKey = `notify_${order.id}`;
+
+    if (this.notificationLock.get(notifyKey)) {
+      return;
+    }
+
+    try {
+      this.notificationLock.set(notifyKey, true);
+      const trackingUpdate = {
+        orderId: order.id,
+        status: order.status,
+        tracking_info: order.tracking_info,
+        updated_at: order.updated_at,
+        customer_id: order.customer_id,
+        driver_id: order.driver_id,
+        restaurant_id: order.restaurant_id
+      };
+
+      this.eventEmitter.emit('restaurantPreparingOrder', trackingUpdate);
+      console.log(
+        `Emitted restaurantPreparingOrder via EventEmitter for order ${order.id}`
+      );
+    } finally {
+      this.notificationLock.delete(notifyKey);
+    }
   }
 }
