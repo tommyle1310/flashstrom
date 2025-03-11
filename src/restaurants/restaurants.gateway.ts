@@ -15,7 +15,7 @@ import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { forwardRef, Inject } from '@nestjs/common';
 import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
 import { Type_Delivery_Order } from 'src/types/Driver';
-import { calculateDistance } from 'src/utils/distance';
+import { calculateDistance } from 'src/utils/commonFunctions';
 import { OrderStatus } from 'src/orders/entities/order.entity';
 import { OrderTrackingInfo } from 'src/orders/entities/order.entity';
 import { WsResponse } from '@nestjs/websockets';
