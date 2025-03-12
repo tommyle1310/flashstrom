@@ -60,5 +60,3 @@ function generatePrefixEmail() {
     last_name: randomString[1]
   }; // Ví dụ: "happy-tiger"
 }
-
-console.log(generateRandomEmail());

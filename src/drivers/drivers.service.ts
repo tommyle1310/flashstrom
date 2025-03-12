@@ -11,7 +11,7 @@ import { DriversRepository } from './drivers.repository';
 import { Order } from 'src/orders/entities/order.entity';
 import { HARDED_CODE_TEST } from 'src/utils/harded_code_test';
 import { OrdersRepository } from 'src/orders/orders.repository';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
@@ -19,6 +19,8 @@ export class DriversService {
   constructor(
     @InjectRepository(Driver)
     private readonly driversRepository: DriversRepository,
+    @InjectRepository(Driver)
+    private driverEntityRepository: Repository<Driver>,
     private readonly ordersRepository: OrdersRepository,
     private readonly addressRepository: AddressBookRepository,
     private readonly dataSource: DataSource
@@ -150,7 +152,7 @@ export class DriversService {
 
   async prioritizeAndAssignDriver(
     listAvailableDrivers: Array<{
-      _id: string;
+      id: string;
       location: { lng: number; lat: number };
       active_points?: number;
       current_order_id?: string[];
@@ -173,11 +175,38 @@ export class DriversService {
         );
       }
 
+      // Tìm driver ưu tiên từ danh sách
       const specificDriver = listAvailableDrivers.find(
-        driver => driver._id === HARDED_CODE_TEST.prioritised_drivers[0]
+        driver => driver.id === HARDED_CODE_TEST.prioritised_drivers[0]
       );
-      const result = specificDriver ? [specificDriver] : [];
-      return createResponse('OK', result, 'Driver selected successfully');
+      if (!specificDriver) {
+        return createResponse(
+          'NotFound',
+          [],
+          'Prioritized driver not found in available list'
+        );
+      }
+
+      // Lấy driver từ repository, bao gồm quan hệ current_orders
+      const driver = await this.driverEntityRepository.findOne({
+        where: { id: specificDriver.id },
+        relations: ['current_orders'] // Populate quan hệ current_orders
+      });
+      if (!driver) {
+        return createResponse('NotFound', null, 'Driver not found in database');
+      }
+      if (driver.current_orders.length > 3) {
+        return createResponse(
+          'DRIVER_MAXIMUM_ORDER',
+          null,
+          'Driver has too many current orders'
+        );
+      }
+      console.log('check drivererast', driver);
+
+      // Trả về driver (bao gồm current_orders)
+      const driverResult = driver ? [driver] : [];
+      return createResponse('OK', driverResult, 'Driver selected successfully');
     } catch (error) {
       return this.handleError('Error prioritizing drivers:', error);
     }
