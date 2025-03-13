@@ -91,6 +91,7 @@ export class DriverProgressStagesService {
     transactionalEntityManager: EntityManager
   ): Promise<ApiResponse<DriverProgressStage>> {
     try {
+      console.log('🔍 Fetching DPS with id:', dpsId);
       const dps = await transactionalEntityManager
         .getRepository(DriverProgressStage)
         .findOne({
@@ -98,20 +99,28 @@ export class DriverProgressStagesService {
           relations: ['orders']
         });
       if (!dps) {
+        console.log('❌ DPS not found:', dpsId);
         throw new Error('DPS not found');
       }
+      console.log('✅ DPS found:', dps.id, 'with orders:', dps.orders?.length);
 
       dps.orders = dps.orders || [];
       if (!dps.orders.some(o => o.id === order.id)) {
         dps.orders.push(order);
+        console.log('✅ Added new order to DPS:', order.id);
+      } else {
+        console.log('⚠️ Order already exists in DPS:', order.id);
       }
 
+      // Tạo stages mới, tất cả đều pending
       const newStages = this.generateStagesForOrders(
         [order],
-        dps.orders.length
+        dps.orders.length,
+        false
       );
       dps.stages = [...dps.stages, ...newStages];
       dps.updated_at = Math.floor(Date.now() / 1000);
+      console.log('📋 New stages added:', JSON.stringify(newStages, null, 2));
 
       const updatedDPS = await transactionalEntityManager.save(
         DriverProgressStage,
@@ -142,6 +151,10 @@ export class DriverProgressStagesService {
         console.log(
           `Saved order relation for DPS: ${updatedDPS.id}, order: ${order.id}`
         );
+      } else {
+        console.log(
+          `Relation already exists for DPS: ${updatedDPS.id}, order: ${order.id}`
+        );
       }
 
       return createResponse('OK', updatedDPS, 'Order added to existing DPS');
@@ -151,7 +164,11 @@ export class DriverProgressStagesService {
     }
   }
 
-  private generateStagesForOrders(orders: Order[], startIndex = 1): StageDto[] {
+  private generateStagesForOrders(
+    orders: Order[],
+    startIndex = 1,
+    setFirstInProgress: boolean = true // Thêm tham số để kiểm soát
+  ): StageDto[] {
     const baseStates = [
       'driver_ready',
       'waiting_for_pickup',
@@ -164,9 +181,13 @@ export class DriverProgressStagesService {
     orders.forEach((order, index) => {
       const orderIndex = startIndex + index;
       baseStates.forEach((state, stateIndex) => {
+        const isFirstStageOfFirstOrder = stateIndex === 0 && index === 0;
         stages.push({
           state: `${state}_order_${orderIndex}`,
-          status: stateIndex === 0 && index === 0 ? 'in_progress' : 'pending',
+          status:
+            isFirstStageOfFirstOrder && setFirstInProgress
+              ? 'in_progress'
+              : 'pending',
           timestamp: Math.floor(Date.now() / 1000),
           duration: 0,
           details: null
@@ -175,7 +196,6 @@ export class DriverProgressStagesService {
     });
     return stages;
   }
-
   async updateStage(
     stageId: string,
     updateData: UpdateDriverProgressStageDto,
