@@ -165,13 +165,18 @@ export class OrdersService {
   ): Promise<ApiResponse<Order>> {
     try {
       const manager = transactionalEntityManager || this.dataSource.manager;
+      console.log('🔍 Finding order:', orderId);
       const order = await manager.findOne(Order, { where: { id: orderId } });
+      console.log('📋 Found order:', order);
       if (!order) {
+        console.log('❌ Order not found:', orderId);
         return createResponse('NotFound', null, 'Order not found');
       }
 
       order.status = status;
+      console.log('➡️ Updating order status to:', status);
       const updatedOrder = await manager.save(Order, order);
+      console.log('✅ Updated order:', updatedOrder);
 
       const trackingInfoMap = {
         [OrderStatus.RESTAURANT_ACCEPTED]: OrderTrackingInfo.PREPARING,
@@ -183,6 +188,7 @@ export class OrdersService {
       if (trackingInfo) {
         order.tracking_info = trackingInfo;
         await manager.save(Order, order);
+        console.log('✅ Updated tracking_info:', trackingInfo);
       } else {
         console.warn(`No tracking info mapped for status: ${status}`);
       }

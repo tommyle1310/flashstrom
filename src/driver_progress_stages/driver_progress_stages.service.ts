@@ -196,9 +196,13 @@ export class DriverProgressStagesService {
     });
     return stages;
   }
+
   async updateStage(
     stageId: string,
-    updateData: UpdateDriverProgressStageDto,
+    updateData: UpdateDriverProgressStageDto & {
+      previous_state?: string | null;
+      next_state?: string | null;
+    },
     transactionalEntityManager?: EntityManager
   ): Promise<ApiResponse<DriverProgressStage>> {
     try {
@@ -218,6 +222,9 @@ export class DriverProgressStagesService {
         .save({
           ...existingStage,
           current_state: updateData.current_state,
+          previous_state:
+            updateData.previous_state ?? existingStage.previous_state,
+          next_state: updateData.next_state ?? existingStage.next_state,
           stages: updateData.stages,
           updated_at: Math.floor(Date.now() / 1000)
         });
