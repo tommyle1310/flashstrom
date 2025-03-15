@@ -22,7 +22,7 @@ import {
   OrderTrackingInfo
   // OrderTrackingInfo
 } from 'src/orders/entities/order.entity';
-import { DataSource, Not } from 'typeorm'; // Loại bỏ import IsolationLevel
+import { DataSource, Like, Not } from 'typeorm'; // Loại bỏ import IsolationLevel
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
 import { Driver } from './entities/driver.entity';
 // import { createResponse } from 'src/utils/createResponse';
@@ -182,7 +182,6 @@ export class DriversGateway
     }
   }
 
-  // drivers.gateway.ts (chỉ show đoạn handleDriverAcceptOrder)
   @SubscribeMessage('driverAcceptOrder')
   async handleDriverAcceptOrder(
     @MessageBody() data: { driverId: string; orderId: string }
@@ -211,10 +210,23 @@ export class DriversGateway
           if (!order) {
             throw new WsException('Order not found');
           }
-          console.log(`Order locked: ${order.id}`);
+          console.log(
+            `Order locked: ${order.id}, Current driver_id: ${order.driver_id}`
+          );
 
-          if (order.driver_id) {
-            throw new WsException('Order is already assigned to a driver');
+          if (order.driver_id && order.driver_id !== driverId) {
+            throw new WsException(
+              `Order is already assigned to driver ${order.driver_id}`
+            );
+          } else if (order.driver_id === driverId) {
+            console.log(
+              `Driver ${driverId} is re-accepting their own order ${orderId}`
+            );
+            return {
+              success: true,
+              message: 'Order already assigned to this driver',
+              order
+            };
           }
 
           const existingOrderDPS = await transactionalEntityManager
@@ -246,19 +258,21 @@ export class DriversGateway
             );
           }
 
+          // Fix ở đây: Kiểm tra DPS chưa hoàn thành bằng Like
           const existingDPS = await transactionalEntityManager
             .getRepository(DriverProgressStage)
             .findOne({
               where: {
                 driver_id: driverId,
-                current_state: Not('delivery_complete')
+                current_state: Not(Like('delivery_complete_%'))
               },
               relations: ['orders']
             });
+          console.log(`Existing DPS: ${existingDPS ? existingDPS.id : 'none'}`);
 
-          let dps;
+          let dps: DriverProgressStage;
           if (!existingDPS) {
-            dps = await this.driverProgressStageService.create(
+            const dpsResponse = await this.driverProgressStageService.create(
               {
                 driver_id: driverId,
                 orders: [order],
@@ -266,19 +280,57 @@ export class DriversGateway
               },
               transactionalEntityManager
             );
-            console.log(`New DPS created: ${dps.data.id}`);
-          } else {
-            dps = await this.driverProgressStageService.addOrderToExistingDPS(
-              existingDPS.id,
-              order,
-              transactionalEntityManager
+            console.log(`DPS Response: ${JSON.stringify(dpsResponse)}`);
+            if (dpsResponse.EC !== 0 || !dpsResponse.data) {
+              throw new WsException(
+                `Failed to create new DPS: ${dpsResponse.EM || 'Unknown error'}`
+              );
+            }
+            dps = dpsResponse.data;
+            console.log(
+              `New DPS created: ${dps.id}, Orders: ${JSON.stringify(dps.orders)}`
             );
-            console.log(`Order added to existing DPS: ${dps.data.id}`);
+          } else {
+            const dpsResponse =
+              await this.driverProgressStageService.addOrderToExistingDPS(
+                existingDPS.id,
+                order,
+                transactionalEntityManager
+              );
+            console.log(`DPS Response: ${JSON.stringify(dpsResponse)}`);
+            if (dpsResponse.EC !== 0 || !dpsResponse.data) {
+              throw new WsException(
+                `Failed to add order to existing DPS: ${dpsResponse.EM || 'Unknown error'}`
+              );
+            }
+            dps = dpsResponse.data;
+            console.log(
+              `Order added to existing DPS: ${dps.id}, Orders: ${JSON.stringify(dps.orders)}`
+            );
           }
 
+          const reloadedDps = await transactionalEntityManager
+            .getRepository(DriverProgressStage)
+            .findOne({
+              where: { id: dps.id },
+              relations: ['orders']
+            });
+          if (
+            !reloadedDps ||
+            !reloadedDps.orders ||
+            reloadedDps.orders.length === 0
+          ) {
+            console.error(`DPS ${dps.id} is empty or has no orders!`);
+            throw new WsException('DPS created but orders are empty');
+          }
+          dps = reloadedDps;
+          console.log(
+            `Reloaded DPS: ${dps.id}, Orders: ${JSON.stringify(dps.orders)}`
+          );
+
           order.driver_id = driverId;
-          order.status = OrderStatus.DISPATCHED; // Thay IN_PROGRESS bằng DISPATCHED
-          order.tracking_info = OrderTrackingInfo.DISPATCHED; // Thêm tracking_info
+          order.status = OrderStatus.DISPATCHED;
+          order.tracking_info = OrderTrackingInfo.DISPATCHED;
           await transactionalEntityManager.save(Order, order);
           console.log(`Order ${orderId} updated with driver ${driverId}`);
 
@@ -291,9 +343,9 @@ export class DriversGateway
             `Added order ${orderId} to driver ${driverId} current_orders`
           );
 
-          this.notifyPartiesOnce(order);
+          await this.notifyPartiesOnce(order);
 
-          return { success: true, order, dps: dps.data };
+          return { success: true, order, dps };
         }
       );
 
@@ -310,32 +362,6 @@ export class DriversGateway
     }
   }
 
-  private getLocationForState(
-    state: string,
-    locations: {
-      driverLocation: { lat: number; lng: number };
-      restaurantLocation: { lat: number; lng: number };
-      customerLocation: any;
-    }
-  ) {
-    if (state === 'driver_ready') {
-      console.log('check locations.driverLocation', locations.driverLocation);
-      return locations.driverLocation;
-    } else if (
-      state === 'waiting_for_pickup' ||
-      state === 'restaurant_pickup'
-    ) {
-      return locations.restaurantLocation;
-    } else if (
-      state === 'en_route_to_customer' ||
-      state === 'delivery_complete'
-    ) {
-      return locations.customerLocation;
-    }
-    return null;
-  }
-
-  // drivers.gateway.ts (chỉ show đoạn handleDriverProgressUpdate)
   @SubscribeMessage('updateDriverProgress')
   async handleDriverProgressUpdate(
     @MessageBody() data: { stageId: string; orderId?: string }
@@ -448,20 +474,26 @@ export class DriversGateway
                       duration: timestamp - stage.timestamp
                     };
                   }
-                  if (
-                    nextState &&
-                    stage.state === nextState &&
-                    stage.status === 'pending'
-                  ) {
-                    return { ...stage, status: 'in_progress', timestamp };
+                  if (nextState && stage.state === nextState) {
+                    if (nextStateBase === 'delivery_complete') {
+                      // Đặc biệt: Set delivery_complete thành completed ngay
+                      return {
+                        ...stage,
+                        status: 'completed',
+                        timestamp,
+                        duration: 0 // Hoặc tính duration nếu cần
+                      };
+                    } else if (stage.status === 'pending') {
+                      // Các stage khác thì bình thường
+                      return { ...stage, status: 'in_progress', timestamp };
+                    }
                   }
                   return stage;
                 });
 
-                const baseStage = stageOrder[currentStageIndex];
-                if (baseStage in stageToStatusMap) {
-                  const newStatus = stageToStatusMap[baseStage];
-                  const newTrackingInfo = stageToTrackingMap[baseStage];
+                if (nextStateBase && nextStateBase in stageToStatusMap) {
+                  const newStatus = stageToStatusMap[nextStateBase];
+                  const newTrackingInfo = stageToTrackingMap[nextStateBase];
                   console.log(
                     `🔄 Updating order ${order.id} to status: ${newStatus}, tracking: ${newTrackingInfo}`
                   );
@@ -475,7 +507,7 @@ export class DriversGateway
                     }
                   );
 
-                  if (baseStage === 'delivery_complete') {
+                  if (nextStateBase === 'delivery_complete') {
                     console.log(
                       '🗑️ Removing order from driver_current_orders...'
                     );
@@ -499,6 +531,20 @@ export class DriversGateway
                   }
                   return stage;
                 });
+
+                const newStatus = stageToStatusMap['driver_ready'];
+                const newTrackingInfo = stageToTrackingMap['driver_ready'];
+                console.log(
+                  `🔄 Updating order ${order.id} to initial status: ${newStatus}, tracking: ${newTrackingInfo}`
+                );
+                await transactionalEntityManager.update(
+                  Order,
+                  { id: order.id },
+                  {
+                    status: newStatus,
+                    tracking_info: newTrackingInfo
+                  }
+                );
               }
             }
 
@@ -537,6 +583,20 @@ export class DriversGateway
                 return stage;
               });
               targetOrderId = nextIncompleteOrder.id;
+
+              const newStatus = stageToStatusMap['driver_ready'];
+              const newTrackingInfo = stageToTrackingMap['driver_ready'];
+              console.log(
+                `🔄 Updating next order ${targetOrderId} to status: ${newStatus}, tracking: ${newTrackingInfo}`
+              );
+              await transactionalEntityManager.update(
+                Order,
+                { id: targetOrderId },
+                {
+                  status: newStatus,
+                  tracking_info: newTrackingInfo
+                }
+              );
             }
           }
 
@@ -603,6 +663,8 @@ export class DriversGateway
       return { success: false, message: 'Internal server error' };
     }
   }
+
+  // drivers.gateway.ts (chỉ show đoạn handleDriverProgressUpdate)
 
   private async notifyPartiesOnce(order: Order) {
     const notifyKey = `notify_${order.id}`;

@@ -22,6 +22,7 @@ export class DriverProgressStagesService {
     private readonly dataSource: DataSource
   ) {}
 
+  // driver_progress_stages.service.ts (chỉ fix create)
   async create(
     createDto: CreateDriverProgressStageDto,
     transactionalEntityManager?: EntityManager
@@ -36,12 +37,14 @@ export class DriverProgressStagesService {
         stages: initialStages,
         events: [],
         created_at: Math.floor(Date.now() / 1000),
-        updated_at: Math.floor(Date.now() / 1000)
+        updated_at: Math.floor(Date.now() / 1000),
+        orders: createDto.orders // Gán orders trực tiếp vào entity
       });
 
       const savedStage = await manager.save(DriverProgressStage, dps);
       console.log(`DPS saved in driverProgressStageService: ${savedStage.id}`);
 
+      // Kiểm tra và lưu quan hệ trong bảng trung gian nếu cần
       if (createDto.orders && createDto.orders.length > 0) {
         for (const order of createDto.orders) {
           const exists = await manager
@@ -74,14 +77,26 @@ export class DriverProgressStagesService {
         }
       }
 
+      // Tải lại DPS với quan hệ orders để chắc chắn
+      const finalDps = await manager
+        .getRepository(DriverProgressStage)
+        .findOne({
+          where: { id: savedStage.id },
+          relations: ['orders']
+        });
+
       return createResponse(
         'OK',
-        savedStage,
+        finalDps,
         'Driver progress stage created successfully'
       );
     } catch (err) {
       console.error('Error creating driver progress stage:', err);
-      throw err;
+      return createResponse(
+        'ServerError',
+        null,
+        'Error creating driver progress stage'
+      );
     }
   }
 
