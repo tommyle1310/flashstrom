@@ -18,7 +18,8 @@ import { OrdersService } from 'src/orders/orders.service';
 import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
 import {
   Order,
-  OrderStatus
+  OrderStatus,
+  OrderTrackingInfo
   // OrderTrackingInfo
 } from 'src/orders/entities/order.entity';
 import { DataSource, Not } from 'typeorm'; // Loại bỏ import IsolationLevel
@@ -180,6 +181,8 @@ export class DriversGateway
       throw new WsException('Internal server error');
     }
   }
+
+  // drivers.gateway.ts (chỉ show đoạn handleDriverAcceptOrder)
   @SubscribeMessage('driverAcceptOrder')
   async handleDriverAcceptOrder(
     @MessageBody() data: { driverId: string; orderId: string }
@@ -188,7 +191,6 @@ export class DriversGateway
     const lockKey = `${driverId}_${orderId}`;
     console.log(`Driver ${driverId} accepting order ${orderId}`);
 
-    // Kiểm tra xem order đã được xử lý chưa
     if (this.processingOrders.has(lockKey)) {
       console.log(
         `Order ${orderId} already being processed by driver ${driverId}`
@@ -201,7 +203,6 @@ export class DriversGateway
     try {
       const result = await this.dataSource.transaction(
         async transactionalEntityManager => {
-          // Lock order để tránh race condition
           const order = await transactionalEntityManager
             .createQueryBuilder(Order, 'order')
             .setLock('pessimistic_write')
@@ -212,12 +213,10 @@ export class DriversGateway
           }
           console.log(`Order locked: ${order.id}`);
 
-          // Kiểm tra xem order đã có driver chưa
           if (order.driver_id) {
             throw new WsException('Order is already assigned to a driver');
           }
 
-          // Kiểm tra xem order đã được gán vào DPS nào chưa
           const existingOrderDPS = await transactionalEntityManager
             .createQueryBuilder()
             .select('dpo')
@@ -229,9 +228,7 @@ export class DriversGateway
               `Order ${orderId} is already assigned to DPS ${existingOrderDPS.driver_progress_id}`
             );
           }
-          console.log(`No existing DPS found for order ${orderId}`);
 
-          // Fetch driver và quan hệ current_orders
           const driver = await transactionalEntityManager
             .getRepository(Driver)
             .findOne({
@@ -241,20 +238,14 @@ export class DriversGateway
           if (!driver) {
             throw new WsException('Driver not found');
           }
-          console.log(`Driver fetched: ${driver.id}`);
 
-          // Kiểm tra số lượng current_orders (tối đa 3)
           const currentOrderCount = driver.current_orders?.length || 0;
           if (currentOrderCount >= 3) {
             throw new WsException(
               'Driver has reached the maximum limit of 3 active orders'
             );
           }
-          console.log(
-            `Driver ${driverId} currently has ${currentOrderCount} orders`
-          );
 
-          // Kiểm tra DPS active của driver
           const existingDPS = await transactionalEntityManager
             .getRepository(DriverProgressStage)
             .findOne({
@@ -271,7 +262,7 @@ export class DriversGateway
               {
                 driver_id: driverId,
                 orders: [order],
-                current_state: 'driver_ready_order_1' // Thêm hậu tố _order_1
+                current_state: 'driver_ready_order_1'
               },
               transactionalEntityManager
             );
@@ -285,13 +276,12 @@ export class DriversGateway
             console.log(`Order added to existing DPS: ${dps.data.id}`);
           }
 
-          // Cập nhật order với driver_id và status
           order.driver_id = driverId;
-          order.status = OrderStatus.IN_PROGRESS;
+          order.status = OrderStatus.DISPATCHED; // Thay IN_PROGRESS bằng DISPATCHED
+          order.tracking_info = OrderTrackingInfo.DISPATCHED; // Thêm tracking_info
           await transactionalEntityManager.save(Order, order);
           console.log(`Order ${orderId} updated with driver ${driverId}`);
 
-          // Cập nhật current_orders của driver
           driver.current_orders = driver.current_orders || [];
           if (!driver.current_orders.some(o => o.id === orderId)) {
             driver.current_orders.push(order);
@@ -301,7 +291,6 @@ export class DriversGateway
             `Added order ${orderId} to driver ${driverId} current_orders`
           );
 
-          // Thông báo
           this.notifyPartiesOnce(order);
 
           return { success: true, order, dps: dps.data };
@@ -320,6 +309,7 @@ export class DriversGateway
       console.log(`Processing lock released for ${lockKey}`);
     }
   }
+
   private getLocationForState(
     state: string,
     locations: {
@@ -345,6 +335,7 @@ export class DriversGateway
     return null;
   }
 
+  // drivers.gateway.ts (chỉ show đoạn handleDriverProgressUpdate)
   @SubscribeMessage('updateDriverProgress')
   async handleDriverProgressUpdate(
     @MessageBody() data: { stageId: string; orderId?: string }
@@ -354,7 +345,6 @@ export class DriversGateway
 
       const result = await this.dataSource.transaction(
         async transactionalEntityManager => {
-          console.log('🔍 Fetching DPS with stageId:', data.stageId);
           const dps = await transactionalEntityManager
             .getRepository(DriverProgressStage)
             .findOne({
@@ -366,15 +356,8 @@ export class DriversGateway
             console.log('❌ DPS not found for stageId:', data.stageId);
             return { success: false, message: 'Stage not found' };
           }
-          console.log(
-            '✅ DPS found:',
-            dps.id,
-            'with orders:',
-            dps.orders?.length
-          );
 
           if (!dps.orders || dps.orders.length === 0) {
-            console.log('❌ No orders associated with DPS:', dps.id);
             return {
               success: false,
               message: 'No orders associated with this stage'
@@ -382,8 +365,6 @@ export class DriversGateway
           }
 
           const timestamp = Math.floor(Date.now() / 1000);
-          console.log('⏰ Current timestamp:', timestamp);
-
           const stageOrder = [
             'driver_ready',
             'waiting_for_pickup',
@@ -391,9 +372,23 @@ export class DriversGateway
             'en_route_to_customer',
             'delivery_complete'
           ];
-          console.log('📋 Stage order:', stageOrder);
 
-          // Tìm order tiếp theo chưa hoàn thành nếu không có orderId cụ thể
+          const stageToStatusMap = {
+            driver_ready: OrderStatus.DISPATCHED,
+            waiting_for_pickup: OrderStatus.READY_FOR_PICKUP,
+            restaurant_pickup: OrderStatus.RESTAURANT_PICKUP,
+            en_route_to_customer: OrderStatus.EN_ROUTE,
+            delivery_complete: OrderStatus.DELIVERED
+          };
+
+          const stageToTrackingMap = {
+            driver_ready: OrderTrackingInfo.DISPATCHED,
+            waiting_for_pickup: OrderTrackingInfo.PREPARING,
+            restaurant_pickup: OrderTrackingInfo.RESTAURANT_PICKUP,
+            en_route_to_customer: OrderTrackingInfo.EN_ROUTE,
+            delivery_complete: OrderTrackingInfo.DELIVERED
+          };
+
           let targetOrderId = data.orderId;
           if (!targetOrderId) {
             const incompleteOrder = dps.orders.find((order, index) => {
@@ -406,7 +401,6 @@ export class DriversGateway
               ? incompleteOrder.id
               : dps.orders[0].id;
           }
-          console.log('🎯 Target orderId:', targetOrderId);
 
           let updatedStages = [...dps.stages];
           let allCompleted = true;
@@ -414,14 +408,7 @@ export class DriversGateway
           for (const [index, order] of dps.orders.entries()) {
             const orderIndex = index + 1;
             const orderSuffix = `order_${orderIndex}`;
-            console.log(
-              '🔖 Processing order:',
-              order.id,
-              'suffix:',
-              orderSuffix
-            );
 
-            // Tìm stage hiện tại đang in_progress
             let currentStageIndex = stageOrder.findIndex(baseState => {
               const state = `${baseState}_${orderSuffix}`;
               const stage = updatedStages.find(s => s.state === state);
@@ -429,12 +416,6 @@ export class DriversGateway
             });
 
             if (currentStageIndex === -1) {
-              console.log(
-                '⚠️ No in-progress stage found for order:',
-                order.id,
-                'checking last completed...'
-              );
-              currentStageIndex = -1;
               for (let i = stageOrder.length - 1; i >= 0; i--) {
                 const state = `${stageOrder[i]}_${orderSuffix}`;
                 const stage = updatedStages.find(s => s.state === state);
@@ -445,10 +426,8 @@ export class DriversGateway
               }
             }
 
-            // Xử lý order nếu nó là targetOrderId
             if (order.id === targetOrderId) {
               if (currentStageIndex >= 0) {
-                // Nếu có stage đang in_progress, hoàn thành nó
                 const currentState = `${stageOrder[currentStageIndex]}_${orderSuffix}`;
                 const nextStateBase =
                   currentStageIndex < stageOrder.length - 1
@@ -458,19 +437,11 @@ export class DriversGateway
                   ? `${nextStateBase}_${orderSuffix}`
                   : null;
 
-                console.log(
-                  '➡️ Processing stage:',
-                  currentState,
-                  'to',
-                  nextState || 'completed'
-                );
-
                 updatedStages = updatedStages.map((stage): StageDto => {
                   if (
                     stage.state === currentState &&
                     stage.status === 'in_progress'
                   ) {
-                    console.log('✅ Completing stage:', stage.state);
                     return {
                       ...stage,
                       status: 'completed',
@@ -482,76 +453,55 @@ export class DriversGateway
                     stage.state === nextState &&
                     stage.status === 'pending'
                   ) {
-                    console.log('✅ Starting next stage:', stage.state);
-                    return {
-                      ...stage,
-                      status: 'in_progress',
-                      timestamp
-                    };
+                    return { ...stage, status: 'in_progress', timestamp };
                   }
                   return stage;
                 });
 
-                // Cập nhật trạng thái đơn hàng
-                if (stageOrder[currentStageIndex] === 'restaurant_pickup') {
+                const baseStage = stageOrder[currentStageIndex];
+                if (baseStage in stageToStatusMap) {
+                  const newStatus = stageToStatusMap[baseStage];
+                  const newTrackingInfo = stageToTrackingMap[baseStage];
                   console.log(
-                    '🍽️ Updating order status to RESTAURANT_PICKUP for order:',
-                    order.id
+                    `🔄 Updating order ${order.id} to status: ${newStatus}, tracking: ${newTrackingInfo}`
                   );
-                  const updateResult =
-                    await this.ordersService.updateOrderStatus(
-                      order.id,
-                      OrderStatus.RESTAURANT_PICKUP,
-                      transactionalEntityManager
-                    );
-                  console.log('✅ Order status update result:', updateResult);
-                } else if (
-                  stageOrder[currentStageIndex] === 'delivery_complete'
-                ) {
-                  console.log(
-                    '🗑️ Removing order from driver_current_orders...'
-                  );
-                  await transactionalEntityManager
-                    .createQueryBuilder()
-                    .delete()
-                    .from('driver_current_orders')
-                    .where('driver_id = :driverId', { driverId: dps.driver_id })
-                    .andWhere('order_id = :orderId', { orderId: order.id })
-                    .execute();
 
-                  console.log(
-                    '📦 Updating order status to DELIVERED for order:',
-                    order.id
+                  await transactionalEntityManager.update(
+                    Order,
+                    { id: order.id },
+                    {
+                      status: newStatus,
+                      tracking_info: newTrackingInfo
+                    }
                   );
-                  const updateResult =
-                    await this.ordersService.updateOrderStatus(
-                      order.id,
-                      OrderStatus.DELIVERED,
-                      transactionalEntityManager
+
+                  if (baseStage === 'delivery_complete') {
+                    console.log(
+                      '🗑️ Removing order from driver_current_orders...'
                     );
-                  console.log('✅ Order status update result:', updateResult);
+                    await transactionalEntityManager
+                      .createQueryBuilder()
+                      .delete()
+                      .from('driver_current_orders')
+                      .where('driver_id = :driverId', {
+                        driverId: dps.driver_id
+                      })
+                      .andWhere('order_id = :orderId', { orderId: order.id })
+                      .execute();
+                  }
                 }
               } else if (currentStageIndex < stageOrder.length - 1) {
-                // Nếu không có stage in_progress nhưng order chưa hoàn thành, bắt đầu stage đầu tiên
                 allCompleted = false;
                 const nextState = `driver_ready_${orderSuffix}`;
-                console.log('➡️ Starting first stage:', nextState);
-
                 updatedStages = updatedStages.map((stage): StageDto => {
                   if (stage.state === nextState && stage.status === 'pending') {
-                    console.log('✅ Starting next stage:', stage.state);
-                    return {
-                      ...stage,
-                      status: 'in_progress',
-                      timestamp
-                    };
+                    return { ...stage, status: 'in_progress', timestamp };
                   }
                   return stage;
                 });
               }
             }
 
-            // Kiểm tra xem order có hoàn thành không
             const finalState = `delivery_complete_${orderSuffix}`;
             const finalStage = updatedStages.find(s => s.state === finalState);
             if (!finalStage || finalStage.status !== 'completed') {
@@ -559,7 +509,6 @@ export class DriversGateway
             }
           }
 
-          // Nếu tất cả các stage hiện tại đã hoàn thành, bắt đầu order tiếp theo
           if (!allCompleted) {
             const nextIncompleteOrder = dps.orders.find((order, index) => {
               const orderSuffix = `order_${index + 1}`;
@@ -583,23 +532,14 @@ export class DriversGateway
                   stage.state === nextDriverReadyState &&
                   stage.status === 'pending'
                 ) {
-                  console.log(
-                    '✅ Starting driver_ready for next order:',
-                    stage.state
-                  );
-                  return {
-                    ...stage,
-                    status: 'in_progress',
-                    timestamp
-                  };
+                  return { ...stage, status: 'in_progress', timestamp };
                 }
                 return stage;
               });
-              targetOrderId = nextIncompleteOrder.id; // Cập nhật targetOrderId
+              targetOrderId = nextIncompleteOrder.id;
             }
           }
 
-          // Tìm stage đang in_progress để cập nhật current_state
           const inProgressStage = updatedStages.find(
             stage => stage.status === 'in_progress'
           );
@@ -633,12 +573,6 @@ export class DriversGateway
             }
           }
 
-          console.log('🔖 New current_state:', newCurrentState);
-          console.log('🔖 New previous_state:', newPreviousState);
-          console.log('🔖 New next_state:', newNextState);
-
-          // Cập nhật DPS với các trường đồng bộ
-          console.log('💾 Updating DPS with new stages and states...');
           const updateResult =
             await this.driverProgressStageService.updateStage(
               data.stageId,
@@ -650,24 +584,15 @@ export class DriversGateway
               },
               transactionalEntityManager
             );
-          console.log('✅ DPS update result:', updateResult);
 
-          // Lấy thông tin đơn hàng đã cập nhật
           const updatedOrder = await this.ordersService.findOne(
             targetOrderId,
             transactionalEntityManager
           );
-          console.log('📋 Updated order:', updatedOrder?.data);
-
           if (updatedOrder?.data) {
-            console.log('📢 Notifying parties...');
             await this.notifyPartiesOnce(updatedOrder.data);
-            console.log(
-              `Notified parties about progress update for order ${updatedOrder.data.id}`
-            );
           }
 
-          console.log('🎉 HandleDriverProgressUpdate completed successfully');
           return { success: true, stage: updateResult.data };
         }
       );

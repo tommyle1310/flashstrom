@@ -37,17 +37,14 @@ export class OrdersService {
     createOrderDto: CreateOrderDto
   ): Promise<ApiResponse<Order>> {
     try {
-      // Validate dữ liệu đầu vào
       const validationResult = await this.validateOrderData(createOrderDto);
       if (validationResult !== true) {
         return validationResult;
       }
       console.log('check input', createOrderDto);
 
-      // Tạo transaction để đảm bảo đồng bộ giữa Order và CartItem
       const result = await this.dataSource.transaction(
         async transactionalEntityManager => {
-          // Lấy danh sách CartItem của customer thông qua transaction
           const cartItems = await transactionalEntityManager
             .getRepository(CartItem)
             .find({
@@ -117,9 +114,15 @@ export class OrdersService {
             }
           }
 
+          // Fix ở đây: Ép kiểu status và tracking_info
+          const orderData = {
+            ...createOrderDto,
+            status: createOrderDto.status as OrderStatus, // Ép kiểu sang enum OrderStatus
+            tracking_info: createOrderDto.tracking_info as OrderTrackingInfo // Ép kiểu sang enum OrderTrackingInfo
+          };
           const newOrder = await transactionalEntityManager
             .getRepository(Order)
-            .save(transactionalEntityManager.create(Order, createOrderDto));
+            .save(transactionalEntityManager.create(Order, orderData));
 
           await this.updateMenuItemPurchaseCount(createOrderDto.order_items);
 
@@ -148,16 +151,24 @@ export class OrdersService {
         return createResponse('NotFound', null, 'Order not found');
       }
 
-      const updatedOrder = await manager.save(Order, {
+      const updatedData = {
         ...order,
-        ...updateOrderDto
-      });
+        ...updateOrderDto,
+        status: updateOrderDto.status
+          ? (updateOrderDto.status as OrderStatus)
+          : order.status,
+        tracking_info: updateOrderDto.tracking_info
+          ? (updateOrderDto.tracking_info as OrderTrackingInfo)
+          : order.tracking_info
+      };
+      const updatedOrder = (await manager.save(Order, updatedData)) as Order;
       return createResponse('OK', updatedOrder, 'Order updated successfully');
     } catch (error) {
       return this.handleError('Error updating order:', error);
     }
   }
 
+  // orders.service.ts (chỉ show đoạn updateOrderStatus)
   async updateOrderStatus(
     orderId: string,
     status: OrderStatus,
@@ -179,10 +190,18 @@ export class OrdersService {
       console.log('✅ Updated order:', updatedOrder);
 
       const trackingInfoMap = {
-        [OrderStatus.RESTAURANT_ACCEPTED]: OrderTrackingInfo.PREPARING,
-        [OrderStatus.IN_PROGRESS]: OrderTrackingInfo.OUT_FOR_DELIVERY,
-        [OrderStatus.DELIVERED]: OrderTrackingInfo.DELIVERED,
-        [OrderStatus.RESTAURANT_PICKUP]: OrderTrackingInfo.RESTAURANT_PICKUP
+        [OrderStatus.PENDING]: OrderTrackingInfo.ORDER_PLACED,
+        [OrderStatus.RESTAURANT_ACCEPTED]: OrderTrackingInfo.ORDER_RECEIVED,
+        [OrderStatus.PREPARING]: OrderTrackingInfo.PREPARING,
+        [OrderStatus.IN_PROGRESS]: OrderTrackingInfo.IN_PROGRESS,
+        [OrderStatus.READY_FOR_PICKUP]: OrderTrackingInfo.PREPARING,
+        [OrderStatus.RESTAURANT_PICKUP]: OrderTrackingInfo.RESTAURANT_PICKUP,
+        [OrderStatus.DISPATCHED]: OrderTrackingInfo.DISPATCHED,
+        [OrderStatus.EN_ROUTE]: OrderTrackingInfo.EN_ROUTE,
+        [OrderStatus.OUT_FOR_DELIVERY]: OrderTrackingInfo.OUT_FOR_DELIVERY,
+        [OrderStatus.DELIVERY_FAILED]: OrderTrackingInfo.DELIVERY_FAILED,
+        [OrderStatus.DELIVERED]: OrderTrackingInfo.DELIVERED
+        // Bỏ RETURNED và CANCELLED như mày dặn
       };
       const trackingInfo = trackingInfoMap[status];
       if (trackingInfo) {
