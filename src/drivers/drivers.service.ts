@@ -502,9 +502,17 @@ export class DriversService {
           updateVehicleDto.license_plate ?? driver.vehicle.license_plate,
         model: updateVehicleDto.model ?? driver.vehicle.model,
         color: updateVehicleDto.color ?? driver.vehicle.color,
+        brand: updateVehicleDto.brand ?? driver.vehicle.brand,
+        owner: updateVehicleDto.owner ?? driver.vehicle.owner,
+        year: updateVehicleDto.year ?? driver.vehicle.year,
         images: driver.vehicle.images // Giữ nguyên images
       };
-
+      console.log(
+        'check update vehicle',
+        updatedVehicle,
+        '----',
+        updateVehicleDto
+      );
       // Cập nhật driver với vehicle mới
       const updateData: Partial<Driver> = {
         vehicle: updatedVehicle,
