@@ -201,12 +201,12 @@ export class RestaurantsGateway
         });
         console.log('orderAssignment', orderWithDistance);
 
-        await this.notifyPartiesOnce(orderWithDistance);
-
         await this.eventEmitter.emit(
           'order.assignedToDriver',
           orderWithDistance
         );
+
+        await this.notifyPartiesOnce(orderWithDistance);
 
         return {
           event: 'orderAssigned',

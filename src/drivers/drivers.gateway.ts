@@ -67,6 +67,38 @@ export class DriversGateway
     console.log('Driver Gateway initialized');
   }
 
+  @OnEvent('order.assignedToDriver')
+  async handleOrderAssignedToDriver(orderAssignment: any) {
+    try {
+      const driverId = orderAssignment.driver_id;
+
+      if (!driverId) {
+        throw new WsException('Driver ID is required');
+      }
+      console.log('order.assignedToDriver 1', orderAssignment);
+
+      await this.server
+        .to(`driver_${driverId}`)
+        .emit('incomingOrderForDriver', {
+          event: 'incomingOrderForDriver',
+          data: orderAssignment,
+          message: 'Order received successfully'
+        });
+      console.log('order.assignedToDriver 2', orderAssignment);
+
+      return {
+        event: 'orderAssigned',
+        data: { success: true }
+      };
+    } catch (error) {
+      console.error('Error handling order.assignedToDriver:', error);
+      if (error instanceof WsException) {
+        throw error;
+      }
+      throw new WsException('Internal server error');
+    }
+  }
+
   @OnEvent('incomingOrderForDriver')
   async handleIncomingOrderForDriver(@MessageBody() order: any) {
     console.log('Received incomingOrderForDriver event:', order);
@@ -150,36 +182,6 @@ export class DriversGateway
     this.server.to(driverId).emit('incomingOrder', order);
     console.log('Emitted incomingOrder event to driver:', driverId, order);
     return order;
-  }
-
-  @OnEvent('order.assignedToDriver')
-  async handleOrderAssignedToDriver(orderAssignment: any) {
-    try {
-      const driverId = orderAssignment.driver_id;
-
-      if (!driverId) {
-        throw new WsException('Driver ID is required');
-      }
-
-      await this.server
-        .to(`driver_${driverId}`)
-        .emit('incomingOrderForDriver', {
-          event: 'incomingOrder',
-          data: orderAssignment,
-          message: 'Order received successfully'
-        });
-
-      return {
-        event: 'orderAssigned',
-        data: { success: true }
-      };
-    } catch (error) {
-      console.error('Error handling order.assignedToDriver:', error);
-      if (error instanceof WsException) {
-        throw error;
-      }
-      throw new WsException('Internal server error');
-    }
   }
 
   @SubscribeMessage('driverAcceptOrder')
