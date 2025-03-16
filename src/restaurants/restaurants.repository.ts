@@ -132,4 +132,27 @@ export class RestaurantsRepository {
       relations: ['owner', 'address', 'specialize_in']
     });
   }
+  async updateImgGallery(
+    id: string,
+    imagesGallery: Array<{ key: string; url: string }>
+  ): Promise<Restaurant> {
+    const restaurant = await this.findById(id);
+    if (!restaurant) {
+      throw new Error('Restaurant not found');
+    }
+
+    const updatedImagesGallery = [
+      ...(Array.isArray(restaurant.images_gallery)
+        ? restaurant.images_gallery
+        : []),
+      ...imagesGallery
+    ];
+
+    await this.repository.update(id, {
+      images_gallery: updatedImagesGallery, // TypeORM sẽ tự động chuyển thành JSON cho jsonb
+      updated_at: Math.floor(Date.now() / 1000)
+    });
+
+    return await this.findById(id);
+  }
 }

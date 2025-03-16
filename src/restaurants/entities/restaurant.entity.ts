@@ -53,8 +53,8 @@ export class Restaurant {
   @Column('jsonb', { nullable: true })
   avatar: { url: string; key: string };
 
-  @Column('text', { array: true, nullable: true })
-  images_gallery: string[];
+  @Column('jsonb', { nullable: true }) // Sửa: Bỏ array: true
+  images_gallery: { url: string; key: string }[];
 
   @Column('jsonb')
   status: {
@@ -101,7 +101,7 @@ export class Restaurant {
   admins: Admin[];
 
   @OneToMany(() => Order, order => order.restaurant)
-  orders: Order[]; // Quan hệ ngược với Order
+  orders: Order[];
 
   @BeforeInsert()
   generateId() {

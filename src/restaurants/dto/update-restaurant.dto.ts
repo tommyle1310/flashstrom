@@ -40,7 +40,10 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
 
   @IsOptional()
   @IsArray()
-  images_gallery?: string[];
+  images_gallery?: Array<{
+    key: string;
+    url: string;
+  }>;
 
   @IsOptional()
   @IsObject()

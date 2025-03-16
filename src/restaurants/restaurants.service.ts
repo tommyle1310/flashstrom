@@ -462,4 +462,32 @@ export class RestaurantsService {
       return createResponse('ServerError', null, 'Error deleting restaurant');
     }
   }
+
+  async updateImageGalleries(
+    uploadResults: Array<{ key: string; url: string }>,
+    entityId: string
+  ) {
+    try {
+      const restaurant = await this.restaurantsRepository.findById(entityId);
+      if (!restaurant) {
+        return createResponse('NotFound', null, 'Restaurant not found');
+      }
+
+      // Gọi phương thức updateImgGallery
+      const updatedRestaurant =
+        await this.restaurantsRepository.updateImgGallery(
+          entityId,
+          uploadResults
+        );
+
+      return createResponse(
+        'OK',
+        updatedRestaurant,
+        'Restaurant galleries updated successfully'
+      );
+    } catch (error) {
+      console.error('Error updating restaurant galleries:', error);
+      return createResponse('ServerError', null, 'Failed to update galleries');
+    }
+  }
 }

@@ -114,7 +114,7 @@ export class CreateRestaurantDto {
 
   @IsOptional()
   @IsArray()
-  images_gallery?: string[];
+  images_gallery?: { url: string; key: string }[];
 
   @IsObject()
   @ValidateNested()
