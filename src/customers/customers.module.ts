@@ -24,6 +24,7 @@ import { CartItem } from 'src/cart_items/entities/cart_item.entity';
 import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { Order } from 'src/orders/entities/order.entity';
+import { JwtService } from '@nestjs/jwt';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -51,7 +52,8 @@ import { Order } from 'src/orders/entities/order.entity';
     RestaurantsRepository,
     CustomersRepository,
     CartItemsRepository,
-    OrdersRepository
+    OrdersRepository,
+    JwtService
   ],
   exports: [CustomersService, CustomersGateway, CustomersRepository]
 })

@@ -37,6 +37,7 @@ import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
 import { DriversModule } from 'src/drivers/drivers.module'; // Đảm bảo import
 import { CustomersGateway } from 'src/customers/customers.gateway';
 import { CustomersService } from 'src/customers/customers.service';
+import { JwtService } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -80,7 +81,8 @@ import { CustomersService } from 'src/customers/customers.service';
     MenuItemVariantsService,
     DriverProgressStagesRepository,
     CartItemsRepository,
-    CustomersGateway
+    CustomersGateway,
+    JwtService
   ],
   exports: [OrdersService]
 })

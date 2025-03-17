@@ -13,6 +13,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { Order } from 'src/orders/entities/order.entity';
+import { JwtService } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -28,7 +29,8 @@ import { Order } from 'src/orders/entities/order.entity';
     DriversGateway,
     OrdersRepository,
     DriversRepository,
-    AddressBookRepository
+    AddressBookRepository,
+    JwtService
   ],
   exports: [DriversService, DriversRepository]
 })

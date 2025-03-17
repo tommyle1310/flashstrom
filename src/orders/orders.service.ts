@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { Order } from './entities/order.entity';
@@ -17,6 +17,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
 import { CartItem } from 'src/cart_items/entities/cart_item.entity';
 import { CustomersGateway } from 'src/customers/customers.gateway';
+import { DriversGateway } from 'src/drivers/drivers.gateway';
 
 @Injectable()
 export class OrdersService {
@@ -30,7 +31,9 @@ export class OrdersService {
     private readonly restaurantsGateway: RestaurantsGateway,
     private readonly dataSource: DataSource,
     private readonly cartItemsRepository: CartItemsRepository,
-    private readonly customersGateway: CustomersGateway
+    private readonly customersGateway: CustomersGateway,
+    @Inject(forwardRef(() => DriversGateway)) // Inject DriversGateway với forwardRef
+    private readonly driversGateway: DriversGateway
   ) {}
 
   async createOrder(
@@ -220,6 +223,73 @@ export class OrdersService {
     } catch (error) {
       console.error('Error updating order status:', error);
       return createResponse('ServerError', null, 'Error updating order status');
+    }
+  }
+
+  async tipToDriver(
+    orderId: string,
+    tipAmount: number
+  ): Promise<ApiResponse<Order>> {
+    try {
+      // Validate tip amount
+      if (tipAmount < 0) {
+        return createResponse(
+          'InvalidFormatInput',
+          null,
+          'Tip amount cannot be negative'
+        );
+      }
+
+      // Tìm order
+      const order = await this.ordersRepository.findById(orderId);
+      if (!order) {
+        console.log('❌ Order not found:', orderId);
+        return createResponse('NotFound', null, 'Order not found');
+      }
+
+      // Kiểm tra xem order đã có driver chưa
+      if (!order.driver_id) {
+        return createResponse(
+          'NotFound',
+          null,
+          'No driver assigned to this order'
+        );
+      }
+
+      // Kiểm tra trạng thái order (chỉ cho tip khi order đã hoàn thành hoặc đang giao)
+      if (
+        order.status !== OrderStatus.DELIVERED &&
+        order.status !== OrderStatus.OUT_FOR_DELIVERY
+      ) {
+        return createResponse(
+          'Forbidden',
+          null,
+          'Can only tip when order is out for delivery or delivered'
+        );
+      }
+
+      // Update driver_tips
+      const updatedOrder = await this.ordersRepository.updateDriverTips(
+        orderId,
+        tipAmount
+      );
+      console.log(
+        '✅ Updated driver_tips:',
+        tipAmount,
+        'for order:',
+        updatedOrder
+      );
+
+      // Thông báo cho driver qua DriversGateway
+      await this.driversGateway.notifyPartiesOnce(updatedOrder);
+      console.log(
+        `Notified driver ${updatedOrder.driver_id} about tip of ${tipAmount} for order ${orderId}`
+      );
+
+      return createResponse('OK', updatedOrder, 'Driver tipped successfully');
+    } catch (error) {
+      console.error('Error tipping driver:', error);
+      return createResponse('ServerError', null, 'Error tipping driver');
     }
   }
 

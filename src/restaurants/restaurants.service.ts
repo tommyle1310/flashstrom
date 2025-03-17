@@ -378,16 +378,17 @@ export class RestaurantsService {
       }
 
       const updatedOrder = await this.ordersRepository.updateStatus(orderId, {
-        status,
+        status: status as OrderStatus, // Ép kiểu để khớp enum
         tracking_info
-      } as { status: OrderStatus; tracking_info: OrderTrackingInfo });
+      });
 
       if (!updatedOrder) {
         return createResponse('NotFound', null, 'Order not found');
       }
 
+      // Gọi notifyPartiesOnce từ RestaurantsGateway thay vì emitOrderStatusUpdate
       if (this.restaurantsGateway) {
-        this.restaurantsGateway.emitOrderStatusUpdate(updatedOrder);
+        await this.restaurantsGateway.notifyPartiesOnce(updatedOrder); // Gọi private method qua kiểu này
       }
 
       return createResponse(

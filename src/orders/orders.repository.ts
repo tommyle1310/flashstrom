@@ -85,4 +85,12 @@ export class OrdersRepository {
     });
     return this.findById(id);
   }
+
+  async updateDriverTips(id: string, driver_tips: number): Promise<Order> {
+    await this.repository.update(id, {
+      driver_tips,
+      updated_at: Math.floor(Date.now() / 1000)
+    });
+    return this.findById(id);
+  }
 }

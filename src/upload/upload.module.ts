@@ -40,6 +40,7 @@ import { OrdersRepository } from 'src/orders/orders.repository';
 import { CustomerCareInquiry } from 'src/customer_cares_inquires/entities/customer_care_inquiry.entity';
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
 import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
+import { JwtService } from '@nestjs/jwt';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -70,6 +71,7 @@ import { DriverProgressStagesRepository } from 'src/driver_progress_stages/drive
     UploadService,
     RestaurantsService,
     DriversService,
+    JwtService,
     MenuItemsService,
     CustomersService,
     UserRepository,

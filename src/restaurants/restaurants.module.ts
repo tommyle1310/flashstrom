@@ -23,6 +23,7 @@ import { Order } from 'src/orders/entities/order.entity';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { UserRepository } from 'src/users/users.repository';
 import { User } from 'src/users/entities/user.entity';
+import { JwtService } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -53,7 +54,8 @@ import { User } from 'src/users/entities/user.entity';
     FoodCategoriesRepository,
     UserRepository,
     AddressBookRepository,
-    OrdersRepository
+    OrdersRepository,
+    JwtService
   ],
   exports: [
     RestaurantsService,
