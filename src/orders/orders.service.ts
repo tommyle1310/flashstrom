@@ -18,6 +18,9 @@ import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
 import { CartItem } from 'src/cart_items/entities/cart_item.entity';
 import { CustomersGateway } from 'src/customers/customers.gateway';
 import { DriversGateway } from 'src/drivers/drivers.gateway';
+import { TransactionService } from 'src/transactions/transactions.service';
+import { CreateTransactionDto } from 'src/transactions/dto/create-transaction.dto';
+import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 
 @Injectable()
 export class OrdersService {
@@ -33,7 +36,9 @@ export class OrdersService {
     private readonly cartItemsRepository: CartItemsRepository,
     private readonly customersGateway: CustomersGateway,
     @Inject(forwardRef(() => DriversGateway)) // Inject DriversGateway với forwardRef
-    private readonly driversGateway: DriversGateway
+    private readonly driversGateway: DriversGateway,
+    private readonly transactionsService: TransactionService,
+    private readonly fWalletsRepository: FWalletsRepository
   ) {}
 
   async createOrder(
@@ -46,19 +51,92 @@ export class OrdersService {
       }
       console.log('check input', createOrderDto);
 
+      const user = await this.customersRepository.findById(
+        createOrderDto.customer_id
+      );
+      if (!user) {
+        return createResponse(
+          'NotFound',
+          null,
+          `Customer ${createOrderDto.customer_id} not found`
+        );
+      }
+
       const result = await this.dataSource.transaction(
         async transactionalEntityManager => {
+          if (createOrderDto.payment_method === 'FWallet') {
+            // Lấy wallet của khách
+            const customerWallet = await this.fWalletsRepository.findByUserId(
+              user.user_id
+            );
+            if (!customerWallet) {
+              return createResponse(
+                'NotFound',
+                null,
+                `Wallet not found for customer ${createOrderDto.customer_id}`
+              );
+            }
+
+            // Lấy restaurant từ restaurant_id
+            const restaurant = await this.restaurantRepository.findById(
+              createOrderDto.restaurant_id
+            );
+            if (!restaurant) {
+              return createResponse(
+                'NotFound',
+                null,
+                `Restaurant ${createOrderDto.restaurant_id} not found`
+              );
+            }
+
+            // Lấy wallet của restaurant từ user_id của restaurant
+            const restaurantWallet = await this.fWalletsRepository.findByUserId(
+              restaurant.owner_id
+            );
+            if (!restaurantWallet) {
+              return createResponse(
+                'NotFound',
+                null,
+                `Wallet not found for restaurant ${createOrderDto.restaurant_id}`
+              );
+            }
+
+            const transactionDto = {
+              user_id: user.user_id,
+              fwallet_id: customerWallet.id,
+              transaction_type: 'PURCHASE',
+              amount: createOrderDto.total_amount,
+              balance_after: 0,
+              status: 'PENDING',
+              source: 'FWALLET',
+              destination: restaurantWallet.id, // Sửa thành wallet của restaurant
+              destination_type: 'FWALLET'
+            } as CreateTransactionDto;
+
+            const transactionResponse = await this.transactionsService.create(
+              transactionDto,
+              transactionalEntityManager
+            );
+            console.log('check transac res', transactionResponse);
+            if (transactionResponse.EC === -8) {
+              console.log('Transaction failed:', transactionResponse.EM); // Sửa EM thành EM
+              return createResponse(
+                'InsufficientBalance',
+                null,
+                'Balance in the source wallet is not enough for this transaction.'
+              );
+            }
+            console.log('Transaction succeeded:', transactionResponse.data);
+          }
+
           const cartItems = await transactionalEntityManager
             .getRepository(CartItem)
-            .find({
-              where: { customer_id: createOrderDto.customer_id }
-            });
+            .find({ where: { customer_id: createOrderDto.customer_id } });
 
           for (const orderItem of createOrderDto.order_items) {
             const cartItem = cartItems.find(
               ci => ci.item_id === orderItem.item_id
             );
-
             if (!cartItem) {
               console.log(
                 `Cart item with item_id ${orderItem.item_id} not found for customer ${createOrderDto.customer_id}. Proceeding without modifying cart.`
@@ -95,13 +173,11 @@ export class OrdersService {
                 `Deleted cart item ${cartItem.id} as order quantity matches cart quantity`
               );
             } else if (orderQuantity < cartQuantity) {
-              const updatedVariants = cartItem.variants.map(v => {
-                if (v.variant_id === orderItem.variant_id) {
-                  return { ...v, quantity: v.quantity - orderQuantity };
-                }
-                return v;
-              });
-
+              const updatedVariants = cartItem.variants.map(v =>
+                v.variant_id === orderItem.variant_id
+                  ? { ...v, quantity: v.quantity - orderQuantity }
+                  : v
+              );
               await transactionalEntityManager
                 .getRepository(CartItem)
                 .update(cartItem.id, {
@@ -117,11 +193,10 @@ export class OrdersService {
             }
           }
 
-          // Fix ở đây: Ép kiểu status và tracking_info
           const orderData = {
             ...createOrderDto,
-            status: createOrderDto.status as OrderStatus, // Ép kiểu sang enum OrderStatus
-            tracking_info: createOrderDto.tracking_info as OrderTrackingInfo // Ép kiểu sang enum OrderTrackingInfo
+            status: createOrderDto.status as OrderStatus,
+            tracking_info: createOrderDto.tracking_info as OrderTrackingInfo
           };
           const newOrder = await transactionalEntityManager
             .getRepository(Order)
@@ -130,12 +205,17 @@ export class OrdersService {
           await this.updateMenuItemPurchaseCount(createOrderDto.order_items);
 
           const orderResponse = await this.notifyRestaurantAndDriver(newOrder);
-
+          console.log('Order transaction completed, result:', orderResponse);
           return orderResponse;
         }
       );
 
-      return createResponse('OK', result, 'Order created successfully');
+      if (result.EC !== 0) {
+        return result;
+      }
+
+      console.log('Order fully committed to DB');
+      return createResponse('OK', result.data, 'Order created successfully');
     } catch (error) {
       console.error('Error creating order:', error);
       return createResponse('ServerError', null, 'Error creating order');

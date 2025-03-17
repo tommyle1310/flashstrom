@@ -14,7 +14,7 @@ export const ResponseStatus = {
   InsufficientBalance: {
     httpCode: 400,
     message: 'Insufficient balance in the source wallet',
-    code: -5
+    code: -8
   }, // Insufficient balance in the source wallet
   NotAcceptingOrders: {
     httpCode: 400,

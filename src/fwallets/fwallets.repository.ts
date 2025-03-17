@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager, UpdateResult } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FWallet } from './entities/fwallet.entity';
 import { CreateFWalletDto } from './dto/create-fwallet.dto';
@@ -12,37 +12,58 @@ export class FWalletsRepository {
     private repository: Repository<FWallet>
   ) {}
 
-  async create(createDto: CreateFWalletDto): Promise<FWallet> {
-    const wallet = this.repository.create(createDto);
-    return await this.repository.save(wallet);
+  async create(
+    createDto: CreateFWalletDto,
+    manager?: EntityManager
+  ): Promise<FWallet> {
+    const repo = manager ? manager.getRepository(FWallet) : this.repository;
+    const wallet = repo.create(createDto);
+    return await repo.save(wallet);
   }
 
-  async findAll(): Promise<FWallet[]> {
-    return await this.repository.find();
+  async findAll(manager?: EntityManager): Promise<FWallet[]> {
+    const repo = manager ? manager.getRepository(FWallet) : this.repository;
+    return await repo.find();
   }
 
-  async findById(id: string): Promise<FWallet> {
-    return await this.repository.findOne({ where: { id } });
+  async findById(id: string, manager?: EntityManager): Promise<FWallet> {
+    const repo = manager ? manager.getRepository(FWallet) : this.repository;
+    return await repo.findOne({ where: { id } });
   }
 
-  async findByUserId(userId: string): Promise<FWallet> {
-    return await this.repository.findOne({ where: { user_id: userId } });
+  async findByUserId(
+    userId: string,
+    manager?: EntityManager
+  ): Promise<FWallet> {
+    const repo = manager ? manager.getRepository(FWallet) : this.repository;
+    return await repo.findOne({ where: { user_id: userId } });
   }
 
-  async findByCondition(condition: any): Promise<FWallet> {
-    return await this.repository.findOne({ where: condition });
+  async findByCondition(
+    condition: any,
+    manager?: EntityManager
+  ): Promise<FWallet> {
+    const repo = manager ? manager.getRepository(FWallet) : this.repository;
+    return await repo.findOne({ where: condition });
   }
 
-  async update(id: string, updateDto: UpdateFwalletDto): Promise<FWallet> {
-    await this.repository.update(id, {
+  async update(
+    id: string,
+    updateDto: UpdateFwalletDto,
+    manager?: EntityManager
+  ): Promise<UpdateResult> {
+    const repo = manager ? manager.getRepository(FWallet) : this.repository;
+    const result = await repo.update(id, {
       ...updateDto,
       updated_at: Math.floor(Date.now() / 1000)
     });
-    return await this.findById(id);
+    console.log('repository update result', result);
+    return result;
   }
 
-  async delete(id: string): Promise<boolean> {
-    const result = await this.repository.delete(id);
+  async delete(id: string, manager?: EntityManager): Promise<boolean> {
+    const repo = manager ? manager.getRepository(FWallet) : this.repository;
+    const result = await repo.delete(id);
     return result.affected > 0;
   }
 }

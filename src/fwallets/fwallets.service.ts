@@ -73,7 +73,7 @@ export class FWalletService {
   async update(
     id: string,
     updateFWalletDto: UpdateFwalletDto
-  ): Promise<ApiResponse<FWallet>> {
+  ): Promise<ApiResponse<any>> {
     try {
       const wallet = await this.fWalletsRepository.findById(id);
       if (!wallet) {
