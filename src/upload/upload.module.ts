@@ -41,6 +41,11 @@ import { CustomerCareInquiry } from 'src/customer_cares_inquires/entities/custom
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
 import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
 import { JwtService } from '@nestjs/jwt';
+import { TransactionService } from 'src/transactions/transactions.service';
+import { Transaction } from 'src/transactions/entities/transaction.entity';
+import { FWallet } from 'src/fwallets/entities/fwallet.entity';
+import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
+import { TransactionsRepository } from 'src/transactions/transactions.repository';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -55,7 +60,9 @@ import { JwtService } from '@nestjs/jwt';
       MenuItemVariant,
       Order,
       DriverProgressStage,
-      CustomerCareInquiry
+      CustomerCareInquiry,
+      Transaction,
+      FWallet
     ]),
     CustomersModule,
     DriversModule,
@@ -72,9 +79,12 @@ import { JwtService } from '@nestjs/jwt';
     RestaurantsService,
     DriversService,
     JwtService,
+    FWalletsRepository,
+    TransactionsRepository,
     MenuItemsService,
     CustomersService,
     UserRepository,
+    TransactionService,
     PromotionsService,
     PromotionsRepository,
     AddressBookRepository,

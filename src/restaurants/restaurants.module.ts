@@ -24,14 +24,21 @@ import { OrdersRepository } from 'src/orders/orders.repository';
 import { UserRepository } from 'src/users/users.repository';
 import { User } from 'src/users/entities/user.entity';
 import { JwtService } from '@nestjs/jwt';
+import { TransactionService } from 'src/transactions/transactions.service';
+import { Transaction } from 'src/transactions/entities/transaction.entity';
+import { FWallet } from 'src/fwallets/entities/fwallet.entity';
+import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
+import { TransactionsRepository } from 'src/transactions/transactions.repository';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       Restaurant,
       AddressBook,
+      Transaction,
       FoodCategory,
       Order,
+      FWallet,
       User
     ]),
     UsersModule,
@@ -55,7 +62,10 @@ import { JwtService } from '@nestjs/jwt';
     UserRepository,
     AddressBookRepository,
     OrdersRepository,
-    JwtService
+    JwtService,
+    TransactionService,
+    FWalletsRepository,
+    TransactionsRepository
   ],
   exports: [
     RestaurantsService,

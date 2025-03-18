@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { PromotionStatus, DiscountType } from '../dto/create-promotion.dto';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity'; // Import FoodCategory
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 
 @Entity('promotions')
 export class Promotion {
@@ -77,4 +78,8 @@ export class Promotion {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  // src/promotions/entities/promotion.entity.ts
+  @ManyToMany(() => Restaurant, restaurant => restaurant.promotions)
+  restaurants: Restaurant[];
 }

@@ -31,7 +31,7 @@ export class TransactionService {
 
       const { transaction_type, amount, fwallet_id, destination } =
         createTransactionDto;
-
+      console.log('check transaciton dto', createTransactionDto);
       if (transaction_type === 'WITHDRAW' || transaction_type === 'PURCHASE') {
         const sourceWallet = await this.fWalletsRepository.findById(
           fwallet_id,
@@ -185,24 +185,36 @@ export class TransactionService {
 
   private async handleDestinationWalletTransaction(
     destination: string,
-    amount: number,
+    amount: number | string, // amount có thể là string từ DTO
     manager: EntityManager
   ): Promise<void> {
     const destinationWallet = await this.fWalletsRepository.findById(
       destination,
       manager
     );
-    console.log('check des wallet', destinationWallet);
     if (destinationWallet) {
-      const currentBalance = parseFloat(destinationWallet.balance.toString());
-      const newBalance = Number((currentBalance + amount).toFixed(2));
+      // Ép kiểu balance thành số
+      const currentBalance = Number(destinationWallet.balance);
+      if (isNaN(currentBalance)) {
+        throw new Error('Invalid balance value in destination wallet');
+      }
+
+      // Ép kiểu amount thành số
+      const amountNumber = Number(amount);
+      if (isNaN(amountNumber)) {
+        throw new Error('Invalid amount value');
+      }
+
+      // Cộng hai số và làm tròn đến 2 chữ số thập phân
+      const newBalance =
+        Math.round((currentBalance + amountNumber) * 100) / 100;
       destinationWallet.balance = newBalance;
+
       const updateResult = await this.fWalletsRepository.update(
         destinationWallet.id,
-        { balance: destinationWallet.balance },
+        { balance: newBalance },
         manager
       );
-      console.log('check update result', updateResult);
       if (updateResult.affected === 0) {
         throw new Error(`Failed to update wallet ${destinationWallet.id}`);
       }
@@ -212,10 +224,24 @@ export class TransactionService {
         manager
       );
       if (destinationUser) {
-        destinationUser.balance = (destinationUser.balance || 0) + amount;
+        // Ép kiểu balance thành số, mặc định 0 nếu không có
+        const currentBalance = Number(destinationUser.balance || 0);
+        if (isNaN(currentBalance)) {
+          throw new Error('Invalid balance value in destination user');
+        }
+
+        // Ép kiểu amount thành số
+        const amountNumber = Number(amount);
+        if (isNaN(amountNumber)) {
+          throw new Error('Invalid amount value');
+        }
+
+        // Cộng hai số và làm tròn đến 2 chữ số thập phân
+        const newBalance =
+          Math.round((currentBalance + amountNumber) * 100) / 100;
         await this.userRepository.update(
           destination,
-          { balance: destinationUser.balance },
+          { balance: newBalance },
           manager
         );
       }

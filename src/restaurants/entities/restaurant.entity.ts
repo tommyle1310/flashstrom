@@ -1,3 +1,4 @@
+// src/restaurants/entities/restaurant.entity.ts
 import {
   Entity,
   Column,
@@ -15,6 +16,7 @@ import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 import { Admin } from 'src/admin/entities/admin.entity';
 import { Order } from 'src/orders/entities/order.entity';
+import { Promotion } from 'src/promotions/entities/promotion.entity'; // Thêm import
 
 @Entity('restaurants')
 export class Restaurant {
@@ -53,7 +55,7 @@ export class Restaurant {
   @Column('jsonb', { nullable: true })
   avatar: { url: string; key: string };
 
-  @Column('jsonb', { nullable: true }) // Sửa: Bỏ array: true
+  @Column('jsonb', { nullable: true })
   images_gallery: { url: string; key: string }[];
 
   @Column('jsonb')
@@ -63,8 +65,14 @@ export class Restaurant {
     is_accepted_orders: boolean;
   };
 
-  @Column('text', { array: true, nullable: true })
-  promotions: string[];
+  // Thay promotions từ string[] thành quan hệ ManyToMany
+  @ManyToMany(() => Promotion, promotion => promotion.restaurants)
+  @JoinTable({
+    name: 'restaurant_promotions', // Tên bảng join
+    joinColumn: { name: 'restaurant_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'promotion_id', referencedColumnName: 'id' }
+  })
+  promotions: Promotion[];
 
   @Column('jsonb', { nullable: true })
   ratings: {
