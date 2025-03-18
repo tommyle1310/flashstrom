@@ -6,9 +6,21 @@ import {
   ManyToMany,
   JoinTable
 } from 'typeorm';
-import { PromotionStatus, DiscountType } from '../dto/create-promotion.dto';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity'; // Import FoodCategory
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+
+export enum PromotionStatus {
+  ACTIVE = 'ACTIVE',
+  EXPIRED = 'EXPIRED',
+  PENDING = 'PENDING',
+  CANCELLED = 'CANCELLED'
+}
+
+export enum DiscountType {
+  PERCENTAGE = 'PERCENTAGE',
+  FIXED = 'FIXED',
+  BOGO = 'BOGO'
+}
 
 @Entity('promotions')
 export class Promotion {

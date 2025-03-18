@@ -29,6 +29,8 @@ import { Transaction } from 'src/transactions/entities/transaction.entity';
 import { FWallet } from 'src/fwallets/entities/fwallet.entity';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionsRepository } from 'src/transactions/transactions.repository';
+import { PromotionsRepository } from 'src/promotions/promotions.repository';
+import { Promotion } from 'src/promotions/entities/promotion.entity';
 
 @Module({
   imports: [
@@ -37,6 +39,7 @@ import { TransactionsRepository } from 'src/transactions/transactions.repository
       AddressBook,
       Transaction,
       FoodCategory,
+      Promotion,
       Order,
       FWallet,
       User
@@ -65,7 +68,8 @@ import { TransactionsRepository } from 'src/transactions/transactions.repository
     JwtService,
     TransactionService,
     FWalletsRepository,
-    TransactionsRepository
+    TransactionsRepository,
+    PromotionsRepository
   ],
   exports: [
     RestaurantsService,

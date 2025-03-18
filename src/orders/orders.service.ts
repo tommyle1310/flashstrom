@@ -21,6 +21,14 @@ import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { TransactionService } from 'src/transactions/transactions.service';
 import { CreateTransactionDto } from 'src/transactions/dto/create-transaction.dto';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
+import { Promotion } from 'src/promotions/entities/promotion.entity';
+import {
+  PromotionStatus,
+  DiscountType
+} from 'src/promotions/entities/promotion.entity';
+import { In } from 'typeorm';
+import { DeepPartial } from 'typeorm';
+import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 
 @Injectable()
 export class OrdersService {
@@ -41,13 +49,11 @@ export class OrdersService {
     private readonly fWalletsRepository: FWalletsRepository
   ) {}
 
-  async createOrder(
-    createOrderDto: CreateOrderDto
-  ): Promise<ApiResponse<Order>> {
+  async createOrder(createOrderDto: CreateOrderDto): Promise<ApiResponse<any>> {
     try {
       const validationResult = await this.validateOrderData(createOrderDto);
       if (validationResult !== true) {
-        return validationResult;
+        return validationResult; // Đảm bảo validationResult là ApiResponse
       }
       console.log('check input', createOrderDto);
 
@@ -64,8 +70,111 @@ export class OrdersService {
 
       const result = await this.dataSource.transaction(
         async transactionalEntityManager => {
+          const menuItems = await transactionalEntityManager
+            .getRepository(MenuItem)
+            .findBy({
+              id: In(createOrderDto.order_items.map(item => item.item_id))
+            });
+
+          let totalAmount = createOrderDto.total_amount;
+          const appliedPromotions: Promotion[] = [];
+
+          if (createOrderDto.promotions_applied?.length > 0) {
+            const promotions = await transactionalEntityManager
+              .getRepository(Promotion)
+              .find({
+                where: {
+                  id: In(createOrderDto.promotions_applied)
+                },
+                relations: ['food_categories']
+              });
+
+            for (const promotion of promotions) {
+              const now = Math.floor(Date.now() / 1000);
+              if (
+                promotion.start_date > now ||
+                promotion.end_date < now ||
+                promotion.status !== PromotionStatus.ACTIVE
+              ) {
+                continue;
+              }
+
+              if (
+                !promotion.food_categories ||
+                promotion.food_categories.length === 0
+              ) {
+                if (promotion.discount_type === DiscountType.FIXED) {
+                  totalAmount = Math.max(
+                    0,
+                    totalAmount - promotion.discount_value
+                  );
+                } else if (
+                  promotion.discount_type === DiscountType.PERCENTAGE
+                ) {
+                  totalAmount =
+                    totalAmount * (1 - promotion.discount_value / 100);
+                }
+                appliedPromotions.push(promotion);
+                continue;
+              }
+
+              const promotionCategories = promotion.food_categories.map(
+                fc => fc.id
+              );
+
+              createOrderDto.order_items = createOrderDto.order_items.map(
+                orderItem => {
+                  const menuItem = menuItems.find(
+                    mi => mi.id === orderItem.item_id
+                  );
+                  if (!menuItem) return orderItem;
+
+                  const hasMatchingCategory = menuItem.category.some(cat =>
+                    promotionCategories.includes(cat)
+                  );
+
+                  if (hasMatchingCategory) {
+                    let discountedPrice = orderItem.price_at_time_of_order;
+
+                    if (promotion.discount_type === DiscountType.FIXED) {
+                      discountedPrice = Math.max(
+                        0,
+                        discountedPrice - promotion.discount_value
+                      );
+                    } else if (
+                      promotion.discount_type === DiscountType.PERCENTAGE
+                    ) {
+                      discountedPrice =
+                        discountedPrice * (1 - promotion.discount_value / 100);
+                    }
+
+                    const discount =
+                      (orderItem.price_at_time_of_order - discountedPrice) *
+                      orderItem.quantity;
+                    totalAmount -= discount;
+
+                    return {
+                      ...orderItem,
+                      price_at_time_of_order: discountedPrice
+                    };
+                  }
+                  return orderItem;
+                }
+              );
+
+              appliedPromotions.push(promotion);
+            }
+          }
+
+          const orderData: DeepPartial<Order> = {
+            ...createOrderDto,
+            total_amount: totalAmount,
+            promotions_applied: appliedPromotions,
+            status: createOrderDto.status as OrderStatus,
+            tracking_info: createOrderDto.tracking_info as OrderTrackingInfo
+          };
+
           if (createOrderDto.payment_method === 'FWallet') {
-            // Lấy wallet của khách
             const customerWallet = await this.fWalletsRepository.findByUserId(
               user.user_id
             );
@@ -77,7 +186,6 @@ export class OrdersService {
               );
             }
 
-            // Lấy restaurant từ restaurant_id
             const restaurant = await this.restaurantRepository.findById(
               createOrderDto.restaurant_id
             );
@@ -89,7 +197,6 @@ export class OrdersService {
               );
             }
 
-            // Lấy wallet của restaurant từ user_id của restaurant
             const restaurantWallet = await this.fWalletsRepository.findByUserId(
               restaurant.owner_id
             );
@@ -105,11 +212,11 @@ export class OrdersService {
               user_id: user.user_id,
               fwallet_id: customerWallet.id,
               transaction_type: 'PURCHASE',
-              amount: createOrderDto.total_amount,
+              amount: totalAmount,
               balance_after: 0,
               status: 'PENDING',
               source: 'FWALLET',
-              destination: restaurantWallet.id, // Sửa thành wallet của restaurant
+              destination: restaurantWallet.id,
               destination_type: 'FWALLET'
             } as CreateTransactionDto;
 
@@ -119,7 +226,7 @@ export class OrdersService {
             );
             console.log('check transac res', transactionResponse);
             if (transactionResponse.EC === -8) {
-              console.log('Transaction failed:', transactionResponse.EM); // Sửa EM thành EM
+              console.log('Transaction failed:', transactionResponse.EM);
               return createResponse(
                 'InsufficientBalance',
                 null,
@@ -193,25 +300,35 @@ export class OrdersService {
             }
           }
 
-          const orderData = {
-            ...createOrderDto,
-            status: createOrderDto.status as OrderStatus,
-            tracking_info: createOrderDto.tracking_info as OrderTrackingInfo
-          };
-          const newOrder = await transactionalEntityManager
-            .getRepository(Order)
-            .save(transactionalEntityManager.create(Order, orderData));
+          const orderRepository =
+            transactionalEntityManager.getRepository(Order);
+          const newOrder = orderRepository.create(orderData);
+          const savedOrder = await orderRepository.save(newOrder);
 
           await this.updateMenuItemPurchaseCount(createOrderDto.order_items);
 
-          const orderResponse = await this.notifyRestaurantAndDriver(newOrder);
+          const orderResponse =
+            await this.notifyRestaurantAndDriver(savedOrder);
           console.log('Order transaction completed, result:', orderResponse);
-          return orderResponse;
+
+          // Trả về ApiResponse khi thành công trong transaction
+          return createResponse(
+            'OK',
+            savedOrder,
+            'Order created in transaction'
+          );
         }
       );
 
+      // Xử lý result từ transaction
+      if (!result || typeof result.EC === 'undefined') {
+        // Nếu result không có EC, giả sử thành công từ savedOrder
+        return createResponse('OK', result, 'Order created successfully');
+      }
+
       if (result.EC !== 0) {
-        return result;
+        // So sánh với 'OK' thay vì 0 vì createResponse dùng string
+        return createResponse('ServerError', result.data, result.EM);
       }
 
       console.log('Order fully committed to DB');
@@ -229,14 +346,29 @@ export class OrdersService {
   ): Promise<ApiResponse<Order>> {
     try {
       const manager = transactionalEntityManager || this.dataSource.manager;
-      const order = await manager.findOne(Order, { where: { id } });
+      const order = await manager.findOne(Order, {
+        where: { id },
+        relations: ['promotions_applied'] // Load relations để giữ dữ liệu cũ
+      });
       if (!order) {
         return createResponse('NotFound', null, 'Order not found');
       }
 
-      const updatedData = {
+      // Xử lý promotions_applied nếu có trong DTO
+      let promotionsApplied: Promotion[] = order.promotions_applied || [];
+      if (updateOrderDto.promotions_applied?.length > 0) {
+        promotionsApplied = await manager.getRepository(Promotion).find({
+          where: {
+            id: In(updateOrderDto.promotions_applied) // Query Promotion từ ID
+          }
+        });
+      }
+
+      // Tạo updatedData với type đúng
+      const updatedData: DeepPartial<Order> = {
         ...order,
         ...updateOrderDto,
+        promotions_applied: promotionsApplied, // Gán Promotion[] thay vì string[]
         status: updateOrderDto.status
           ? (updateOrderDto.status as OrderStatus)
           : order.status,
@@ -244,7 +376,8 @@ export class OrdersService {
           ? (updateOrderDto.tracking_info as OrderTrackingInfo)
           : order.tracking_info
       };
-      const updatedOrder = (await manager.save(Order, updatedData)) as Order;
+
+      const updatedOrder = await manager.save(Order, updatedData); // Không cần cast
       return createResponse('OK', updatedOrder, 'Order updated successfully');
     } catch (error) {
       return this.handleError('Error updating order:', error);

@@ -14,10 +14,12 @@ import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { Order } from 'src/orders/entities/order.entity';
 import { JwtService } from '@nestjs/jwt';
+import { PromotionsRepository } from 'src/promotions/promotions.repository';
+import { Promotion } from 'src/promotions/entities/promotion.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Driver, AddressBook, Order]),
+    TypeOrmModule.forFeature([Driver, AddressBook, Order, Promotion]),
     forwardRef(() => RestaurantsModule),
     forwardRef(() => OrdersModule),
     DriverProgressStagesModule,
@@ -30,6 +32,7 @@ import { JwtService } from '@nestjs/jwt';
     OrdersRepository,
     DriversRepository,
     AddressBookRepository,
+    PromotionsRepository,
     JwtService
   ],
   exports: [DriversService, DriversRepository]

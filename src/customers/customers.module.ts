@@ -25,6 +25,8 @@ import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { Order } from 'src/orders/entities/order.entity';
 import { JwtService } from '@nestjs/jwt';
+import { PromotionsRepository } from 'src/promotions/promotions.repository';
+import { Promotion } from 'src/promotions/entities/promotion.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -33,6 +35,7 @@ import { JwtService } from '@nestjs/jwt';
       FoodCategory,
       Restaurant,
       Customer,
+      Promotion,
       CartItem,
       Order
     ]),
@@ -51,6 +54,7 @@ import { JwtService } from '@nestjs/jwt';
     FoodCategoriesRepository,
     RestaurantsRepository,
     CustomersRepository,
+    PromotionsRepository,
     CartItemsRepository,
     OrdersRepository,
     JwtService

@@ -1,8 +1,8 @@
-// orders.repository.ts
 import { Injectable } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { Repository, In, DeepPartial } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order, OrderStatus, OrderTrackingInfo } from './entities/order.entity';
+import { Promotion } from 'src/promotions/entities/promotion.entity'; // Thêm import
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 
@@ -10,22 +10,36 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 export class OrdersRepository {
   constructor(
     @InjectRepository(Order)
-    private repository: Repository<Order>
+    private repository: Repository<Order>,
+    @InjectRepository(Promotion) // Thêm repo cho Promotion
+    private promotionRepository: Repository<Promotion>
   ) {}
 
   async create(createDto: CreateOrderDto): Promise<Order> {
-    // Fix: Ép kiểu status và tracking_info cho khớp
-    const orderData = {
+    // Xử lý promotions_applied nếu có
+    let promotionsApplied: Promotion[] = [];
+    if (createDto.promotions_applied?.length > 0) {
+      promotionsApplied = await this.promotionRepository.find({
+        where: {
+          id: In(createDto.promotions_applied) // Query Promotion từ ID
+        }
+      });
+    }
+
+    // Tạo orderData với type đúng
+    const orderData: DeepPartial<Order> = {
       ...createDto,
       status: createDto.status as OrderStatus,
-      tracking_info: createDto.tracking_info as OrderTrackingInfo
+      tracking_info: createDto.tracking_info as OrderTrackingInfo,
+      promotions_applied: promotionsApplied // Gán Promotion[]
     };
+
     const order = this.repository.create(orderData);
-    return await this.repository.save(order);
+    return await this.repository.save(order); // Trả về Order, không phải Order[]
   }
 
   async findAll(): Promise<Order[]> {
-    return await this.repository.find(); // Đã đúng, không cần sửa
+    return await this.repository.find();
   }
 
   async findById(id: string): Promise<Order> {
@@ -41,15 +55,33 @@ export class OrdersRepository {
   }
 
   async update(id: string, updateDto: UpdateOrderDto): Promise<Order> {
-    // Fix: Ép kiểu status và tracking_info nếu có
-    const updateData = {
+    // Lấy order hiện tại để giữ promotions_applied nếu không update
+    const existingOrder = await this.findById(id);
+    if (!existingOrder) {
+      throw new Error('Order not found'); // Hoặc trả về null tùy anh
+    }
+
+    // Xử lý promotions_applied nếu có trong DTO
+    let promotionsApplied: Promotion[] = existingOrder.promotions_applied || [];
+    if (updateDto.promotions_applied?.length > 0) {
+      promotionsApplied = await this.promotionRepository.find({
+        where: {
+          id: In(updateDto.promotions_applied) // Query Promotion từ ID
+        }
+      });
+    }
+
+    // Tạo updateData với type đúng
+    const updateData: DeepPartial<Order> = {
       ...updateDto,
       status: updateDto.status ? (updateDto.status as OrderStatus) : undefined,
       tracking_info: updateDto.tracking_info
         ? (updateDto.tracking_info as OrderTrackingInfo)
         : undefined,
+      promotions_applied: promotionsApplied, // Gán Promotion[]
       updated_at: Math.floor(Date.now() / 1000)
     };
+
     await this.repository.update(id, updateData);
     return await this.findById(id);
   }
@@ -78,9 +110,8 @@ export class OrdersRepository {
     id: string,
     tracking_info: OrderTrackingInfo
   ): Promise<Order> {
-    // Fix: Bỏ OrderTrackingInfoType, dùng thẳng OrderTrackingInfo
     await this.repository.update(id, {
-      tracking_info, // Không cần ép kiểu nữa, đã là OrderTrackingInfo
+      tracking_info,
       updated_at: Math.floor(Date.now() / 1000)
     });
     return this.findById(id);

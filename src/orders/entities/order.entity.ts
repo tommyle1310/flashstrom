@@ -7,7 +7,8 @@ import {
   OneToMany,
   ManyToMany,
   ManyToOne,
-  JoinColumn
+  JoinColumn,
+  JoinTable
 } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
@@ -16,6 +17,7 @@ import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { Customer } from 'src/customers/entities/customer.entity';
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
+import { Promotion } from 'src/promotions/entities/promotion.entity';
 
 export enum OrderTrackingInfo {
   ORDER_PLACED = 'ORDER_PLACED',
@@ -169,6 +171,22 @@ export class Order {
 
   @OneToMany(() => RatingsReview, ratingReview => ratingReview.order)
   ratings_reviews: RatingsReview[];
+
+  @ManyToMany(() => Promotion, promotion => promotion.restaurants, {
+    nullable: true
+  })
+  @JoinTable({
+    name: 'order_promotions',
+    joinColumn: {
+      name: 'order_id',
+      referencedColumnName: 'id'
+    },
+    inverseJoinColumn: {
+      name: 'promotion_id',
+      referencedColumnName: 'id'
+    }
+  })
+  promotions_applied: Promotion[];
 
   @BeforeInsert()
   generateId() {
