@@ -138,9 +138,11 @@ export class RestaurantsGateway
       const { availableDrivers, orderDetails: orderId } = data;
       const fullOrderDetails =
         await this.restaurantsService.getOrderById(orderId);
-      if (!fullOrderDetails)
+      if (!fullOrderDetails) {
         return { event: 'error', data: { message: 'Order not found' } };
+      }
 
+      // Cập nhật trạng thái đầu tiên
       await this.ordersRepository.update(orderId, {
         status: OrderStatus.RESTAURANT_ACCEPTED,
         tracking_info: OrderTrackingInfo.ORDER_RECEIVED
@@ -178,29 +180,27 @@ export class RestaurantsGateway
           res_location?.location?.lng ?? 0
         );
 
-        const orderAssignment = {
-          ...fullOrderDetails,
-          driver_id: selectedDriver.id,
-          driver_wage: FIXED_DELIVERY_DRIVER_WAGE,
-          tracking_info: OrderTrackingInfo.PREPARING,
-          status: OrderStatus.PREPARING,
-          distance: distance
-        };
-        console.log('check oỏdeorder áingment', orderAssignment);
-        const orderWithDistance = await this.ordersRepository.update(orderId, {
+        // Cập nhật trạng thái thứ hai với dữ liệu thuần
+        const updatedFields = {
           distance: +distance,
           status: OrderStatus.PREPARING,
-          tracking_info: OrderTrackingInfo.PREPARING
-        });
+          tracking_info: OrderTrackingInfo.PREPARING,
+          driver_wage: FIXED_DELIVERY_DRIVER_WAGE
+        };
+        console.log('Fields to update:', updatedFields);
+        await this.ordersRepository.update(orderId, updatedFields);
+
+        // Lấy dữ liệu order sau khi cập nhật để emit và notify
+        const orderWithDistance = await this.ordersRepository.findById(orderId);
+        if (!orderWithDistance) {
+          throw new Error('Failed to retrieve updated order');
+        }
 
         await this.eventEmitter.emit(
           'order.assignedToDriver',
           orderWithDistance
         );
-        await this.notifyPartiesOnce({
-          ...orderWithDistance,
-          driver_id: selectedDriver.id
-        });
+        await this.notifyPartiesOnce(orderWithDistance);
 
         return { event: 'orderAssigned', data: orderWithDistance };
       }

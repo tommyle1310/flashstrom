@@ -151,7 +151,7 @@ export class Order {
   })
   tracking_info: OrderTrackingInfo;
 
-  @Column({ type: 'decimal', default: 0, nullable: true }) // Thêm field driver_tips
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   driver_tips: number;
 
   @Column()

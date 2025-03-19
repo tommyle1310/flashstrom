@@ -273,6 +273,7 @@ export class DriversGateway
           order.driver_id = driverId;
           order.status = OrderStatus.DISPATCHED;
           order.tracking_info = OrderTrackingInfo.DISPATCHED;
+          order.updated_at = Math.floor(Date.now() / 1000);
           await transactionalEntityManager.save(Order, order);
 
           driver.current_orders = driver.current_orders || [];
@@ -420,7 +421,11 @@ export class DriversGateway
                   await transactionalEntityManager.update(
                     Order,
                     { id: order.id },
-                    { status: newStatus, tracking_info: newTrackingInfo }
+                    {
+                      status: newStatus,
+                      tracking_info: newTrackingInfo,
+                      updated_at: Math.floor(Date.now() / 1000)
+                    }
                   );
 
                   if (nextStateBase === 'delivery_complete') {
@@ -450,7 +455,11 @@ export class DriversGateway
                 await transactionalEntityManager.update(
                   Order,
                   { id: order.id },
-                  { status: newStatus, tracking_info: newTrackingInfo }
+                  {
+                    status: newStatus,
+                    tracking_info: newTrackingInfo,
+                    updated_at: Math.floor(Date.now() / 1000)
+                  }
                 );
               }
             }
@@ -495,7 +504,11 @@ export class DriversGateway
               await transactionalEntityManager.update(
                 Order,
                 { id: targetOrderId },
-                { status: newStatus, tracking_info: newTrackingInfo }
+                {
+                  status: newStatus,
+                  tracking_info: newTrackingInfo,
+                  updated_at: Math.floor(Date.now() / 1000)
+                }
               );
             }
           }

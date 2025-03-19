@@ -54,35 +54,53 @@ export class OrdersRepository {
     return await this.repository.findOne({ where: conditions });
   }
 
-  async update(id: string, updateDto: UpdateOrderDto): Promise<Order> {
-    // Lấy order hiện tại để giữ promotions_applied nếu không update
+  async update(id: string, updateDto: any): Promise<Order> {
+    // Lấy order hiện tại để kiểm tra sự tồn tại
     const existingOrder = await this.findById(id);
     if (!existingOrder) {
-      throw new Error('Order not found'); // Hoặc trả về null tùy anh
+      throw new Error('Order not found');
     }
 
-    // Xử lý promotions_applied nếu có trong DTO
-    let promotionsApplied: Promotion[] = existingOrder.promotions_applied || [];
-    if (updateDto.promotions_applied?.length > 0) {
-      promotionsApplied = await this.promotionRepository.find({
-        where: {
-          id: In(updateDto.promotions_applied) // Query Promotion từ ID
-        }
-      });
-    }
-
-    // Tạo updateData với type đúng
-    const updateData: DeepPartial<Order> = {
-      ...updateDto,
+    // Lọc các trường đơn giản để cập nhật
+    const updateData: Partial<Order> = {
       status: updateDto.status ? (updateDto.status as OrderStatus) : undefined,
       tracking_info: updateDto.tracking_info
         ? (updateDto.tracking_info as OrderTrackingInfo)
         : undefined,
-      promotions_applied: promotionsApplied, // Gán Promotion[]
+      driver_id: updateDto.driver_id,
+      distance: updateDto.distance,
+      // driver_wage: updateDto.driver_wage,
       updated_at: Math.floor(Date.now() / 1000)
     };
 
-    await this.repository.update(id, updateData);
+    // Xóa các trường undefined để tránh ghi đè không mong muốn
+    Object.keys(updateData).forEach(
+      key => updateData[key] === undefined && delete updateData[key]
+    );
+
+    // Cập nhật các trường đơn giản
+    await this.repository
+      .createQueryBuilder()
+      .update(Order)
+      .set(updateData)
+      .where('id = :id', { id })
+      .execute();
+
+    // Nếu có promotions_applied trong updateDto, xử lý riêng
+    if (updateDto.promotions_applied?.length > 0) {
+      const promotionsApplied = await this.promotionRepository.find({
+        where: {
+          id: In(updateDto.promotions_applied)
+        }
+      });
+      const order = await this.repository.findOne({
+        where: { id },
+        relations: ['promotions_applied']
+      });
+      order.promotions_applied = promotionsApplied;
+      await this.repository.save(order);
+    }
+
     return await this.findById(id);
   }
 
