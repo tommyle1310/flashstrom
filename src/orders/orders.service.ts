@@ -29,6 +29,7 @@ import {
 import { In } from 'typeorm';
 import { DeepPartial } from 'typeorm';
 import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 
 @Injectable()
 export class OrdersService {
@@ -83,9 +84,7 @@ export class OrdersService {
             const promotions = await transactionalEntityManager
               .getRepository(Promotion)
               .find({
-                where: {
-                  id: In(createOrderDto.promotions_applied)
-                },
+                where: { id: In(createOrderDto.promotions_applied) },
                 relations: ['food_categories']
               });
 
@@ -238,7 +237,9 @@ export class OrdersService {
 
           const cartItems = await transactionalEntityManager
             .getRepository(CartItem)
-            .find({ where: { customer_id: createOrderDto.customer_id } });
+            .find({
+              where: { customer_id: createOrderDto.customer_id }
+            });
 
           for (const orderItem of createOrderDto.order_items) {
             const cartItem = cartItems.find(
@@ -304,14 +305,29 @@ export class OrdersService {
             transactionalEntityManager.getRepository(Order);
           const newOrder = orderRepository.create(orderData);
           const savedOrder = await orderRepository.save(newOrder);
-
           await this.updateMenuItemPurchaseCount(createOrderDto.order_items);
+
+          // Cập nhật total_orders trong transaction
+          const restaurant = await transactionalEntityManager
+            .getRepository(Restaurant)
+            .findOne({ where: { id: createOrderDto.restaurant_id } });
+          if (restaurant) {
+            await transactionalEntityManager
+              .getRepository(Restaurant)
+              .update(createOrderDto.restaurant_id, {
+                total_orders: restaurant.total_orders + 1,
+                updated_at: Math.floor(Date.now() / 1000)
+              });
+          } else {
+            console.error(
+              `Restaurant ${createOrderDto.restaurant_id} not found during order creation`
+            );
+          }
 
           const orderResponse =
             await this.notifyRestaurantAndDriver(savedOrder);
           console.log('Order transaction completed, result:', orderResponse);
 
-          // Trả về ApiResponse khi thành công trong transaction
           return createResponse(
             'OK',
             savedOrder,
@@ -320,14 +336,11 @@ export class OrdersService {
         }
       );
 
-      // Xử lý result từ transaction
       if (!result || typeof result.EC === 'undefined') {
-        // Nếu result không có EC, giả sử thành công từ savedOrder
         return createResponse('OK', result, 'Order created successfully');
       }
 
       if (result.EC !== 0) {
-        // So sánh với 'OK' thay vì 0 vì createResponse dùng string
         return createResponse('ServerError', result.data, result.EM);
       }
 

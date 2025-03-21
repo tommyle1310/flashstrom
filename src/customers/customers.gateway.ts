@@ -6,7 +6,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { CustomersService } from './customers.service';
-import { OnEvent } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 
 @WebSocketGateway({
@@ -24,7 +24,8 @@ export class CustomersGateway {
 
   constructor(
     private readonly customersService: CustomersService,
-    private readonly jwtService: JwtService
+    private readonly jwtService: JwtService,
+    private eventEmitter: EventEmitter2
   ) {}
 
   private async validateToken(client: Socket): Promise<any> {
@@ -80,7 +81,11 @@ export class CustomersGateway {
     await this.server
       .to(`customer_${customerId}`)
       .emit('notifyOrderStatus', trackingUpdate);
-    console.log('Emitted notifyOrderStatus for customer:', trackingUpdate);
+    console.log('Emitted newOrderForRestaurant via EventEmitter2:', {
+      restaurant_id: order.restaurant_id,
+      order: trackingUpdate
+    });
+
     return {
       event: 'customerPlaceOrder',
       data: trackingUpdate,
