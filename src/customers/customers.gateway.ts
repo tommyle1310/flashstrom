@@ -104,7 +104,9 @@ export class CustomersGateway {
       updated_at: order.updated_at,
       customer_id: order.customer_id,
       driver_id: order.driver_id,
-      restaurant_id: order.restaurant_id
+      restaurant_id: order.restaurant_id,
+      restaurant_avatar: order.restaurant_avatar,
+      driver_avatar: order.driver_avatar
     };
     console.log('check falle here???', order, 'trackingudpate', trackingUpdate);
     await this.server

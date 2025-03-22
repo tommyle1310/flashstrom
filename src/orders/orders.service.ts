@@ -170,7 +170,7 @@ export class OrdersService {
             total_amount: totalAmount,
             promotions_applied: appliedPromotions,
             status: createOrderDto.status as OrderStatus,
-            tracking_info: createOrderDto.tracking_info as OrderTrackingInfo
+            tracking_info: OrderTrackingInfo.ORDER_PLACED as OrderTrackingInfo
           };
 
           if (createOrderDto.payment_method === 'FWallet') {
@@ -485,7 +485,10 @@ export class OrdersService {
       // Kiểm tra trạng thái order (chỉ cho tip khi order đã hoàn thành hoặc đang giao)
       if (
         order.status !== OrderStatus.DELIVERED &&
-        order.status !== OrderStatus.OUT_FOR_DELIVERY
+        order.status !== OrderStatus.EN_ROUTE &&
+        order.status !== OrderStatus.RESTAURANT_PICKUP &&
+        order.status !== OrderStatus.READY_FOR_PICKUP &&
+        order.status !== OrderStatus.DISPATCHED
       ) {
         return createResponse(
           'Forbidden',
@@ -533,10 +536,12 @@ export class OrdersService {
     transactionalEntityManager?: EntityManager
   ): Promise<ApiResponse<Order>> {
     try {
-      const manager = transactionalEntityManager || this.dataSource.manager; // Dùng dataSource.manager
-      const order = await manager
-        .getRepository(Order)
-        .findOne({ where: { id } });
+      const manager = transactionalEntityManager || this.dataSource.manager; // Dùng manager từ transaction hoặc mặc định
+      const order = await manager.getRepository(Order).findOne({
+        where: { id },
+        relations: ['driver', 'customer', 'restaurant'] // Load các relation
+      });
+
       return this.handleOrderResponse(order);
     } catch (error) {
       return this.handleError('Error fetching order:', error);

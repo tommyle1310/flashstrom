@@ -588,6 +588,8 @@ export class DriversGateway
         tracking_info: order.tracking_info,
         updated_at: order.updated_at,
         customer_id: order.customer_id,
+        driver_avatar: order?.driver?.avatar,
+        restaurant_avatar: order?.restaurant?.avatar,
         driver_id: order.driver_id,
         restaurant_id: order.restaurant_id,
         driver_tips: order.driver_tips || 0 // Thêm driver_tips
