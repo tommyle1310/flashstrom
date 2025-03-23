@@ -181,28 +181,29 @@ export class DriversGateway
 
           if (!order) throw new WsException('Order not found');
 
-          // Bước 2: Load relation riêng
-          await transactionalEntityManager
-            .createQueryBuilder(Order, 'order')
-            .leftJoinAndSelect('order.customerAddress', 'customerAddress')
-            .leftJoinAndSelect('order.restaurantAddress', 'restaurantAddress')
-            .where('order.id = :id', { id: orderId })
-            .loadAllRelationIds({
-              relations: ['customerAddress', 'restaurantAddress']
-            })
-            .execute();
-
+          // Bước 2: Load các relation cần thiết, bao gồm nested address
           const orderWithRelations = await transactionalEntityManager
             .getRepository(Order)
             .findOne({
               where: { id: orderId },
-              relations: ['customerAddress', 'restaurantAddress']
+              relations: [
+                'customerAddress',
+                'restaurantAddress',
+                'customer',
+                'customer.address',
+                'restaurant',
+                'restaurant.address'
+              ]
             });
 
           console.log(
-            'check order with relation address',
+            'check order with nested relations',
             orderWithRelations?.customerAddress,
             orderWithRelations?.restaurantAddress,
+            orderWithRelations?.customer,
+            orderWithRelations?.customer?.address,
+            orderWithRelations?.restaurant,
+            orderWithRelations?.restaurant?.address,
             orderWithRelations
           );
 
@@ -273,7 +274,7 @@ export class DriversGateway
               throw new WsException(`Failed to create new DPS`);
             dps = dpsResponse.data;
 
-            // Gán location vào stages
+            // Gán location, customerDetails, restaurantDetails vào stages
             dps.stages = dps.stages || [];
             dps.stages = dps.stages.map(stage => {
               if (
@@ -282,7 +283,18 @@ export class DriversGateway
               ) {
                 stage.details = {
                   ...stage.details,
-                  location: orderWithRelations.restaurantAddress?.location
+                  location: orderWithRelations.restaurantAddress?.location,
+                  restaurantDetails: orderWithRelations.restaurant
+                    ? {
+                        id: orderWithRelations.restaurant.id,
+                        restaurant_name:
+                          orderWithRelations.restaurant.restaurant_name,
+                        address: orderWithRelations.restaurant.address,
+                        avatar: orderWithRelations.restaurant.avatar,
+                        contact_phone:
+                          orderWithRelations.restaurant.contact_phone
+                      }
+                    : undefined
                 };
               } else if (
                 stage.state.startsWith('en_route_to_customer_') ||
@@ -290,7 +302,16 @@ export class DriversGateway
               ) {
                 stage.details = {
                   ...stage.details,
-                  location: orderWithRelations.customerAddress?.location
+                  location: orderWithRelations.customerAddress?.location,
+                  customerDetails: orderWithRelations.customer
+                    ? {
+                        id: orderWithRelations.customer.id,
+                        first_name: orderWithRelations.customer.first_name,
+                        last_name: orderWithRelations.customer.last_name,
+                        address: orderWithRelations.customer.address,
+                        avatar: orderWithRelations.customer.avatar
+                      }
+                    : undefined
                 };
               } else if (stage.state.startsWith('driver_ready_')) {
                 stage.details = {
@@ -313,7 +334,7 @@ export class DriversGateway
               throw new WsException(`Failed to add order to existing DPS`);
             dps = dpsResponse.data;
 
-            // Gán location vào stages
+            // Gán location, customerDetails, restaurantDetails vào stages
             dps.stages = dps.stages || [];
             dps.stages = dps.stages.map(stage => {
               if (
@@ -322,7 +343,18 @@ export class DriversGateway
               ) {
                 stage.details = {
                   ...stage.details,
-                  location: orderWithRelations.restaurantAddress?.location
+                  location: orderWithRelations.restaurantAddress?.location,
+                  restaurantDetails: orderWithRelations.restaurant
+                    ? {
+                        id: orderWithRelations.restaurant.id,
+                        restaurant_name:
+                          orderWithRelations.restaurant.restaurant_name,
+                        address: orderWithRelations.restaurant.address,
+                        avatar: orderWithRelations.restaurant.avatar,
+                        contact_phone:
+                          orderWithRelations.restaurant.contact_phone
+                      }
+                    : undefined
                 };
               } else if (
                 stage.state.startsWith('en_route_to_customer_') ||
@@ -330,7 +362,16 @@ export class DriversGateway
               ) {
                 stage.details = {
                   ...stage.details,
-                  location: orderWithRelations.customerAddress?.location
+                  location: orderWithRelations.customerAddress?.location,
+                  customerDetails: orderWithRelations.customer
+                    ? {
+                        id: orderWithRelations.customer.id,
+                        first_name: orderWithRelations.customer.first_name,
+                        last_name: orderWithRelations.customer.last_name,
+                        address: orderWithRelations.customer.address,
+                        avatar: orderWithRelations.customer.avatar
+                      }
+                    : undefined
                 };
               } else if (stage.state.startsWith('driver_ready_')) {
                 stage.details = {
@@ -374,7 +415,7 @@ export class DriversGateway
           await this.server
             .to(`driver_${orderWithRelations.driver_id}`)
             .emit('driverStagesUpdated', dps);
-          console.log('check emit correct', dps);
+          console.log('check emit correct', JSON.stringify(dps, null, 2));
 
           return { success: true, order: orderWithRelations, dps };
         }
@@ -704,7 +745,7 @@ export class DriversGateway
   @OnEvent('order.assignedToDriver')
   async handleOrderAssignedToDriver(orderAssignment: any) {
     try {
-      const driverId = orderAssignment.driver_id;
+      const driverId = orderAssignment.driverListenerId;
       if (!driverId) throw new WsException('Driver ID is required');
       await this.server
         .to(`driver_${driverId}`)

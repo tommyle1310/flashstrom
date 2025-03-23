@@ -207,11 +207,12 @@ export class RestaurantsGateway
         if (!orderWithDistance) {
           throw new Error('Failed to retrieve updated order');
         }
+        console.log('cehck driver selected', selectedDriver);
 
-        await this.eventEmitter.emit(
-          'order.assignedToDriver',
-          orderWithDistance
-        );
+        await this.eventEmitter.emit('order.assignedToDriver', {
+          ...orderWithDistance,
+          driverListenerId: selectedDriver.id
+        });
         await this.notifyPartiesOnce(orderWithDistance);
 
         return { event: 'orderAssigned', data: orderWithDistance };
