@@ -722,6 +722,8 @@ export class AuthService {
       password: hashedPassword,
       verification_code: Math.floor(Math.random() * 1000000),
       is_verified: false,
+      created_at: new Date(),
+      updated_at: new Date(),
       user_type: [type]
     });
     await this.userRepository.update(newUser.id, {
