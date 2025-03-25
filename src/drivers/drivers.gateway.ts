@@ -456,6 +456,12 @@ export class DriversGateway
             };
           }
 
+          // Lưu trạng thái cũ để so sánh
+          const oldStagesString = JSON.stringify(dps.stages);
+          const oldCurrentState = dps.current_state;
+          const oldPreviousState = dps.previous_state;
+          const oldNextState = dps.next_state;
+
           const timestamp = Math.floor(Date.now() / 1000);
           const stageOrder = [
             'driver_ready',
@@ -692,12 +698,32 @@ export class DriversGateway
               transactionalEntityManager
             );
 
-          if (updateResult.EC === 0) {
+          // Kiểm tra thay đổi thực sự để emit
+          const newStagesString = JSON.stringify(updateResult.data.stages);
+          const hasChanges =
+            oldStagesString !== newStagesString ||
+            oldCurrentState !== updateResult.data.current_state ||
+            oldPreviousState !== updateResult.data.previous_state ||
+            oldNextState !== updateResult.data.next_state;
+          const allStagesCompleted = updateResult.data.stages.every(
+            stage => stage.status === 'completed'
+          );
+
+          if (updateResult.EC === 0 && hasChanges) {
             await this.server
               .to(`driver_${dps.driver_id}`)
               .emit('driverStagesUpdated', updateResult.data);
+            console.log('Emitted driverStagesUpdated:', updateResult.data);
+          } else {
+            console.log('Skipped emitting driverStagesUpdated:', {
+              reason: !hasChanges ? 'No changes detected' : 'Update failed',
+              oldStagesString,
+              newStagesString,
+              oldCurrentState,
+              newCurrentState: updateResult.data.current_state,
+              allStagesCompleted
+            });
           }
-          console.log('check updatered result', updateResult);
 
           const updatedOrder = await this.ordersService.findOne(
             targetOrderId,
@@ -709,7 +735,6 @@ export class DriversGateway
           return { success: true, stage: updateResult.data };
         }
       );
-
       return result;
     } catch (error) {
       console.error('❌ Error in handleDriverProgressUpdate:', error);

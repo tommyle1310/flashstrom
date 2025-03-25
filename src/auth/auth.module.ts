@@ -57,7 +57,7 @@ import { TransactionsRepository } from 'src/transactions/transactions.repository
   imports: [
     JwtModule.register({
       secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: '1d' }
+      signOptions: { expiresIn: '30d' }
     }),
     TypeOrmModule.forFeature([
       User,
