@@ -3,7 +3,8 @@ import {
   IsArray,
   IsEnum,
   IsOptional,
-  ValidateNested
+  ValidateNested,
+  IsNumber
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Order } from 'src/orders/entities/order.entity';
@@ -100,6 +101,10 @@ export class CreateDriverProgressStageDto {
 
   @IsString()
   current_state: string;
+
+  @IsOptional()
+  @IsNumber()
+  total_earns: number;
 
   @IsOptional()
   @IsArray()

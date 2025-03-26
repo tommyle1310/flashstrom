@@ -26,6 +26,9 @@ export class DriverProgressStage {
   @Index()
   driver_id: string;
 
+  @Column('float', { nullable: true }) // Thêm field mới
+  total_earns: number;
+
   @ManyToOne(() => Driver, driver => driver.progress_stages)
   @JoinColumn({ name: 'driver_id' })
   driver: Driver;

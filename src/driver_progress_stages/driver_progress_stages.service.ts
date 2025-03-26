@@ -22,9 +22,13 @@ export class DriverProgressStagesService {
     private readonly dataSource: DataSource
   ) {}
 
-  // driver_progress_stages.service.ts (chỉ fix create)
   async create(
-    createDto: CreateDriverProgressStageDto,
+    createDto: CreateDriverProgressStageDto & {
+      estimated_time_remaining?: number;
+      total_distance_travelled?: number;
+      total_tips?: number;
+      total_earns?: number;
+    },
     transactionalEntityManager?: EntityManager
   ): Promise<ApiResponse<DriverProgressStage>> {
     const manager = transactionalEntityManager || this.dataSource.manager;
@@ -36,58 +40,21 @@ export class DriverProgressStagesService {
         ...createDto,
         stages: initialStages,
         events: [],
+        estimated_time_remaining: createDto.estimated_time_remaining || 0,
+        total_distance_travelled: createDto.total_distance_travelled || 0,
+        total_tips: createDto.total_tips || 0,
+        total_earns: createDto.total_earns || 0,
         created_at: Math.floor(Date.now() / 1000),
         updated_at: Math.floor(Date.now() / 1000),
-        orders: createDto.orders // Gán orders trực tiếp vào entity
+        orders: createDto.orders
       });
 
       const savedStage = await manager.save(DriverProgressStage, dps);
-      console.log(`DPS saved in driverProgressStageService: ${savedStage.id}`);
-
-      // Kiểm tra và lưu quan hệ trong bảng trung gian nếu cần
-      if (createDto.orders && createDto.orders.length > 0) {
-        for (const order of createDto.orders) {
-          const exists = await manager
-            .createQueryBuilder()
-            .select('1')
-            .from('driver_progress_orders', 'dpo')
-            .where(
-              'dpo.driver_progress_id = :dpsId AND dpo.order_id = :orderId',
-              {
-                dpsId: savedStage.id,
-                orderId: order.id
-              }
-            )
-            .getRawOne();
-
-          if (!exists) {
-            await manager
-              .createQueryBuilder()
-              .insert()
-              .into('driver_progress_orders')
-              .values({
-                driver_progress_id: savedStage.id,
-                order_id: order.id
-              })
-              .execute();
-            console.log(
-              `Saved order relation for DPS: ${savedStage.id}, order: ${order.id}`
-            );
-          }
-        }
-      }
-
-      // Tải lại DPS với quan hệ orders để chắc chắn
-      const finalDps = await manager
-        .getRepository(DriverProgressStage)
-        .findOne({
-          where: { id: savedStage.id },
-          relations: ['orders']
-        });
+      // Quan hệ orders như hiện tại...
 
       return createResponse(
         'OK',
-        finalDps,
+        savedStage,
         'Driver progress stage created successfully'
       );
     } catch (err) {
@@ -96,6 +63,67 @@ export class DriverProgressStagesService {
         'ServerError',
         null,
         'Error creating driver progress stage'
+      );
+    }
+  }
+
+  async updateStage(
+    stageId: string,
+    updateData: UpdateDriverProgressStageDto & {
+      previous_state?: string | null;
+      next_state?: string | null;
+      estimated_time_remaining?: number;
+      actual_time_spent?: number;
+      total_distance_travelled?: number;
+      total_tips?: number;
+      total_earns?: number;
+    },
+    transactionalEntityManager?: EntityManager
+  ): Promise<ApiResponse<DriverProgressStage>> {
+    try {
+      const manager = transactionalEntityManager || this.dataSource.manager;
+
+      const existingStage = await manager
+        .getRepository(DriverProgressStage)
+        .findOne({ where: { id: stageId } });
+      if (!existingStage) {
+        return createResponse('NotFound', null, 'Progress stage not found');
+      }
+
+      const updatedStage = await manager
+        .getRepository(DriverProgressStage)
+        .save({
+          ...existingStage,
+          current_state: updateData.current_state,
+          orders: updateData.orders,
+          previous_state:
+            updateData.previous_state ?? existingStage.previous_state,
+          next_state: updateData.next_state ?? existingStage.next_state,
+          stages: updateData.stages,
+          estimated_time_remaining:
+            updateData.estimated_time_remaining ??
+            existingStage.estimated_time_remaining,
+          actual_time_spent:
+            updateData.actual_time_spent ?? existingStage.actual_time_spent,
+          total_distance_travelled:
+            updateData.total_distance_travelled ??
+            existingStage.total_distance_travelled,
+          total_tips: updateData.total_tips ?? existingStage.total_tips,
+          total_earns: updateData.total_earns ?? existingStage.total_earns,
+          updated_at: Math.floor(Date.now() / 1000)
+        });
+
+      return createResponse(
+        'OK',
+        updatedStage,
+        'Driver progress stage updated successfully'
+      );
+    } catch (err) {
+      console.error('Error updating driver progress stage:', err);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error updating driver progress stage'
       );
     }
   }
@@ -210,54 +238,6 @@ export class DriverProgressStagesService {
       });
     });
     return stages;
-  }
-
-  async updateStage(
-    stageId: string,
-    updateData: UpdateDriverProgressStageDto & {
-      previous_state?: string | null;
-      next_state?: string | null;
-    },
-    transactionalEntityManager?: EntityManager
-  ): Promise<ApiResponse<DriverProgressStage>> {
-    try {
-      console.log('🔍 Updating stage:', stageId, 'with data:', updateData);
-
-      const manager = transactionalEntityManager || this.dataSource.manager;
-
-      const existingStage = await manager
-        .getRepository(DriverProgressStage)
-        .findOne({ where: { id: stageId } });
-      if (!existingStage) {
-        return createResponse('NotFound', null, 'Progress stage not found');
-      }
-
-      const updatedStage = await manager
-        .getRepository(DriverProgressStage)
-        .save({
-          ...existingStage,
-          current_state: updateData.current_state,
-          orders: updateData.orders,
-          previous_state:
-            updateData.previous_state ?? existingStage.previous_state,
-          next_state: updateData.next_state ?? existingStage.next_state,
-          stages: updateData.stages,
-          updated_at: Math.floor(Date.now() / 1000)
-        });
-
-      return createResponse(
-        'OK',
-        updatedStage,
-        'Driver progress stage updated successfully'
-      );
-    } catch (err) {
-      console.error('Error updating driver progress stage:', err);
-      return createResponse(
-        'ServerError',
-        null,
-        'Error updating driver progress stage'
-      );
-    }
   }
 
   async getActiveStageByDriver(

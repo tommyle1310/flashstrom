@@ -23,8 +23,6 @@ export class DriversController {
 
   @Get()
   findAll() {
-    console.log('co lot vao');
-
     return this.driversService.findAll(); // Corrected service method to use driversService
   }
 
