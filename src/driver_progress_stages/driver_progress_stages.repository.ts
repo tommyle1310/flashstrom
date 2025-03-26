@@ -18,7 +18,6 @@ export class DriverProgressStagesRepository {
   ): Promise<DriverProgressStage> {
     return await this.dataSource.transaction(
       async transactionalEntityManager => {
-        // First, check for any active stage (not completed) for this driver
         const existingActive = await transactionalEntityManager
           .createQueryBuilder(DriverProgressStage, 'dps')
           .where('dps.driver_id = :driverId', { driverId: createDto.driver_id })
@@ -34,7 +33,6 @@ export class DriverProgressStagesRepository {
           return existingActive;
         }
 
-        // If no active stage exists, create a new one
         const stage = this.repository.create(createDto);
 
         try {
@@ -46,7 +44,6 @@ export class DriverProgressStagesRepository {
           return savedStage;
         } catch (error) {
           console.error('Error creating stage:', error);
-          // Double-check if a stage was created while we were trying to save
           const lastMinuteCheck = await this.findByDriverId(
             createDto.driver_id
           );
@@ -101,5 +98,20 @@ export class DriverProgressStagesRepository {
       updated_at: Math.floor(Date.now() / 1000)
     });
     return await this.findById(id);
+  }
+
+  async getAllByDriverId(
+    driverId: string,
+    offset: number = 0, // Mặc định offset = 0
+    limit: number = 5 // Mặc định limit = 5
+  ): Promise<DriverProgressStage[]> {
+    return await this.repository
+      .createQueryBuilder('dps')
+      .where('dps.driver_id = :driverId', { driverId })
+      .leftJoinAndSelect('dps.orders', 'orders') // Tải quan hệ orders
+      .orderBy('dps.created_at', 'DESC') // Sắp xếp giảm dần theo created_at
+      .skip(offset) // Bỏ qua số bản ghi theo offset
+      .take(limit) // Lấy số bản ghi theo limit
+      .getMany(); // Trả về danh sách
   }
 }

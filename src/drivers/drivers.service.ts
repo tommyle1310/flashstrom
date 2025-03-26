@@ -13,6 +13,7 @@ import { HARDED_CODE_TEST } from 'src/utils/harded_code_test';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
 
 @Injectable()
 export class DriversService {
@@ -22,6 +23,7 @@ export class DriversService {
     private driverEntityRepository: Repository<Driver>,
     private readonly ordersRepository: OrdersRepository,
     private readonly addressRepository: AddressBookRepository,
+    private readonly driverProgressStageRepository: DriverProgressStagesRepository,
     private readonly dataSource: DataSource
   ) {}
 
@@ -536,6 +538,27 @@ export class DriversService {
         null,
         'Failed to update driver vehicle'
       );
+    }
+  }
+
+  async getAllDriverProgressStages({
+    driverId,
+    limit,
+    offset
+  }: {
+    driverId: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const dps = await this.driverProgressStageRepository.getAllByDriverId(
+        driverId,
+        offset,
+        limit
+      );
+      return createResponse('OK', dps, 'Fetched all dps');
+    } catch (error) {
+      return this.handleError('Error fetching dps:', error);
     }
   }
 }

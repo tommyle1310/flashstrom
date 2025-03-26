@@ -5,7 +5,8 @@ import {
   Post,
   Get,
   Patch,
-  Delete
+  Delete,
+  Query
 } from '@nestjs/common';
 import { DriversService } from './drivers.service'; // Corrected to use DriversService
 import { CreateDriverDto, UpdateVehicleDto } from './dto/create-driver.dto'; // Corrected to use CreateDriverDto
@@ -27,6 +28,24 @@ export class DriversController {
     return this.driversService.findAll(); // Corrected service method to use driversService
   }
 
+  @Get('/driver-progress-stages/:driver')
+  async findAllDpsByDriverId(
+    @Param('driver') driverId: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string
+  ) {
+    // Chuyển đổi limit và offset thành số, đặt mặc định nếu không có
+    const limitNum = limit ? parseInt(limit, 10) : 5; // Mặc định lấy 5
+    const offsetNum = offset ? parseInt(offset, 10) : 0; // Mặc định offset là 0
+
+    // Gọi service để lấy danh sách DriverProgressStage
+    const stages = await this.driversService.getAllDriverProgressStages({
+      driverId,
+      offset: offsetNum,
+      limit: limitNum
+    });
+    return stages;
+  }
   @Get(':id')
   findDriverById(@Param('id') id: string) {
     return this.driversService.findDriverById(id); // Corrected service method to use driversService
