@@ -693,7 +693,8 @@ export class DriversGateway
                 current_state: newCurrentState,
                 previous_state: newPreviousState,
                 next_state: newNextState,
-                stages: updatedStages
+                stages: updatedStages,
+                orders: dps.orders
               },
               transactionalEntityManager
             );

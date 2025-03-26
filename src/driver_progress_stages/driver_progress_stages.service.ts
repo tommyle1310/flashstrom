@@ -237,6 +237,7 @@ export class DriverProgressStagesService {
         .save({
           ...existingStage,
           current_state: updateData.current_state,
+          orders: updateData.orders,
           previous_state:
             updateData.previous_state ?? existingStage.previous_state,
           next_state: updateData.next_state ?? existingStage.next_state,
