@@ -14,6 +14,8 @@ import { OrdersRepository } from 'src/orders/orders.repository';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
+import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
+import { CreateOnlineSessionDto } from 'src/online-sessions/dto/create-online-session.dto';
 
 @Injectable()
 export class DriversService {
@@ -24,8 +26,51 @@ export class DriversService {
     private readonly ordersRepository: OrdersRepository,
     private readonly addressRepository: AddressBookRepository,
     private readonly driverProgressStageRepository: DriverProgressStagesRepository,
+    private readonly onlineSessionsService: OnlineSessionsService,
     private readonly dataSource: DataSource
   ) {}
+
+  async setAvailability(id: string): Promise<ApiResponse<Driver>> {
+    try {
+      const driver = await this.driversRepository.findById(id);
+      if (!driver) {
+        return createResponse('NotFound', null, 'Driver not found');
+      }
+
+      const newAvailability = !driver.available_for_work; // Trạng thái mới
+      driver.available_for_work = newAvailability;
+      const savedDriver = await this.driversRepository.save(driver);
+
+      // Xử lý OnlineSession
+      if (newAvailability) {
+        // Nếu driver chuyển thành available (true), tạo OnlineSession mới
+        const createOnlineSessionDto: CreateOnlineSessionDto = {
+          driver_id: driver.id,
+          end_time: null,
+          start_time: Math.floor(Date.now() / 1000),
+          is_active: true
+        };
+        await this.onlineSessionsService.create(createOnlineSessionDto);
+      } else {
+        // Nếu driver chuyển thành unavailable (false), kết thúc OnlineSession hiện tại
+        const activeSession =
+          await this.onlineSessionsService.findOneByDriverIdAndActive(
+            driver.id
+          );
+        if (activeSession) {
+          await this.onlineSessionsService.endSession(activeSession.id);
+        }
+      }
+
+      return createResponse(
+        'OK',
+        savedDriver,
+        'Driver availability updated successfully'
+      );
+    } catch (error) {
+      return this.handleError('Error updating driver availability:', error);
+    }
+  }
 
   async create(createDriverDto: CreateDriverDto): Promise<ApiResponse<Driver>> {
     try {
@@ -99,25 +144,6 @@ export class DriversService {
       return createResponse('OK', updatedDriver, 'Driver updated successfully');
     } catch (error) {
       return this.handleError('Error updating driver:', error);
-    }
-  }
-
-  async setAvailability(id: string): Promise<ApiResponse<Driver>> {
-    try {
-      const driver = await this.driversRepository.findById(id);
-      if (!driver) {
-        return createResponse('NotFound', null, 'Driver not found');
-      }
-
-      driver.available_for_work = !driver.available_for_work;
-      const savedDriver = await this.driversRepository.save(driver);
-      return createResponse(
-        'OK',
-        savedDriver,
-        'Driver availability updated successfully'
-      );
-    } catch (error) {
-      return this.handleError('Error updating driver availability:', error);
     }
   }
 

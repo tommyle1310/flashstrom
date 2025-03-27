@@ -55,6 +55,9 @@ import { Transaction } from 'src/transactions/entities/transaction.entity';
 import { TransactionsRepository } from 'src/transactions/transactions.repository';
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
 import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
+import { OnlineSessionsRepository } from 'src/online-sessions/online-session.repository';
+import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
+import { OnlineSession } from 'src/online-sessions/entities/online-session.entity';
 @Module({
   imports: [
     JwtModule.register({
@@ -72,6 +75,7 @@ import { DriverProgressStagesRepository } from 'src/driver_progress_stages/drive
       Driver,
       Restaurant,
       MenuItem,
+      OnlineSession,
       Transaction,
       DriverProgressStage,
       MenuItemVariant,
@@ -99,6 +103,8 @@ import { DriverProgressStagesRepository } from 'src/driver_progress_stages/drive
     EmailService,
     UsersService,
     DriverProgressStagesRepository,
+    OnlineSessionsRepository,
+    OnlineSessionsService,
     TransactionsRepository,
     DriversService,
     FWalletService,

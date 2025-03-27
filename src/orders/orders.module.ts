@@ -43,6 +43,9 @@ import { Transaction } from 'src/transactions/entities/transaction.entity';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionService } from 'src/transactions/transactions.service';
 import { FWallet } from 'src/fwallets/entities/fwallet.entity';
+import { OnlineSession } from 'src/online-sessions/entities/online-session.entity';
+import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
+import { OnlineSessionsRepository } from 'src/online-sessions/online-session.repository';
 
 @Module({
   imports: [
@@ -57,6 +60,7 @@ import { FWallet } from 'src/fwallets/entities/fwallet.entity';
       FoodCategory,
       Driver, // Cung cấp Repository<Driver>
       User,
+      OnlineSession,
       Promotion,
       DriverProgressStage,
       FWallet,
@@ -71,8 +75,10 @@ import { FWallet } from 'src/fwallets/entities/fwallet.entity';
     OrdersGateway,
     MenuItemsRepository,
     MenuItemVariantsRepository,
+    OnlineSessionsRepository,
     AddressBookRepository,
     CustomersRepository,
+    OnlineSessionsService,
     RestaurantsRepository,
     RestaurantsGateway,
     FoodCategoriesRepository,

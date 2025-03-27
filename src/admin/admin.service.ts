@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { AdminRepository } from './admin.repository';
 import { UsersService } from '../users/users.service';
 import { RolePermissions } from 'src/utils/types/admin';
+import { User } from 'src/users/entities/user.entity';
 
 @Injectable()
 export class AdminService {
@@ -52,9 +53,13 @@ export class AdminService {
         );
       }
 
+      // Create a partial User object for the relation
+      const user = { id: user_id } as User; // Type assertion to satisfy TypeScript
+
       const savedAdmin = await this.adminRepository.create({
         ...createAdminDto,
-        id: `FF_ADMIN_${uuidv4()}`
+        id: `FF_ADMIN_${uuidv4()}`,
+        user_id: user // Assign the User object instead of the string
       });
 
       return createResponse('OK', savedAdmin, 'Admin created successfully');

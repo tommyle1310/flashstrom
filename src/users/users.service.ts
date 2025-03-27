@@ -68,7 +68,7 @@ export class UsersService {
     [key: string]: any;
   }): Promise<ApiResponse<User>> {
     try {
-      const user = await this.userRepository.findOne(condition);
+      const user = await this.userRepository.findOne({ where: condition });
       if (!user) {
         return createResponse('NotFound', null, 'User not found');
       }

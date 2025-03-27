@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Admin } from './entities/admin.entity';
 // import { CreateAdminDto } from './dto/create-admin.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
+import { User } from 'src/users/entities/user.entity';
 
 @Injectable()
 export class AdminRepository {
@@ -26,11 +27,24 @@ export class AdminRepository {
   }
 
   async findByUserId(userId: string): Promise<Admin | null> {
-    return this.adminRepository.findOne({ where: { user_id: userId } });
+    return this.adminRepository.findOne({
+      where: {
+        user_id: { id: userId } // Nested condition to match User.id
+      }
+    });
   }
 
   async update(id: string, updateData: UpdateAdminDto): Promise<void> {
-    await this.adminRepository.update(id, updateData);
+    // Create updateEntity without spreading user_id directly
+    const { user_id, ...rest } = updateData;
+    const updateEntity: Partial<Admin> = { ...rest };
+
+    // If user_id is provided, convert it to a partial User object
+    if (user_id) {
+      updateEntity.user_id = { id: user_id } as User;
+    }
+
+    await this.adminRepository.update(id, updateEntity);
   }
 
   async delete(id: string): Promise<{ affected?: number }> {

@@ -29,6 +29,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './users/users.module';
 import { CustomerCareInquiriesModule } from './customer_cares_inquires/customer_cares_inquires.module';
 import { FchatModule } from './FChat/fchat.module';
+import { StatisticsModule } from './statistics/statistics.module';
+import { PenaltiesModule } from './penalties/penalties.module';
+import { OnlineSessionsModule } from './online-sessions/online-sessions.module';
+import { PenaltyRulesModule } from './penalty-rules/penalty-rules.module';
+import { StatisticRecordsModule } from './statistic-records/statistic-records.module';
 @Module({
   imports: [
     // MongooseModule.forRoot(process.env.MONGO_URI), // Your MongoDB URI
@@ -71,7 +76,12 @@ import { FchatModule } from './FChat/fchat.module';
       //   lock_timeout: 3000 // 5 giây cho khóa
       // }
     }),
-    UsersModule
+    UsersModule,
+    StatisticsModule,
+    PenaltiesModule,
+    OnlineSessionsModule,
+    PenaltyRulesModule,
+    StatisticRecordsModule
   ],
   controllers: [AppController],
   providers: [AppService, EmailService]

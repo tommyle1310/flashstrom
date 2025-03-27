@@ -1,29 +1,31 @@
 import {
   Entity,
   Column,
-  PrimaryColumn, // Sửa từ Column thành PrimaryColumn
+  PrimaryColumn,
   CreateDateColumn,
   UpdateDateColumn,
   JoinColumn,
   OneToOne,
   ManyToMany,
   JoinTable,
-  ManyToOne
+  ManyToOne,
+  OneToMany
 } from 'typeorm';
 import { AdminRole, AdminPermission, AdminStatus } from 'src/utils/types/admin';
 import { User } from 'src/users/entities/user.entity';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { Driver } from 'src/drivers/entities/driver.entity';
 import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
+import { Penalty } from 'src/penalties/entities/penalty.entity'; // Giả sử đường dẫn tới Penalty entity
 
 @Entity('admins')
 export class Admin {
-  @PrimaryColumn({ type: 'varchar' }) // Sửa thành PrimaryColumn
+  @PrimaryColumn({ type: 'varchar' })
   id: string;
 
   @OneToOne(() => User)
   @JoinColumn({ name: 'user_id' })
-  user_id: string;
+  user_id: User;
 
   @Column({
     type: 'enum',
@@ -45,6 +47,9 @@ export class Admin {
   @ManyToMany(() => CustomerCare, customerCare => customerCare.admins)
   @JoinTable()
   assigned_customer_care: CustomerCare[];
+
+  @OneToMany(() => Penalty, penalty => penalty.penaltied_by) // Quan hệ ngược với Penalty
+  penalties_issued: Penalty[];
 
   @Column({ type: 'bigint', nullable: true })
   last_active: number;

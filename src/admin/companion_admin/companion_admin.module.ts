@@ -49,6 +49,9 @@ import { AddressBookService } from 'src/address_book/address_book.service';
 import { Transaction } from 'src/transactions/entities/transaction.entity';
 import { TransactionService } from 'src/transactions/transactions.service';
 import { TransactionsRepository } from 'src/transactions/transactions.repository';
+import { OnlineSession } from 'src/online-sessions/entities/online-session.entity';
+import { OnlineSessionsRepository } from 'src/online-sessions/online-session.repository';
+import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
 
 @Module({
   imports: [
@@ -62,6 +65,7 @@ import { TransactionsRepository } from 'src/transactions/transactions.repository
       MenuItemVariant,
       Order,
       CartItem,
+      OnlineSession,
       FoodCategory,
       AddressBook,
       User,
@@ -83,6 +87,8 @@ import { TransactionsRepository } from 'src/transactions/transactions.repository
     RestaurantsService,
     CustomerCareService,
     DriversService,
+    OnlineSessionsRepository,
+    OnlineSessionsService,
     AddressBookService,
     CustomersService,
     RestaurantsRepository,

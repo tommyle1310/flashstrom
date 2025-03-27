@@ -46,6 +46,9 @@ import { Transaction } from 'src/transactions/entities/transaction.entity';
 import { FWallet } from 'src/fwallets/entities/fwallet.entity';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionsRepository } from 'src/transactions/transactions.repository';
+import { OnlineSession } from 'src/online-sessions/entities/online-session.entity';
+import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
+import { OnlineSessionsRepository } from 'src/online-sessions/online-session.repository';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -55,6 +58,7 @@ import { TransactionsRepository } from 'src/transactions/transactions.repository
       FoodCategory,
       Restaurant,
       Customer,
+      OnlineSession,
       Driver,
       MenuItem,
       MenuItemVariant,
@@ -81,6 +85,8 @@ import { TransactionsRepository } from 'src/transactions/transactions.repository
     JwtService,
     FWalletsRepository,
     TransactionsRepository,
+    OnlineSessionsService,
+    OnlineSessionsRepository,
     MenuItemsService,
     CustomersService,
     UserRepository,
