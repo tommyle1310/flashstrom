@@ -11,7 +11,8 @@ export declare class DriversController {
     findOnlineSessionByDriverId(driverId: string, limit?: string, offset?: string): Promise<import("src/utils/createResponse").ApiResponse<{
         date: any;
         items: any;
-        total_online_hours: Promise<string>;
+        total_milisec: any;
+        total_hours: Promise<string>;
     }[]>>;
     findAllDpsByDriverId(driverId: string, limit?: string, offset?: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
     findDriverById(id: string): Promise<import("src/utils/createResponse").ApiResponse<import("./entities/driver.entity").Driver>>;

@@ -45,18 +45,25 @@ export class DriversController {
       offset: offsetNum
     });
     const { EC, EM, data } = response;
+
     if (EC === 0) {
       const groupedData = data.reduce(
-        (acc: any[], curr: { start_time: number; end_time: number }) => {
-          // Chuyển timestamp sang định dạng ngày
-          const date = new Date(parseInt(`${curr.start_time}`) * 1000)
-            .toISOString()
-            .split('T')[0];
+        (acc: any[], curr: { start_time: number; end_time: number | null }) => {
+          // Chuyển start_time sang định dạng ngày (YYYY-MM-DD)
+          const startDate = new Date(parseInt(`${curr.start_time}`) * 1000);
+          const date = startDate.toISOString().split('T')[0];
 
-          // Tính thời gian online của object hiện tại (milliseconds)
+          // Xử lý end_time: nếu falsy, lấy 23:59:59 của ngày start_time
+          let endTime = curr.end_time;
+          if (!endTime || isNaN(endTime)) {
+            const endOfDay = new Date(startDate);
+            endOfDay.setHours(23, 59, 59, 999); // Đặt thành 23:59:59.999
+            endTime = Math.floor(endOfDay.getTime() / 1000); // Chuyển sang epoch giây
+          }
+
+          // Tính thời gian online (milliseconds)
           const onlineTime =
-            (parseInt(`${curr.end_time}`) - parseInt(`${curr.start_time}`)) *
-            1000;
+            (parseInt(`${endTime}`) - parseInt(`${curr.start_time}`)) * 1000;
 
           // Tìm nhóm theo ngày
           let group = acc.find(item => item.date === date);
@@ -73,19 +80,19 @@ export class DriversController {
         },
         []
       );
-      console.log('check groupded data', groupedData);
+
+      console.log('check grouped data', groupedData);
 
       const result = groupedData.map(group => ({
         date: group.date,
         items: group.items,
-        total_online_hours: this.driversService.formatTime(
-          group.total_online_hours
-        )
+        total_milisec: group.total_online_hours,
+        total_hours: this.driversService.formatTime(group.total_online_hours)
       }));
+
       return createResponse('OK', result, null);
     }
   }
-
   @Get('/driver-progress-stages/:driver')
   async findAllDpsByDriverId(
     @Param('driver') driverId: string,
