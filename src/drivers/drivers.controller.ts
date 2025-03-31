@@ -73,6 +73,8 @@ export class DriversController {
         },
         []
       );
+      console.log('check groupded data', groupedData);
+
       const result = groupedData.map(group => ({
         date: group.date,
         items: group.items,

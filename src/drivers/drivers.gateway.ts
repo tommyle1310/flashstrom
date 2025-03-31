@@ -172,8 +172,6 @@ export class DriversGateway
     try {
       const result = await this.dataSource.transaction(
         async transactionalEntityManager => {
-          // Load order và các relation như hiện tại...
-
           const orderWithRelations = await transactionalEntityManager
             .getRepository(Order)
             .findOne({
@@ -189,8 +187,6 @@ export class DriversGateway
             });
 
           if (!orderWithRelations) throw new WsException('Order not found');
-
-          // Kiểm tra driver và order như hiện tại...
 
           const driver = await transactionalEntityManager
             .getRepository(Driver)
@@ -213,21 +209,31 @@ export class DriversGateway
           let dps: DriverProgressStage;
           const timestamp = Math.floor(Date.now() / 1000);
 
-          // Tính toán khoảng cách và thời gian ước tính
-          const distance = orderWithRelations.distance || 0; // Giả sử Order có field distance
-          const estimatedTime = this.calculateEstimatedTime(distance); // Hàm tự định nghĩa
+          // Ensure distance is a number
+          const rawDistance = orderWithRelations.distance || 0;
+          const distance =
+            typeof rawDistance === 'string'
+              ? parseFloat(rawDistance)
+              : Number(rawDistance);
+          if (isNaN(distance)) {
+            console.warn(
+              `Invalid distance value for order ${orderId}: ${rawDistance}`
+            );
+            throw new WsException('Invalid distance value in order');
+          }
+
+          const estimatedTime = this.calculateEstimatedTime(distance);
           const totalTips = orderWithRelations.driver_tips || 0;
-          const totalEarns = this.calculateTotalEarns(orderWithRelations); // Hàm tự định nghĩa
+          const totalEarns = this.calculateTotalEarns(orderWithRelations);
 
           if (!existingDPS) {
-            // Tạo mới DPS
             const dpsResponse = await this.driverProgressStageService.create(
               {
                 driver_id: driverId,
                 orders: [orderWithRelations],
                 current_state: 'driver_ready_order_1',
                 estimated_time_remaining: estimatedTime,
-                total_distance_travelled: distance,
+                total_distance_travelled: Number(distance.toFixed(4)),
                 total_tips: totalTips,
                 total_earns: totalEarns
               },
@@ -237,7 +243,6 @@ export class DriversGateway
               throw new WsException(`Failed to create new DPS`);
             dps = dpsResponse.data;
 
-            // Cập nhật stages với details
             dps.stages = dps.stages.map(stage => {
               const details = this.getStageDetails(
                 stage.state,
@@ -250,7 +255,6 @@ export class DriversGateway
             });
             await transactionalEntityManager.save(DriverProgressStage, dps);
           } else {
-            // Thêm order vào DPS hiện có
             const dpsResponse =
               await this.driverProgressStageService.addOrderToExistingDPS(
                 existingDPS.id,
@@ -261,15 +265,13 @@ export class DriversGateway
               throw new WsException(`Failed to add order to existing DPS`);
             dps = dpsResponse.data;
 
-            // Cập nhật các field tổng
             dps.total_distance_travelled =
-              (dps.total_distance_travelled || 0) + distance;
+              (dps.total_distance_travelled || 0) + Number(distance.toFixed(4));
             dps.estimated_time_remaining =
               (dps.estimated_time_remaining || 0) + estimatedTime;
             dps.total_tips = (dps.total_tips || 0) + totalTips;
             dps.total_earns = (dps.total_earns || 0) + totalEarns;
 
-            // Cập nhật stages với details
             dps.stages = dps.stages.map(stage => {
               const details = this.getStageDetails(
                 stage.state,
@@ -283,7 +285,6 @@ export class DriversGateway
             await transactionalEntityManager.save(DriverProgressStage, dps);
           }
 
-          // Các bước còn lại như cập nhật order, driver, emit event...
           orderWithRelations.driver_id = driverId;
           orderWithRelations.status = OrderStatus.DISPATCHED;
           orderWithRelations.tracking_info = OrderTrackingInfo.DISPATCHED;
