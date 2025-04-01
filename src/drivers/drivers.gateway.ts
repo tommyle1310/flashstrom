@@ -539,9 +539,10 @@ export class DriversGateway
                       (dps.total_tips || 0) + (order.driver_tips || 0);
                     dps.total_earns =
                       (dps.total_earns || 0) + this.calculateTotalEarns(order);
+                    // Fix: Ensure total_distance_travelled is a number by converting it explicitly
                     dps.total_distance_travelled =
-                      (dps.total_distance_travelled || 0) +
-                      (order.distance || 0);
+                      Number(dps.total_distance_travelled || 0) +
+                      Number(order.distance || 0);
 
                     await transactionalEntityManager
                       .createQueryBuilder()
@@ -683,7 +684,10 @@ export class DriversGateway
                 orders: dps.orders,
                 estimated_time_remaining: dps.estimated_time_remaining,
                 actual_time_spent: dps.actual_time_spent,
-                total_distance_travelled: dps.total_distance_travelled,
+                // Fix: Explicitly convert total_distance_travelled to a number before calling toFixed
+                total_distance_travelled: Number(
+                  Number(dps.total_distance_travelled || 0).toFixed(4)
+                ),
                 total_tips: dps.total_tips,
                 total_earns: dps.total_earns
               },
