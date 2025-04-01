@@ -20,18 +20,20 @@ const update_restaurant_dto_1 = require("./dto/update-restaurant.dto");
 const drivers_service_1 = require("../drivers/drivers.service");
 const event_emitter_1 = require("@nestjs/event-emitter");
 const common_1 = require("@nestjs/common");
-const constants_1 = require("../utils/constants");
 const commonFunctions_1 = require("../utils/commonFunctions");
 const order_entity_1 = require("../orders/entities/order.entity");
 const orders_repository_1 = require("../orders/orders.repository");
 const jwt_1 = require("@nestjs/jwt");
+const finance_rules_service_1 = require("../finance_rules/finance_rules.service");
+const mathjs_1 = require("mathjs");
 let RestaurantsGateway = class RestaurantsGateway {
-    constructor(restaurantsService, driverService, eventEmitter, ordersRepository, jwtService) {
+    constructor(restaurantsService, driverService, eventEmitter, ordersRepository, jwtService, financeRulesService) {
         this.restaurantsService = restaurantsService;
         this.driverService = driverService;
         this.eventEmitter = eventEmitter;
         this.ordersRepository = ordersRepository;
         this.jwtService = jwtService;
+        this.financeRulesService = financeRulesService;
         this.notificationLock = new Map();
     }
     afterInit() {
@@ -80,7 +82,6 @@ let RestaurantsGateway = class RestaurantsGateway {
         return restaurant;
     }
     async handleNewOrder(order) {
-        console.log('check falle here???', order);
         await this.server
             .to(`restaurant_${order.restaurant_id}`)
             .emit('incomingOrderForRestaurant', order);
@@ -115,11 +116,48 @@ let RestaurantsGateway = class RestaurantsGateway {
                 const res_location = fullOrderDetails.restaurantAddress;
                 const customer_location = fullOrderDetails.customerAddress;
                 const distance = (0, commonFunctions_1.calculateDistance)(customer_location?.location?.lat ?? 0, customer_location?.location?.lng ?? 0, res_location?.location?.lat ?? 0, res_location?.location?.lng ?? 0);
+                const latestFinanceRuleResponse = await this.financeRulesService.findOneLatest();
+                const { EC, EM, data } = latestFinanceRuleResponse;
+                console.log('cehck naow', data);
+                if (EC !== 0) {
+                    return { event: 'error', data: { message: EM } };
+                }
+                let driver_wage;
+                if (distance >= 0 && distance <= 1) {
+                    driver_wage = data.driver_fixed_wage['0-1km'];
+                }
+                else if (distance > 1 && distance <= 2) {
+                    driver_wage = data.driver_fixed_wage['1-2km'];
+                }
+                else if (distance > 2 && distance <= 3) {
+                    driver_wage = data.driver_fixed_wage['2-3km'];
+                }
+                else if (distance > 4 && distance <= 5) {
+                    driver_wage = data.driver_fixed_wage['4-5km'];
+                }
+                else if (distance > 5) {
+                    const formula = data.driver_fixed_wage['>5km'];
+                    try {
+                        driver_wage = (0, mathjs_1.evaluate)(formula.replace('km', distance.toString()));
+                        console.log('Calculated driver wage:', driver_wage);
+                    }
+                    catch (error) {
+                        console.error('Error evaluating wage formula:', error);
+                    }
+                    return { event: 'error', data: { message: 'Invalid wage formula' } };
+                }
+                else {
+                    return {
+                        event: 'error',
+                        data: { message: 'Invalid distance value' }
+                    };
+                }
+                console.log('check drier wage', driver_wage);
                 const updatedFields = {
                     distance: +distance,
                     status: order_entity_1.OrderStatus.PREPARING,
                     tracking_info: order_entity_1.OrderTrackingInfo.PREPARING,
-                    driver_wage: constants_1.FIXED_DELIVERY_DRIVER_WAGE
+                    driver_wage
                 };
                 console.log('Fields to update:', updatedFields);
                 await this.ordersRepository.update(orderId, updatedFields);
@@ -266,6 +304,7 @@ exports.RestaurantsGateway = RestaurantsGateway = __decorate([
         drivers_service_1.DriversService,
         event_emitter_1.EventEmitter2,
         orders_repository_1.OrdersRepository,
-        jwt_1.JwtService])
+        jwt_1.JwtService,
+        finance_rules_service_1.FinanceRulesService])
 ], RestaurantsGateway);
 //# sourceMappingURL=restaurants.gateway.js.map

@@ -46,12 +46,18 @@ import { FWallet } from 'src/fwallets/entities/fwallet.entity';
 import { OnlineSession } from 'src/online-sessions/entities/online-session.entity';
 import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
 import { OnlineSessionsRepository } from 'src/online-sessions/online-session.repository';
+import { FinanceRule } from 'src/finance_rules/entities/finance_rule.entity';
+import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
+import { FinanceRulesRepository } from 'src/finance_rules/finance_rules.repository';
+import { AdminRepository } from 'src/admin/admin.repository';
+import { Admin } from 'src/admin/entities/admin.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       Order,
       MenuItem,
+      FinanceRule,
       MenuItemVariant,
       AddressBook,
       Restaurant,
@@ -61,6 +67,7 @@ import { OnlineSessionsRepository } from 'src/online-sessions/online-session.rep
       Driver, // Cung cấp Repository<Driver>
       User,
       OnlineSession,
+      Admin,
       Promotion,
       DriverProgressStage,
       FWallet,
@@ -79,6 +86,9 @@ import { OnlineSessionsRepository } from 'src/online-sessions/online-session.rep
     AddressBookRepository,
     CustomersRepository,
     OnlineSessionsService,
+    FinanceRulesService,
+    FinanceRulesRepository,
+    AdminRepository,
     RestaurantsRepository,
     RestaurantsGateway,
     FoodCategoriesRepository,

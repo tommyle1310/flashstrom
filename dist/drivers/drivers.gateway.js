@@ -130,7 +130,15 @@ let DriversGateway = class DriversGateway {
         }
         this.processingOrders.add(lockKey);
         try {
-            const result = await this.dataSource.transaction(async (transactionalEntityManager) => {
+            const result = await this.dataSource.transaction('SERIALIZABLE', async (transactionalEntityManager) => {
+                const order = await transactionalEntityManager
+                    .getRepository(order_entity_1.Order)
+                    .createQueryBuilder('order')
+                    .setLock('pessimistic_write')
+                    .where('order.id = :orderId', { orderId })
+                    .getOne();
+                if (!order)
+                    throw new websockets_1.WsException('Order not found');
                 const orderWithRelations = await transactionalEntityManager
                     .getRepository(order_entity_1.Order)
                     .findOne({
@@ -148,21 +156,40 @@ let DriversGateway = class DriversGateway {
                     throw new websockets_1.WsException('Order not found');
                 const driver = await transactionalEntityManager
                     .getRepository(driver_entity_1.Driver)
+                    .createQueryBuilder('driver')
+                    .setLock('pessimistic_write')
+                    .where('driver.id = :driverId', { driverId })
+                    .getOne();
+                if (!driver)
+                    throw new websockets_1.WsException('Driver not found');
+                const driverWithRelations = await transactionalEntityManager
+                    .getRepository(driver_entity_1.Driver)
                     .findOne({
                     where: { id: driverId },
                     relations: ['current_orders']
                 });
-                if (!driver)
+                if (!driverWithRelations)
                     throw new websockets_1.WsException('Driver not found');
                 const existingDPS = await transactionalEntityManager
                     .getRepository(driver_progress_stage_entity_1.DriverProgressStage)
-                    .findOne({
-                    where: {
-                        driver_id: driverId,
-                        current_state: (0, typeorm_1.Not)((0, typeorm_1.Like)('delivery_complete_%'))
-                    },
-                    relations: ['orders']
-                });
+                    .createQueryBuilder('dps')
+                    .setLock('pessimistic_write')
+                    .where('dps.driver_id = :driverId', { driverId })
+                    .andWhere('dps.current_state NOT LIKE :completedState', {
+                    completedState: 'delivery_complete_%'
+                })
+                    .getOne();
+                let dpsWithRelations = null;
+                if (existingDPS) {
+                    dpsWithRelations = await transactionalEntityManager
+                        .getRepository(driver_progress_stage_entity_1.DriverProgressStage)
+                        .findOne({
+                        where: {
+                            id: existingDPS.id
+                        },
+                        relations: ['orders']
+                    });
+                }
                 let dps;
                 const timestamp = Math.floor(Date.now() / 1000);
                 const rawDistance = orderWithRelations.distance || 0;
@@ -177,6 +204,7 @@ let DriversGateway = class DriversGateway {
                 const totalTips = orderWithRelations.driver_tips || 0;
                 const totalEarns = this.calculateTotalEarns(orderWithRelations);
                 if (!existingDPS) {
+                    console.log(`No existing DPS found for driver ${driverId}, creating new one`);
                     const dpsResponse = await this.driverProgressStageService.create({
                         driver_id: driverId,
                         orders: [orderWithRelations],
@@ -186,19 +214,22 @@ let DriversGateway = class DriversGateway {
                         total_tips: totalTips,
                         total_earns: totalEarns
                     }, transactionalEntityManager);
-                    if (dpsResponse.EC !== 0 || !dpsResponse.data)
+                    if (dpsResponse.EC !== 0 || !dpsResponse.data) {
                         throw new websockets_1.WsException(`Failed to create new DPS`);
+                    }
                     dps = dpsResponse.data;
                     dps.stages = dps.stages.map(stage => {
-                        const details = this.getStageDetails(stage.state, orderWithRelations, driver, estimatedTime, totalTips);
+                        const details = this.getStageDetails(stage.state, orderWithRelations, driverWithRelations, estimatedTime, totalTips);
                         return { ...stage, details };
                     });
                     await transactionalEntityManager.save(driver_progress_stage_entity_1.DriverProgressStage, dps);
                 }
                 else {
+                    console.log(`Existing DPS found for driver ${driverId}, adding order`);
                     const dpsResponse = await this.driverProgressStageService.addOrderToExistingDPS(existingDPS.id, orderWithRelations, transactionalEntityManager);
-                    if (dpsResponse.EC !== 0 || !dpsResponse.data)
+                    if (dpsResponse.EC !== 0 || !dpsResponse.data) {
                         throw new websockets_1.WsException(`Failed to add order to existing DPS`);
+                    }
                     dps = dpsResponse.data;
                     dps.total_distance_travelled =
                         (dps.total_distance_travelled || 0) + Number(distance.toFixed(4));
@@ -207,7 +238,7 @@ let DriversGateway = class DriversGateway {
                     dps.total_tips = (dps.total_tips || 0) + totalTips;
                     dps.total_earns = (dps.total_earns || 0) + totalEarns;
                     dps.stages = dps.stages.map(stage => {
-                        const details = this.getStageDetails(stage.state, orderWithRelations, driver, estimatedTime, totalTips);
+                        const details = this.getStageDetails(stage.state, orderWithRelations, driverWithRelations, estimatedTime, totalTips);
                         return { ...stage, details };
                     });
                     await transactionalEntityManager.save(driver_progress_stage_entity_1.DriverProgressStage, dps);
@@ -217,10 +248,12 @@ let DriversGateway = class DriversGateway {
                 orderWithRelations.tracking_info = order_entity_1.OrderTrackingInfo.DISPATCHED;
                 orderWithRelations.updated_at = timestamp;
                 await transactionalEntityManager.save(order_entity_1.Order, orderWithRelations);
-                driver.current_orders = driver.current_orders || [];
-                if (!driver.current_orders.some(o => o.id === orderId))
-                    driver.current_orders.push(orderWithRelations);
-                await transactionalEntityManager.save(driver_entity_1.Driver, driver);
+                driverWithRelations.current_orders =
+                    driverWithRelations.current_orders || [];
+                if (!driverWithRelations.current_orders.some(o => o.id === orderId)) {
+                    driverWithRelations.current_orders.push(orderWithRelations);
+                }
+                await transactionalEntityManager.save(driver_entity_1.Driver, driverWithRelations);
                 await this.notifyPartiesOnce(orderWithRelations);
                 await this.server
                     .to(`driver_${orderWithRelations.driver_id}`)

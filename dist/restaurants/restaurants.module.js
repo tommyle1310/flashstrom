@@ -40,6 +40,11 @@ const fwallets_repository_1 = require("../fwallets/fwallets.repository");
 const transactions_repository_1 = require("../transactions/transactions.repository");
 const promotions_repository_1 = require("../promotions/promotions.repository");
 const promotion_entity_1 = require("../promotions/entities/promotion.entity");
+const finance_rule_entity_1 = require("../finance_rules/entities/finance_rule.entity");
+const finance_rules_service_1 = require("../finance_rules/finance_rules.service");
+const finance_rules_repository_1 = require("../finance_rules/finance_rules.repository");
+const admin_repository_1 = require("../admin/admin.repository");
+const admin_entity_1 = require("../admin/entities/admin.entity");
 let RestaurantsModule = class RestaurantsModule {
 };
 exports.RestaurantsModule = RestaurantsModule;
@@ -54,6 +59,8 @@ exports.RestaurantsModule = RestaurantsModule = __decorate([
                 promotion_entity_1.Promotion,
                 order_entity_1.Order,
                 fwallet_entity_1.FWallet,
+                finance_rule_entity_1.FinanceRule,
+                admin_entity_1.Admin,
                 user_entity_1.User
             ]),
             users_module_1.UsersModule,
@@ -75,6 +82,9 @@ exports.RestaurantsModule = RestaurantsModule = __decorate([
             address_book_repository_1.AddressBookRepository,
             food_categories_repository_1.FoodCategoriesRepository,
             users_repository_1.UserRepository,
+            finance_rules_service_1.FinanceRulesService,
+            finance_rules_repository_1.FinanceRulesRepository,
+            admin_repository_1.AdminRepository,
             address_book_repository_1.AddressBookRepository,
             orders_repository_1.OrdersRepository,
             jwt_1.JwtService,

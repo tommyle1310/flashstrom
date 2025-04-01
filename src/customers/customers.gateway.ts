@@ -108,7 +108,6 @@ export class CustomersGateway {
       restaurant_avatar: order.restaurant_avatar,
       driver_avatar: order.driver_avatar
     };
-    console.log('check falle here???', order, 'trackingudpate', trackingUpdate);
     await this.server
       .to(`customer_${order.customer_id}`)
       .emit('notifyOrderStatus', trackingUpdate); // Đổi thành notifyOrderStatus

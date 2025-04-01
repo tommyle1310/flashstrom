@@ -55,6 +55,11 @@ const fwallet_entity_1 = require("../fwallets/entities/fwallet.entity");
 const online_session_entity_1 = require("../online-sessions/entities/online-session.entity");
 const online_sessions_service_1 = require("../online-sessions/online-sessions.service");
 const online_session_repository_1 = require("../online-sessions/online-session.repository");
+const finance_rule_entity_1 = require("../finance_rules/entities/finance_rule.entity");
+const finance_rules_service_1 = require("../finance_rules/finance_rules.service");
+const finance_rules_repository_1 = require("../finance_rules/finance_rules.repository");
+const admin_repository_1 = require("../admin/admin.repository");
+const admin_entity_1 = require("../admin/entities/admin.entity");
 let OrdersModule = class OrdersModule {
 };
 exports.OrdersModule = OrdersModule;
@@ -64,6 +69,7 @@ exports.OrdersModule = OrdersModule = __decorate([
             typeorm_1.TypeOrmModule.forFeature([
                 order_entity_1.Order,
                 menu_item_entity_1.MenuItem,
+                finance_rule_entity_1.FinanceRule,
                 menu_item_variant_entity_1.MenuItemVariant,
                 address_book_entity_1.AddressBook,
                 restaurant_entity_1.Restaurant,
@@ -73,6 +79,7 @@ exports.OrdersModule = OrdersModule = __decorate([
                 driver_entity_1.Driver,
                 user_entity_1.User,
                 online_session_entity_1.OnlineSession,
+                admin_entity_1.Admin,
                 promotion_entity_1.Promotion,
                 driver_progress_stage_entity_1.DriverProgressStage,
                 fwallet_entity_1.FWallet,
@@ -91,6 +98,9 @@ exports.OrdersModule = OrdersModule = __decorate([
             address_book_repository_1.AddressBookRepository,
             customers_repository_1.CustomersRepository,
             online_sessions_service_1.OnlineSessionsService,
+            finance_rules_service_1.FinanceRulesService,
+            finance_rules_repository_1.FinanceRulesRepository,
+            admin_repository_1.AdminRepository,
             restaurants_repository_1.RestaurantsRepository,
             restaurants_gateway_1.RestaurantsGateway,
             food_categories_repository_1.FoodCategoriesRepository,

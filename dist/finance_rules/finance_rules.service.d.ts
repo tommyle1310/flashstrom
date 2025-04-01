@@ -13,6 +13,7 @@ export declare class FinanceRulesService {
     create(createFinanceRuleDto: CreateFinanceRuleDto): Promise<ApiResponse<FinanceRule>>;
     findAll(): Promise<ApiResponse<FinanceRule[]>>;
     findOne(id: string): Promise<ApiResponse<FinanceRule>>;
+    findOneLatest(): Promise<ApiResponse<FinanceRule>>;
     update(id: string, updateFinanceRuleDto: UpdateFinanceRuleDto): Promise<ApiResponse<FinanceRule>>;
     remove(id: string): Promise<ApiResponse<null>>;
     private handleFinanceRuleResponse;

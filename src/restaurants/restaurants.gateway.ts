@@ -23,6 +23,8 @@ import {
 import { WsResponse } from '@nestjs/websockets';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { JwtService } from '@nestjs/jwt';
+import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
+import { evaluate } from 'mathjs';
 
 interface AvailableDriver {
   id: string;
@@ -58,7 +60,8 @@ export class RestaurantsGateway
     private readonly driverService: DriversService,
     private eventEmitter: EventEmitter2,
     private readonly ordersRepository: OrdersRepository,
-    private readonly jwtService: JwtService
+    private readonly jwtService: JwtService,
+    private readonly financeRulesService: FinanceRulesService
   ) {}
 
   afterInit() {
@@ -123,7 +126,6 @@ export class RestaurantsGateway
 
   @OnEvent('newOrderForRestaurant')
   async handleNewOrder(@MessageBody() order: any) {
-    console.log('check falle here???', order);
     await this.server
       .to(`restaurant_${order.restaurant_id}`)
       .emit('incomingOrderForRestaurant', order); //
@@ -192,12 +194,51 @@ export class RestaurantsGateway
           res_location?.location?.lng ?? 0
         );
 
+        const latestFinanceRuleResponse =
+          await this.financeRulesService.findOneLatest();
+        const { EC, EM, data } = latestFinanceRuleResponse;
+        console.log('cehck naow', data);
+
+        if (EC !== 0) {
+          return { event: 'error', data: { message: EM } };
+        }
+        let driver_wage: number | string;
+
+        if (distance >= 0 && distance <= 1) {
+          driver_wage = data.driver_fixed_wage['0-1km'];
+        } else if (distance > 1 && distance <= 2) {
+          driver_wage = data.driver_fixed_wage['1-2km'];
+        } else if (distance > 2 && distance <= 3) {
+          driver_wage = data.driver_fixed_wage['2-3km'];
+        } else if (distance > 4 && distance <= 5) {
+          driver_wage = data.driver_fixed_wage['4-5km'];
+        } else if (distance > 5) {
+          const formula = data.driver_fixed_wage['>5km']; // Ví dụ: "5 + 1.2*km"
+
+          try {
+            // Thay thế 'km' trong công thức bằng giá trị distance và tính toán
+            driver_wage = evaluate(formula.replace('km', distance.toString()));
+            console.log('Calculated driver wage:', driver_wage);
+          } catch (error) {
+            console.error('Error evaluating wage formula:', error);
+          }
+
+          return { event: 'error', data: { message: 'Invalid wage formula' } };
+        } else {
+          // Xử lý trường hợp distance âm hoặc không hợp lệ (nếu cần)
+          return {
+            event: 'error',
+            data: { message: 'Invalid distance value' }
+          };
+        }
+        console.log('check drier wage', driver_wage);
+
         // Cập nhật trạng thái thứ hai với dữ liệu thuần
         const updatedFields = {
           distance: +distance,
           status: OrderStatus.PREPARING,
           tracking_info: OrderTrackingInfo.PREPARING,
-          driver_wage: FIXED_DELIVERY_DRIVER_WAGE
+          driver_wage
         };
         console.log('Fields to update:', updatedFields);
         await this.ordersRepository.update(orderId, updatedFields);

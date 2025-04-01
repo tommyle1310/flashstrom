@@ -64,6 +64,19 @@ export class FinanceRulesService {
     }
   }
 
+  async findOneLatest(): Promise<ApiResponse<FinanceRule>> {
+    try {
+      const latestFinanceRule = await this.financeRuleEntityRepository
+        .createQueryBuilder('financeRule')
+        .orderBy('financeRule.created_at', 'DESC') // Sắp xếp theo created_at giảm dần để lấy bản ghi mới nhất
+        .getOne();
+
+      return this.handleFinanceRuleResponse(latestFinanceRule);
+    } catch (error) {
+      return this.handleError('Error fetching latest finance rule:', error);
+    }
+  }
+
   async update(
     id: string,
     updateFinanceRuleDto: UpdateFinanceRuleDto

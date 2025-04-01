@@ -31,6 +31,11 @@ import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionsRepository } from 'src/transactions/transactions.repository';
 import { PromotionsRepository } from 'src/promotions/promotions.repository';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
+import { FinanceRule } from 'src/finance_rules/entities/finance_rule.entity';
+import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
+import { FinanceRulesRepository } from 'src/finance_rules/finance_rules.repository';
+import { AdminRepository } from 'src/admin/admin.repository';
+import { Admin } from 'src/admin/entities/admin.entity';
 
 @Module({
   imports: [
@@ -42,6 +47,8 @@ import { Promotion } from 'src/promotions/entities/promotion.entity';
       Promotion,
       Order,
       FWallet,
+      FinanceRule,
+      Admin,
       User
     ]),
     UsersModule,
@@ -63,6 +70,9 @@ import { Promotion } from 'src/promotions/entities/promotion.entity';
     AddressBookRepository,
     FoodCategoriesRepository,
     UserRepository,
+    FinanceRulesService,
+    FinanceRulesRepository,
+    AdminRepository,
     AddressBookRepository,
     OrdersRepository,
     JwtService,

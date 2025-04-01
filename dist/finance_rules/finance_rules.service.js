@@ -57,6 +57,18 @@ let FinanceRulesService = class FinanceRulesService {
             return this.handleError('Error fetching finance rule:', error);
         }
     }
+    async findOneLatest() {
+        try {
+            const latestFinanceRule = await this.financeRuleEntityRepository
+                .createQueryBuilder('financeRule')
+                .orderBy('financeRule.created_at', 'DESC')
+                .getOne();
+            return this.handleFinanceRuleResponse(latestFinanceRule);
+        }
+        catch (error) {
+            return this.handleError('Error fetching latest finance rule:', error);
+        }
+    }
     async update(id, updateFinanceRuleDto) {
         try {
             const financeRule = await this.financeRulesRepository.findById(id);
