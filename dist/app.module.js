@@ -42,6 +42,7 @@ const penalties_module_1 = require("./penalties/penalties.module");
 const online_sessions_module_1 = require("./online-sessions/online-sessions.module");
 const penalty_rules_module_1 = require("./penalty-rules/penalty-rules.module");
 const statistic_records_module_1 = require("./statistic-records/statistic-records.module");
+const finance_rules_module_1 = require("./finance_rules/finance_rules.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -88,7 +89,8 @@ exports.AppModule = AppModule = __decorate([
             penalties_module_1.PenaltiesModule,
             online_sessions_module_1.OnlineSessionsModule,
             penalty_rules_module_1.PenaltyRulesModule,
-            statistic_records_module_1.StatisticRecordsModule
+            statistic_records_module_1.StatisticRecordsModule,
+            finance_rules_module_1.FinanceRulesModule
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService, email_service_1.EmailService]
