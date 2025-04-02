@@ -14,6 +14,11 @@ export declare class CustomersController {
     create(createCustomerDto: CreateCustomerDto): Promise<import("../utils/createResponse").ApiResponse<import("./entities/customer.entity").Customer>>;
     findAll(): Promise<import("../utils/createResponse").ApiResponse<import("./entities/customer.entity").Customer[]>>;
     getAllRestaurants(id: string): Promise<any>;
+    searchRestaurants(keyword: string, page?: number, limit?: number): Promise<import("../utils/createResponse").ApiResponse<import("../restaurants/entities/restaurant.entity").Restaurant[]>> | {
+        status: string;
+        data: any;
+        message: string;
+    };
     getAllOrders(id: string): Promise<any>;
     findAllCartItemByCustomerId(customerId: string): Promise<any>;
     findCustomerById(id: string): Promise<import("../utils/createResponse").ApiResponse<any>>;

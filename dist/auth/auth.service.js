@@ -147,10 +147,13 @@ let AuthService = class AuthService {
         const cartItems = await this.cartItemService.findAll({
             customer_id: userWithRole.id
         });
+        const fwallet = await this.fWalletsRepository.findByUserId(user.id);
         const customerPayload = {
             ...basePayload,
             id: userWithRole.id,
             logged_in_as: Payload_1.Enum_UserType.CUSTOMER,
+            fWallet_id: fwallet?.id,
+            fWallet_balance: fwallet?.balance,
             preferred_category: userWithRole.preferred_category,
             favorite_restaurants: userWithRole.favorite_restaurants,
             favorite_items: userWithRole.favorite_items,

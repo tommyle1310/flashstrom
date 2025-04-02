@@ -37,6 +37,16 @@ let CustomersController = class CustomersController {
     getAllRestaurants(id) {
         return this.customersService.getAllRestaurants(id);
     }
+    searchRestaurants(keyword, page = 1, limit = 10) {
+        if (!keyword) {
+            return {
+                status: 'BadRequest',
+                data: null,
+                message: 'Keyword is required'
+            };
+        }
+        return this.customersService.searchRestaurantsByKeyword(keyword, page, limit);
+    }
     getAllOrders(id) {
         return this.customersService.getAllOrders(id);
     }
@@ -105,6 +115,15 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "getAllRestaurants", null);
+__decorate([
+    (0, common_1.Get)('/search-restaurants'),
+    __param(0, (0, common_1.Query)('keyword')),
+    __param(1, (0, common_1.Query)('page')),
+    __param(2, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "searchRestaurants", null);
 __decorate([
     (0, common_1.Get)('/orders/:id'),
     __param(0, (0, common_1.Param)('id')),

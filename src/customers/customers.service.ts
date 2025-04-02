@@ -12,7 +12,7 @@ import { CustomersRepository } from './customers.repository';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 // import { OrdersRepository } from 'src/orders/orders.repository';
 import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
-import { DataSource } from 'typeorm';
+import { DataSource, ILike, In } from 'typeorm';
 import { Order } from 'src/orders/entities/order.entity';
 export interface AddressPopulate {
   id?: string;
@@ -65,6 +65,76 @@ export class CustomersService {
         'ServerError',
         null,
         'An error occurred while creating the customer'
+      );
+    }
+  }
+
+  async searchRestaurantsByKeyword(
+    keyword: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<ApiResponse<Restaurant[]>> {
+    try {
+      // Chuẩn hóa keyword: loại bỏ khoảng trắng thừa và chuyển thành lowercase
+      const searchKeyword = keyword.trim().toLowerCase();
+
+      // 1. Tìm restaurant theo restaurant_name
+      const restaurantsByName = await this.restaurantRepository.repository.find(
+        {
+          where: {
+            restaurant_name: ILike(`%${searchKeyword}%`) // Sử dụng ILike thay cho $ilike
+          },
+          relations: ['specialize_in', 'address'] // Populate specialize_in và address
+        }
+      );
+
+      // 2. Tìm FoodCategory theo name
+      const foodCategories = await this.dataSource
+        .getRepository(FoodCategory)
+        .find({
+          where: {
+            name: ILike(`%${searchKeyword}%`) // Sử dụng ILike
+          }
+        });
+
+      // Lấy danh sách category IDs
+      const categoryIds = foodCategories.map(category => category.id);
+
+      // 3. Tìm restaurant theo specialize_in (FoodCategory)
+      const restaurantsByCategory =
+        categoryIds.length > 0
+          ? await this.restaurantRepository.repository.find({
+              where: {
+                specialize_in: { id: In(categoryIds) } // Sử dụng In
+              },
+              relations: ['specialize_in', 'address']
+            })
+          : [];
+
+      // 4. Kết hợp và loại bỏ trùng lặp, áp dụng phân trang
+      const combinedRestaurants = [
+        ...restaurantsByName,
+        ...restaurantsByCategory
+      ];
+      const uniqueRestaurantsMap = new Map(
+        combinedRestaurants.map(r => [r.id, r])
+      );
+      const uniqueRestaurants = Array.from(uniqueRestaurantsMap.values());
+      const skip = (page - 1) * limit;
+      const paginatedRestaurants = uniqueRestaurants.slice(skip, skip + limit);
+
+      // 5. Trả về kết quả
+      return createResponse(
+        'OK',
+        paginatedRestaurants,
+        `Found ${paginatedRestaurants.length} restaurants matching keyword "${keyword}" (total: ${uniqueRestaurants.length})`
+      );
+    } catch (error) {
+      console.error('Error searching restaurants:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while searching restaurants'
       );
     }
   }

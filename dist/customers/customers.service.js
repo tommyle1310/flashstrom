@@ -16,6 +16,7 @@ const createResponse_1 = require("../utils/createResponse");
 const users_repository_1 = require("../users/users.repository");
 const restaurants_repository_1 = require("../restaurants/restaurants.repository");
 const customers_repository_1 = require("./customers.repository");
+const food_category_entity_1 = require("../food_categories/entities/food_category.entity");
 const menu_item_entity_1 = require("../menu_items/entities/menu_item.entity");
 const typeorm_1 = require("typeorm");
 const order_entity_1 = require("../orders/entities/order.entity");
@@ -42,6 +43,46 @@ let CustomersService = class CustomersService {
         catch (error) {
             console.error('Error creating customer:', error);
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while creating the customer');
+        }
+    }
+    async searchRestaurantsByKeyword(keyword, page = 1, limit = 10) {
+        try {
+            const searchKeyword = keyword.trim().toLowerCase();
+            const restaurantsByName = await this.restaurantRepository.repository.find({
+                where: {
+                    restaurant_name: (0, typeorm_1.ILike)(`%${searchKeyword}%`)
+                },
+                relations: ['specialize_in', 'address']
+            });
+            const foodCategories = await this.dataSource
+                .getRepository(food_category_entity_1.FoodCategory)
+                .find({
+                where: {
+                    name: (0, typeorm_1.ILike)(`%${searchKeyword}%`)
+                }
+            });
+            const categoryIds = foodCategories.map(category => category.id);
+            const restaurantsByCategory = categoryIds.length > 0
+                ? await this.restaurantRepository.repository.find({
+                    where: {
+                        specialize_in: { id: (0, typeorm_1.In)(categoryIds) }
+                    },
+                    relations: ['specialize_in', 'address']
+                })
+                : [];
+            const combinedRestaurants = [
+                ...restaurantsByName,
+                ...restaurantsByCategory
+            ];
+            const uniqueRestaurantsMap = new Map(combinedRestaurants.map(r => [r.id, r]));
+            const uniqueRestaurants = Array.from(uniqueRestaurantsMap.values());
+            const skip = (page - 1) * limit;
+            const paginatedRestaurants = uniqueRestaurants.slice(skip, skip + limit);
+            return (0, createResponse_1.createResponse)('OK', paginatedRestaurants, `Found ${paginatedRestaurants.length} restaurants matching keyword "${keyword}" (total: ${uniqueRestaurants.length})`);
+        }
+        catch (error) {
+            console.error('Error searching restaurants:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while searching restaurants');
         }
     }
     async findAll() {

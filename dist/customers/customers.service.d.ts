@@ -3,6 +3,7 @@ import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { Customer } from './entities/customer.entity';
 import { ApiResponse } from 'src/utils/createResponse';
 import { UserRepository } from '../users/users.repository';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { CustomersRepository } from './customers.repository';
 import { DataSource } from 'typeorm';
@@ -23,6 +24,7 @@ export declare class CustomersService {
     private readonly customerRepository;
     constructor(restaurantRepository: RestaurantsRepository, userRepository: UserRepository, dataSource: DataSource, customerRepository: CustomersRepository);
     create(createCustomerDto: CreateCustomerDto): Promise<ApiResponse<Customer>>;
+    searchRestaurantsByKeyword(keyword: string, page?: number, limit?: number): Promise<ApiResponse<Restaurant[]>>;
     findAll(): Promise<ApiResponse<Customer[]>>;
     findCustomerById(id: string): Promise<ApiResponse<any>>;
     update(id: string, updateCustomerDto: UpdateCustomerDto): Promise<ApiResponse<Customer>>;

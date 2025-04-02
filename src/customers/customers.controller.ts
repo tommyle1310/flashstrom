@@ -5,7 +5,8 @@ import {
   Post,
   Get,
   Patch,
-  Delete
+  Delete,
+  Query
 } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
@@ -42,6 +43,26 @@ export class CustomersController {
   @Get('/restaurants/:id')
   getAllRestaurants(@Param('id') id: string) {
     return this.customersService.getAllRestaurants(id);
+  }
+
+  @Get('/search-restaurants')
+  searchRestaurants(
+    @Query('keyword') keyword: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10
+  ) {
+    if (!keyword) {
+      return {
+        status: 'BadRequest',
+        data: null,
+        message: 'Keyword is required'
+      };
+    }
+    return this.customersService.searchRestaurantsByKeyword(
+      keyword,
+      page,
+      limit
+    );
   }
 
   @Get('/orders/:id')
