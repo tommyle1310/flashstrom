@@ -60,4 +60,11 @@ export declare class AuthController {
     }): Promise<import("src/utils/createResponse").ApiResponse<any> | {
         message: string;
     }>;
+    requestResetPassword({ email }: {
+        email: string;
+    }): Promise<import("src/utils/createResponse").ApiResponse<any>>;
+    resetPassword({ token, newPassword }: {
+        token: string;
+        newPassword: string;
+    }): Promise<import("src/utils/createResponse").ApiResponse<any>>;
 }

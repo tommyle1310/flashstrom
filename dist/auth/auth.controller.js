@@ -127,6 +127,32 @@ let AuthController = class AuthController {
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred during verification, please try again.');
         }
     }
+    async requestResetPassword({ email }) {
+        try {
+            if (!email) {
+                return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'You must provide a valid email');
+            }
+            const result = await this.authService.requestPasswordReset(email);
+            return result;
+        }
+        catch (error) {
+            console.error('Error during password reset request:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred during password reset request, please try again.');
+        }
+    }
+    async resetPassword({ token, newPassword }) {
+        try {
+            if (!token || !newPassword) {
+                return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'You must provide a valid token and new password');
+            }
+            const result = await this.authService.resetPassword(token, newPassword);
+            return result;
+        }
+        catch (error) {
+            console.error('Error during password reset:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred during password reset, please try again.');
+        }
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -206,6 +232,20 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "verifyEmail", null);
+__decorate([
+    (0, common_1.Post)('request-reset-password'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "requestResetPassword", null);
+__decorate([
+    (0, common_1.Post)('reset-password'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "resetPassword", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService,

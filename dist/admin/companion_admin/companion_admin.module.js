@@ -61,6 +61,8 @@ const transactions_repository_1 = require("../../transactions/transactions.repos
 const online_session_entity_1 = require("../../online-sessions/entities/online-session.entity");
 const online_session_repository_1 = require("../../online-sessions/online-session.repository");
 const online_sessions_service_1 = require("../../online-sessions/online-sessions.service");
+const email_service_1 = require("../../mailer/email.service");
+const nodemailer = require("nodemailer");
 let CompanionAdminModule = class CompanionAdminModule {
 };
 exports.CompanionAdminModule = CompanionAdminModule;
@@ -94,10 +96,27 @@ exports.CompanionAdminModule = CompanionAdminModule = __decorate([
         ],
         controllers: [companion_admin_controller_1.CompanionAdminController],
         providers: [
+            {
+                provide: 'MAIL_TRANSPORT',
+                useFactory: async () => {
+                    const transporter = nodemailer.createTransport({
+                        host: 'sandbox.smtp.mailtrap.io',
+                        port: 587,
+                        secure: false,
+                        auth: {
+                            user: '389c1523b80572',
+                            pass: '9685cd52ea218d'
+                        }
+                    });
+                    await transporter.verify();
+                    return transporter;
+                }
+            },
             auth_service_1.AuthService,
             admin_service_1.AdminService,
             restaurants_service_1.RestaurantsService,
             customer_cares_service_1.CustomerCareService,
+            email_service_1.EmailService,
             drivers_service_1.DriversService,
             online_session_repository_1.OnlineSessionsRepository,
             online_sessions_service_1.OnlineSessionsService,

@@ -23,8 +23,9 @@ const drivers_repository_1 = require("../drivers/drivers.repository");
 const common_1 = require("@nestjs/common");
 const uuid_1 = require("uuid");
 const customer_cares_repository_1 = require("../customer_cares/customer_cares.repository");
+const email_service_1 = require("../mailer/email.service");
 let AuthService = class AuthService {
-    constructor(userRepository, fWalletsRepository, restaurantsRepository, customersRepository, driverRepository, customerCareRepository, jwtService, cartItemService) {
+    constructor(userRepository, fWalletsRepository, restaurantsRepository, customersRepository, driverRepository, customerCareRepository, jwtService, cartItemService, emailService) {
         this.userRepository = userRepository;
         this.fWalletsRepository = fWalletsRepository;
         this.restaurantsRepository = restaurantsRepository;
@@ -33,6 +34,7 @@ let AuthService = class AuthService {
         this.customerCareRepository = customerCareRepository;
         this.jwtService = jwtService;
         this.cartItemService = cartItemService;
+        this.emailService = emailService;
     }
     async register(userData, type) {
         console.log('Starting registration process with data:', { userData, type });
@@ -640,6 +642,38 @@ let AuthService = class AuthService {
         const user = await this.userRepository.findById(userId);
         return user?.user_type.includes(role) || false;
     }
+    async requestPasswordReset(email) {
+        const user = await this.findUserByEmail(email);
+        if (!user) {
+            return (0, createResponse_1.createResponse)('NotFound', null, 'User with this email not found');
+        }
+        const resetToken = (0, uuid_1.v4)();
+        const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
+        await this.userRepository.update(user.id, {
+            reset_token: resetToken,
+            reset_token_expiry: resetTokenExpiry
+        });
+        await this.emailService.sendPasswordResetEmail(email, resetToken, user.first_name);
+        return (0, createResponse_1.createResponse)('OK', null, 'Password reset email sent successfully');
+    }
+    async resetPassword(token, newPassword) {
+        const user = await this.userRepository.findOne({
+            where: { reset_token: token }
+        });
+        if (!user) {
+            return (0, createResponse_1.createResponse)('Unauthorized', null, 'Invalid or expired token');
+        }
+        if (user.reset_token_expiry < new Date()) {
+            return (0, createResponse_1.createResponse)('Unauthorized', null, 'Token has expired');
+        }
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await this.userRepository.update(user.id, {
+            password: hashedPassword,
+            reset_token: null,
+            reset_token_expiry: null
+        });
+        return (0, createResponse_1.createResponse)('OK', null, 'Password reset successfully');
+    }
 };
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
@@ -651,6 +685,7 @@ exports.AuthService = AuthService = __decorate([
         drivers_repository_1.DriversRepository,
         customer_cares_repository_1.CustomerCaresRepository,
         jwt_1.JwtService,
-        cart_items_service_1.CartItemsService])
+        cart_items_service_1.CartItemsService,
+        email_service_1.EmailService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

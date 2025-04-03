@@ -52,6 +52,8 @@ import { TransactionsRepository } from 'src/transactions/transactions.repository
 import { OnlineSession } from 'src/online-sessions/entities/online-session.entity';
 import { OnlineSessionsRepository } from 'src/online-sessions/online-session.repository';
 import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
+import { EmailService } from 'src/mailer/email.service';
+import * as nodemailer from 'nodemailer';
 
 @Module({
   imports: [
@@ -82,10 +84,30 @@ import { OnlineSessionsService } from 'src/online-sessions/online-sessions.servi
   ],
   controllers: [CompanionAdminController],
   providers: [
+    {
+      provide: 'MAIL_TRANSPORT',
+      useFactory: async () => {
+        // Create a nodemailer transporter
+        const transporter = nodemailer.createTransport({
+          host: 'sandbox.smtp.mailtrap.io', // Replace with your email service host
+          port: 587, // Use 465 for SSL, 587 for TLS
+          secure: false, // Use true for port 465, false for 587
+          auth: {
+            user: '389c1523b80572', // Replace with your email
+            pass: '9685cd52ea218d' // Replace with your email password or app-specific password
+          }
+        });
+
+        // Verify the transporter configuration
+        await transporter.verify();
+        return transporter;
+      }
+    },
     AuthService,
     AdminService,
     RestaurantsService,
     CustomerCareService,
+    EmailService,
     DriversService,
     OnlineSessionsRepository,
     OnlineSessionsService,

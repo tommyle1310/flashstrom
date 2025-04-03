@@ -8,6 +8,7 @@ import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { CustomersRepository } from 'src/customers/customers.repository';
 import { DriversRepository } from 'src/drivers/drivers.repository';
 import { CustomerCaresRepository } from 'src/customer_cares/customer_cares.repository';
+import { EmailService } from 'src/mailer/email.service';
 export declare class AuthService {
     private readonly userRepository;
     private readonly fWalletsRepository;
@@ -17,7 +18,8 @@ export declare class AuthService {
     private readonly customerCareRepository;
     private readonly jwtService;
     private readonly cartItemService;
-    constructor(userRepository: UserRepository, fWalletsRepository: FWalletsRepository, restaurantsRepository: RestaurantsRepository, customersRepository: CustomersRepository, driverRepository: DriversRepository, customerCareRepository: CustomerCaresRepository, jwtService: JwtService, cartItemService: CartItemsService);
+    private readonly emailService;
+    constructor(userRepository: UserRepository, fWalletsRepository: FWalletsRepository, restaurantsRepository: RestaurantsRepository, customersRepository: CustomersRepository, driverRepository: DriversRepository, customerCareRepository: CustomerCaresRepository, jwtService: JwtService, cartItemService: CartItemsService, emailService: EmailService);
     register(userData: any, type: Enum_UserType): Promise<any>;
     login({ email, password }: {
         email: string;
@@ -38,4 +40,6 @@ export declare class AuthService {
     private createNewUserRegistration;
     validateUser(payload: any): Promise<User>;
     hasRole(userId: string, role: Enum_UserType): Promise<boolean>;
+    requestPasswordReset(email: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
+    resetPassword(token: string, newPassword: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
 }

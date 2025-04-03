@@ -21,6 +21,8 @@ export declare class User {
     };
     created_at: Date;
     updated_at: Date;
+    reset_token: string;
+    reset_token_expiry: Date;
     fwallets: FWallet[];
     last_login: Date;
 }

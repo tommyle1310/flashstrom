@@ -268,4 +268,53 @@ export class AuthController {
       );
     }
   }
+
+  @Post('request-reset-password')
+  async requestResetPassword(@Body() { email }: { email: string }) {
+    try {
+      if (!email) {
+        return createResponse(
+          'InvalidFormatInput',
+          null,
+          'You must provide a valid email'
+        );
+      }
+
+      const result = await this.authService.requestPasswordReset(email);
+      return result;
+    } catch (error) {
+      console.error('Error during password reset request:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred during password reset request, please try again.'
+      );
+    }
+  }
+
+  // New endpoint to reset the password using the token
+  @Post('reset-password')
+  async resetPassword(
+    @Body() { token, newPassword }: { token: string; newPassword: string }
+  ) {
+    try {
+      if (!token || !newPassword) {
+        return createResponse(
+          'InvalidFormatInput',
+          null,
+          'You must provide a valid token and new password'
+        );
+      }
+
+      const result = await this.authService.resetPassword(token, newPassword);
+      return result;
+    } catch (error) {
+      console.error('Error during password reset:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred during password reset, please try again.'
+      );
+    }
+  }
 }

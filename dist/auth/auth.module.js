@@ -110,6 +110,7 @@ exports.AuthModule = AuthModule = __decorate([
         ],
         providers: [
             auth_service_1.AuthService,
+            email_service_1.EmailService,
             jwt_strategy_1.JwtStrategy,
             email_service_1.EmailService,
             users_service_1.UsersService,

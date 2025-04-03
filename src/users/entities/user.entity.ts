@@ -55,6 +55,12 @@ export class User {
   @UpdateDateColumn()
   updated_at: Date;
 
+  @Column({ nullable: true })
+  reset_token: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  reset_token_expiry: Date;
+
   @OneToMany(() => FWallet, fwallet => fwallet.user)
   fwallets: FWallet[];
 

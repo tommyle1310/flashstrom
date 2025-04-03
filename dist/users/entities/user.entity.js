@@ -76,6 +76,14 @@ __decorate([
     __metadata("design:type", Date)
 ], User.prototype, "updated_at", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], User.prototype, "reset_token", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),
+    __metadata("design:type", Date)
+], User.prototype, "reset_token_expiry", void 0);
+__decorate([
     (0, typeorm_1.OneToMany)(() => fwallet_entity_1.FWallet, fwallet => fwallet.user),
     __metadata("design:type", Array)
 ], User.prototype, "fwallets", void 0);

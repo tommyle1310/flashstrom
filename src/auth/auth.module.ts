@@ -99,6 +99,7 @@ import { OnlineSession } from 'src/online-sessions/entities/online-session.entit
   ],
   providers: [
     AuthService,
+    EmailService,
     JwtStrategy,
     EmailService,
     UsersService,

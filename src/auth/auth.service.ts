@@ -12,6 +12,7 @@ import { DriversRepository } from 'src/drivers/drivers.repository';
 import { Injectable } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { CustomerCaresRepository } from 'src/customer_cares/customer_cares.repository';
+import { EmailService } from 'src/mailer/email.service';
 
 @Injectable()
 export class AuthService {
@@ -23,7 +24,8 @@ export class AuthService {
     private readonly driverRepository: DriversRepository,
     private readonly customerCareRepository: CustomerCaresRepository,
     private readonly jwtService: JwtService,
-    private readonly cartItemService: CartItemsService
+    private readonly cartItemService: CartItemsService,
+    private readonly emailService: EmailService
   ) {}
 
   async register(userData: any, type: Enum_UserType): Promise<any> {
@@ -915,5 +917,60 @@ export class AuthService {
   async hasRole(userId: string, role: Enum_UserType): Promise<boolean> {
     const user = await this.userRepository.findById(userId);
     return user?.user_type.includes(role) || false;
+  }
+
+  async requestPasswordReset(email: string) {
+    const user = await this.findUserByEmail(email);
+    if (!user) {
+      return createResponse('NotFound', null, 'User with this email not found');
+    }
+
+    // Generate a reset token (you can use JWT or a random string)
+    const resetToken = uuidv4();
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // Token expires in 1 hour
+
+    // Save the reset token and expiry in the user record
+    await this.userRepository.update(user.id, {
+      reset_token: resetToken,
+      reset_token_expiry: resetTokenExpiry
+    });
+
+    // Send the password reset email
+    await this.emailService.sendPasswordResetEmail(
+      email,
+      resetToken,
+      user.first_name
+    );
+
+    return createResponse('OK', null, 'Password reset email sent successfully');
+  }
+
+  // New method to reset the password
+  async resetPassword(token: string, newPassword: string) {
+    // Find the user with the reset token
+    const user = await this.userRepository.findOne({
+      where: { reset_token: token }
+    });
+
+    if (!user) {
+      return createResponse('Unauthorized', null, 'Invalid or expired token');
+    }
+
+    // Check if the token has expired
+    if (user.reset_token_expiry < new Date()) {
+      return createResponse('Unauthorized', null, 'Token has expired');
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update the user's password and clear the reset token
+    await this.userRepository.update(user.id, {
+      password: hashedPassword,
+      reset_token: null,
+      reset_token_expiry: null
+    });
+
+    return createResponse('OK', null, 'Password reset successfully');
   }
 }

@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateUserDto } from './create-user.dto';
-import { IsOptional, IsDate, IsNumber } from 'class-validator';
+import { IsOptional, IsDate, IsNumber, IsString } from 'class-validator';
 import { Enum_AppTheme } from 'src/types/Payload';
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
@@ -9,6 +9,12 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsOptional()
   @IsNumber()
   readonly balance?: number;
+  @IsOptional()
+  @IsString()
+  readonly reset_token?: string;
+
+  @IsOptional()
+  readonly reset_token_expiry?: Date;
 
   @IsOptional()
   readonly password?: string;
