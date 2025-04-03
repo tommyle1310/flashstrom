@@ -67,4 +67,13 @@ export declare class AuthController {
         token: string;
         newPassword: string;
     }): Promise<import("src/utils/createResponse").ApiResponse<any>>;
+    renderResetPasswordPage(token: string): Promise<{
+        token: string;
+        error: string;
+        logoFlashfood: string;
+    } | {
+        token: string;
+        logoFlashfood: string;
+        error?: undefined;
+    }>;
 }

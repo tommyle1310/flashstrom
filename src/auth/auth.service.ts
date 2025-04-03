@@ -939,7 +939,7 @@ export class AuthService {
     await this.emailService.sendPasswordResetEmail(
       email,
       resetToken,
-      user.first_name
+      `${user.first_name} ${user.last_name}`
     );
 
     return createResponse('OK', null, 'Password reset email sent successfully');

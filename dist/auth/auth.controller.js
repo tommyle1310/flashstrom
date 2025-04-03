@@ -20,6 +20,7 @@ const users_service_1 = require("../users/users.service");
 const createResponse_1 = require("../utils/createResponse");
 const Payload_1 = require("../types/Payload");
 const create_restaurant_dto_1 = require("../restaurants/dto/create-restaurant.dto");
+const image_urls_1 = require("../assets/image_urls");
 let AuthController = class AuthController {
     constructor(authService, emailService, usersService) {
         this.authService = authService;
@@ -153,6 +154,19 @@ let AuthController = class AuthController {
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred during password reset, please try again.');
         }
     }
+    async renderResetPasswordPage(token) {
+        if (!token) {
+            return {
+                token: '',
+                error: 'Invalid or missing token. Please request a new password reset link.',
+                logoFlashfood: image_urls_1.IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO
+            };
+        }
+        return {
+            token,
+            logoFlashfood: image_urls_1.IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO
+        };
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -246,6 +260,14 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "resetPassword", null);
+__decorate([
+    (0, common_1.Get)('reset-password'),
+    (0, common_1.Render)('reset-password'),
+    __param(0, (0, common_1.Query)('token')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "renderResetPasswordPage", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService,

@@ -29,7 +29,7 @@ let EmailService = class EmailService {
         return Math.floor(100000 + Math.random() * 900000).toString();
     }
     async sendPasswordResetEmail(to, resetToken, firstName) {
-        const resetLink = `https://yourdomain.com/reset-password?token=${resetToken}`;
+        const resetLink = `http://localhost:1310/auth/reset-password?token=${resetToken}`;
         const logoFlashfood = image_urls_1.IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO;
         const emailTemplate = `
     <!DOCTYPE html>

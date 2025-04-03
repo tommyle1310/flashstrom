@@ -1,10 +1,11 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Get, Render, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { EmailService } from 'src/mailer/email.service';
 import { UsersService } from 'src/users/users.service';
 import { createResponse } from 'src/utils/createResponse';
 import { Enum_UserType } from 'src/types/Payload';
 import { CreateRestaurantSignup } from 'src/restaurants/dto/create-restaurant.dto';
+import { IMAGE_LINKS } from 'src/assets/image_urls';
 
 @Controller('auth')
 export class AuthController {
@@ -316,5 +317,23 @@ export class AuthController {
         'An error occurred during password reset, please try again.'
       );
     }
+  }
+
+  @Get('reset-password')
+  @Render('reset-password')
+  async renderResetPasswordPage(@Query('token') token: string) {
+    if (!token) {
+      return {
+        token: '',
+        error:
+          'Invalid or missing token. Please request a new password reset link.',
+        logoFlashfood: IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO // Replace with your actual logo URL or use IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO
+      };
+    }
+
+    return {
+      token,
+      logoFlashfood: IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO // Replace with your actual logo URL or use IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO
+    };
   }
 }

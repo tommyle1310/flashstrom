@@ -24,7 +24,7 @@ export class EmailService {
     firstName: string
   ) {
     // Assuming the reset link will be something like: yourdomain.com/reset-password?token=resetToken
-    const resetLink = `https://yourdomain.com/reset-password?token=${resetToken}`; // Replace with your actual domain
+    const resetLink = `http://localhost:1310/auth/reset-password?token=${resetToken}`; // Replace with your actual domain
     const logoFlashfood = IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO;
 
     // Modernized HTML/CSS to match the provided image with a linear gradient button

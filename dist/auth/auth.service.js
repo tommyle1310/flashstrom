@@ -653,7 +653,7 @@ let AuthService = class AuthService {
             reset_token: resetToken,
             reset_token_expiry: resetTokenExpiry
         });
-        await this.emailService.sendPasswordResetEmail(email, resetToken, user.first_name);
+        await this.emailService.sendPasswordResetEmail(email, resetToken, `${user.first_name} ${user.last_name}`);
         return (0, createResponse_1.createResponse)('OK', null, 'Password reset email sent successfully');
     }
     async resetPassword(token, newPassword) {
