@@ -31,6 +31,7 @@ export class AuthController {
       userData,
       Enum_UserType.CUSTOMER
     );
+    console.log('check regis res', registrationResponse);
 
     // If registration is successful
     if (registrationResponse?.data?.data) {
@@ -47,11 +48,7 @@ export class AuthController {
         'Registration successful, verification email sent'
       );
     } else {
-      return createResponse(
-        'ServerError',
-        null,
-        'Something went wrong in the server'
-      );
+      return registrationResponse;
     }
   }
   @Post('register-driver')
@@ -86,11 +83,7 @@ export class AuthController {
         'Registration successful, verification email sent'
       );
     } else {
-      return createResponse(
-        'ServerError',
-        null,
-        'Something went wrong in the server'
-      );
+      return registrationResponse?.data;
     }
   }
 
@@ -127,11 +120,7 @@ export class AuthController {
         'Registration successful, verification email sent'
       );
     } else {
-      return createResponse(
-        'ServerError',
-        null,
-        'Something went wrong in the server'
-      );
+      return registrationResponse;
     }
   }
 
@@ -166,11 +155,7 @@ export class AuthController {
         'Registration successful, verification email sent'
       );
     } else {
-      return createResponse(
-        'ServerError',
-        null,
-        'Something went wrong in the server'
-      );
+      return registrationResponse;
     }
   }
   @Post('register-customer-care')
@@ -204,11 +189,7 @@ export class AuthController {
         'Registration successful, verification email sent'
       );
     } else {
-      return createResponse(
-        'ServerError',
-        null,
-        'Something went wrong in the server'
-      );
+      return registrationResponse;
     }
   }
 

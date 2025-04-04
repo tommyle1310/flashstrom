@@ -91,7 +91,6 @@ export class Promotion {
   @UpdateDateColumn()
   updated_at: Date;
 
-  // src/promotions/entities/promotion.entity.ts
   @ManyToMany(() => Restaurant, restaurant => restaurant.promotions)
-  restaurants: Restaurant[];
+  restaurants: Restaurant[]; // Xóa @JoinTable
 }

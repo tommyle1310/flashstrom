@@ -10,6 +10,7 @@ export declare class PromotionsService {
     constructor(promotionsRepository: PromotionsRepository, foodCategoriesRepository: FoodCategoriesRepository);
     create(createPromotionDto: CreatePromotionDto): Promise<ApiResponse<Promotion>>;
     findAll(): Promise<ApiResponse<Promotion[]>>;
+    findValidWithRestaurants(): Promise<ApiResponse<Promotion[]>>;
     findOne(id: string): Promise<ApiResponse<Promotion>>;
     update(id: string, updatePromotionDto: UpdatePromotionDto): Promise<ApiResponse<Promotion>>;
     remove(id: string): Promise<ApiResponse<null>>;

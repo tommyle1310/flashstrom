@@ -9,7 +9,7 @@ import { UpdatePromotionDto } from './dto/update-promotion.dto';
 export class PromotionsRepository {
   constructor(
     @InjectRepository(Promotion)
-    private promotionRepository: Repository<Promotion>
+    public promotionRepository: Repository<Promotion>
   ) {}
 
   async create(promotionData: Partial<Promotion>): Promise<Promotion> {
@@ -17,8 +17,17 @@ export class PromotionsRepository {
     return this.promotionRepository.save(newPromotion);
   }
 
-  async findAll(): Promise<Promotion[]> {
-    return this.promotionRepository.find();
+  async findAll(options?: { relations?: string[] }): Promise<Promotion[]> {
+    const queryBuilder =
+      this.promotionRepository.createQueryBuilder('promotion');
+
+    if (options?.relations?.includes('restaurants')) {
+      queryBuilder
+        .leftJoinAndSelect('promotion.restaurants', 'restaurants')
+        .leftJoin('promotion.restaurants', 'restaurant_promotions'); // Đảm bảo join đúng bảng trung gian
+    }
+
+    return queryBuilder.getMany();
   }
 
   async findById(id: string): Promise<Promotion | null> {

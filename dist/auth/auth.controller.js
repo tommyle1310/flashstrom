@@ -29,6 +29,7 @@ let AuthController = class AuthController {
     }
     async registerCustomer(userData) {
         const registrationResponse = await this.authService.register(userData, Payload_1.Enum_UserType.CUSTOMER);
+        console.log('check regis res', registrationResponse);
         if (registrationResponse?.data?.data) {
             const code = await this.emailService.sendVerificationEmail(userData.email);
             await this.usersService.update(registrationResponse.data.data.user_id, {
@@ -37,7 +38,7 @@ let AuthController = class AuthController {
             return (0, createResponse_1.createResponse)('OK', null, 'Registration successful, verification email sent');
         }
         else {
-            return (0, createResponse_1.createResponse)('ServerError', null, 'Something went wrong in the server');
+            return registrationResponse;
         }
     }
     async registerDriver(userData) {
@@ -50,7 +51,7 @@ let AuthController = class AuthController {
             return (0, createResponse_1.createResponse)('OK', null, 'Registration successful, verification email sent');
         }
         else {
-            return (0, createResponse_1.createResponse)('ServerError', null, 'Something went wrong in the server');
+            return registrationResponse?.data;
         }
     }
     async registerRestaurant(userData) {
@@ -67,7 +68,7 @@ let AuthController = class AuthController {
             return (0, createResponse_1.createResponse)('OK', null, 'Registration successful, verification email sent');
         }
         else {
-            return (0, createResponse_1.createResponse)('ServerError', null, 'Something went wrong in the server');
+            return registrationResponse;
         }
     }
     async registerFWallet(userData) {
@@ -81,7 +82,7 @@ let AuthController = class AuthController {
             return (0, createResponse_1.createResponse)('OK', null, 'Registration successful, verification email sent');
         }
         else {
-            return (0, createResponse_1.createResponse)('ServerError', null, 'Something went wrong in the server');
+            return registrationResponse;
         }
     }
     async registerCustomerCare(userData) {
@@ -94,7 +95,7 @@ let AuthController = class AuthController {
             return (0, createResponse_1.createResponse)('OK', null, 'Registration successful, verification email sent');
         }
         else {
-            return (0, createResponse_1.createResponse)('ServerError', null, 'Something went wrong in the server');
+            return registrationResponse;
         }
     }
     async loginCustomer(credentials) {

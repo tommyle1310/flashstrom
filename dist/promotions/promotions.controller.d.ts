@@ -6,6 +6,7 @@ export declare class PromotionsController {
     constructor(promotionsService: PromotionsService);
     create(createPromotionDto: CreatePromotionDto): Promise<import("../utils/createResponse").ApiResponse<import("./entities/promotion.entity").Promotion>>;
     findAll(): Promise<import("../utils/createResponse").ApiResponse<import("./entities/promotion.entity").Promotion[]>>;
+    findValidWithRestaurants(): Promise<import("../utils/createResponse").ApiResponse<import("./entities/promotion.entity").Promotion[]>>;
     findOne(id: string): Promise<import("../utils/createResponse").ApiResponse<import("./entities/promotion.entity").Promotion>>;
     update(id: string, updatePromotionDto: UpdatePromotionDto): Promise<import("../utils/createResponse").ApiResponse<import("./entities/promotion.entity").Promotion>>;
     remove(id: string): Promise<import("../utils/createResponse").ApiResponse<null>>;

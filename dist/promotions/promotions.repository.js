@@ -25,8 +25,14 @@ let PromotionsRepository = class PromotionsRepository {
         const newPromotion = this.promotionRepository.create(promotionData);
         return this.promotionRepository.save(newPromotion);
     }
-    async findAll() {
-        return this.promotionRepository.find();
+    async findAll(options) {
+        const queryBuilder = this.promotionRepository.createQueryBuilder('promotion');
+        if (options?.relations?.includes('restaurants')) {
+            queryBuilder
+                .leftJoinAndSelect('promotion.restaurants', 'restaurants')
+                .leftJoin('promotion.restaurants', 'restaurant_promotions');
+        }
+        return queryBuilder.getMany();
     }
     async findById(id) {
         return this.promotionRepository.findOne({ where: { id } });

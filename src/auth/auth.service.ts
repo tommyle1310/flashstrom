@@ -347,6 +347,8 @@ export class AuthService {
       });
 
       if (userTypes.includes(String(type))) {
+        console.log('duplicated heẻể??');
+
         return createResponse(
           'DuplicatedRecord',
           null,

@@ -13,27 +13,27 @@ export declare class AuthController {
         password: string;
         first_name: string;
         last_name: string;
-    }): Promise<import("src/utils/createResponse").ApiResponse<any>>;
+    }): Promise<any>;
     registerDriver(userData: {
         phone: string;
         email: string;
         password: string;
         first_name: string;
         last_name: string;
-    }): Promise<import("src/utils/createResponse").ApiResponse<any>>;
-    registerRestaurant(userData: CreateRestaurantSignup): Promise<import("src/utils/createResponse").ApiResponse<any>>;
+    }): Promise<any>;
+    registerRestaurant(userData: CreateRestaurantSignup): Promise<any>;
     registerFWallet(userData: {
         user_id: string;
         email: string;
         password: string;
         balance: string;
-    }): Promise<import("src/utils/createResponse").ApiResponse<any>>;
+    }): Promise<any>;
     registerCustomerCare(userData: {
         user_id: string;
         email: string;
         password: string;
         balance: string;
-    }): Promise<import("src/utils/createResponse").ApiResponse<any>>;
+    }): Promise<any>;
     loginCustomer(credentials: {
         email: string;
         password: string;

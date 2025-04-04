@@ -7,6 +7,39 @@ import { ApiResponse } from 'src/utils/createResponse';
 import { v4 as uuidv4 } from 'uuid';
 import { PromotionsRepository } from './promotions.repository';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
+
+interface SimplifiedRestaurant {
+  id: string;
+  restaurant_name: string;
+  avatar: { url: string; key: string } | null;
+  ratings: { average_rating: number; review_count: number } | null;
+  // Các field khác là optional
+  owner_id?: string;
+  owner_name?: string;
+  address_id?: string;
+  description?: string | null;
+  contact_email?: { title: string; is_default: boolean; email: string }[];
+  contact_phone?: { title: string; number: string; is_default: boolean }[];
+  images_gallery?: { url: string; key: string }[] | null;
+  status?: {
+    is_open: boolean;
+    is_active: boolean;
+    is_accepted_orders: boolean;
+  };
+  opening_hours?: {
+    mon: { from: number; to: number };
+    tue: { from: number; to: number };
+    wed: { from: number; to: number };
+    thu: { from: number; to: number };
+    fri: { from: number; to: number };
+    sat: { from: number; to: number };
+    sun: { from: number; to: number };
+  };
+  created_at?: number;
+  updated_at?: number;
+  total_orders?: number;
+}
+
 @Injectable()
 export class PromotionsService {
   constructor(
@@ -75,6 +108,87 @@ export class PromotionsService {
     } catch (error) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error fetching promotions');
+    }
+  }
+
+  async findValidWithRestaurants(): Promise<ApiResponse<Promotion[]>> {
+    try {
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+
+      const queryBuilder = this.promotionsRepository.promotionRepository
+        .createQueryBuilder('promotion')
+        .leftJoin(
+          'restaurant_promotions',
+          'rp',
+          'rp.promotion_id = promotion.id'
+        )
+        .leftJoin('restaurants', 'r', 'r.id = rp.restaurant_id')
+        .select([
+          'promotion.id',
+          'promotion.name',
+          'promotion.description',
+          'promotion.start_date',
+          'promotion.end_date',
+          'promotion.discount_type',
+          'promotion.discount_value',
+          'promotion.promotion_cost_price',
+          'promotion.minimum_order_value',
+          'promotion.avatar',
+          'promotion.status',
+          'promotion.bogo_details',
+          'promotion.created_at',
+          'promotion.updated_at',
+          'r.id AS restaurant_id',
+          'r.restaurant_name AS restaurant_name', // Thêm restaurant_name
+          'r.avatar AS restaurant_avatar', // Thêm avatar
+          'r.ratings AS restaurant_ratings' // Thêm ratings
+        ])
+        .where('promotion.start_date <= :currentTimestamp', {
+          currentTimestamp
+        })
+        .andWhere('promotion.end_date >= :currentTimestamp', {
+          currentTimestamp
+        });
+
+      const { entities, raw } = await queryBuilder.getRawAndEntities();
+
+      const promotionMap = new Map<
+        string,
+        Promotion & { restaurants: SimplifiedRestaurant[] }
+      >();
+      entities.forEach(promo =>
+        promotionMap.set(promo.id, { ...promo, restaurants: [] })
+      );
+
+      raw.forEach(row => {
+        const promo = promotionMap.get(row.promotion_id);
+        if (promo && row.restaurant_id) {
+          promo.restaurants.push({
+            id: row.restaurant_id,
+            restaurant_name: row.restaurant_name,
+            avatar: row.restaurant_avatar,
+            ratings: row.restaurant_ratings
+          });
+        }
+      });
+
+      const result = Array.from(promotionMap.values()).map(promo => ({
+        ...promo,
+        restaurants: promo.restaurants.slice(0, 5)
+      }));
+
+      return createResponse(
+        'OK',
+        result,
+        'Valid promotions with restaurants retrieved successfully'
+      );
+    } catch (error) {
+      console.log('error', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error fetching valid promotions with restaurants'
+      );
     }
   }
 

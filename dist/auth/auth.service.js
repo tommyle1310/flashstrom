@@ -253,6 +253,7 @@ let AuthService = class AuthService {
                 includes: userTypes.includes(String(type))
             });
             if (userTypes.includes(String(type))) {
+                console.log('duplicated heẻể??');
                 return (0, createResponse_1.createResponse)('DuplicatedRecord', null, `${type} with the same email already exists`);
             }
         }

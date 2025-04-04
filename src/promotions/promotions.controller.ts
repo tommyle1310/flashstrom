@@ -27,6 +27,11 @@ export class PromotionsController {
     return this.promotionsService.findAll();
   }
 
+  @Get('valid')
+  findValidWithRestaurants() {
+    return this.promotionsService.findValidWithRestaurants();
+  }
+
   // Get a promotion by ID
   @Get(':id')
   findOne(@Param('id') id: string) {

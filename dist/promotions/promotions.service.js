@@ -56,6 +56,64 @@ let PromotionsService = class PromotionsService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching promotions');
         }
     }
+    async findValidWithRestaurants() {
+        try {
+            const currentTimestamp = Math.floor(Date.now() / 1000);
+            const queryBuilder = this.promotionsRepository.promotionRepository
+                .createQueryBuilder('promotion')
+                .leftJoin('restaurant_promotions', 'rp', 'rp.promotion_id = promotion.id')
+                .leftJoin('restaurants', 'r', 'r.id = rp.restaurant_id')
+                .select([
+                'promotion.id',
+                'promotion.name',
+                'promotion.description',
+                'promotion.start_date',
+                'promotion.end_date',
+                'promotion.discount_type',
+                'promotion.discount_value',
+                'promotion.promotion_cost_price',
+                'promotion.minimum_order_value',
+                'promotion.avatar',
+                'promotion.status',
+                'promotion.bogo_details',
+                'promotion.created_at',
+                'promotion.updated_at',
+                'r.id AS restaurant_id',
+                'r.restaurant_name AS restaurant_name',
+                'r.avatar AS restaurant_avatar',
+                'r.ratings AS restaurant_ratings'
+            ])
+                .where('promotion.start_date <= :currentTimestamp', {
+                currentTimestamp
+            })
+                .andWhere('promotion.end_date >= :currentTimestamp', {
+                currentTimestamp
+            });
+            const { entities, raw } = await queryBuilder.getRawAndEntities();
+            const promotionMap = new Map();
+            entities.forEach(promo => promotionMap.set(promo.id, { ...promo, restaurants: [] }));
+            raw.forEach(row => {
+                const promo = promotionMap.get(row.promotion_id);
+                if (promo && row.restaurant_id) {
+                    promo.restaurants.push({
+                        id: row.restaurant_id,
+                        restaurant_name: row.restaurant_name,
+                        avatar: row.restaurant_avatar,
+                        ratings: row.restaurant_ratings
+                    });
+                }
+            });
+            const result = Array.from(promotionMap.values()).map(promo => ({
+                ...promo,
+                restaurants: promo.restaurants.slice(0, 5)
+            }));
+            return (0, createResponse_1.createResponse)('OK', result, 'Valid promotions with restaurants retrieved successfully');
+        }
+        catch (error) {
+            console.log('error', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching valid promotions with restaurants');
+        }
+    }
     async findOne(id) {
         try {
             const promotion = await this.promotionsRepository.findById(id);
