@@ -47,6 +47,9 @@ let CustomersController = class CustomersController {
         }
         return this.customersService.searchRestaurantsByKeyword(keyword, page, limit);
     }
+    getFavoriteRestaurants(customerId) {
+        return this.customersService.getFavoriteRestaurants(customerId);
+    }
     getAllOrders(id) {
         return this.customersService.getAllOrders(id);
     }
@@ -124,6 +127,13 @@ __decorate([
     __metadata("design:paramtypes", [String, Object, Object]),
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "searchRestaurants", null);
+__decorate([
+    (0, common_1.Get)('/favorite-restaurants/:customerId'),
+    __param(0, (0, common_1.Param)('customerId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "getFavoriteRestaurants", null);
 __decorate([
     (0, common_1.Get)('/orders/:id'),
     __param(0, (0, common_1.Param)('id')),

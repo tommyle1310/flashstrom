@@ -78,6 +78,7 @@ export class CustomersRepository {
     });
   }
 
+  // Trong file customers.repository.ts
   async findById(id: string): Promise<Customer> {
     return await this.customerRepository.findOne({
       where: { id },
@@ -85,7 +86,7 @@ export class CustomersRepository {
         'user',
         'address',
         'preferred_category',
-        'favorite_restaurants'
+        'favorite_restaurants' // Đảm bảo đã có relation này
       ]
     });
   }

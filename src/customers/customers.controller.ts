@@ -65,6 +65,12 @@ export class CustomersController {
     );
   }
 
+  // Trong file customers.controller.ts
+  @Get('/favorite-restaurants/:customerId')
+  getFavoriteRestaurants(@Param('customerId') customerId: string) {
+    return this.customersService.getFavoriteRestaurants(customerId);
+  }
+
   @Get('/orders/:id')
   getAllOrders(@Param('id') id: string) {
     return this.customersService.getAllOrders(id);

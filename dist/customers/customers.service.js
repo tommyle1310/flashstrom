@@ -125,11 +125,33 @@ let CustomersService = class CustomersService {
     }
     async update(id, updateCustomerDto) {
         try {
-            const updatedCustomer = await this.customerRepository.update(id, updateCustomerDto);
-            console.log('check toggle favourite restaurant', id, updatedCustomer, 'customerdto', updateCustomerDto);
-            if (!updatedCustomer) {
+            const customer = await this.customerRepository.findById(id);
+            if (!customer) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Customer not found');
             }
+            const { favorite_restaurant, ...otherUpdateData } = updateCustomerDto;
+            if (favorite_restaurant) {
+                const currentFavoriteRestaurants = customer.favorite_restaurants || [];
+                const restaurantIds = currentFavoriteRestaurants.map(r => r.id);
+                if (restaurantIds.includes(favorite_restaurant)) {
+                    customer.favorite_restaurants = currentFavoriteRestaurants.filter(r => r.id !== favorite_restaurant);
+                }
+                else {
+                    const restaurant = await this.restaurantRepository.repository.findOne({
+                        where: { id: favorite_restaurant }
+                    });
+                    if (!restaurant) {
+                        return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant not found');
+                    }
+                    customer.favorite_restaurants = [
+                        ...currentFavoriteRestaurants,
+                        restaurant
+                    ];
+                }
+            }
+            Object.assign(customer, otherUpdateData);
+            const updatedCustomer = await this.customerRepository.save(customer);
+            console.log('check toggle favourite restaurant', id, updatedCustomer, 'customerdto', updateCustomerDto);
             return (0, createResponse_1.createResponse)('OK', updatedCustomer, 'Customer updated successfully');
         }
         catch (error) {
@@ -176,6 +198,39 @@ let CustomersService = class CustomersService {
             return currentTime >= from && currentTime <= to;
         }
         return false;
+    }
+    async getFavoriteRestaurants(customerId) {
+        try {
+            const customer = await this.customerRepository.findById(customerId);
+            if (!customer) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Customer not found');
+            }
+            const favoriteRestaurantIds = customer.favorite_restaurants.map(r => r.id);
+            if (!favoriteRestaurantIds || favoriteRestaurantIds.length === 0) {
+                return (0, createResponse_1.createResponse)('OK', [], 'No favorite restaurants found for this customer');
+            }
+            const favoriteRestaurants = await this.restaurantRepository.repository.find({
+                where: { id: (0, typeorm_1.In)(favoriteRestaurantIds) },
+                relations: ['specialize_in', 'address'],
+                select: {
+                    id: true,
+                    restaurant_name: true,
+                    avatar: { url: true, key: true },
+                    address: {
+                        id: true,
+                        street: true,
+                        city: true,
+                        postal_code: true,
+                        location: { lat: true, lng: true }
+                    }
+                }
+            });
+            return (0, createResponse_1.createResponse)('OK', favoriteRestaurants, `Fetched ${favoriteRestaurants.length} favorite restaurants successfully`);
+        }
+        catch (error) {
+            console.error('Error fetching favorite restaurants:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching favorite restaurants');
+        }
     }
     calculateDistance(lat1, lon1, lat2, lon2) {
         const R = 6371;

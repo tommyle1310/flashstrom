@@ -34,6 +34,7 @@ export declare class CustomersService {
         public_id: string;
     }, entityId: string): Promise<ApiResponse<any>>;
     private isRestaurantOpen;
+    getFavoriteRestaurants(customerId: string): Promise<ApiResponse<Restaurant[]>>;
     calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number;
     getAllRestaurants(customerId: string): Promise<any>;
     getAllOrders(customerId: string): Promise<any>;

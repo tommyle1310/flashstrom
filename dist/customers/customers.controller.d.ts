@@ -19,6 +19,7 @@ export declare class CustomersController {
         data: any;
         message: string;
     };
+    getFavoriteRestaurants(customerId: string): Promise<import("../utils/createResponse").ApiResponse<import("../restaurants/entities/restaurant.entity").Restaurant[]>>;
     getAllOrders(id: string): Promise<any>;
     findAllCartItemByCustomerId(customerId: string): Promise<any>;
     findCustomerById(id: string): Promise<import("../utils/createResponse").ApiResponse<any>>;

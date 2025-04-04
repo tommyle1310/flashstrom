@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { CreateCustomerDto } from './dto/create-customer.dto';
-import { UpdateCustomerDto } from './dto/update-customer.dto';
+import {
+  UpdateCustomerDto,
+  UpdateCustomerFavoriteRestaurantDto
+} from './dto/update-customer.dto';
 import { Customer } from './entities/customer.entity';
 import { createResponse, ApiResponse } from 'src/utils/createResponse';
 import { UserRepository } from '../users/users.repository';
@@ -197,10 +200,49 @@ export class CustomersService {
     updateCustomerDto: UpdateCustomerDto
   ): Promise<ApiResponse<Customer>> {
     try {
-      const updatedCustomer = await this.customerRepository.update(
-        id,
-        updateCustomerDto
-      );
+      // Lấy customer hiện tại từ repository
+      const customer = await this.customerRepository.findById(id);
+      if (!customer) {
+        return createResponse('NotFound', null, 'Customer not found');
+      }
+
+      // Xử lý toggle favorite_restaurant nếu có trong DTO
+      const { favorite_restaurant, ...otherUpdateData } =
+        updateCustomerDto as UpdateCustomerFavoriteRestaurantDto;
+
+      if (favorite_restaurant) {
+        const currentFavoriteRestaurants = customer.favorite_restaurants || [];
+        const restaurantIds = currentFavoriteRestaurants.map(r => r.id);
+
+        // Kiểm tra xem favorite_restaurant đã có trong danh sách chưa
+        if (restaurantIds.includes(favorite_restaurant)) {
+          // Nếu đã có, remove nó ra
+          customer.favorite_restaurants = currentFavoriteRestaurants.filter(
+            r => r.id !== favorite_restaurant
+          );
+        } else {
+          // Nếu chưa có, kiểm tra restaurant có tồn tại không rồi thêm vào
+          const restaurant = await this.restaurantRepository.repository.findOne(
+            {
+              where: { id: favorite_restaurant }
+            }
+          );
+          if (!restaurant) {
+            return createResponse('NotFound', null, 'Restaurant not found');
+          }
+          customer.favorite_restaurants = [
+            ...currentFavoriteRestaurants,
+            restaurant
+          ];
+        }
+      }
+
+      // Cập nhật các trường khác từ DTO (nếu có)
+      Object.assign(customer, otherUpdateData);
+
+      // Lưu customer đã cập nhật
+      const updatedCustomer = await this.customerRepository.save(customer);
+
       console.log(
         'check toggle favourite restaurant',
         id,
@@ -208,9 +250,7 @@ export class CustomersService {
         'customerdto',
         updateCustomerDto
       );
-      if (!updatedCustomer) {
-        return createResponse('NotFound', null, 'Customer not found');
-      }
+
       return createResponse(
         'OK',
         updatedCustomer,
@@ -289,6 +329,65 @@ export class CustomersService {
       return currentTime >= from && currentTime <= to;
     }
     return false;
+  }
+
+  // Trong file customers.service.ts
+  async getFavoriteRestaurants(
+    customerId: string
+  ): Promise<ApiResponse<Restaurant[]>> {
+    try {
+      // Lấy thông tin customer dựa trên customerId
+      const customer = await this.customerRepository.findById(customerId);
+      if (!customer) {
+        return createResponse('NotFound', null, 'Customer not found');
+      }
+
+      // Lấy danh sách favorite_restaurants từ customer
+      const favoriteRestaurantIds = customer.favorite_restaurants.map(
+        r => r.id
+      );
+
+      if (!favoriteRestaurantIds || favoriteRestaurantIds.length === 0) {
+        return createResponse(
+          'OK',
+          [],
+          'No favorite restaurants found for this customer'
+        );
+      }
+
+      // Lấy chi tiết các nhà hàng từ repository với relations để populate đầy đủ
+      const favoriteRestaurants =
+        await this.restaurantRepository.repository.find({
+          where: { id: In(favoriteRestaurantIds) },
+          relations: ['specialize_in', 'address'], // Populate specialize_in (FoodCategory) và address
+          select: {
+            id: true,
+            restaurant_name: true,
+            avatar: { url: true, key: true },
+            address: {
+              id: true,
+              street: true,
+              city: true,
+              postal_code: true,
+              location: { lat: true, lng: true }
+            }
+          }
+        });
+
+      // Trả về danh sách nhà hàng yêu thích đã được populate
+      return createResponse(
+        'OK',
+        favoriteRestaurants,
+        `Fetched ${favoriteRestaurants.length} favorite restaurants successfully`
+      );
+    } catch (error) {
+      console.error('Error fetching favorite restaurants:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while fetching favorite restaurants'
+      );
+    }
   }
 
   // Haversine formula to calculate the distance between two lat/lon points (in km)
