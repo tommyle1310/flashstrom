@@ -10,8 +10,8 @@ export declare class CreateAdminDto {
     assigned_restaurants?: Restaurant[];
     assigned_drivers?: Driver[];
     assigned_customer_care?: CustomerCare[];
-    created_at?: number;
-    updated_at: number;
+    created_at?: Date | number;
+    updated_at: Date | number;
     created_by?: Admin;
     status: AdminStatus;
 }

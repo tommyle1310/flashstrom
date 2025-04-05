@@ -9,6 +9,9 @@ var Enum_UserType;
     Enum_UserType["RESTAURANT_OWNER"] = "RESTAURANT_OWNER";
     Enum_UserType["CUSTOMER_CARE_REPRESENTATIVE"] = "CUSTOMER_CARE_REPRESENTATIVE";
     Enum_UserType["F_WALLET"] = "F_WALLET";
+    Enum_UserType["SUPER_ADMIN"] = "SUPER_ADMIN";
+    Enum_UserType["FINANCE_ADMIN"] = "FINANCE_ADMIN";
+    Enum_UserType["COMPANION_ADMIN"] = "COMPANION_ADMIN";
 })(Enum_UserType || (exports.Enum_UserType = Enum_UserType = {}));
 var Enum_AvatarType;
 (function (Enum_AvatarType) {

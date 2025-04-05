@@ -75,6 +75,19 @@ let AdminService = class AdminService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching admin');
         }
     }
+    async findOneByUserId(userId) {
+        try {
+            const admin = await this.adminRepository.findByUserId(userId);
+            if (!admin) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Admin not found');
+            }
+            return (0, createResponse_1.createResponse)('OK', admin, 'Admin retrieved successfully');
+        }
+        catch (error) {
+            console.log('error', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching admin');
+        }
+    }
     async update(id, updateAdminDto) {
         try {
             const admin = await this.adminRepository.findById(id);

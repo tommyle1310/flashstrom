@@ -58,6 +58,8 @@ import { DriverProgressStagesRepository } from 'src/driver_progress_stages/drive
 import { OnlineSessionsRepository } from 'src/online-sessions/online-session.repository';
 import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
 import { OnlineSession } from 'src/online-sessions/entities/online-session.entity';
+import { AdminService } from 'src/admin/admin.service';
+import { AdminRepository } from 'src/admin/admin.repository';
 @Module({
   imports: [
     JwtModule.register({
@@ -114,6 +116,8 @@ import { OnlineSession } from 'src/online-sessions/entities/online-session.entit
     CartItemsService,
     PromotionsService,
     MenuItemsService,
+    AdminRepository,
+    AdminService,
     MenuItemVariantsService,
     UserRepository,
     AddressBookRepository,

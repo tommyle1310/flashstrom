@@ -60,7 +60,7 @@ export class AdminService {
         ...createAdminDto,
         id: `FF_ADMIN_${uuidv4()}`,
         user_id: user // Assign the User object instead of the string
-      });
+      } as any);
 
       return createResponse('OK', savedAdmin, 'Admin created successfully');
     } catch (error) {
@@ -82,6 +82,19 @@ export class AdminService {
   async findOne(id: string): Promise<ApiResponse<Admin>> {
     try {
       const admin = await this.adminRepository.findById(id);
+      if (!admin) {
+        return createResponse('NotFound', null, 'Admin not found');
+      }
+      return createResponse('OK', admin, 'Admin retrieved successfully');
+    } catch (error) {
+      console.log('error', error);
+      return createResponse('ServerError', null, 'Error fetching admin');
+    }
+  }
+
+  async findOneByUserId(userId: string): Promise<ApiResponse<Admin>> {
+    try {
+      const admin = await this.adminRepository.findByUserId(userId);
       if (!admin) {
         return createResponse('NotFound', null, 'Admin not found');
       }

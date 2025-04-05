@@ -11,6 +11,7 @@ export declare class AdminService {
     create(createAdminDto: CreateAdminDto): Promise<ApiResponse<Admin>>;
     findAll(): Promise<ApiResponse<Admin[]>>;
     findOne(id: string): Promise<ApiResponse<Admin>>;
+    findOneByUserId(userId: string): Promise<ApiResponse<Admin>>;
     update(id: string, updateAdminDto: UpdateAdminDto): Promise<ApiResponse<Admin>>;
     remove(id: string): Promise<ApiResponse<null>>;
 }

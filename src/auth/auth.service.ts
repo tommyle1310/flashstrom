@@ -13,6 +13,9 @@ import { Injectable } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { CustomerCaresRepository } from 'src/customer_cares/customer_cares.repository';
 import { EmailService } from 'src/mailer/email.service';
+import { AdminService } from 'src/admin/admin.service'; // Thêm AdminService
+import { Admin } from 'src/admin/entities/admin.entity'; // Thêm Admin entity
+import { AdminRole, AdminStatus } from 'src/utils/types/admin'; // Thêm AdminRole và AdminStatus
 
 @Injectable()
 export class AuthService {
@@ -23,6 +26,7 @@ export class AuthService {
     private readonly customersRepository: CustomersRepository,
     private readonly driverRepository: DriversRepository,
     private readonly customerCareRepository: CustomerCaresRepository,
+    private readonly adminService: AdminService, // Inject AdminService
     private readonly jwtService: JwtService,
     private readonly cartItemService: CartItemsService,
     private readonly emailService: EmailService
@@ -31,7 +35,7 @@ export class AuthService {
   async register(userData: any, type: Enum_UserType): Promise<any> {
     console.log('Starting registration process with data:', { userData, type });
 
-    const { email, password, phone } = userData;
+    const { email, password, phone, first_name, last_name } = userData;
     console.log('Extracted credentials:', { email, phone });
 
     if (!this.validateRegistrationInput(email, password)) {
@@ -132,7 +136,13 @@ export class AuthService {
       RESTAURANT_OWNER: () =>
         this.handleRestaurantOwnerLogin(user, basePayload),
       CUSTOMER_CARE_REPRESENTATIVE: () =>
-        this.handleCustomerCareLogin(user, basePayload)
+        this.handleCustomerCareLogin(user, basePayload),
+      SUPER_ADMIN: () =>
+        this.handleAdminLogin(user, basePayload, Enum_UserType.SUPER_ADMIN),
+      FINANCE_ADMIN: () =>
+        this.handleAdminLogin(user, basePayload, Enum_UserType.FINANCE_ADMIN),
+      COMPANION_ADMIN: () =>
+        this.handleAdminLogin(user, basePayload, Enum_UserType.COMPANION_ADMIN)
     };
 
     const handler = loginHandlers[type];
@@ -290,12 +300,9 @@ export class AuthService {
   }
 
   private async handleCustomerCareLogin(user: User, basePayload: BasePayload) {
-    console.log('cehck user', user);
     const userWithRole = await this.customerCareRepository.findByUserId(
       user.id
     );
-    console.log('check suerwithrole', userWithRole);
-
     if (!userWithRole) {
       return createResponse(
         'NotFound',
@@ -303,7 +310,7 @@ export class AuthService {
         'Customer Care representative not found'
       );
     }
-    console.log('check user with role', userWithRole, 'user', user);
+
     const customerCarePayload = {
       ...basePayload,
       id: userWithRole.id,
@@ -330,6 +337,46 @@ export class AuthService {
     );
   }
 
+  // Thêm handler cho Admin login
+  private async handleAdminLogin(
+    user: User,
+    basePayload: BasePayload,
+    type: Enum_UserType
+  ) {
+    const admin = await this.adminService.findOneByUserId(user.id);
+    if (!admin.data) {
+      return createResponse('NotFound', null, `${type} not found`);
+    }
+
+    const adminPayload = {
+      ...basePayload,
+      id: admin.data.id,
+      logged_in_as: type,
+      user_id: admin.data.user_id,
+      role: admin.data.role,
+      permissions: admin.data.permissions,
+      assigned_restaurants: admin.data.assigned_restaurants,
+      assigned_drivers: admin.data.assigned_drivers,
+      assigned_customer_care: admin.data.assigned_customer_care,
+      penalties_issued: admin.data.penalties_issued,
+      last_active: admin.data.last_active,
+      created_at: admin.data.created_at,
+      updated_at: admin.data.updated_at,
+      created_by: admin.data.created_by,
+      status: admin.data.status
+    };
+
+    const accessToken = this.jwtService.sign(adminPayload);
+    return createResponse(
+      'OK',
+      {
+        access_token: accessToken,
+        user_data: admin.data
+      },
+      'Admin login successful'
+    );
+  }
+
   // Registration handlers
   private async handleExistingUserRegistration(
     existingUser: User,
@@ -337,18 +384,8 @@ export class AuthService {
     type: Enum_UserType
   ) {
     if (existingUser && Array.isArray(existingUser.user_type)) {
-      // Ensure user_type is an array and convert to strings if needed
       const userTypes = existingUser.user_type.map(t => String(t));
-
-      console.log('Checking user types:', {
-        existingTypes: userTypes,
-        typeToCheck: type,
-        includes: userTypes.includes(String(type))
-      });
-
       if (userTypes.includes(String(type))) {
-        console.log('duplicated heẻể??');
-
         return createResponse(
           'DuplicatedRecord',
           null,
@@ -370,19 +407,14 @@ export class AuthService {
         break;
 
       case Enum_UserType.DRIVER:
-        // Check if user already has an FWallet
         fWallet = await this.fWalletsRepository.findByUserId(existingUser.id);
-
         if (!fWallet) {
-          // Create FWallet if it doesn't exist
           fWallet = await this.fWalletsRepository.create({
             ...userData,
             password: existingUser.password,
             user_id: existingUser.id,
             balance: 0
           });
-
-          // Add F_WALLET to user_type if not present
           if (!existingUser.user_type.includes(Enum_UserType.F_WALLET)) {
             existingUser.user_type.push(Enum_UserType.F_WALLET);
           }
@@ -455,19 +487,14 @@ export class AuthService {
           );
         }
 
-        // Check if user already has an FWallet
         fWallet = await this.fWalletsRepository.findByUserId(existingUser.id);
-
         if (!fWallet) {
-          // Create FWallet if it doesn't exist
           fWallet = await this.fWalletsRepository.create({
             ...userData,
             password: existingUser.password,
             user_id: existingUser.id,
             balance: 0
           });
-
-          // Add F_WALLET to user_type if not present
           if (!existingUser.user_type.includes(Enum_UserType.F_WALLET)) {
             existingUser.user_type.push(Enum_UserType.F_WALLET);
           }
@@ -523,6 +550,29 @@ export class AuthService {
         });
         break;
 
+      case Enum_UserType.SUPER_ADMIN:
+      case Enum_UserType.FINANCE_ADMIN:
+      case Enum_UserType.COMPANION_ADMIN:
+        const roleMap = {
+          [Enum_UserType.SUPER_ADMIN]: AdminRole.SUPER_ADMIN,
+          [Enum_UserType.FINANCE_ADMIN]: AdminRole.FINANCE_ADMIN,
+          [Enum_UserType.COMPANION_ADMIN]: AdminRole.COMPANION_ADMIN
+        };
+        const role = roleMap[type];
+        newUserWithRole = await this.adminService.create({
+          user_id: existingUser.id,
+          role,
+          permissions: [], // Gán permissions mặc định, có thể tùy chỉnh sau
+          status: AdminStatus.ACTIVE,
+          created_at: new Date(),
+          updated_at: new Date()
+        });
+        if (newUserWithRole.EC !== 'OK') {
+          return newUserWithRole;
+        }
+        newUserWithRole = newUserWithRole.data;
+        break;
+
       default:
         return createResponse(
           'Unauthorized',
@@ -572,7 +622,6 @@ export class AuthService {
       data: newUserWithRole
     };
 
-    // Add fWallet info to response if it was created
     if (fWallet && (type === 'DRIVER' || type === 'RESTAURANT_OWNER')) {
       responseData['fWallet'] = fWallet;
     }
@@ -589,9 +638,8 @@ export class AuthService {
     type: Enum_UserType,
     phone: string
   ) {
-    const { email, password } = userData;
+    const { email, password, first_name, last_name } = userData;
 
-    // Basic validation for all users
     if (!this.validateRegistrationInput(email, password)) {
       return createResponse(
         'InvalidFormatInput',
@@ -603,7 +651,7 @@ export class AuthService {
     // Type-specific validation before any creation
     switch (type) {
       case Enum_UserType.CUSTOMER:
-        if (!userData.first_name || !userData.last_name) {
+        if (!first_name || !last_name) {
           return createResponse(
             'InvalidFormatInput',
             null,
@@ -613,14 +661,14 @@ export class AuthService {
         break;
 
       case Enum_UserType.DRIVER:
-        if (!userData.first_name) {
+        if (!first_name) {
           return createResponse(
             'InvalidFormatInput',
             null,
             'First name is required'
           );
         }
-        if (!userData.last_name) {
+        if (!last_name) {
           return createResponse(
             'InvalidFormatInput',
             null,
@@ -660,7 +708,6 @@ export class AuthService {
           !restaurant_name ||
           !status
         ) {
-          console.log('fall here', opening_hours);
           return createResponse(
             'MissingInput',
             null,
@@ -691,7 +738,7 @@ export class AuthService {
         break;
 
       case Enum_UserType.F_WALLET:
-        if (!userData.first_name || !userData.last_name) {
+        if (!first_name || !last_name) {
           return createResponse(
             'InvalidFormatInput',
             null,
@@ -701,7 +748,20 @@ export class AuthService {
         break;
 
       case Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
-        if (!userData.first_name || !userData.last_name) {
+        if (!first_name || !last_name) {
+          return createResponse(
+            'InvalidFormatInput',
+            null,
+            'First name and last name are required'
+          );
+        }
+        break;
+
+      // Thêm validation cho các type admin
+      case Enum_UserType.SUPER_ADMIN:
+      case Enum_UserType.FINANCE_ADMIN:
+      case Enum_UserType.COMPANION_ADMIN:
+        if (!first_name || !last_name) {
           return createResponse(
             'InvalidFormatInput',
             null,
@@ -718,10 +778,8 @@ export class AuthService {
         );
     }
 
-    // If validation passes, proceed with user creation
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create new user using repository with a generated ID
     const newUser = await this.userRepository.create({
       ...userData,
       id: `USR_${uuidv4()}`,
@@ -741,15 +799,12 @@ export class AuthService {
 
     switch (type) {
       case Enum_UserType.CUSTOMER:
-        // Create FWallet for new drivers
         fWallet = await this.fWalletsRepository.create({
           ...userData,
           password: hashedPassword,
           user_id: newUser.id,
           balance: 0
         });
-
-        // Add F_WALLET to user_type
         newUser.user_type.push(Enum_UserType.F_WALLET);
         await this.userRepository.update(newUser.id, {
           user_type: newUser.user_type
@@ -762,20 +817,16 @@ export class AuthService {
         break;
 
       case Enum_UserType.DRIVER:
-        // Create FWallet for new drivers
         fWallet = await this.fWalletsRepository.create({
           ...userData,
           password: hashedPassword,
           user_id: newUser.id,
           balance: 0
         });
-
-        // Add F_WALLET to user_type
         newUser.user_type.push(Enum_UserType.F_WALLET);
         await this.userRepository.update(newUser.id, {
           user_type: newUser.user_type
         });
-
         newUserWithRole = await this.driverRepository.create({
           user_id: newUser.id,
           first_name: userData.first_name,
@@ -807,15 +858,12 @@ export class AuthService {
         break;
 
       case Enum_UserType.RESTAURANT_OWNER:
-        // Create FWallet for new drivers
         fWallet = await this.fWalletsRepository.create({
           ...userData,
           password: hashedPassword,
           user_id: newUser.id,
           balance: 0
         });
-
-        // Add F_WALLET to user_type
         newUser.user_type.push(Enum_UserType.F_WALLET);
         await this.userRepository.update(newUser.id, {
           user_type: newUser.user_type
@@ -826,16 +874,9 @@ export class AuthService {
           user_id: newUser.id,
           owner_id: newUser.id
         });
-        console.log('chekc newuserwithrole restaurant', newUserWithRole);
         break;
 
       case Enum_UserType.F_WALLET:
-        console.log('check what happen', {
-          ...userData,
-          password: hashedPassword,
-          user_id: newUser.id,
-          balance: 0
-        });
         newUserWithRole = await this.fWalletsRepository.create({
           ...userData,
           password: hashedPassword,
@@ -845,15 +886,12 @@ export class AuthService {
         break;
 
       case Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
-        // Create FWallet for new drivers
         fWallet = await this.fWalletsRepository.create({
           ...userData,
           password: hashedPassword,
           user_id: newUser.id,
           balance: 0
         });
-
-        // Add F_WALLET to user_type
         newUser.user_type.push(Enum_UserType.F_WALLET);
         await this.userRepository.update(newUser.id, {
           user_type: newUser.user_type
@@ -877,6 +915,30 @@ export class AuthService {
         });
         break;
 
+      // Thêm logic cho các type admin
+      case Enum_UserType.SUPER_ADMIN:
+      case Enum_UserType.FINANCE_ADMIN:
+      case Enum_UserType.COMPANION_ADMIN:
+        const roleMap = {
+          [Enum_UserType.SUPER_ADMIN]: AdminRole.SUPER_ADMIN,
+          [Enum_UserType.FINANCE_ADMIN]: AdminRole.FINANCE_ADMIN,
+          [Enum_UserType.COMPANION_ADMIN]: AdminRole.COMPANION_ADMIN
+        };
+        const role = roleMap[type];
+        newUserWithRole = await this.adminService.create({
+          user_id: newUser.id,
+          role,
+          permissions: [], // Gán permissions mặc định, có thể tùy chỉnh sau
+          status: AdminStatus.ACTIVE,
+          created_at: new Date(),
+          updated_at: new Date()
+        });
+        if (newUserWithRole.EC !== 0) {
+          return newUserWithRole;
+        }
+        newUserWithRole = newUserWithRole.data;
+        break;
+
       default:
         return createResponse(
           'Unauthorized',
@@ -896,7 +958,6 @@ export class AuthService {
       data: newUserWithRole
     };
 
-    // Add fWallet info to response if it was created
     if (
       fWallet &&
       (type === Enum_UserType.DRIVER || type === Enum_UserType.RESTAURANT_OWNER)
@@ -927,17 +988,14 @@ export class AuthService {
       return createResponse('NotFound', null, 'User with this email not found');
     }
 
-    // Generate a reset token (you can use JWT or a random string)
     const resetToken = uuidv4();
-    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // Token expires in 1 hour
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
 
-    // Save the reset token and expiry in the user record
     await this.userRepository.update(user.id, {
       reset_token: resetToken,
       reset_token_expiry: resetTokenExpiry
     });
 
-    // Send the password reset email
     await this.emailService.sendPasswordResetEmail(
       email,
       resetToken,
@@ -947,9 +1005,7 @@ export class AuthService {
     return createResponse('OK', null, 'Password reset email sent successfully');
   }
 
-  // New method to reset the password
   async resetPassword(token: string, newPassword: string) {
-    // Find the user with the reset token
     const user = await this.userRepository.findOne({
       where: { reset_token: token }
     });
@@ -958,15 +1014,12 @@ export class AuthService {
       return createResponse('Unauthorized', null, 'Invalid or expired token');
     }
 
-    // Check if the token has expired
     if (user.reset_token_expiry < new Date()) {
       return createResponse('Unauthorized', null, 'Token has expired');
     }
 
-    // Hash the new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Update the user's password and clear the reset token
     await this.userRepository.update(user.id, {
       password: hashedPassword,
       reset_token: null,

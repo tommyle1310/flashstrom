@@ -15,7 +15,10 @@ export enum Enum_UserType {
   CUSTOMER = 'CUSTOMER',
   RESTAURANT_OWNER = 'RESTAURANT_OWNER',
   CUSTOMER_CARE_REPRESENTATIVE = 'CUSTOMER_CARE_REPRESENTATIVE',
-  F_WALLET = 'F_WALLET'
+  F_WALLET = 'F_WALLET',
+  SUPER_ADMIN = 'SUPER_ADMIN', // Thêm Super Admin
+  FINANCE_ADMIN = 'FINANCE_ADMIN', // Thêm Finance Admin
+  COMPANION_ADMIN = 'COMPANION_ADMIN' // Thêm Companion Admin
 }
 
 export enum Enum_AvatarType {

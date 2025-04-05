@@ -98,6 +98,45 @@ let AuthController = class AuthController {
             return registrationResponse;
         }
     }
+    async registerSuperAdmin(userData) {
+        const registrationResponse = await this.authService.register(userData, Payload_1.Enum_UserType.SUPER_ADMIN);
+        if (registrationResponse?.data?.data) {
+            const code = await this.emailService.sendVerificationEmail(userData.email);
+            await this.usersService.update(registrationResponse.data.data.user_id, {
+                verification_code: code
+            });
+            return (0, createResponse_1.createResponse)('OK', null, 'Registration successful, verification email sent');
+        }
+        else {
+            return registrationResponse;
+        }
+    }
+    async registerFinanceAdmin(userData) {
+        const registrationResponse = await this.authService.register(userData, Payload_1.Enum_UserType.FINANCE_ADMIN);
+        if (registrationResponse?.data?.data) {
+            const code = await this.emailService.sendVerificationEmail(userData.email);
+            await this.usersService.update(registrationResponse.data.data.user_id, {
+                verification_code: code
+            });
+            return (0, createResponse_1.createResponse)('OK', null, 'Registration successful, verification email sent');
+        }
+        else {
+            return registrationResponse;
+        }
+    }
+    async registerCompanionAdmin(userData) {
+        const registrationResponse = await this.authService.register(userData, Payload_1.Enum_UserType.COMPANION_ADMIN);
+        if (registrationResponse?.data?.data) {
+            const code = await this.emailService.sendVerificationEmail(userData.email);
+            await this.usersService.update(registrationResponse.data.data.user_id, {
+                verification_code: code
+            });
+            return (0, createResponse_1.createResponse)('OK', null, 'Registration successful, verification email sent');
+        }
+        else {
+            return registrationResponse;
+        }
+    }
     async loginCustomer(credentials) {
         return this.authService.login(credentials, Payload_1.Enum_UserType.CUSTOMER);
     }
@@ -115,6 +154,24 @@ let AuthController = class AuthController {
             credentials
         });
         return this.authService.login(credentials, Payload_1.Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE);
+    }
+    async loginCompanionAdmin(credentials) {
+        console.log('fall here contorller', {
+            credentials
+        });
+        return this.authService.login(credentials, Payload_1.Enum_UserType.COMPANION_ADMIN);
+    }
+    async loginFinanceAdmin(credentials) {
+        console.log('fall here contorller', {
+            credentials
+        });
+        return this.authService.login(credentials, Payload_1.Enum_UserType.FINANCE_ADMIN);
+    }
+    async loginSuperAdmin(credentials) {
+        console.log('fall here contorller', {
+            credentials
+        });
+        return this.authService.login(credentials, Payload_1.Enum_UserType.SUPER_ADMIN);
     }
     async verifyEmail({ email, code }) {
         try {
@@ -206,6 +263,27 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "registerCustomerCare", null);
 __decorate([
+    (0, common_1.Post)('register-super-admin'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "registerSuperAdmin", null);
+__decorate([
+    (0, common_1.Post)('register-finance-admin'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "registerFinanceAdmin", null);
+__decorate([
+    (0, common_1.Post)('register-companion-admin'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "registerCompanionAdmin", null);
+__decorate([
     (0, common_1.Post)('login-customer'),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -240,6 +318,27 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "loginCustomerCare", null);
+__decorate([
+    (0, common_1.Post)('login-companion-admin'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "loginCompanionAdmin", null);
+__decorate([
+    (0, common_1.Post)('login-finance-admin'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "loginFinanceAdmin", null);
+__decorate([
+    (0, common_1.Post)('login-super-admin'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "loginSuperAdmin", null);
 __decorate([
     (0, common_1.Post)('verify-email'),
     __param(0, (0, common_1.Body)()),

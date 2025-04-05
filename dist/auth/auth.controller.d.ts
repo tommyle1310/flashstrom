@@ -34,6 +34,24 @@ export declare class AuthController {
         password: string;
         balance: string;
     }): Promise<any>;
+    registerSuperAdmin(userData: {
+        user_id: string;
+        email: string;
+        password: string;
+        balance: string;
+    }): Promise<any>;
+    registerFinanceAdmin(userData: {
+        user_id: string;
+        email: string;
+        password: string;
+        balance: string;
+    }): Promise<any>;
+    registerCompanionAdmin(userData: {
+        user_id: string;
+        email: string;
+        password: string;
+        balance: string;
+    }): Promise<any>;
     loginCustomer(credentials: {
         email: string;
         password: string;
@@ -51,6 +69,18 @@ export declare class AuthController {
         password: string;
     }): Promise<any>;
     loginCustomerCare(credentials: {
+        email: string;
+        password: string;
+    }): Promise<any>;
+    loginCompanionAdmin(credentials: {
+        email: string;
+        password: string;
+    }): Promise<any>;
+    loginFinanceAdmin(credentials: {
+        email: string;
+        password: string;
+    }): Promise<any>;
+    loginSuperAdmin(credentials: {
         email: string;
         password: string;
     }): Promise<any>;

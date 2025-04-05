@@ -24,21 +24,24 @@ const common_1 = require("@nestjs/common");
 const uuid_1 = require("uuid");
 const customer_cares_repository_1 = require("../customer_cares/customer_cares.repository");
 const email_service_1 = require("../mailer/email.service");
+const admin_service_1 = require("../admin/admin.service");
+const admin_1 = require("../utils/types/admin");
 let AuthService = class AuthService {
-    constructor(userRepository, fWalletsRepository, restaurantsRepository, customersRepository, driverRepository, customerCareRepository, jwtService, cartItemService, emailService) {
+    constructor(userRepository, fWalletsRepository, restaurantsRepository, customersRepository, driverRepository, customerCareRepository, adminService, jwtService, cartItemService, emailService) {
         this.userRepository = userRepository;
         this.fWalletsRepository = fWalletsRepository;
         this.restaurantsRepository = restaurantsRepository;
         this.customersRepository = customersRepository;
         this.driverRepository = driverRepository;
         this.customerCareRepository = customerCareRepository;
+        this.adminService = adminService;
         this.jwtService = jwtService;
         this.cartItemService = cartItemService;
         this.emailService = emailService;
     }
     async register(userData, type) {
         console.log('Starting registration process with data:', { userData, type });
-        const { email, password, phone } = userData;
+        const { email, password, phone, first_name, last_name } = userData;
         console.log('Extracted credentials:', { email, phone });
         if (!this.validateRegistrationInput(email, password)) {
             console.log('Registration validation failed - missing email or password');
@@ -99,7 +102,10 @@ let AuthService = class AuthService {
             CUSTOMER: () => this.handleCustomerLogin(user, basePayload),
             F_WALLET: () => this.handleFWalletLogin(user, basePayload),
             RESTAURANT_OWNER: () => this.handleRestaurantOwnerLogin(user, basePayload),
-            CUSTOMER_CARE_REPRESENTATIVE: () => this.handleCustomerCareLogin(user, basePayload)
+            CUSTOMER_CARE_REPRESENTATIVE: () => this.handleCustomerCareLogin(user, basePayload),
+            SUPER_ADMIN: () => this.handleAdminLogin(user, basePayload, Payload_1.Enum_UserType.SUPER_ADMIN),
+            FINANCE_ADMIN: () => this.handleAdminLogin(user, basePayload, Payload_1.Enum_UserType.FINANCE_ADMIN),
+            COMPANION_ADMIN: () => this.handleAdminLogin(user, basePayload, Payload_1.Enum_UserType.COMPANION_ADMIN)
         };
         const handler = loginHandlers[type];
         if (!handler) {
@@ -217,13 +223,10 @@ let AuthService = class AuthService {
         }, 'Login successful');
     }
     async handleCustomerCareLogin(user, basePayload) {
-        console.log('cehck user', user);
         const userWithRole = await this.customerCareRepository.findByUserId(user.id);
-        console.log('check suerwithrole', userWithRole);
         if (!userWithRole) {
             return (0, createResponse_1.createResponse)('NotFound', null, 'Customer Care representative not found');
         }
-        console.log('check user with role', userWithRole, 'user', user);
         const customerCarePayload = {
             ...basePayload,
             id: userWithRole.id,
@@ -244,16 +247,38 @@ let AuthService = class AuthService {
             user_data: userWithRole
         }, 'Login successful');
     }
+    async handleAdminLogin(user, basePayload, type) {
+        const admin = await this.adminService.findOneByUserId(user.id);
+        if (!admin.data) {
+            return (0, createResponse_1.createResponse)('NotFound', null, `${type} not found`);
+        }
+        const adminPayload = {
+            ...basePayload,
+            id: admin.data.id,
+            logged_in_as: type,
+            user_id: admin.data.user_id,
+            role: admin.data.role,
+            permissions: admin.data.permissions,
+            assigned_restaurants: admin.data.assigned_restaurants,
+            assigned_drivers: admin.data.assigned_drivers,
+            assigned_customer_care: admin.data.assigned_customer_care,
+            penalties_issued: admin.data.penalties_issued,
+            last_active: admin.data.last_active,
+            created_at: admin.data.created_at,
+            updated_at: admin.data.updated_at,
+            created_by: admin.data.created_by,
+            status: admin.data.status
+        };
+        const accessToken = this.jwtService.sign(adminPayload);
+        return (0, createResponse_1.createResponse)('OK', {
+            access_token: accessToken,
+            user_data: admin.data
+        }, 'Admin login successful');
+    }
     async handleExistingUserRegistration(existingUser, userData, type) {
         if (existingUser && Array.isArray(existingUser.user_type)) {
             const userTypes = existingUser.user_type.map(t => String(t));
-            console.log('Checking user types:', {
-                existingTypes: userTypes,
-                typeToCheck: type,
-                includes: userTypes.includes(String(type))
-            });
             if (userTypes.includes(String(type))) {
-                console.log('duplicated heẻể??');
                 return (0, createResponse_1.createResponse)('DuplicatedRecord', null, `${type} with the same email already exists`);
             }
         }
@@ -384,6 +409,28 @@ let AuthService = class AuthService {
                     last_login: Math.floor(Date.now() / 1000)
                 });
                 break;
+            case Payload_1.Enum_UserType.SUPER_ADMIN:
+            case Payload_1.Enum_UserType.FINANCE_ADMIN:
+            case Payload_1.Enum_UserType.COMPANION_ADMIN:
+                const roleMap = {
+                    [Payload_1.Enum_UserType.SUPER_ADMIN]: admin_1.AdminRole.SUPER_ADMIN,
+                    [Payload_1.Enum_UserType.FINANCE_ADMIN]: admin_1.AdminRole.FINANCE_ADMIN,
+                    [Payload_1.Enum_UserType.COMPANION_ADMIN]: admin_1.AdminRole.COMPANION_ADMIN
+                };
+                const role = roleMap[type];
+                newUserWithRole = await this.adminService.create({
+                    user_id: existingUser.id,
+                    role,
+                    permissions: [],
+                    status: admin_1.AdminStatus.ACTIVE,
+                    created_at: new Date(),
+                    updated_at: new Date()
+                });
+                if (newUserWithRole.EC !== 'OK') {
+                    return newUserWithRole;
+                }
+                newUserWithRole = newUserWithRole.data;
+                break;
             default:
                 return (0, createResponse_1.createResponse)('Unauthorized', null, 'Invalid user type provided');
         }
@@ -422,21 +469,21 @@ let AuthService = class AuthService {
         return (0, createResponse_1.createResponse)('OK', responseData, `${type} created successfully with existing user`);
     }
     async createNewUserRegistration(userData, type, phone) {
-        const { email, password } = userData;
+        const { email, password, first_name, last_name } = userData;
         if (!this.validateRegistrationInput(email, password)) {
             return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Email & Password cannot be empty');
         }
         switch (type) {
             case Payload_1.Enum_UserType.CUSTOMER:
-                if (!userData.first_name || !userData.last_name) {
+                if (!first_name || !last_name) {
                     return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'First name and last name are required');
                 }
                 break;
             case Payload_1.Enum_UserType.DRIVER:
-                if (!userData.first_name) {
+                if (!first_name) {
                     return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'First name is required');
                 }
-                if (!userData.last_name) {
+                if (!last_name) {
                     return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Last name is required');
                 }
                 if (!userData.contact_email) {
@@ -454,7 +501,6 @@ let AuthService = class AuthService {
                     !owner_name ||
                     !restaurant_name ||
                     !status) {
-                    console.log('fall here', opening_hours);
                     return (0, createResponse_1.createResponse)('MissingInput', null, 'Missing required fields: contact_email, contact_phone, opening_hours, owner_name, restaurant_name, status');
                 }
                 if (!userData.restaurant_name) {
@@ -468,12 +514,19 @@ let AuthService = class AuthService {
                 }
                 break;
             case Payload_1.Enum_UserType.F_WALLET:
-                if (!userData.first_name || !userData.last_name) {
+                if (!first_name || !last_name) {
                     return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'First name and last name are required');
                 }
                 break;
             case Payload_1.Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
-                if (!userData.first_name || !userData.last_name) {
+                if (!first_name || !last_name) {
+                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'First name and last name are required');
+                }
+                break;
+            case Payload_1.Enum_UserType.SUPER_ADMIN:
+            case Payload_1.Enum_UserType.FINANCE_ADMIN:
+            case Payload_1.Enum_UserType.COMPANION_ADMIN:
+                if (!first_name || !last_name) {
                     return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'First name and last name are required');
                 }
                 break;
@@ -572,15 +625,8 @@ let AuthService = class AuthService {
                     user_id: newUser.id,
                     owner_id: newUser.id
                 });
-                console.log('chekc newuserwithrole restaurant', newUserWithRole);
                 break;
             case Payload_1.Enum_UserType.F_WALLET:
-                console.log('check what happen', {
-                    ...userData,
-                    password: hashedPassword,
-                    user_id: newUser.id,
-                    balance: 0
-                });
                 newUserWithRole = await this.fWalletsRepository.create({
                     ...userData,
                     password: hashedPassword,
@@ -616,6 +662,28 @@ let AuthService = class AuthService {
                     updated_at: Math.floor(Date.now() / 1000),
                     last_login: Math.floor(Date.now() / 1000)
                 });
+                break;
+            case Payload_1.Enum_UserType.SUPER_ADMIN:
+            case Payload_1.Enum_UserType.FINANCE_ADMIN:
+            case Payload_1.Enum_UserType.COMPANION_ADMIN:
+                const roleMap = {
+                    [Payload_1.Enum_UserType.SUPER_ADMIN]: admin_1.AdminRole.SUPER_ADMIN,
+                    [Payload_1.Enum_UserType.FINANCE_ADMIN]: admin_1.AdminRole.FINANCE_ADMIN,
+                    [Payload_1.Enum_UserType.COMPANION_ADMIN]: admin_1.AdminRole.COMPANION_ADMIN
+                };
+                const role = roleMap[type];
+                newUserWithRole = await this.adminService.create({
+                    user_id: newUser.id,
+                    role,
+                    permissions: [],
+                    status: admin_1.AdminStatus.ACTIVE,
+                    created_at: new Date(),
+                    updated_at: new Date()
+                });
+                if (newUserWithRole.EC !== 0) {
+                    return newUserWithRole;
+                }
+                newUserWithRole = newUserWithRole.data;
                 break;
             default:
                 return (0, createResponse_1.createResponse)('Unauthorized', null, 'Invalid user type provided');
@@ -685,6 +753,7 @@ exports.AuthService = AuthService = __decorate([
         customers_repository_1.CustomersRepository,
         drivers_repository_1.DriversRepository,
         customer_cares_repository_1.CustomerCaresRepository,
+        admin_service_1.AdminService,
         jwt_1.JwtService,
         cart_items_service_1.CartItemsService,
         email_service_1.EmailService])

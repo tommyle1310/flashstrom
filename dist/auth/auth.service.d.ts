@@ -9,6 +9,7 @@ import { CustomersRepository } from 'src/customers/customers.repository';
 import { DriversRepository } from 'src/drivers/drivers.repository';
 import { CustomerCaresRepository } from 'src/customer_cares/customer_cares.repository';
 import { EmailService } from 'src/mailer/email.service';
+import { AdminService } from 'src/admin/admin.service';
 export declare class AuthService {
     private readonly userRepository;
     private readonly fWalletsRepository;
@@ -16,10 +17,11 @@ export declare class AuthService {
     private readonly customersRepository;
     private readonly driverRepository;
     private readonly customerCareRepository;
+    private readonly adminService;
     private readonly jwtService;
     private readonly cartItemService;
     private readonly emailService;
-    constructor(userRepository: UserRepository, fWalletsRepository: FWalletsRepository, restaurantsRepository: RestaurantsRepository, customersRepository: CustomersRepository, driverRepository: DriversRepository, customerCareRepository: CustomerCaresRepository, jwtService: JwtService, cartItemService: CartItemsService, emailService: EmailService);
+    constructor(userRepository: UserRepository, fWalletsRepository: FWalletsRepository, restaurantsRepository: RestaurantsRepository, customersRepository: CustomersRepository, driverRepository: DriversRepository, customerCareRepository: CustomerCaresRepository, adminService: AdminService, jwtService: JwtService, cartItemService: CartItemsService, emailService: EmailService);
     register(userData: any, type: Enum_UserType): Promise<any>;
     login({ email, password }: {
         email: string;
@@ -36,6 +38,7 @@ export declare class AuthService {
     private handleFWalletLogin;
     private handleRestaurantOwnerLogin;
     private handleCustomerCareLogin;
+    private handleAdminLogin;
     private handleExistingUserRegistration;
     private createNewUserRegistration;
     validateUser(payload: any): Promise<User>;

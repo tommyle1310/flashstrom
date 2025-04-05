@@ -192,6 +192,108 @@ export class AuthController {
       return registrationResponse;
     }
   }
+  @Post('register-super-admin')
+  async registerSuperAdmin(
+    @Body()
+    userData: {
+      user_id: string;
+      email: string;
+      password: string;
+      balance: string;
+    }
+  ) {
+    // Step 1: Register the customer with the provided data
+    const registrationResponse = await this.authService.register(
+      userData,
+      Enum_UserType.SUPER_ADMIN
+    );
+
+    // If registration is successful
+    if (registrationResponse?.data?.data) {
+      const code = await this.emailService.sendVerificationEmail(
+        userData.email
+      ); // Send email to the user's email
+      await this.usersService.update(registrationResponse.data.data.user_id, {
+        verification_code: code
+      });
+
+      return createResponse(
+        'OK',
+        null,
+        'Registration successful, verification email sent'
+      );
+    } else {
+      return registrationResponse;
+    }
+  }
+  @Post('register-finance-admin')
+  async registerFinanceAdmin(
+    @Body()
+    userData: {
+      user_id: string;
+      email: string;
+      password: string;
+      balance: string;
+    }
+  ) {
+    // Step 1: Register the customer with the provided data
+    const registrationResponse = await this.authService.register(
+      userData,
+      Enum_UserType.FINANCE_ADMIN
+    );
+
+    // If registration is successful
+    if (registrationResponse?.data?.data) {
+      const code = await this.emailService.sendVerificationEmail(
+        userData.email
+      ); // Send email to the user's email
+      await this.usersService.update(registrationResponse.data.data.user_id, {
+        verification_code: code
+      });
+
+      return createResponse(
+        'OK',
+        null,
+        'Registration successful, verification email sent'
+      );
+    } else {
+      return registrationResponse;
+    }
+  }
+  @Post('register-companion-admin')
+  async registerCompanionAdmin(
+    @Body()
+    userData: {
+      user_id: string;
+      email: string;
+      password: string;
+      balance: string;
+    }
+  ) {
+    // Step 1: Register the customer with the provided data
+    const registrationResponse = await this.authService.register(
+      userData,
+      Enum_UserType.COMPANION_ADMIN
+    );
+
+    // If registration is successful
+    if (registrationResponse?.data?.data) {
+      const code = await this.emailService.sendVerificationEmail(
+        userData.email
+      ); // Send email to the user's email
+      await this.usersService.update(registrationResponse.data.data.user_id, {
+        verification_code: code
+      });
+
+      return createResponse(
+        'OK',
+        null,
+        'Registration successful, verification email sent'
+      );
+    } else {
+      return registrationResponse;
+    }
+  }
 
   @Post('login-customer')
   async loginCustomer(
@@ -225,6 +327,33 @@ export class AuthController {
       credentials,
       Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE
     );
+  }
+  @Post('login-companion-admin')
+  async loginCompanionAdmin(
+    @Body() credentials: { email: string; password: string }
+  ) {
+    console.log('fall here contorller', {
+      credentials
+    });
+    return this.authService.login(credentials, Enum_UserType.COMPANION_ADMIN);
+  }
+  @Post('login-finance-admin')
+  async loginFinanceAdmin(
+    @Body() credentials: { email: string; password: string }
+  ) {
+    console.log('fall here contorller', {
+      credentials
+    });
+    return this.authService.login(credentials, Enum_UserType.FINANCE_ADMIN);
+  }
+  @Post('login-super-admin')
+  async loginSuperAdmin(
+    @Body() credentials: { email: string; password: string }
+  ) {
+    console.log('fall here contorller', {
+      credentials
+    });
+    return this.authService.login(credentials, Enum_UserType.SUPER_ADMIN);
   }
 
   @Post('verify-email')

@@ -35,11 +35,11 @@ export class CreateAdminDto {
 
   @IsOptional()
   @IsNumber()
-  created_at?: number;
+  created_at?: Date | number;
 
   @IsOptional()
   @IsNumber()
-  updated_at: number;
+  updated_at: Date | number;
 
   @IsString()
   @IsOptional()

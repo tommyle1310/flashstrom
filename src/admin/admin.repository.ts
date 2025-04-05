@@ -36,7 +36,7 @@ export class AdminRepository {
 
   async update(id: string, updateData: UpdateAdminDto): Promise<void> {
     // Create updateEntity without spreading user_id directly
-    const { user_id, ...rest } = updateData;
+    const { user_id, ...rest } = updateData as any;
     const updateEntity: Partial<Admin> = { ...rest };
 
     // If user_id is provided, convert it to a partial User object
