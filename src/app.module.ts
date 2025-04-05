@@ -35,6 +35,7 @@ import { OnlineSessionsModule } from './online-sessions/online-sessions.module';
 import { PenaltyRulesModule } from './penalty-rules/penalty-rules.module';
 import { StatisticRecordsModule } from './statistic-records/statistic-records.module';
 import { FinanceRulesModule } from './finance_rules/finance_rules.module';
+import { FaqModule } from './faq/faq.module';
 @Module({
   imports: [
     // MongooseModule.forRoot(process.env.MONGO_URI), // Your MongoDB URI
@@ -83,7 +84,8 @@ import { FinanceRulesModule } from './finance_rules/finance_rules.module';
     OnlineSessionsModule,
     PenaltyRulesModule,
     StatisticRecordsModule,
-    FinanceRulesModule
+    FinanceRulesModule,
+    FaqModule
   ],
   controllers: [AppController],
   providers: [AppService, EmailService]
