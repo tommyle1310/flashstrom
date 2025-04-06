@@ -562,6 +562,8 @@ export class AuthService {
         newUserWithRole = await this.adminService.create({
           user_id: existingUser.id,
           role,
+          first_name: userData.first_name,
+          last_name: userData.last_name,
           permissions: [], // Gán permissions mặc định, có thể tùy chỉnh sau
           status: AdminStatus.ACTIVE,
           created_at: new Date(),
@@ -928,6 +930,8 @@ export class AuthService {
         newUserWithRole = await this.adminService.create({
           user_id: newUser.id,
           role,
+          first_name: newUser.first_name,
+          last_name: newUser.last_name,
           permissions: [], // Gán permissions mặc định, có thể tùy chỉnh sau
           status: AdminStatus.ACTIVE,
           created_at: new Date(),

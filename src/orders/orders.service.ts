@@ -30,6 +30,7 @@ import { In } from 'typeorm';
 import { DeepPartial } from 'typeorm';
 import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
 
 @Injectable()
 export class OrdersService {
@@ -39,6 +40,7 @@ export class OrdersService {
     private readonly menuItemVariantsRepository: MenuItemVariantsRepository,
     private readonly addressRepository: AddressBookRepository,
     private readonly customersRepository: CustomersRepository,
+    private readonly driverStatsService: DriverStatsService,
     private readonly restaurantRepository: RestaurantsRepository,
     private readonly restaurantsGateway: RestaurantsGateway,
     private readonly dataSource: DataSource,
@@ -457,7 +459,6 @@ export class OrdersService {
     tipAmount: number
   ): Promise<ApiResponse<Order>> {
     try {
-      // Validate tip amount
       if (tipAmount < 0) {
         return createResponse(
           'InvalidFormatInput',
@@ -466,14 +467,12 @@ export class OrdersService {
         );
       }
 
-      // Tìm order
       const order = await this.ordersRepository.findById(orderId);
       if (!order) {
         console.log('❌ Order not found:', orderId);
         return createResponse('NotFound', null, 'Order not found');
       }
 
-      // Kiểm tra xem order đã có driver chưa
       if (!order.driver_id) {
         return createResponse(
           'NotFound',
@@ -482,7 +481,6 @@ export class OrdersService {
         );
       }
 
-      // Kiểm tra trạng thái order (chỉ cho tip khi order đã hoàn thành hoặc đang giao)
       if (
         order.status !== OrderStatus.DELIVERED &&
         order.status !== OrderStatus.EN_ROUTE &&
@@ -497,7 +495,6 @@ export class OrdersService {
         );
       }
 
-      // Update driver_tips
       const updatedOrder = await this.ordersRepository.updateDriverTips(
         orderId,
         tipAmount
@@ -509,7 +506,12 @@ export class OrdersService {
         updatedOrder
       );
 
-      // Thông báo cho driver qua DriversGateway
+      // Cập nhật thống kê driver sau khi tip
+      await this.driverStatsService.updateStatsForDriver(
+        order.driver_id,
+        'daily'
+      ); // Gọi ở đây
+
       await this.driversGateway.notifyPartiesOnce(updatedOrder);
       console.log(
         `Notified driver ${updatedOrder.driver_id} about tip of ${tipAmount} for order ${orderId}`

@@ -9,6 +9,12 @@ export declare enum FAQType {
     PAYMENT = "PAYMENT",
     SERVICE = "SERVICE"
 }
+export declare enum FAQTargetUser {
+    DRIVER = "DRIVER",
+    RESTAURANT = "RESTAURANT",
+    CUSTOMER = "CUSTOMER",
+    CUSTOMER_CARE = "CUSTOMER_CARE"
+}
 export type FAQContentBlock = {
     type: 'text';
     value: string;
@@ -31,6 +37,7 @@ export declare class FAQ {
     answer: FAQContentBlock[];
     type: FAQType;
     status: FAQStatus;
+    target_user: FAQTargetUser[];
     created_at: number;
     updated_at: number;
     generateId(): void;

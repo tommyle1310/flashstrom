@@ -30,6 +30,15 @@ const driver_progress_stages_repository_1 = require("../driver_progress_stages/d
 const online_session_entity_1 = require("../online-sessions/entities/online-session.entity");
 const online_session_repository_1 = require("../online-sessions/online-session.repository");
 const online_sessions_service_1 = require("../online-sessions/online-sessions.service");
+const driver_stats_records_service_1 = require("../driver_stats_records/driver_stats_records.service");
+const driver_stats_record_entity_1 = require("../driver_stats_records/entities/driver_stats_record.entity");
+const ratings_review_entity_1 = require("../ratings_reviews/entities/ratings_review.entity");
+const ratings_reviews_repository_1 = require("../ratings_reviews/ratings_reviews.repository");
+const finance_rules_repository_1 = require("../finance_rules/finance_rules.repository");
+const finance_rule_entity_1 = require("../finance_rules/entities/finance_rule.entity");
+const finance_rules_service_1 = require("../finance_rules/finance_rules.service");
+const admin_repository_1 = require("../admin/admin.repository");
+const admin_entity_1 = require("../admin/entities/admin.entity");
 let DriversModule = class DriversModule {
 };
 exports.DriversModule = DriversModule;
@@ -42,7 +51,11 @@ exports.DriversModule = DriversModule = __decorate([
                 order_entity_1.Order,
                 promotion_entity_1.Promotion,
                 driver_progress_stage_entity_1.DriverProgressStage,
-                online_session_entity_1.OnlineSession
+                admin_entity_1.Admin,
+                online_session_entity_1.OnlineSession,
+                finance_rule_entity_1.FinanceRule,
+                driver_stats_record_entity_1.DriverStatsRecord,
+                ratings_review_entity_1.RatingsReview
             ]),
             (0, common_1.forwardRef)(() => restaurants_module_1.RestaurantsModule),
             (0, common_1.forwardRef)(() => orders_module_1.OrdersModule),
@@ -56,11 +69,16 @@ exports.DriversModule = DriversModule = __decorate([
             orders_repository_1.OrdersRepository,
             drivers_repository_1.DriversRepository,
             online_sessions_service_1.OnlineSessionsService,
+            ratings_reviews_repository_1.RatingsReviewsRepository,
             online_session_repository_1.OnlineSessionsRepository,
+            finance_rules_repository_1.FinanceRulesRepository,
+            finance_rules_service_1.FinanceRulesService,
+            admin_repository_1.AdminRepository,
             address_book_repository_1.AddressBookRepository,
             driver_progress_stages_repository_1.DriverProgressStagesRepository,
             promotions_repository_1.PromotionsRepository,
-            jwt_1.JwtService
+            jwt_1.JwtService,
+            driver_stats_records_service_1.DriverStatsService
         ],
         exports: [drivers_service_1.DriversService, drivers_repository_1.DriversRepository]
     })

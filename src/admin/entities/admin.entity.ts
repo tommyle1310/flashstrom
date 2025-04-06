@@ -63,6 +63,12 @@ export class Admin {
   @ManyToOne(() => Admin, admin => admin.id)
   created_by: Admin;
 
+  @Column({ nullable: true })
+  first_name: string;
+
+  @Column({ nullable: true })
+  last_name: string;
+
   @Column({
     type: 'enum',
     enum: AdminStatus,

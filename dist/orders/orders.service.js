@@ -37,13 +37,15 @@ const promotion_entity_2 = require("../promotions/entities/promotion.entity");
 const typeorm_2 = require("typeorm");
 const menu_item_entity_1 = require("../menu_items/entities/menu_item.entity");
 const restaurant_entity_1 = require("../restaurants/entities/restaurant.entity");
+const driver_stats_records_service_1 = require("../driver_stats_records/driver_stats_records.service");
 let OrdersService = class OrdersService {
-    constructor(ordersRepository, menuItemsRepository, menuItemVariantsRepository, addressRepository, customersRepository, restaurantRepository, restaurantsGateway, dataSource, cartItemsRepository, customersGateway, driversGateway, transactionsService, fWalletsRepository) {
+    constructor(ordersRepository, menuItemsRepository, menuItemVariantsRepository, addressRepository, customersRepository, driverStatsService, restaurantRepository, restaurantsGateway, dataSource, cartItemsRepository, customersGateway, driversGateway, transactionsService, fWalletsRepository) {
         this.ordersRepository = ordersRepository;
         this.menuItemsRepository = menuItemsRepository;
         this.menuItemVariantsRepository = menuItemVariantsRepository;
         this.addressRepository = addressRepository;
         this.customersRepository = customersRepository;
+        this.driverStatsService = driverStatsService;
         this.restaurantRepository = restaurantRepository;
         this.restaurantsGateway = restaurantsGateway;
         this.dataSource = dataSource;
@@ -345,6 +347,7 @@ let OrdersService = class OrdersService {
             }
             const updatedOrder = await this.ordersRepository.updateDriverTips(orderId, tipAmount);
             console.log('✅ Updated driver_tips:', tipAmount, 'for order:', updatedOrder);
+            await this.driverStatsService.updateStatsForDriver(order.driver_id, 'daily');
             await this.driversGateway.notifyPartiesOnce(updatedOrder);
             console.log(`Notified driver ${updatedOrder.driver_id} about tip of ${tipAmount} for order ${orderId}`);
             return (0, createResponse_1.createResponse)('OK', updatedOrder, 'Driver tipped successfully');
@@ -466,12 +469,13 @@ let OrdersService = class OrdersService {
 exports.OrdersService = OrdersService;
 exports.OrdersService = OrdersService = __decorate([
     (0, common_1.Injectable)(),
-    __param(10, (0, common_1.Inject)((0, common_1.forwardRef)(() => drivers_gateway_1.DriversGateway))),
+    __param(11, (0, common_1.Inject)((0, common_1.forwardRef)(() => drivers_gateway_1.DriversGateway))),
     __metadata("design:paramtypes", [orders_repository_1.OrdersRepository,
         menu_items_repository_1.MenuItemsRepository,
         menu_item_variants_repository_1.MenuItemVariantsRepository,
         address_book_repository_1.AddressBookRepository,
         customers_repository_1.CustomersRepository,
+        driver_stats_records_service_1.DriverStatsService,
         restaurants_repository_1.RestaurantsRepository,
         restaurants_gateway_1.RestaurantsGateway,
         typeorm_1.DataSource,

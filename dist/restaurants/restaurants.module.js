@@ -45,6 +45,14 @@ const finance_rules_service_1 = require("../finance_rules/finance_rules.service"
 const finance_rules_repository_1 = require("../finance_rules/finance_rules.repository");
 const admin_repository_1 = require("../admin/admin.repository");
 const admin_entity_1 = require("../admin/entities/admin.entity");
+const driver_stats_record_entity_1 = require("../driver_stats_records/entities/driver_stats_record.entity");
+const driver_stats_records_service_1 = require("../driver_stats_records/driver_stats_records.service");
+const online_session_repository_1 = require("../online-sessions/online-session.repository");
+const online_session_entity_1 = require("../online-sessions/entities/online-session.entity");
+const driver_progress_stages_repository_1 = require("../driver_progress_stages/driver_progress_stages.repository");
+const driver_progress_stage_entity_1 = require("../driver_progress_stages/entities/driver_progress_stage.entity");
+const ratings_review_entity_1 = require("../ratings_reviews/entities/ratings_review.entity");
+const ratings_reviews_repository_1 = require("../ratings_reviews/ratings_reviews.repository");
 let RestaurantsModule = class RestaurantsModule {
 };
 exports.RestaurantsModule = RestaurantsModule;
@@ -60,8 +68,12 @@ exports.RestaurantsModule = RestaurantsModule = __decorate([
                 order_entity_1.Order,
                 fwallet_entity_1.FWallet,
                 finance_rule_entity_1.FinanceRule,
+                online_session_entity_1.OnlineSession,
+                ratings_review_entity_1.RatingsReview,
                 admin_entity_1.Admin,
-                user_entity_1.User
+                driver_progress_stage_entity_1.DriverProgressStage,
+                user_entity_1.User,
+                driver_stats_record_entity_1.DriverStatsRecord
             ]),
             users_module_1.UsersModule,
             address_book_module_1.AddressBookModule,
@@ -78,11 +90,15 @@ exports.RestaurantsModule = RestaurantsModule = __decorate([
         providers: [
             restaurants_service_1.RestaurantsService,
             restaurants_repository_1.RestaurantsRepository,
+            ratings_reviews_repository_1.RatingsReviewsRepository,
             restaurants_gateway_1.RestaurantsGateway,
             address_book_repository_1.AddressBookRepository,
             food_categories_repository_1.FoodCategoriesRepository,
             users_repository_1.UserRepository,
             finance_rules_service_1.FinanceRulesService,
+            online_session_repository_1.OnlineSessionsRepository,
+            driver_progress_stages_repository_1.DriverProgressStagesRepository,
+            driver_stats_records_service_1.DriverStatsService,
             finance_rules_repository_1.FinanceRulesRepository,
             admin_repository_1.AdminRepository,
             address_book_repository_1.AddressBookRepository,

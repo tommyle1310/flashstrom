@@ -37,13 +37,12 @@ const typeorm_1 = require("@nestjs/typeorm");
 const users_module_1 = require("./users/users.module");
 const customer_cares_inquires_module_1 = require("./customer_cares_inquires/customer_cares_inquires.module");
 const fchat_module_1 = require("./FChat/fchat.module");
-const statistics_module_1 = require("./statistics/statistics.module");
 const penalties_module_1 = require("./penalties/penalties.module");
 const online_sessions_module_1 = require("./online-sessions/online-sessions.module");
 const penalty_rules_module_1 = require("./penalty-rules/penalty-rules.module");
-const statistic_records_module_1 = require("./statistic-records/statistic-records.module");
 const finance_rules_module_1 = require("./finance_rules/finance_rules.module");
 const faq_module_1 = require("./faq/faq.module");
+const driver_stats_records_module_1 = require("./driver_stats_records/driver_stats_records.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -86,13 +85,12 @@ exports.AppModule = AppModule = __decorate([
                 synchronize: true
             }),
             users_module_1.UsersModule,
-            statistics_module_1.StatisticsModule,
             penalties_module_1.PenaltiesModule,
             online_sessions_module_1.OnlineSessionsModule,
             penalty_rules_module_1.PenaltyRulesModule,
-            statistic_records_module_1.StatisticRecordsModule,
             finance_rules_module_1.FinanceRulesModule,
-            faq_module_1.FaqModule
+            faq_module_1.FaqModule,
+            driver_stats_records_module_1.DriverStatsRecordsModule
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService, email_service_1.EmailService]

@@ -49,6 +49,15 @@ import { TransactionsRepository } from 'src/transactions/transactions.repository
 import { OnlineSession } from 'src/online-sessions/entities/online-session.entity';
 import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
 import { OnlineSessionsRepository } from 'src/online-sessions/online-session.repository';
+import { DriverStatsRecord } from 'src/driver_stats_records/entities/driver_stats_record.entity';
+import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
+import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
+import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
+import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
+import { FinanceRulesRepository } from 'src/finance_rules/finance_rules.repository';
+import { FinanceRule } from 'src/finance_rules/entities/finance_rule.entity';
+import { Admin } from 'src/admin/entities/admin.entity';
+import { AdminRepository } from 'src/admin/admin.repository';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -58,6 +67,7 @@ import { OnlineSessionsRepository } from 'src/online-sessions/online-session.rep
       FoodCategory,
       Restaurant,
       Customer,
+      RatingsReview,
       OnlineSession,
       Driver,
       MenuItem,
@@ -65,7 +75,10 @@ import { OnlineSessionsRepository } from 'src/online-sessions/online-session.rep
       Order,
       DriverProgressStage,
       CustomerCareInquiry,
+      FinanceRule,
+      Admin,
       Transaction,
+      DriverStatsRecord,
       FWallet
     ]),
     CustomersModule,
@@ -84,6 +97,11 @@ import { OnlineSessionsRepository } from 'src/online-sessions/online-session.rep
     DriversService,
     JwtService,
     FWalletsRepository,
+    DriverStatsService,
+    RatingsReviewsRepository,
+    AdminRepository,
+    FinanceRulesService,
+    FinanceRulesRepository,
     TransactionsRepository,
     OnlineSessionsService,
     OnlineSessionsRepository,

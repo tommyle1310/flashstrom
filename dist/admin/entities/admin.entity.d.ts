@@ -17,5 +17,7 @@ export declare class Admin {
     created_at: number;
     updated_at: number;
     created_by: Admin;
+    first_name: string;
+    last_name: string;
     status: AdminStatus;
 }

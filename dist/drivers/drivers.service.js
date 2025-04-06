@@ -26,11 +26,13 @@ const typeorm_1 = require("typeorm");
 const typeorm_2 = require("@nestjs/typeorm");
 const driver_progress_stages_repository_1 = require("../driver_progress_stages/driver_progress_stages.repository");
 const online_sessions_service_1 = require("../online-sessions/online-sessions.service");
+const driver_stats_records_service_1 = require("../driver_stats_records/driver_stats_records.service");
 let DriversService = class DriversService {
-    constructor(driversRepository, driverEntityRepository, ordersRepository, addressRepository, driverProgressStageRepository, onlineSessionsService, dataSource) {
+    constructor(driversRepository, driverEntityRepository, ordersRepository, driverStatsService, addressRepository, driverProgressStageRepository, onlineSessionsService, dataSource) {
         this.driversRepository = driversRepository;
         this.driverEntityRepository = driverEntityRepository;
         this.ordersRepository = ordersRepository;
+        this.driverStatsService = driverStatsService;
         this.addressRepository = addressRepository;
         this.driverProgressStageRepository = driverProgressStageRepository;
         this.onlineSessionsService = onlineSessionsService;
@@ -52,14 +54,21 @@ let DriversService = class DriversService {
                     start_time: Math.floor(Date.now() / 1000),
                     is_active: true
                 };
-                await this.onlineSessionsService.create(createOnlineSessionDto);
+                console.log(`[DEBUG] Creating OnlineSession for driver ${driver.id}:`, createOnlineSessionDto);
+                const session = await this.onlineSessionsService.create(createOnlineSessionDto);
+                console.log(`[DEBUG] Created OnlineSession:`, session);
             }
             else {
                 const activeSession = await this.onlineSessionsService.findOneByDriverIdAndActive(driver.id);
                 if (activeSession) {
+                    console.log(`[DEBUG] Ending OnlineSession ${activeSession.id} for driver ${driver.id}`);
                     await this.onlineSessionsService.endSession(activeSession.id);
                 }
+                else {
+                    console.log(`[DEBUG] No active OnlineSession found for driver ${driver.id}`);
+                }
             }
+            await this.driverStatsService.updateStatsForDriver(driver.id, 'daily');
             return (0, createResponse_1.createResponse)('OK', savedDriver, 'Driver availability updated successfully');
         }
         catch (error) {
@@ -383,6 +392,7 @@ exports.DriversService = DriversService = __decorate([
     __metadata("design:paramtypes", [drivers_repository_1.DriversRepository,
         typeorm_1.Repository,
         orders_repository_1.OrdersRepository,
+        driver_stats_records_service_1.DriverStatsService,
         address_book_repository_1.AddressBookRepository,
         driver_progress_stages_repository_1.DriverProgressStagesRepository,
         online_sessions_service_1.OnlineSessionsService,

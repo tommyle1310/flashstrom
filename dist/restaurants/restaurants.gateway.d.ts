@@ -8,6 +8,7 @@ import { WsResponse } from '@nestjs/websockets';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { JwtService } from '@nestjs/jwt';
 import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
+import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
 interface AvailableDriver {
     id: string;
     lat: number;
@@ -23,10 +24,11 @@ export declare class RestaurantsGateway implements OnGatewayConnection, OnGatewa
     private eventEmitter;
     private readonly ordersRepository;
     private readonly jwtService;
+    private readonly driverStatsService;
     private readonly financeRulesService;
     server: Server;
     private notificationLock;
-    constructor(restaurantsService: RestaurantsService, driverService: DriversService, eventEmitter: EventEmitter2, ordersRepository: OrdersRepository, jwtService: JwtService, financeRulesService: FinanceRulesService);
+    constructor(restaurantsService: RestaurantsService, driverService: DriversService, eventEmitter: EventEmitter2, ordersRepository: OrdersRepository, jwtService: JwtService, driverStatsService: DriverStatsService, financeRulesService: FinanceRulesService);
     afterInit(): void;
     private validateToken;
     handleConnection(client: Socket): Promise<void>;

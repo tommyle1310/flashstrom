@@ -36,6 +36,14 @@ import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
 import { FinanceRulesRepository } from 'src/finance_rules/finance_rules.repository';
 import { AdminRepository } from 'src/admin/admin.repository';
 import { Admin } from 'src/admin/entities/admin.entity';
+import { DriverStatsRecord } from 'src/driver_stats_records/entities/driver_stats_record.entity';
+import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
+import { OnlineSessionsRepository } from 'src/online-sessions/online-session.repository';
+import { OnlineSession } from 'src/online-sessions/entities/online-session.entity';
+import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
+import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
+import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
+import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
 
 @Module({
   imports: [
@@ -48,8 +56,12 @@ import { Admin } from 'src/admin/entities/admin.entity';
       Order,
       FWallet,
       FinanceRule,
+      OnlineSession,
+      RatingsReview,
       Admin,
-      User
+      DriverProgressStage,
+      User,
+      DriverStatsRecord
     ]),
     UsersModule,
     AddressBookModule,
@@ -66,11 +78,15 @@ import { Admin } from 'src/admin/entities/admin.entity';
   providers: [
     RestaurantsService,
     RestaurantsRepository,
+    RatingsReviewsRepository,
     RestaurantsGateway,
     AddressBookRepository,
     FoodCategoriesRepository,
     UserRepository,
     FinanceRulesService,
+    OnlineSessionsRepository,
+    DriverProgressStagesRepository,
+    DriverStatsService,
     FinanceRulesRepository,
     AdminRepository,
     AddressBookRepository,

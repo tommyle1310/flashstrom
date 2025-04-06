@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FAQ = exports.FAQType = exports.FAQStatus = void 0;
+exports.FAQ = exports.FAQTargetUser = exports.FAQType = exports.FAQStatus = void 0;
 const typeorm_1 = require("typeorm");
 const uuid_1 = require("uuid");
 var FAQStatus;
@@ -25,6 +25,13 @@ var FAQType;
     FAQType["PAYMENT"] = "PAYMENT";
     FAQType["SERVICE"] = "SERVICE";
 })(FAQType || (exports.FAQType = FAQType = {}));
+var FAQTargetUser;
+(function (FAQTargetUser) {
+    FAQTargetUser["DRIVER"] = "DRIVER";
+    FAQTargetUser["RESTAURANT"] = "RESTAURANT";
+    FAQTargetUser["CUSTOMER"] = "CUSTOMER";
+    FAQTargetUser["CUSTOMER_CARE"] = "CUSTOMER_CARE";
+})(FAQTargetUser || (exports.FAQTargetUser = FAQTargetUser = {}));
 let FAQ = class FAQ {
     generateId() {
         this.id = `FF_FAQ_${(0, uuid_1.v4)()}`;
@@ -60,6 +67,15 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], FAQ.prototype, "status", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: 'enum',
+        enum: FAQTargetUser,
+        array: true,
+        default: []
+    }),
+    __metadata("design:type", Array)
+], FAQ.prototype, "target_user", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'bigint' }),
     __metadata("design:type", Number)

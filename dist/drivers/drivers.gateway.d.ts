@@ -13,12 +13,16 @@ import { Driver } from './entities/driver.entity';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { DriversRepository } from './drivers.repository';
 import { JwtService } from '@nestjs/jwt';
+import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
+import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
 export declare class DriversGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
     private readonly restaurantsService;
     private readonly driverService;
     private readonly driverRepository;
+    private readonly driverStatsService;
     private eventEmitter;
     private readonly ordersService;
+    private readonly financeRulesService;
     private readonly driverProgressStageService;
     private readonly dataSource;
     private readonly addressBookRepository;
@@ -30,7 +34,7 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
     private dpsCreationLocks;
     private requestQueue;
     private processingOrders;
-    constructor(restaurantsService: RestaurantsService, driverService: DriversService, driverRepository: DriversRepository, eventEmitter: EventEmitter2, ordersService: OrdersService, driverProgressStageService: DriverProgressStagesService, dataSource: DataSource, addressBookRepository: AddressBookRepository, jwtService: JwtService);
+    constructor(restaurantsService: RestaurantsService, driverService: DriversService, driverRepository: DriversRepository, driverStatsService: DriverStatsService, eventEmitter: EventEmitter2, ordersService: OrdersService, financeRulesService: FinanceRulesService, driverProgressStageService: DriverProgressStagesService, dataSource: DataSource, addressBookRepository: AddressBookRepository, jwtService: JwtService);
     afterInit(): void;
     private validateToken;
     handleConnection(client: Socket): Promise<void>;

@@ -60,6 +60,10 @@ import { OnlineSessionsService } from 'src/online-sessions/online-sessions.servi
 import { OnlineSession } from 'src/online-sessions/entities/online-session.entity';
 import { AdminService } from 'src/admin/admin.service';
 import { AdminRepository } from 'src/admin/admin.repository';
+import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
+import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
+import { DriverStatsRecord } from 'src/driver_stats_records/entities/driver_stats_record.entity';
+import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
 @Module({
   imports: [
     JwtModule.register({
@@ -75,6 +79,8 @@ import { AdminRepository } from 'src/admin/admin.repository';
       Customer,
       FWallet,
       Driver,
+      RatingsReview,
+      DriverStatsRecord,
       Restaurant,
       MenuItem,
       OnlineSession,
@@ -104,6 +110,7 @@ import { AdminRepository } from 'src/admin/admin.repository';
     EmailService,
     JwtStrategy,
     EmailService,
+    DriverStatsService,
     UsersService,
     DriverProgressStagesRepository,
     OnlineSessionsRepository,
@@ -114,6 +121,7 @@ import { AdminRepository } from 'src/admin/admin.repository';
     RestaurantsService,
     AddressBookService,
     CartItemsService,
+    RatingsReviewsRepository,
     PromotionsService,
     MenuItemsService,
     AdminRepository,

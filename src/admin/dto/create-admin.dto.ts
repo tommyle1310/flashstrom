@@ -37,6 +37,14 @@ export class CreateAdminDto {
   @IsNumber()
   created_at?: Date | number;
 
+  @IsString()
+  @IsOptional()
+  first_name: string;
+
+  @IsString()
+  @IsOptional()
+  last_name: string;
+
   @IsOptional()
   @IsNumber()
   updated_at: Date | number;

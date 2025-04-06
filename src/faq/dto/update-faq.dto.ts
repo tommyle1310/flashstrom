@@ -1,7 +1,12 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateFAQDto } from './create-faq.dto';
 import { IsEnum, IsString, IsArray, IsOptional } from 'class-validator';
-import { FAQStatus, FAQType, FAQContentBlock } from '../entities/faq.entity';
+import {
+  FAQStatus,
+  FAQType,
+  FAQContentBlock,
+  FAQTargetUser
+} from '../entities/faq.entity';
 
 export class UpdateFAQDto extends PartialType(CreateFAQDto) {
   @IsOptional()
@@ -14,9 +19,14 @@ export class UpdateFAQDto extends PartialType(CreateFAQDto) {
 
   @IsOptional()
   @IsEnum(FAQType)
-  type?: FAQType; // Thêm type vào DTO
+  type?: FAQType;
 
   @IsOptional()
   @IsEnum(FAQStatus)
   status?: FAQStatus;
+
+  @IsOptional()
+  @IsArray()
+  @IsEnum(FAQTargetUser, { each: true }) // Validate từng phần tử trong mảng
+  target_user?: FAQTargetUser[]; // Thêm field target_user
 }

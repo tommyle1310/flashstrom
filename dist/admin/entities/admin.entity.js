@@ -76,6 +76,14 @@ __decorate([
     __metadata("design:type", Admin)
 ], Admin.prototype, "created_by", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Admin.prototype, "first_name", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Admin.prototype, "last_name", void 0);
+__decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
         enum: admin_1.AdminStatus,

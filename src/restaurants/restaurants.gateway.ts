@@ -13,7 +13,6 @@ import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { DriversService } from 'src/drivers/drivers.service';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { forwardRef, Inject } from '@nestjs/common';
-import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
 import { Type_Delivery_Order } from 'src/types/Driver';
 import { calculateDistance } from 'src/utils/commonFunctions';
 import {
@@ -25,6 +24,7 @@ import { OrdersRepository } from 'src/orders/orders.repository';
 import { JwtService } from '@nestjs/jwt';
 import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
 import { evaluate } from 'mathjs';
+import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
 
 interface AvailableDriver {
   id: string;
@@ -61,6 +61,7 @@ export class RestaurantsGateway
     private eventEmitter: EventEmitter2,
     private readonly ordersRepository: OrdersRepository,
     private readonly jwtService: JwtService,
+    private readonly driverStatsService: DriverStatsService,
     private readonly financeRulesService: FinanceRulesService
   ) {}
 
@@ -248,7 +249,6 @@ export class RestaurantsGateway
         if (!orderWithDistance) {
           throw new Error('Failed to retrieve updated order');
         }
-        console.log('cehck driver selected', selectedDriver);
 
         await this.eventEmitter.emit('order.assignedToDriver', {
           ...orderWithDistance,

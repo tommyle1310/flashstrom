@@ -51,6 +51,10 @@ import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
 import { FinanceRulesRepository } from 'src/finance_rules/finance_rules.repository';
 import { AdminRepository } from 'src/admin/admin.repository';
 import { Admin } from 'src/admin/entities/admin.entity';
+import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
+import { DriverStatsRecord } from 'src/driver_stats_records/entities/driver_stats_record.entity';
+import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
+import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
 
 @Module({
   imports: [
@@ -60,6 +64,8 @@ import { Admin } from 'src/admin/entities/admin.entity';
       FinanceRule,
       MenuItemVariant,
       AddressBook,
+      DriverStatsRecord,
+      RatingsReview,
       Restaurant,
       Customer,
       Transaction,
@@ -84,10 +90,12 @@ import { Admin } from 'src/admin/entities/admin.entity';
     MenuItemVariantsRepository,
     OnlineSessionsRepository,
     AddressBookRepository,
+    RatingsReviewsRepository,
     CustomersRepository,
     OnlineSessionsService,
     FinanceRulesService,
     FinanceRulesRepository,
+    DriverStatsService,
     AdminRepository,
     RestaurantsRepository,
     RestaurantsGateway,

@@ -69,6 +69,10 @@ const online_sessions_service_1 = require("../online-sessions/online-sessions.se
 const online_session_entity_1 = require("../online-sessions/entities/online-session.entity");
 const admin_service_1 = require("../admin/admin.service");
 const admin_repository_1 = require("../admin/admin.repository");
+const ratings_review_entity_1 = require("../ratings_reviews/entities/ratings_review.entity");
+const ratings_reviews_repository_1 = require("../ratings_reviews/ratings_reviews.repository");
+const driver_stats_record_entity_1 = require("../driver_stats_records/entities/driver_stats_record.entity");
+const driver_stats_records_service_1 = require("../driver_stats_records/driver_stats_records.service");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -88,6 +92,8 @@ exports.AuthModule = AuthModule = __decorate([
                 customer_entity_1.Customer,
                 fwallet_entity_1.FWallet,
                 driver_entity_1.Driver,
+                ratings_review_entity_1.RatingsReview,
+                driver_stats_record_entity_1.DriverStatsRecord,
                 restaurant_entity_1.Restaurant,
                 menu_item_entity_1.MenuItem,
                 online_session_entity_1.OnlineSession,
@@ -115,6 +121,7 @@ exports.AuthModule = AuthModule = __decorate([
             email_service_1.EmailService,
             jwt_strategy_1.JwtStrategy,
             email_service_1.EmailService,
+            driver_stats_records_service_1.DriverStatsService,
             users_service_1.UsersService,
             driver_progress_stages_repository_1.DriverProgressStagesRepository,
             online_session_repository_1.OnlineSessionsRepository,
@@ -125,6 +132,7 @@ exports.AuthModule = AuthModule = __decorate([
             restaurants_service_1.RestaurantsService,
             address_book_service_1.AddressBookService,
             cart_items_service_1.CartItemsService,
+            ratings_reviews_repository_1.RatingsReviewsRepository,
             promotions_service_1.PromotionsService,
             menu_items_service_1.MenuItemsService,
             admin_repository_1.AdminRepository,

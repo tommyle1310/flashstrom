@@ -26,13 +26,15 @@ const orders_repository_1 = require("../orders/orders.repository");
 const jwt_1 = require("@nestjs/jwt");
 const finance_rules_service_1 = require("../finance_rules/finance_rules.service");
 const mathjs_1 = require("mathjs");
+const driver_stats_records_service_1 = require("../driver_stats_records/driver_stats_records.service");
 let RestaurantsGateway = class RestaurantsGateway {
-    constructor(restaurantsService, driverService, eventEmitter, ordersRepository, jwtService, financeRulesService) {
+    constructor(restaurantsService, driverService, eventEmitter, ordersRepository, jwtService, driverStatsService, financeRulesService) {
         this.restaurantsService = restaurantsService;
         this.driverService = driverService;
         this.eventEmitter = eventEmitter;
         this.ordersRepository = ordersRepository;
         this.jwtService = jwtService;
+        this.driverStatsService = driverStatsService;
         this.financeRulesService = financeRulesService;
         this.notificationLock = new Map();
     }
@@ -165,7 +167,6 @@ let RestaurantsGateway = class RestaurantsGateway {
                 if (!orderWithDistance) {
                     throw new Error('Failed to retrieve updated order');
                 }
-                console.log('cehck driver selected', selectedDriver);
                 await this.eventEmitter.emit('order.assignedToDriver', {
                     ...orderWithDistance,
                     driverListenerId: selectedDriver.id
@@ -305,6 +306,7 @@ exports.RestaurantsGateway = RestaurantsGateway = __decorate([
         event_emitter_1.EventEmitter2,
         orders_repository_1.OrdersRepository,
         jwt_1.JwtService,
+        driver_stats_records_service_1.DriverStatsService,
         finance_rules_service_1.FinanceRulesService])
 ], RestaurantsGateway);
 //# sourceMappingURL=restaurants.gateway.js.map

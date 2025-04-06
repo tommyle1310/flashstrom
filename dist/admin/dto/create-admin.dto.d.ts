@@ -11,6 +11,8 @@ export declare class CreateAdminDto {
     assigned_drivers?: Driver[];
     assigned_customer_care?: CustomerCare[];
     created_at?: Date | number;
+    first_name: string;
+    last_name: string;
     updated_at: Date | number;
     created_by?: Admin;
     status: AdminStatus;

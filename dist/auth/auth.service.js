@@ -421,6 +421,8 @@ let AuthService = class AuthService {
                 newUserWithRole = await this.adminService.create({
                     user_id: existingUser.id,
                     role,
+                    first_name: userData.first_name,
+                    last_name: userData.last_name,
                     permissions: [],
                     status: admin_1.AdminStatus.ACTIVE,
                     created_at: new Date(),
@@ -675,6 +677,8 @@ let AuthService = class AuthService {
                 newUserWithRole = await this.adminService.create({
                     user_id: newUser.id,
                     role,
+                    first_name: newUser.first_name,
+                    last_name: newUser.last_name,
                     permissions: [],
                     status: admin_1.AdminStatus.ACTIVE,
                     created_at: new Date(),

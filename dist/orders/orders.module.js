@@ -60,6 +60,10 @@ const finance_rules_service_1 = require("../finance_rules/finance_rules.service"
 const finance_rules_repository_1 = require("../finance_rules/finance_rules.repository");
 const admin_repository_1 = require("../admin/admin.repository");
 const admin_entity_1 = require("../admin/entities/admin.entity");
+const driver_stats_records_service_1 = require("../driver_stats_records/driver_stats_records.service");
+const driver_stats_record_entity_1 = require("../driver_stats_records/entities/driver_stats_record.entity");
+const ratings_review_entity_1 = require("../ratings_reviews/entities/ratings_review.entity");
+const ratings_reviews_repository_1 = require("../ratings_reviews/ratings_reviews.repository");
 let OrdersModule = class OrdersModule {
 };
 exports.OrdersModule = OrdersModule;
@@ -72,6 +76,8 @@ exports.OrdersModule = OrdersModule = __decorate([
                 finance_rule_entity_1.FinanceRule,
                 menu_item_variant_entity_1.MenuItemVariant,
                 address_book_entity_1.AddressBook,
+                driver_stats_record_entity_1.DriverStatsRecord,
+                ratings_review_entity_1.RatingsReview,
                 restaurant_entity_1.Restaurant,
                 customer_entity_1.Customer,
                 transaction_entity_1.Transaction,
@@ -96,10 +102,12 @@ exports.OrdersModule = OrdersModule = __decorate([
             menu_item_variants_repository_1.MenuItemVariantsRepository,
             online_session_repository_1.OnlineSessionsRepository,
             address_book_repository_1.AddressBookRepository,
+            ratings_reviews_repository_1.RatingsReviewsRepository,
             customers_repository_1.CustomersRepository,
             online_sessions_service_1.OnlineSessionsService,
             finance_rules_service_1.FinanceRulesService,
             finance_rules_repository_1.FinanceRulesRepository,
+            driver_stats_records_service_1.DriverStatsService,
             admin_repository_1.AdminRepository,
             restaurants_repository_1.RestaurantsRepository,
             restaurants_gateway_1.RestaurantsGateway,

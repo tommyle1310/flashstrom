@@ -21,6 +21,13 @@ export enum FAQType {
   SERVICE = 'SERVICE'
 }
 
+export enum FAQTargetUser {
+  DRIVER = 'DRIVER',
+  RESTAURANT = 'RESTAURANT',
+  CUSTOMER = 'CUSTOMER',
+  CUSTOMER_CARE = 'CUSTOMER_CARE'
+}
+
 export type FAQContentBlock =
   | { type: 'text'; value: string } // Đoạn text, có thể chứa Markdown hoặc href
   | { type: 'image'; value: { url: string; key: string } } // Một ảnh
@@ -53,6 +60,14 @@ export class FAQ {
     default: FAQStatus.DRAFT
   })
   status: FAQStatus;
+
+  @Column({
+    type: 'enum',
+    enum: FAQTargetUser,
+    array: true, // Định nghĩa là mảng enum
+    default: [] // Mặc định là mảng rỗng
+  })
+  target_user: FAQTargetUser[]; // Thêm field target_user
 
   @Column({ type: 'bigint' })
   created_at: number;

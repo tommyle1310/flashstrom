@@ -33,4 +33,10 @@ __decorate([
     (0, class_validator_1.IsEnum)(faq_entity_1.FAQStatus),
     __metadata("design:type", String)
 ], CreateFAQDto.prototype, "status", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsEnum)(faq_entity_1.FAQTargetUser, { each: true }),
+    __metadata("design:type", Array)
+], CreateFAQDto.prototype, "target_user", void 0);
 //# sourceMappingURL=create-faq.dto.js.map

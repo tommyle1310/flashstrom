@@ -10,15 +10,17 @@ import { OrdersRepository } from 'src/orders/orders.repository';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
 import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
+import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
 export declare class DriversService {
     private readonly driversRepository;
     private driverEntityRepository;
     private readonly ordersRepository;
+    private readonly driverStatsService;
     private readonly addressRepository;
     private readonly driverProgressStageRepository;
     private readonly onlineSessionsService;
     private readonly dataSource;
-    constructor(driversRepository: DriversRepository, driverEntityRepository: Repository<Driver>, ordersRepository: OrdersRepository, addressRepository: AddressBookRepository, driverProgressStageRepository: DriverProgressStagesRepository, onlineSessionsService: OnlineSessionsService, dataSource: DataSource);
+    constructor(driversRepository: DriversRepository, driverEntityRepository: Repository<Driver>, ordersRepository: OrdersRepository, driverStatsService: DriverStatsService, addressRepository: AddressBookRepository, driverProgressStageRepository: DriverProgressStagesRepository, onlineSessionsService: OnlineSessionsService, dataSource: DataSource);
     setAvailability(id: string): Promise<ApiResponse<Driver>>;
     create(createDriverDto: CreateDriverDto): Promise<ApiResponse<Driver>>;
     findAll(): Promise<ApiResponse<Driver[]>>;

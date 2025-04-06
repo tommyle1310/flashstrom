@@ -54,6 +54,10 @@ import { OnlineSessionsRepository } from 'src/online-sessions/online-session.rep
 import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
 import { EmailService } from 'src/mailer/email.service';
 import * as nodemailer from 'nodemailer';
+import { DriverStatsRecord } from 'src/driver_stats_records/entities/driver_stats_record.entity';
+import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
+import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
+import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
 
 @Module({
   imports: [
@@ -74,6 +78,8 @@ import * as nodemailer from 'nodemailer';
       FWallet,
       Promotion,
       Transaction,
+      DriverStatsRecord,
+      RatingsReview,
       DriverProgressStage
     ]),
     AdminModule,
@@ -109,6 +115,7 @@ import * as nodemailer from 'nodemailer';
     CustomerCareService,
     EmailService,
     DriversService,
+    DriverStatsService,
     OnlineSessionsRepository,
     OnlineSessionsService,
     AddressBookService,
@@ -116,6 +123,7 @@ import * as nodemailer from 'nodemailer';
     RestaurantsRepository,
     CustomersRepository,
     CustomerCaresRepository,
+    RatingsReviewsRepository,
     JwtService,
     CartItemsService,
     UserRepository,

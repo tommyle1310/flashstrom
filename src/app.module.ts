@@ -29,13 +29,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './users/users.module';
 import { CustomerCareInquiriesModule } from './customer_cares_inquires/customer_cares_inquires.module';
 import { FchatModule } from './FChat/fchat.module';
-import { StatisticsModule } from './statistics/statistics.module';
 import { PenaltiesModule } from './penalties/penalties.module';
 import { OnlineSessionsModule } from './online-sessions/online-sessions.module';
 import { PenaltyRulesModule } from './penalty-rules/penalty-rules.module';
-import { StatisticRecordsModule } from './statistic-records/statistic-records.module';
 import { FinanceRulesModule } from './finance_rules/finance_rules.module';
 import { FaqModule } from './faq/faq.module';
+import { DriverStatsRecordsModule } from './driver_stats_records/driver_stats_records.module';
 @Module({
   imports: [
     // MongooseModule.forRoot(process.env.MONGO_URI), // Your MongoDB URI
@@ -79,13 +78,12 @@ import { FaqModule } from './faq/faq.module';
       // }
     }),
     UsersModule,
-    StatisticsModule,
     PenaltiesModule,
     OnlineSessionsModule,
     PenaltyRulesModule,
-    StatisticRecordsModule,
     FinanceRulesModule,
-    FaqModule
+    FaqModule,
+    DriverStatsRecordsModule
   ],
   controllers: [AppController],
   providers: [AppService, EmailService]

@@ -16,6 +16,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
 import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
 import { CreateOnlineSessionDto } from 'src/online-sessions/dto/create-online-session.dto';
+import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
 
 @Injectable()
 export class DriversService {
@@ -24,6 +25,7 @@ export class DriversService {
     @InjectRepository(Driver)
     private driverEntityRepository: Repository<Driver>,
     private readonly ordersRepository: OrdersRepository,
+    private readonly driverStatsService: DriverStatsService,
     private readonly addressRepository: AddressBookRepository,
     private readonly driverProgressStageRepository: DriverProgressStagesRepository,
     private readonly onlineSessionsService: OnlineSessionsService,
@@ -37,30 +39,45 @@ export class DriversService {
         return createResponse('NotFound', null, 'Driver not found');
       }
 
-      const newAvailability = !driver.available_for_work; // Trạng thái mới
+      const newAvailability = !driver.available_for_work;
       driver.available_for_work = newAvailability;
       const savedDriver = await this.driversRepository.save(driver);
 
       // Xử lý OnlineSession
       if (newAvailability) {
-        // Nếu driver chuyển thành available (true), tạo OnlineSession mới
         const createOnlineSessionDto: CreateOnlineSessionDto = {
           driver_id: driver.id,
           end_time: null,
           start_time: Math.floor(Date.now() / 1000),
           is_active: true
         };
-        await this.onlineSessionsService.create(createOnlineSessionDto);
+        console.log(
+          `[DEBUG] Creating OnlineSession for driver ${driver.id}:`,
+          createOnlineSessionDto
+        );
+        const session = await this.onlineSessionsService.create(
+          createOnlineSessionDto
+        );
+        console.log(`[DEBUG] Created OnlineSession:`, session);
       } else {
-        // Nếu driver chuyển thành unavailable (false), kết thúc OnlineSession hiện tại
         const activeSession =
           await this.onlineSessionsService.findOneByDriverIdAndActive(
             driver.id
           );
         if (activeSession) {
+          console.log(
+            `[DEBUG] Ending OnlineSession ${activeSession.id} for driver ${driver.id}`
+          );
           await this.onlineSessionsService.endSession(activeSession.id);
+        } else {
+          console.log(
+            `[DEBUG] No active OnlineSession found for driver ${driver.id}`
+          );
         }
       }
+
+      // Cập nhật thống kê driver sau khi thay đổi trạng thái
+      await this.driverStatsService.updateStatsForDriver(driver.id, 'daily');
 
       return createResponse(
         'OK',

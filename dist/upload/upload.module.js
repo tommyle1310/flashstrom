@@ -58,6 +58,15 @@ const transactions_repository_1 = require("../transactions/transactions.reposito
 const online_session_entity_1 = require("../online-sessions/entities/online-session.entity");
 const online_sessions_service_1 = require("../online-sessions/online-sessions.service");
 const online_session_repository_1 = require("../online-sessions/online-session.repository");
+const driver_stats_record_entity_1 = require("../driver_stats_records/entities/driver_stats_record.entity");
+const driver_stats_records_service_1 = require("../driver_stats_records/driver_stats_records.service");
+const ratings_review_entity_1 = require("../ratings_reviews/entities/ratings_review.entity");
+const ratings_reviews_repository_1 = require("../ratings_reviews/ratings_reviews.repository");
+const finance_rules_service_1 = require("../finance_rules/finance_rules.service");
+const finance_rules_repository_1 = require("../finance_rules/finance_rules.repository");
+const finance_rule_entity_1 = require("../finance_rules/entities/finance_rule.entity");
+const admin_entity_1 = require("../admin/entities/admin.entity");
+const admin_repository_1 = require("../admin/admin.repository");
 let UploadModule = class UploadModule {
 };
 exports.UploadModule = UploadModule;
@@ -71,6 +80,7 @@ exports.UploadModule = UploadModule = __decorate([
                 food_category_entity_1.FoodCategory,
                 restaurant_entity_1.Restaurant,
                 customer_entity_1.Customer,
+                ratings_review_entity_1.RatingsReview,
                 online_session_entity_1.OnlineSession,
                 driver_entity_1.Driver,
                 menu_item_entity_1.MenuItem,
@@ -78,7 +88,10 @@ exports.UploadModule = UploadModule = __decorate([
                 order_entity_1.Order,
                 driver_progress_stage_entity_1.DriverProgressStage,
                 customer_care_inquiry_entity_1.CustomerCareInquiry,
+                finance_rule_entity_1.FinanceRule,
+                admin_entity_1.Admin,
                 transaction_entity_1.Transaction,
+                driver_stats_record_entity_1.DriverStatsRecord,
                 fwallet_entity_1.FWallet
             ]),
             customers_module_1.CustomersModule,
@@ -97,6 +110,11 @@ exports.UploadModule = UploadModule = __decorate([
             drivers_service_1.DriversService,
             jwt_1.JwtService,
             fwallets_repository_1.FWalletsRepository,
+            driver_stats_records_service_1.DriverStatsService,
+            ratings_reviews_repository_1.RatingsReviewsRepository,
+            admin_repository_1.AdminRepository,
+            finance_rules_service_1.FinanceRulesService,
+            finance_rules_repository_1.FinanceRulesRepository,
             transactions_repository_1.TransactionsRepository,
             online_sessions_service_1.OnlineSessionsService,
             online_session_repository_1.OnlineSessionsRepository,

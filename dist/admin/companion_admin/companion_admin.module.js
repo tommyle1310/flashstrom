@@ -63,6 +63,10 @@ const online_session_repository_1 = require("../../online-sessions/online-sessio
 const online_sessions_service_1 = require("../../online-sessions/online-sessions.service");
 const email_service_1 = require("../../mailer/email.service");
 const nodemailer = require("nodemailer");
+const driver_stats_record_entity_1 = require("../../driver_stats_records/entities/driver_stats_record.entity");
+const driver_stats_records_service_1 = require("../../driver_stats_records/driver_stats_records.service");
+const ratings_review_entity_1 = require("../../ratings_reviews/entities/ratings_review.entity");
+const ratings_reviews_repository_1 = require("../../ratings_reviews/ratings_reviews.repository");
 let CompanionAdminModule = class CompanionAdminModule {
 };
 exports.CompanionAdminModule = CompanionAdminModule;
@@ -86,6 +90,8 @@ exports.CompanionAdminModule = CompanionAdminModule = __decorate([
                 fwallet_entity_1.FWallet,
                 promotion_entity_1.Promotion,
                 transaction_entity_1.Transaction,
+                driver_stats_record_entity_1.DriverStatsRecord,
+                ratings_review_entity_1.RatingsReview,
                 driver_progress_stage_entity_1.DriverProgressStage
             ]),
             admin_module_1.AdminModule,
@@ -118,6 +124,7 @@ exports.CompanionAdminModule = CompanionAdminModule = __decorate([
             customer_cares_service_1.CustomerCareService,
             email_service_1.EmailService,
             drivers_service_1.DriversService,
+            driver_stats_records_service_1.DriverStatsService,
             online_session_repository_1.OnlineSessionsRepository,
             online_sessions_service_1.OnlineSessionsService,
             address_book_service_1.AddressBookService,
@@ -125,6 +132,7 @@ exports.CompanionAdminModule = CompanionAdminModule = __decorate([
             restaurants_repository_1.RestaurantsRepository,
             customers_repository_1.CustomersRepository,
             customer_cares_repository_1.CustomerCaresRepository,
+            ratings_reviews_repository_1.RatingsReviewsRepository,
             jwt_1.JwtService,
             cart_items_service_1.CartItemsService,
             users_repository_1.UserRepository,

@@ -16,12 +16,14 @@ import { CustomersGateway } from 'src/customers/customers.gateway';
 import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { TransactionService } from 'src/transactions/transactions.service';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
+import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
 export declare class OrdersService {
     private readonly ordersRepository;
     private readonly menuItemsRepository;
     private readonly menuItemVariantsRepository;
     private readonly addressRepository;
     private readonly customersRepository;
+    private readonly driverStatsService;
     private readonly restaurantRepository;
     private readonly restaurantsGateway;
     private readonly dataSource;
@@ -30,7 +32,7 @@ export declare class OrdersService {
     private readonly driversGateway;
     private readonly transactionsService;
     private readonly fWalletsRepository;
-    constructor(ordersRepository: OrdersRepository, menuItemsRepository: MenuItemsRepository, menuItemVariantsRepository: MenuItemVariantsRepository, addressRepository: AddressBookRepository, customersRepository: CustomersRepository, restaurantRepository: RestaurantsRepository, restaurantsGateway: RestaurantsGateway, dataSource: DataSource, cartItemsRepository: CartItemsRepository, customersGateway: CustomersGateway, driversGateway: DriversGateway, transactionsService: TransactionService, fWalletsRepository: FWalletsRepository);
+    constructor(ordersRepository: OrdersRepository, menuItemsRepository: MenuItemsRepository, menuItemVariantsRepository: MenuItemVariantsRepository, addressRepository: AddressBookRepository, customersRepository: CustomersRepository, driverStatsService: DriverStatsService, restaurantRepository: RestaurantsRepository, restaurantsGateway: RestaurantsGateway, dataSource: DataSource, cartItemsRepository: CartItemsRepository, customersGateway: CustomersGateway, driversGateway: DriversGateway, transactionsService: TransactionService, fWalletsRepository: FWalletsRepository);
     createOrder(createOrderDto: CreateOrderDto): Promise<ApiResponse<any>>;
     update(id: string, updateOrderDto: UpdateOrderDto, transactionalEntityManager?: EntityManager): Promise<ApiResponse<Order>>;
     updateOrderStatus(orderId: string, status: OrderStatus, transactionalEntityManager?: EntityManager): Promise<ApiResponse<Order>>;
