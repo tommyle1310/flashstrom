@@ -191,7 +191,6 @@ export class DriversGateway
 
     while (attempt < maxRetries) {
       try {
-        // Định nghĩa kiểu trả về của transaction
         type TransactionResult = {
           success: boolean;
           order: Order;
@@ -323,6 +322,7 @@ export class DriversGateway
               console.log('check driver wage:', driver_wage);
 
               const totalEarns = driver_wage;
+              console.log('check total earns??', totalEarns);
 
               if (!existingDPS) {
                 console.log(
@@ -374,15 +374,26 @@ export class DriversGateway
                   throw new WsException(`Failed to add order to existing DPS`);
                 dps = dpsResponse.data;
 
-                dps.total_distance_travelled =
-                  (dps.total_distance_travelled || 0) +
-                  Number(distance.toFixed(4));
-                dps.estimated_time_remaining =
-                  (dps.estimated_time_remaining || 0) + estimatedTime;
-                dps.total_tips =
-                  Number(dps.total_tips || 0) + Number(totalTips);
-                dps.total_earns =
-                  Number(dps.total_earns || 0) + Number(totalEarns);
+                // Kiểm tra xem order đã tồn tại trong DPS chưa
+                const orderAlreadyInDPS = dps.orders?.some(
+                  o => o.id === orderId
+                );
+                if (!orderAlreadyInDPS) {
+                  // Chỉ cộng các giá trị nếu order chưa tồn tại
+                  dps.total_distance_travelled =
+                    (dps.total_distance_travelled || 0) +
+                    Number(distance.toFixed(4));
+                  dps.estimated_time_remaining =
+                    (dps.estimated_time_remaining || 0) + estimatedTime;
+                  dps.total_tips =
+                    Number(dps.total_tips || 0) + Number(totalTips);
+                  dps.total_earns =
+                    Number(dps.total_earns || 0) + Number(totalEarns);
+                } else {
+                  console.log(
+                    `[DEBUG] Order ${orderId} already in DPS, skipping earnings update`
+                  );
+                }
 
                 dps.stages = dps.stages.map(stage => {
                   const details = this.getStageDetails(
@@ -433,10 +444,8 @@ export class DriversGateway
           )
         ]);
 
-        // Kiểm tra nếu result là Error thì throw
         if (result instanceof Error) throw result;
 
-        // Bây giờ TypeScript biết result là TransactionResult
         console.log('[DEBUG] Updating stats');
         await this.driverStatsService.updateStatsForDriver(driverId, 'daily');
 

@@ -38,6 +38,7 @@ const typeorm_2 = require("typeorm");
 const menu_item_entity_1 = require("../menu_items/entities/menu_item.entity");
 const restaurant_entity_1 = require("../restaurants/entities/restaurant.entity");
 const driver_stats_records_service_1 = require("../driver_stats_records/driver_stats_records.service");
+const driver_progress_stage_entity_1 = require("../driver_progress_stages/entities/driver_progress_stage.entity");
 let OrdersService = class OrdersService {
     constructor(ordersRepository, menuItemsRepository, menuItemVariantsRepository, addressRepository, customersRepository, driverStatsService, restaurantRepository, restaurantsGateway, dataSource, cartItemsRepository, customersGateway, driversGateway, transactionsService, fWalletsRepository) {
         this.ordersRepository = ordersRepository;
@@ -345,8 +346,38 @@ let OrdersService = class OrdersService {
                 order.status !== order_entity_2.OrderStatus.DISPATCHED) {
                 return (0, createResponse_1.createResponse)('Forbidden', null, 'Can only tip when order is out for delivery or delivered');
             }
-            const updatedOrder = await this.ordersRepository.updateDriverTips(orderId, tipAmount);
-            console.log('✅ Updated driver_tips:', tipAmount, 'for order:', updatedOrder);
+            const updatedOrder = await this.dataSource.transaction(async (transactionalEntityManager) => {
+                const updatedOrder = await transactionalEntityManager
+                    .getRepository(order_entity_1.Order)
+                    .createQueryBuilder('order')
+                    .where('order.id = :orderId', { orderId })
+                    .getOne();
+                if (!updatedOrder)
+                    throw new Error('Order not found in transaction');
+                updatedOrder.driver_tips =
+                    (updatedOrder.driver_tips || 0) + tipAmount;
+                await transactionalEntityManager.save(order_entity_1.Order, updatedOrder);
+                console.log('✅ Updated driver_tips:', tipAmount, 'for order:', updatedOrder);
+                const existingDPS = await transactionalEntityManager
+                    .getRepository(driver_progress_stage_entity_1.DriverProgressStage)
+                    .createQueryBuilder('dps')
+                    .where('dps.driver_id = :driverId', { driverId: order.driver_id })
+                    .andWhere('dps.current_state NOT LIKE :completedState', {
+                    completedState: 'delivery_complete_%'
+                })
+                    .andWhere('dps.id IN (SELECT driver_progress_id FROM driver_progress_orders WHERE order_id = :orderId)', { orderId })
+                    .getOne();
+                if (existingDPS) {
+                    existingDPS.total_tips =
+                        Number(existingDPS.total_tips || 0) + Number(tipAmount);
+                    await transactionalEntityManager.save(driver_progress_stage_entity_1.DriverProgressStage, existingDPS);
+                    console.log(`[DEBUG] Updated DPS total_tips to ${existingDPS.total_tips} for driver ${order.driver_id}`);
+                }
+                else {
+                    console.warn(`[DEBUG] No active DPS found for driver ${order.driver_id} with order ${orderId}`);
+                }
+                return updatedOrder;
+            });
             await this.driverStatsService.updateStatsForDriver(order.driver_id, 'daily');
             await this.driversGateway.notifyPartiesOnce(updatedOrder);
             console.log(`Notified driver ${updatedOrder.driver_id} about tip of ${tipAmount} for order ${orderId}`);

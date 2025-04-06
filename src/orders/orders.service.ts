@@ -31,6 +31,7 @@ import { DeepPartial } from 'typeorm';
 import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
+import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
 
 @Injectable()
 export class OrdersService {
@@ -495,22 +496,68 @@ export class OrdersService {
         );
       }
 
-      const updatedOrder = await this.ordersRepository.updateDriverTips(
-        orderId,
-        tipAmount
-      );
-      console.log(
-        '✅ Updated driver_tips:',
-        tipAmount,
-        'for order:',
-        updatedOrder
+      // Bắt đầu transaction để đồng bộ Order và DPS
+      const updatedOrder = await this.dataSource.transaction(
+        async transactionalEntityManager => {
+          const updatedOrder = await transactionalEntityManager
+            .getRepository(Order)
+            .createQueryBuilder('order')
+            .where('order.id = :orderId', { orderId })
+            .getOne();
+
+          if (!updatedOrder) throw new Error('Order not found in transaction');
+
+          // Cập nhật driver_tips trong Order
+          updatedOrder.driver_tips =
+            (updatedOrder.driver_tips || 0) + tipAmount;
+          await transactionalEntityManager.save(Order, updatedOrder);
+          console.log(
+            '✅ Updated driver_tips:',
+            tipAmount,
+            'for order:',
+            updatedOrder
+          );
+
+          // Tìm DPS hiện tại liên quan đến orderId qua bảng trung gian driver_progress_orders
+          const existingDPS = await transactionalEntityManager
+            .getRepository(DriverProgressStage)
+            .createQueryBuilder('dps')
+            .where('dps.driver_id = :driverId', { driverId: order.driver_id })
+            .andWhere('dps.current_state NOT LIKE :completedState', {
+              completedState: 'delivery_complete_%'
+            })
+            .andWhere(
+              'dps.id IN (SELECT driver_progress_id FROM driver_progress_orders WHERE order_id = :orderId)',
+              { orderId }
+            )
+            .getOne();
+
+          if (existingDPS) {
+            // Cập nhật total_tips trong DPS
+            existingDPS.total_tips =
+              Number(existingDPS.total_tips || 0) + Number(tipAmount);
+            await transactionalEntityManager.save(
+              DriverProgressStage,
+              existingDPS
+            );
+            console.log(
+              `[DEBUG] Updated DPS total_tips to ${existingDPS.total_tips} for driver ${order.driver_id}`
+            );
+          } else {
+            console.warn(
+              `[DEBUG] No active DPS found for driver ${order.driver_id} with order ${orderId}`
+            );
+          }
+
+          return updatedOrder;
+        }
       );
 
       // Cập nhật thống kê driver sau khi tip
       await this.driverStatsService.updateStatsForDriver(
         order.driver_id,
         'daily'
-      ); // Gọi ở đây
+      );
 
       await this.driversGateway.notifyPartiesOnce(updatedOrder);
       console.log(

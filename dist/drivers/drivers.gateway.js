@@ -252,6 +252,7 @@ let DriversGateway = class DriversGateway {
                         }
                         console.log('check driver wage:', driver_wage);
                         const totalEarns = driver_wage;
+                        console.log('check total earns??', totalEarns);
                         if (!existingDPS) {
                             console.log(`No existing DPS found for driver ${driverId}, creating new one`);
                             const dpsResponse = await this.driverProgressStageService.create({
@@ -280,15 +281,21 @@ let DriversGateway = class DriversGateway {
                             if (dpsResponse.EC !== 0 || !dpsResponse.data)
                                 throw new websockets_1.WsException(`Failed to add order to existing DPS`);
                             dps = dpsResponse.data;
-                            dps.total_distance_travelled =
-                                (dps.total_distance_travelled || 0) +
-                                    Number(distance.toFixed(4));
-                            dps.estimated_time_remaining =
-                                (dps.estimated_time_remaining || 0) + estimatedTime;
-                            dps.total_tips =
-                                Number(dps.total_tips || 0) + Number(totalTips);
-                            dps.total_earns =
-                                Number(dps.total_earns || 0) + Number(totalEarns);
+                            const orderAlreadyInDPS = dps.orders?.some(o => o.id === orderId);
+                            if (!orderAlreadyInDPS) {
+                                dps.total_distance_travelled =
+                                    (dps.total_distance_travelled || 0) +
+                                        Number(distance.toFixed(4));
+                                dps.estimated_time_remaining =
+                                    (dps.estimated_time_remaining || 0) + estimatedTime;
+                                dps.total_tips =
+                                    Number(dps.total_tips || 0) + Number(totalTips);
+                                dps.total_earns =
+                                    Number(dps.total_earns || 0) + Number(totalEarns);
+                            }
+                            else {
+                                console.log(`[DEBUG] Order ${orderId} already in DPS, skipping earnings update`);
+                            }
                             dps.stages = dps.stages.map(stage => {
                                 const details = this.getStageDetails(stage.state, orderWithRelations, driverWithRelations, estimatedTime, totalTips);
                                 return { ...stage, details };
