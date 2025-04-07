@@ -14,6 +14,7 @@ declare class EventDto {
 declare const UpdateDriverProgressStageDto_base: import("@nestjs/mapped-types").MappedType<Partial<CreateDriverProgressStageDto>>;
 export declare class UpdateDriverProgressStageDto extends UpdateDriverProgressStageDto_base {
     events?: EventDto[];
+    transactions_processed?: boolean;
     updated_at?: number;
 }
 export {};

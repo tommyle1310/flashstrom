@@ -33,6 +33,11 @@ import { StageDto } from 'src/driver_progress_stages/dto/create-driver-progress-
 import { JwtService } from '@nestjs/jwt';
 import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
 import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
+import { Customer } from 'src/customers/entities/customer.entity';
+import { CreateTransactionDto } from 'src/transactions/dto/create-transaction.dto';
+import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
+import { TransactionService } from 'src/transactions/transactions.service';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 // import { SemaphoreService } from 'src/semaphor/semaphore.service';
 
 @WebSocketGateway({
@@ -65,6 +70,8 @@ export class DriversGateway
     private eventEmitter: EventEmitter2,
     private readonly ordersService: OrdersService,
     private readonly financeRulesService: FinanceRulesService,
+    private readonly fWalletsRepository: FWalletsRepository,
+    private readonly transactionsService: TransactionService,
     private readonly driverProgressStageService: DriverProgressStagesService,
     private readonly dataSource: DataSource,
     private readonly addressBookRepository: AddressBookRepository,
@@ -675,7 +682,6 @@ export class DriversGateway
                     const estimatedTime = this.calculateEstimatedTime(
                       order.distance || 0
                     );
-                    // Cập nhật estimated_time_remaining
                     dps.estimated_time_remaining =
                       (dps.estimated_time_remaining || 0) -
                       (stage.details?.estimated_time || 0) +
@@ -714,7 +720,6 @@ export class DriversGateway
                       (dps.total_tips || 0) + (order.driver_tips || 0);
                     dps.total_earns =
                       (dps.total_earns || 0) + this.calculateTotalEarns(order);
-                    // Fix: Ensure total_distance_travelled is a number by converting it explicitly
                     dps.total_distance_travelled =
                       Number(dps.total_distance_travelled || 0) +
                       Number(order.distance || 0);
@@ -848,6 +853,14 @@ export class DriversGateway
             newNextState = lastCompletedDelivery ? null : newNextState;
           }
 
+          // Kiểm tra xem tất cả delivery_complete_* đã hoàn thành chưa
+          const allDeliveryCompleteStages = updatedStages.filter(stage =>
+            stage.state.startsWith('delivery_complete_')
+          );
+          const allDeliveryCompleteDone = allDeliveryCompleteStages.every(
+            stage => stage.status === 'completed'
+          );
+
           const updateResult =
             await this.driverProgressStageService.updateStage(
               data.stageId,
@@ -859,17 +872,130 @@ export class DriversGateway
                 orders: dps.orders,
                 estimated_time_remaining: dps.estimated_time_remaining,
                 actual_time_spent: dps.actual_time_spent,
-                // Fix: Explicitly convert total_distance_travelled to a number before calling toFixed
                 total_distance_travelled: Number(
                   Number(dps.total_distance_travelled || 0).toFixed(4)
                 ),
                 total_tips: dps.total_tips,
-                total_earns: dps.total_earns
+                total_earns: dps.total_earns,
+                // Thêm flag để đánh dấu đã xử lý transaction
+                transactions_processed:
+                  dps.transactions_processed ||
+                  (allDeliveryCompleteDone ? false : undefined)
               },
               transactionalEntityManager
             );
 
-          // Kiểm tra thay đổi thực sự để emit
+          // Chỉ xử lý transaction khi tất cả delivery_complete_* đã hoàn thành và chưa xử lý trước đó
+          if (
+            allDeliveryCompleteDone &&
+            allDeliveryCompleteStages.length > 0 &&
+            !updateResult.data.transactions_processed
+          ) {
+            const driver = await transactionalEntityManager
+              .getRepository(Driver)
+              .findOne({ where: { id: dps.driver_id } });
+            if (!driver) {
+              throw new Error(`Driver ${dps.driver_id} not found`);
+            }
+            const driverWallet = await this.fWalletsRepository.findByUserId(
+              driver.user_id,
+              transactionalEntityManager
+            );
+            if (!driverWallet) {
+              throw new Error(`Wallet not found for driver ${dps.driver_id}`);
+            }
+
+            // Xử lý transaction cho từng order nếu là COD
+            for (const order of dps.orders) {
+              if (order.payment_method === 'COD') {
+                const restaurant = await transactionalEntityManager
+                  .getRepository(Restaurant)
+                  .findOne({ where: { id: order.restaurant_id } });
+                if (!restaurant) {
+                  throw new Error(
+                    `Restaurant ${order.restaurant_id} not found`
+                  );
+                }
+                const restaurantWallet =
+                  await this.fWalletsRepository.findByUserId(
+                    restaurant.owner_id,
+                    transactionalEntityManager
+                  );
+                if (!restaurantWallet) {
+                  throw new Error(
+                    `Wallet not found for restaurant ${order.restaurant_id}`
+                  );
+                }
+
+                const codTransactionDto: CreateTransactionDto = {
+                  user_id: driver.user_id,
+                  fwallet_id: driverWallet.id,
+                  transaction_type: 'WITHDRAW',
+                  amount: order.total_amount,
+                  balance_after: 0,
+                  status: 'PENDING',
+                  source: 'FWALLET',
+                  destination: restaurantWallet.id,
+                  destination_type: 'FWALLET'
+                };
+
+                const codTransactionResponse =
+                  await this.transactionsService.create(
+                    codTransactionDto,
+                    transactionalEntityManager
+                  );
+                if (codTransactionResponse.EC !== 0) {
+                  throw new Error(
+                    `COD Transaction failed: ${codTransactionResponse.EM}`
+                  );
+                }
+                console.log(
+                  'COD transaction from driver to restaurant succeeded:',
+                  codTransactionResponse.data
+                );
+              }
+            }
+
+            // Transaction cho driver earnings (dps.total_earns) - chỉ chạy một lần
+            if (dps.total_earns > 0) {
+              const earningsTransactionDto: CreateTransactionDto = {
+                user_id: driver.user_id,
+                fwallet_id: driverWallet.id,
+                transaction_type: 'DEPOSIT',
+                amount: dps.total_earns,
+                balance_after: 0,
+                status: 'PENDING',
+                source: 'FWALLET', // Giả định nguồn là hệ thống
+                destination: driverWallet.id,
+                destination_type: 'FWALLET'
+              };
+
+              const earningsTransactionResponse =
+                await this.transactionsService.create(
+                  earningsTransactionDto,
+                  transactionalEntityManager
+                );
+              if (earningsTransactionResponse.EC !== 0) {
+                throw new Error(
+                  `Earnings Transaction failed: ${earningsTransactionResponse.EM}`
+                );
+              }
+              console.log(
+                'Earnings transaction for driver succeeded:',
+                earningsTransactionResponse.data
+              );
+            }
+
+            // Cập nhật lại dps để đánh dấu đã xử lý transaction
+            await this.driverProgressStageService.updateStage(
+              data.stageId,
+              {
+                transactions_processed: true
+              },
+              transactionalEntityManager
+            );
+          }
+
           const newStagesString = JSON.stringify(updateResult.data.stages);
           const hasChanges =
             oldStagesString !== newStagesString ||

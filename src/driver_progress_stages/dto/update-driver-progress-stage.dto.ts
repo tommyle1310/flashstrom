@@ -4,7 +4,8 @@ import {
   // IsNumber,
   ValidateNested,
   IsEnum,
-  IsArray
+  IsArray,
+  IsBoolean
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PartialType } from '@nestjs/mapped-types';
@@ -75,6 +76,10 @@ export class UpdateDriverProgressStageDto extends PartialType(
   @ValidateNested({ each: true })
   @Type(() => EventDto)
   events?: EventDto[];
+
+  @IsOptional()
+  @IsBoolean()
+  transactions_processed?: boolean;
 
   @IsOptional()
   updated_at?: number;

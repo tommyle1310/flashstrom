@@ -15,6 +15,8 @@ import { DriversRepository } from './drivers.repository';
 import { JwtService } from '@nestjs/jwt';
 import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
 import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
+import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
+import { TransactionService } from 'src/transactions/transactions.service';
 export declare class DriversGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
     private readonly restaurantsService;
     private readonly driverService;
@@ -23,6 +25,8 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
     private eventEmitter;
     private readonly ordersService;
     private readonly financeRulesService;
+    private readonly fWalletsRepository;
+    private readonly transactionsService;
     private readonly driverProgressStageService;
     private readonly dataSource;
     private readonly addressBookRepository;
@@ -34,7 +38,7 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
     private dpsCreationLocks;
     private requestQueue;
     private processingOrders;
-    constructor(restaurantsService: RestaurantsService, driverService: DriversService, driverRepository: DriversRepository, driverStatsService: DriverStatsService, eventEmitter: EventEmitter2, ordersService: OrdersService, financeRulesService: FinanceRulesService, driverProgressStageService: DriverProgressStagesService, dataSource: DataSource, addressBookRepository: AddressBookRepository, jwtService: JwtService);
+    constructor(restaurantsService: RestaurantsService, driverService: DriversService, driverRepository: DriversRepository, driverStatsService: DriverStatsService, eventEmitter: EventEmitter2, ordersService: OrdersService, financeRulesService: FinanceRulesService, fWalletsRepository: FWalletsRepository, transactionsService: TransactionService, driverProgressStageService: DriverProgressStagesService, dataSource: DataSource, addressBookRepository: AddressBookRepository, jwtService: JwtService);
     afterInit(): void;
     private validateToken;
     handleConnection(client: Socket): Promise<void>;

@@ -30,6 +30,15 @@ import { FinanceRule } from 'src/finance_rules/entities/finance_rule.entity';
 import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
 import { AdminRepository } from 'src/admin/admin.repository';
 import { Admin } from 'src/admin/entities/admin.entity';
+import { FWallet } from 'src/fwallets/entities/fwallet.entity';
+import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
+import { TransactionService } from 'src/transactions/transactions.service';
+import { Transaction } from 'src/transactions/entities/transaction.entity';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import { Customer } from 'src/customers/entities/customer.entity';
+import { TransactionsRepository } from 'src/transactions/transactions.repository';
+import { UserRepository } from 'src/users/users.repository';
+import { User } from 'src/users/entities/user.entity';
 
 @Module({
   imports: [
@@ -41,7 +50,12 @@ import { Admin } from 'src/admin/entities/admin.entity';
       DriverProgressStage,
       Admin,
       OnlineSession,
+      Transaction,
+      Restaurant,
+      Customer,
       FinanceRule,
+      User,
+      FWallet,
       DriverStatsRecord,
       RatingsReview
     ]),
@@ -55,7 +69,11 @@ import { Admin } from 'src/admin/entities/admin.entity';
     DriversService,
     DriversGateway,
     OrdersRepository,
+    FWalletsRepository,
+    TransactionService,
     DriversRepository,
+    TransactionsRepository,
+    UserRepository,
     OnlineSessionsService,
     RatingsReviewsRepository,
     OnlineSessionsRepository,

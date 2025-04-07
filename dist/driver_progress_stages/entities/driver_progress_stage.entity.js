@@ -101,6 +101,10 @@ __decorate([
     __metadata("design:type", Number)
 ], DriverProgressStage.prototype, "updated_at", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], DriverProgressStage.prototype, "transactions_processed", void 0);
+__decorate([
     (0, typeorm_1.BeforeInsert)(),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),

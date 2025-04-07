@@ -39,6 +39,15 @@ const finance_rule_entity_1 = require("../finance_rules/entities/finance_rule.en
 const finance_rules_service_1 = require("../finance_rules/finance_rules.service");
 const admin_repository_1 = require("../admin/admin.repository");
 const admin_entity_1 = require("../admin/entities/admin.entity");
+const fwallet_entity_1 = require("../fwallets/entities/fwallet.entity");
+const fwallets_repository_1 = require("../fwallets/fwallets.repository");
+const transactions_service_1 = require("../transactions/transactions.service");
+const transaction_entity_1 = require("../transactions/entities/transaction.entity");
+const restaurant_entity_1 = require("../restaurants/entities/restaurant.entity");
+const customer_entity_1 = require("../customers/entities/customer.entity");
+const transactions_repository_1 = require("../transactions/transactions.repository");
+const users_repository_1 = require("../users/users.repository");
+const user_entity_1 = require("../users/entities/user.entity");
 let DriversModule = class DriversModule {
 };
 exports.DriversModule = DriversModule;
@@ -53,7 +62,12 @@ exports.DriversModule = DriversModule = __decorate([
                 driver_progress_stage_entity_1.DriverProgressStage,
                 admin_entity_1.Admin,
                 online_session_entity_1.OnlineSession,
+                transaction_entity_1.Transaction,
+                restaurant_entity_1.Restaurant,
+                customer_entity_1.Customer,
                 finance_rule_entity_1.FinanceRule,
+                user_entity_1.User,
+                fwallet_entity_1.FWallet,
                 driver_stats_record_entity_1.DriverStatsRecord,
                 ratings_review_entity_1.RatingsReview
             ]),
@@ -67,7 +81,11 @@ exports.DriversModule = DriversModule = __decorate([
             drivers_service_1.DriversService,
             drivers_gateway_1.DriversGateway,
             orders_repository_1.OrdersRepository,
+            fwallets_repository_1.FWalletsRepository,
+            transactions_service_1.TransactionService,
             drivers_repository_1.DriversRepository,
+            transactions_repository_1.TransactionsRepository,
+            users_repository_1.UserRepository,
             online_sessions_service_1.OnlineSessionsService,
             ratings_reviews_repository_1.RatingsReviewsRepository,
             online_session_repository_1.OnlineSessionsRepository,

@@ -50,6 +50,11 @@ __decorate([
 ], UpdateDriverProgressStageDto.prototype, "events", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateDriverProgressStageDto.prototype, "transactions_processed", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Number)
 ], UpdateDriverProgressStageDto.prototype, "updated_at", void 0);
 //# sourceMappingURL=update-driver-progress-stage.dto.js.map
