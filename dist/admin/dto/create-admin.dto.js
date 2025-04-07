@@ -60,6 +60,11 @@ __decorate([
 ], CreateAdminDto.prototype, "last_name", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsObject)(),
+    __metadata("design:type", Object)
+], CreateAdminDto.prototype, "avatar", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Object)
 ], CreateAdminDto.prototype, "updated_at", void 0);

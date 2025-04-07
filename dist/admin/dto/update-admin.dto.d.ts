@@ -9,6 +9,10 @@ export declare class UpdateAdminDto extends UpdateAdminDto_base {
     permissions?: AdminPermission[];
     assigned_restaurants?: Restaurant[];
     assigned_drivers?: Driver[];
+    avatar?: {
+        url: string;
+        key: string;
+    };
     assigned_customer_care?: CustomerCare[];
     status?: AdminStatus;
 }

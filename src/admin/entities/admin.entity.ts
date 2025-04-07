@@ -33,6 +33,9 @@ export class Admin {
   })
   role: AdminRole;
 
+  @Column('jsonb', { nullable: true })
+  avatar: { url: string; key: string };
+
   @Column('text', { array: true })
   permissions: AdminPermission[];
 

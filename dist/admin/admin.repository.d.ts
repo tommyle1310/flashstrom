@@ -8,7 +8,7 @@ export declare class AdminRepository {
     findAll(): Promise<Admin[]>;
     findById(id: string): Promise<Admin | null>;
     findByUserId(userId: string): Promise<Admin | null>;
-    update(id: string, updateData: UpdateAdminDto): Promise<void>;
+    update(id: string, updateData: UpdateAdminDto): Promise<Admin>;
     delete(id: string): Promise<{
         affected?: number;
     }>;

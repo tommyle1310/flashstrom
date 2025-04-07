@@ -23,11 +23,13 @@ const customers_service_1 = require("../customers/customers.service");
 const Payload_1 = require("../types/Payload");
 const createResponse_1 = require("../utils/createResponse");
 const menu_items_service_1 = require("../menu_items/menu_items.service");
+const admin_service_1 = require("../admin/admin.service");
 let UploadController = class UploadController {
-    constructor(restaurantService, uploadService, driverService, customerService, menuItemService) {
+    constructor(restaurantService, uploadService, driverService, adminService, customerService, menuItemService) {
         this.restaurantService = restaurantService;
         this.uploadService = uploadService;
         this.driverService = driverService;
+        this.adminService = adminService;
         this.customerService = customerService;
         this.menuItemService = menuItemService;
     }
@@ -45,6 +47,9 @@ let UploadController = class UploadController {
                 break;
             case Payload_1.Enum_AvatarType.DRIVER:
                 updatedEntity = await this.driverService.updateEntityAvatar(uploadResult, entityId);
+                break;
+            case Payload_1.Enum_AvatarType.ADMIN:
+                updatedEntity = await this.adminService.updateEntityAvatar(uploadResult, entityId);
                 break;
             case Payload_1.Enum_AvatarType.CUSTOMER:
                 updatedEntity = await this.customerService.updateEntityAvatar(uploadResult, entityId);
@@ -140,6 +145,7 @@ exports.UploadController = UploadController = __decorate([
     __metadata("design:paramtypes", [restaurants_service_1.RestaurantsService,
         upload_service_1.UploadService,
         drivers_service_1.DriversService,
+        admin_service_1.AdminService,
         customers_service_1.CustomersService,
         menu_items_service_1.MenuItemsService])
 ], UploadController);

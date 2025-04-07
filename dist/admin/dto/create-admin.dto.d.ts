@@ -13,6 +13,10 @@ export declare class CreateAdminDto {
     created_at?: Date | number;
     first_name: string;
     last_name: string;
+    avatar?: {
+        url: string;
+        key: string;
+    };
     updated_at: Date | number;
     created_by?: Admin;
     status: AdminStatus;

@@ -40,6 +40,11 @@ __decorate([
 ], UpdateAdminDto.prototype, "assigned_drivers", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsObject)(),
+    __metadata("design:type", Object)
+], UpdateAdminDto.prototype, "avatar", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),
     __metadata("design:type", Array)
 ], UpdateAdminDto.prototype, "assigned_customer_care", void 0);

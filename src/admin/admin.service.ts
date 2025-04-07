@@ -105,6 +105,21 @@ export class AdminService {
     }
   }
 
+  async updateEntityAvatar(
+    uploadResult: { url: string; public_id: string },
+    entityId: string
+  ) {
+    const admin = await this.adminRepository.update(entityId, {
+      avatar: { url: uploadResult.url, key: uploadResult.public_id }
+    });
+
+    if (!admin) {
+      return createResponse('NotFound', null, 'admin not found');
+    }
+
+    return createResponse('OK', admin, 'admin avatar updated successfully');
+  }
+
   async update(
     id: string,
     updateAdminDto: UpdateAdminDto

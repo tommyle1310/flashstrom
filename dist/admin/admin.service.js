@@ -88,6 +88,15 @@ let AdminService = class AdminService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching admin');
         }
     }
+    async updateEntityAvatar(uploadResult, entityId) {
+        const admin = await this.adminRepository.update(entityId, {
+            avatar: { url: uploadResult.url, key: uploadResult.public_id }
+        });
+        if (!admin) {
+            return (0, createResponse_1.createResponse)('NotFound', null, 'admin not found');
+        }
+        return (0, createResponse_1.createResponse)('OK', admin, 'admin avatar updated successfully');
+    }
     async update(id, updateAdminDto) {
         try {
             const admin = await this.adminRepository.findById(id);

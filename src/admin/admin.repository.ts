@@ -34,7 +34,7 @@ export class AdminRepository {
     });
   }
 
-  async update(id: string, updateData: UpdateAdminDto): Promise<void> {
+  async update(id: string, updateData: UpdateAdminDto): Promise<Admin> {
     // Create updateEntity without spreading user_id directly
     const { user_id, ...rest } = updateData as any;
     const updateEntity: Partial<Admin> = { ...rest };
@@ -45,6 +45,12 @@ export class AdminRepository {
     }
 
     await this.adminRepository.update(id, updateEntity);
+
+    // Fetch and return the updated admin with relations
+    return await this.adminRepository.findOne({
+      where: { id },
+      relations: ['user_id'] // Include any other relations you need
+    });
   }
 
   async delete(id: string): Promise<{ affected?: number }> {

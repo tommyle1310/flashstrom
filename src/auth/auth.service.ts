@@ -354,6 +354,7 @@ export class AuthService {
       logged_in_as: type,
       user_id: admin.data.user_id,
       role: admin.data.role,
+      avatar: admin.data.avatar,
       permissions: admin.data.permissions,
       assigned_restaurants: admin.data.assigned_restaurants,
       assigned_drivers: admin.data.assigned_drivers,

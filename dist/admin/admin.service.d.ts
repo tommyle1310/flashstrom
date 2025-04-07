@@ -12,6 +12,10 @@ export declare class AdminService {
     findAll(): Promise<ApiResponse<Admin[]>>;
     findOne(id: string): Promise<ApiResponse<Admin>>;
     findOneByUserId(userId: string): Promise<ApiResponse<Admin>>;
+    updateEntityAvatar(uploadResult: {
+        url: string;
+        public_id: string;
+    }, entityId: string): Promise<ApiResponse<any>>;
     update(id: string, updateAdminDto: UpdateAdminDto): Promise<ApiResponse<Admin>>;
     remove(id: string): Promise<ApiResponse<null>>;
 }

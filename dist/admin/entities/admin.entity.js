@@ -37,6 +37,10 @@ __decorate([
     __metadata("design:type", String)
 ], Admin.prototype, "role", void 0);
 __decorate([
+    (0, typeorm_1.Column)('jsonb', { nullable: true }),
+    __metadata("design:type", Object)
+], Admin.prototype, "avatar", void 0);
+__decorate([
     (0, typeorm_1.Column)('text', { array: true }),
     __metadata("design:type", Array)
 ], Admin.prototype, "permissions", void 0);

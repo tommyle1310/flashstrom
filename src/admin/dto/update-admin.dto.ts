@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateAdminDto } from './create-admin.dto';
-import { IsEnum, IsArray, IsOptional } from 'class-validator';
+import { IsEnum, IsArray, IsOptional, IsObject } from 'class-validator';
 import { AdminRole, AdminPermission, AdminStatus } from 'src/utils/types/admin';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { Driver } from 'src/drivers/entities/driver.entity';
@@ -23,6 +23,10 @@ export class UpdateAdminDto extends PartialType(CreateAdminDto) {
   @IsOptional()
   @IsArray()
   assigned_drivers?: Driver[];
+
+  @IsOptional()
+  @IsObject()
+  avatar?: { url: string; key: string };
 
   @IsOptional()
   @IsArray()

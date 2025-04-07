@@ -58,6 +58,8 @@ import { FinanceRulesRepository } from 'src/finance_rules/finance_rules.reposito
 import { FinanceRule } from 'src/finance_rules/entities/finance_rule.entity';
 import { Admin } from 'src/admin/entities/admin.entity';
 import { AdminRepository } from 'src/admin/admin.repository';
+import { AdminService } from 'src/admin/admin.service';
+import { UsersService } from 'src/users/users.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -101,6 +103,8 @@ import { AdminRepository } from 'src/admin/admin.repository';
     RatingsReviewsRepository,
     AdminRepository,
     FinanceRulesService,
+    AdminService,
+    UsersService,
     FinanceRulesRepository,
     TransactionsRepository,
     OnlineSessionsService,

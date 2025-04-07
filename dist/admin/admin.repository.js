@@ -45,6 +45,10 @@ let AdminRepository = class AdminRepository {
             updateEntity.user_id = { id: user_id };
         }
         await this.adminRepository.update(id, updateEntity);
+        return await this.adminRepository.findOne({
+            where: { id },
+            relations: ['user_id']
+        });
     }
     async delete(id) {
         return this.adminRepository.delete(id);

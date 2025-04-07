@@ -8,6 +8,10 @@ export declare class Admin {
     id: string;
     user_id: User;
     role: AdminRole;
+    avatar: {
+        url: string;
+        key: string;
+    };
     permissions: AdminPermission[];
     assigned_restaurants: Restaurant[];
     assigned_drivers: Driver[];

@@ -16,6 +16,7 @@ import { CustomersService } from 'src/customers/customers.service';
 import { Enum_AvatarType } from 'src/types/Payload';
 import { createResponse } from 'src/utils/createResponse'; // Import createResponse
 import { MenuItemsService } from 'src/menu_items/menu_items.service';
+import { AdminService } from 'src/admin/admin.service';
 
 @Controller('upload')
 export class UploadController {
@@ -24,6 +25,7 @@ export class UploadController {
     private readonly restaurantService: RestaurantsService,
     private readonly uploadService: UploadService,
     private readonly driverService: DriversService,
+    private readonly adminService: AdminService,
     private readonly customerService: CustomersService,
     private readonly menuItemService: MenuItemsService
   ) {}
@@ -59,6 +61,12 @@ export class UploadController {
         break;
       case Enum_AvatarType.DRIVER:
         updatedEntity = await this.driverService.updateEntityAvatar(
+          uploadResult,
+          entityId
+        );
+        break;
+      case Enum_AvatarType.ADMIN:
+        updatedEntity = await this.adminService.updateEntityAvatar(
           uploadResult,
           entityId
         );

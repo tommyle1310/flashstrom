@@ -67,6 +67,8 @@ const finance_rules_repository_1 = require("../finance_rules/finance_rules.repos
 const finance_rule_entity_1 = require("../finance_rules/entities/finance_rule.entity");
 const admin_entity_1 = require("../admin/entities/admin.entity");
 const admin_repository_1 = require("../admin/admin.repository");
+const admin_service_1 = require("../admin/admin.service");
+const users_service_1 = require("../users/users.service");
 let UploadModule = class UploadModule {
 };
 exports.UploadModule = UploadModule;
@@ -114,6 +116,8 @@ exports.UploadModule = UploadModule = __decorate([
             ratings_reviews_repository_1.RatingsReviewsRepository,
             admin_repository_1.AdminRepository,
             finance_rules_service_1.FinanceRulesService,
+            admin_service_1.AdminService,
+            users_service_1.UsersService,
             finance_rules_repository_1.FinanceRulesRepository,
             transactions_repository_1.TransactionsRepository,
             online_sessions_service_1.OnlineSessionsService,

@@ -3,7 +3,8 @@ import {
   IsEnum,
   IsArray,
   IsOptional,
-  IsNumber
+  IsNumber,
+  IsObject
 } from 'class-validator';
 import { AdminRole, AdminPermission, AdminStatus } from 'src/utils/types/admin';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
@@ -44,6 +45,10 @@ export class CreateAdminDto {
   @IsString()
   @IsOptional()
   last_name: string;
+
+  @IsOptional()
+  @IsObject()
+  avatar?: { url: string; key: string };
 
   @IsOptional()
   @IsNumber()
