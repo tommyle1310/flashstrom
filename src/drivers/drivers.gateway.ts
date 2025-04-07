@@ -38,6 +38,7 @@ import { CreateTransactionDto } from 'src/transactions/dto/create-transaction.dt
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionService } from 'src/transactions/transactions.service';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import { FLASHFOOD_FINANCE } from 'src/utils/constants';
 // import { SemaphoreService } from 'src/semaphor/semaphore.service';
 
 @WebSocketGateway({
@@ -328,7 +329,7 @@ export class DriversGateway
               }
               console.log('check driver wage:', driver_wage);
 
-              const totalEarns = driver_wage;
+              const totalEarns = driver_wage; // Chỉ lấy driver_wage
               console.log('check total earns??', totalEarns);
 
               if (!existingDPS) {
@@ -381,12 +382,10 @@ export class DriversGateway
                   throw new WsException(`Failed to add order to existing DPS`);
                 dps = dpsResponse.data;
 
-                // Kiểm tra xem order đã tồn tại trong DPS chưa
                 const orderAlreadyInDPS = dps.orders?.some(
                   o => o.id === orderId
                 );
                 if (!orderAlreadyInDPS) {
-                  // Chỉ cộng các giá trị nếu order chưa tồn tại
                   dps.total_distance_travelled =
                     (dps.total_distance_travelled || 0) +
                     Number(distance.toFixed(4));
@@ -499,7 +498,6 @@ export class DriversGateway
       }
     }
   }
-
   // Hàm hỗ trợ
   private calculateEstimatedTime(distance: number): number {
     // Giả sử tốc độ trung bình là 30km/h, tính bằng phút
@@ -590,7 +588,6 @@ export class DriversGateway
             };
           }
 
-          // Lưu trạng thái cũ để so sánh
           const oldStagesString = JSON.stringify(dps.stages);
           const oldCurrentState = dps.current_state;
           const oldPreviousState = dps.previous_state;
@@ -718,8 +715,7 @@ export class DriversGateway
                   if (nextStateBase === 'delivery_complete') {
                     dps.total_tips =
                       (dps.total_tips || 0) + (order.driver_tips || 0);
-                    dps.total_earns =
-                      (dps.total_earns || 0) + this.calculateTotalEarns(order);
+                    // Không cộng thêm total_earns ở đây nữa
                     dps.total_distance_travelled =
                       Number(dps.total_distance_travelled || 0) +
                       Number(order.distance || 0);
@@ -853,7 +849,6 @@ export class DriversGateway
             newNextState = lastCompletedDelivery ? null : newNextState;
           }
 
-          // Kiểm tra xem tất cả delivery_complete_* đã hoàn thành chưa
           const allDeliveryCompleteStages = updatedStages.filter(stage =>
             stage.state.startsWith('delivery_complete_')
           );
@@ -877,7 +872,6 @@ export class DriversGateway
                 ),
                 total_tips: dps.total_tips,
                 total_earns: dps.total_earns,
-                // Thêm flag để đánh dấu đã xử lý transaction
                 transactions_processed:
                   dps.transactions_processed ||
                   (allDeliveryCompleteDone ? false : undefined)
@@ -885,7 +879,6 @@ export class DriversGateway
               transactionalEntityManager
             );
 
-          // Chỉ xử lý transaction khi tất cả delivery_complete_* đã hoàn thành và chưa xử lý trước đó
           if (
             allDeliveryCompleteDone &&
             allDeliveryCompleteStages.length > 0 &&
@@ -894,38 +887,34 @@ export class DriversGateway
             const driver = await transactionalEntityManager
               .getRepository(Driver)
               .findOne({ where: { id: dps.driver_id } });
-            if (!driver) {
-              throw new Error(`Driver ${dps.driver_id} not found`);
-            }
+            if (!driver) throw new Error(`Driver ${dps.driver_id} not found`);
+
             const driverWallet = await this.fWalletsRepository.findByUserId(
               driver.user_id,
               transactionalEntityManager
             );
-            if (!driverWallet) {
+            if (!driverWallet)
               throw new Error(`Wallet not found for driver ${dps.driver_id}`);
-            }
 
-            // Xử lý transaction cho từng order nếu là COD
             for (const order of dps.orders) {
               if (order.payment_method === 'COD') {
                 const restaurant = await transactionalEntityManager
                   .getRepository(Restaurant)
                   .findOne({ where: { id: order.restaurant_id } });
-                if (!restaurant) {
+                if (!restaurant)
                   throw new Error(
                     `Restaurant ${order.restaurant_id} not found`
                   );
-                }
+
                 const restaurantWallet =
                   await this.fWalletsRepository.findByUserId(
                     restaurant.owner_id,
                     transactionalEntityManager
                   );
-                if (!restaurantWallet) {
+                if (!restaurantWallet)
                   throw new Error(
                     `Wallet not found for restaurant ${order.restaurant_id}`
                   );
-                }
 
                 const codTransactionDto: CreateTransactionDto = {
                   user_id: driver.user_id,
@@ -956,16 +945,22 @@ export class DriversGateway
               }
             }
 
-            // Transaction cho driver earnings (dps.total_earns) - chỉ chạy một lần
+            console.log(
+              'check total earns',
+              dps.total_earns,
+              'check driver wallet',
+              driverWallet.id
+            );
+
             if (dps.total_earns > 0) {
               const earningsTransactionDto: CreateTransactionDto = {
                 user_id: driver.user_id,
-                fwallet_id: driverWallet.id,
-                transaction_type: 'DEPOSIT',
+                fwallet_id: FLASHFOOD_FINANCE.id,
+                transaction_type: 'PURCHASE',
                 amount: dps.total_earns,
                 balance_after: 0,
                 status: 'PENDING',
-                source: 'FWALLET', // Giả định nguồn là hệ thống
+                source: 'FWALLET',
                 destination: driverWallet.id,
                 destination_type: 'FWALLET'
               };
@@ -984,16 +979,11 @@ export class DriversGateway
                 'Earnings transaction for driver succeeded:',
                 earningsTransactionResponse.data
               );
-            }
 
-            // Cập nhật lại dps để đánh dấu đã xử lý transaction
-            await this.driverProgressStageService.updateStage(
-              data.stageId,
-              {
-                transactions_processed: true
-              },
-              transactionalEntityManager
-            );
+              // Cập nhật transactions_processed ngay trong cùng transaction
+              dps.transactions_processed = true;
+              await transactionalEntityManager.save(DriverProgressStage, dps);
+            }
           }
 
           const newStagesString = JSON.stringify(updateResult.data.stages);
