@@ -43,12 +43,19 @@ const penalty_rules_module_1 = require("./penalty-rules/penalty-rules.module");
 const finance_rules_module_1 = require("./finance_rules/finance_rules.module");
 const faq_module_1 = require("./faq/faq.module");
 const driver_stats_records_module_1 = require("./driver_stats_records/driver_stats_records.module");
+const banned_account_module_1 = require("./banned-account/banned-account.module");
+const jwt_1 = require("@nestjs/jwt");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            jwt_1.JwtModule.register({
+                secret: process.env.JWT_SECRET,
+                signOptions: { expiresIn: '30d' },
+                global: true
+            }),
             address_book_module_1.AddressBookModule,
             event_emitter_1.EventEmitterModule.forRoot(),
             customers_module_1.CustomersModule,
@@ -90,7 +97,8 @@ exports.AppModule = AppModule = __decorate([
             penalty_rules_module_1.PenaltyRulesModule,
             finance_rules_module_1.FinanceRulesModule,
             faq_module_1.FaqModule,
-            driver_stats_records_module_1.DriverStatsRecordsModule
+            driver_stats_records_module_1.DriverStatsRecordsModule,
+            banned_account_module_1.BannedAccountModule
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService, email_service_1.EmailService]

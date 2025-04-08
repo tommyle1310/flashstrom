@@ -1,41 +1,56 @@
-import { Injectable } from '@nestjs/common';
-import { CanActivate, ExecutionContext } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Reflector } from '@nestjs/core';
-import { Observable } from 'rxjs';
-import { AuthService } from './auth.service';
+import { createResponse } from 'src/utils/createResponse';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(
-    private readonly jwtService: JwtService,
-    private readonly reflector: Reflector,
-    private readonly authService: AuthService // Make sure to inject AuthService
-  ) {}
+  constructor(private readonly jwtService: JwtService) {}
 
-  canActivate(
-    context: ExecutionContext
-  ): boolean | Promise<boolean> | Observable<boolean> {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const authorization = request.headers['authorization'];
 
     if (!authorization) {
-      return false; // No token in the request
+      request.response = createResponse(
+        'Forbidden',
+        null,
+        'No authorization token provided'
+      );
+      return false;
     }
 
-    const token = authorization.split(' ')[1]; // Bearer <token>
-
+    const token = authorization.replace('Bearer ', '').trim();
     if (!token) {
-      return false; // No token found after 'Bearer'
+      request.response = createResponse(
+        'Forbidden',
+        null,
+        'Invalid token format'
+      );
+      return false;
     }
 
     try {
-      const payload = this.jwtService.verify(token); // Verify the token
-      request.user = payload; // Attach the decoded user data to the request
+      const payload = this.jwtService.verify(token);
+      // Dùng 'id' thay vì 'adminId' để khớp với payload
+      const userId = payload.id;
+      if (!userId) {
+        request.response = createResponse(
+          'Forbidden',
+          null,
+          'Invalid token: No user ID found'
+        );
+        return false;
+      }
+      request.user = payload; // Gán toàn bộ payload vào request.user
       return true;
     } catch (error) {
-      console.log('error', error);
-      return false; // Token verification failed
+      console.log('JwtAuthGuard error:', error);
+      request.response = createResponse(
+        'ServerError',
+        null,
+        error.message || 'Invalid token or insufficient permissions'
+      );
+      return false;
     }
   }
 }

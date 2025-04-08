@@ -73,6 +73,7 @@ const ratings_review_entity_1 = require("../ratings_reviews/entities/ratings_rev
 const ratings_reviews_repository_1 = require("../ratings_reviews/ratings_reviews.repository");
 const driver_stats_record_entity_1 = require("../driver_stats_records/entities/driver_stats_record.entity");
 const driver_stats_records_service_1 = require("../driver_stats_records/driver_stats_records.service");
+const banned_account_entity_1 = require("../banned-account/entities/banned-account.entity");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -95,6 +96,7 @@ exports.AuthModule = AuthModule = __decorate([
                 ratings_review_entity_1.RatingsReview,
                 driver_stats_record_entity_1.DriverStatsRecord,
                 restaurant_entity_1.Restaurant,
+                banned_account_entity_1.BannedAccount,
                 menu_item_entity_1.MenuItem,
                 online_session_entity_1.OnlineSession,
                 transaction_entity_1.Transaction,

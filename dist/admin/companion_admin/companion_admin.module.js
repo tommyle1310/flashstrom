@@ -67,6 +67,7 @@ const driver_stats_record_entity_1 = require("../../driver_stats_records/entitie
 const driver_stats_records_service_1 = require("../../driver_stats_records/driver_stats_records.service");
 const ratings_review_entity_1 = require("../../ratings_reviews/entities/ratings_review.entity");
 const ratings_reviews_repository_1 = require("../../ratings_reviews/ratings_reviews.repository");
+const banned_account_entity_1 = require("../../banned-account/entities/banned-account.entity");
 let CompanionAdminModule = class CompanionAdminModule {
 };
 exports.CompanionAdminModule = CompanionAdminModule;
@@ -82,6 +83,7 @@ exports.CompanionAdminModule = CompanionAdminModule = __decorate([
                 menu_item_entity_1.MenuItem,
                 menu_item_variant_entity_1.MenuItemVariant,
                 order_entity_1.Order,
+                banned_account_entity_1.BannedAccount,
                 cart_item_entity_1.CartItem,
                 online_session_entity_1.OnlineSession,
                 food_category_entity_1.FoodCategory,

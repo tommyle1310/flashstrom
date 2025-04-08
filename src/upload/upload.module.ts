@@ -60,6 +60,7 @@ import { Admin } from 'src/admin/entities/admin.entity';
 import { AdminRepository } from 'src/admin/admin.repository';
 import { AdminService } from 'src/admin/admin.service';
 import { UsersService } from 'src/users/users.service';
+import { BannedAccount } from 'src/banned-account/entities/banned-account.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -69,6 +70,7 @@ import { UsersService } from 'src/users/users.service';
       FoodCategory,
       Restaurant,
       Customer,
+      BannedAccount,
       RatingsReview,
       OnlineSession,
       Driver,

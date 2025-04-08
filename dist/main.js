@@ -6,7 +6,9 @@ const common_1 = require("@nestjs/common");
 const dotenv = require("dotenv");
 const createResponse_1 = require("./utils/createResponse");
 const path_1 = require("path");
+const permission_filter_1 = require("./filters/permission.filter");
 dotenv.config();
+console.log('JWT_SECRET:', process.env.JWT_SECRET);
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.useLogger(['debug', 'error', 'log', 'verbose', 'warn']);
@@ -30,6 +32,7 @@ async function bootstrap() {
         transform: true
     }));
     app.useGlobalFilters(new createResponse_1.HttpExceptionFilter());
+    app.useGlobalFilters(new permission_filter_1.PermissionFilter());
     const viewsPath = (0, path_1.resolve)(__dirname, '..', 'src', 'views');
     console.log('Views directory:', viewsPath);
     app.setBaseViewsDir(viewsPath);

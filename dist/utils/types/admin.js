@@ -16,6 +16,7 @@ var AdminPermission;
     AdminPermission["MANAGE_PAYMENTS"] = "MANAGE_PAYMENTS";
     AdminPermission["MANAGE_SUPPORT"] = "MANAGE_SUPPORT";
     AdminPermission["MANAGE_DRIVERS"] = "MANAGE_DRIVERS";
+    AdminPermission["BAN_ACCOUNTS"] = "BAN_ACCOUNTS";
     AdminPermission["VIEW_ANALYTICS"] = "VIEW_ANALYTICS";
     AdminPermission["MANAGE_ADMINS"] = "MANAGE_ADMINS";
 })(AdminPermission || (exports.AdminPermission = AdminPermission = {}));

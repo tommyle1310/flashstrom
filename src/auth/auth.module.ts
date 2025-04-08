@@ -64,6 +64,7 @@ import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entit
 import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
 import { DriverStatsRecord } from 'src/driver_stats_records/entities/driver_stats_record.entity';
 import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
+import { BannedAccount } from 'src/banned-account/entities/banned-account.entity';
 @Module({
   imports: [
     JwtModule.register({
@@ -82,6 +83,7 @@ import { DriverStatsService } from 'src/driver_stats_records/driver_stats_record
       RatingsReview,
       DriverStatsRecord,
       Restaurant,
+      BannedAccount,
       MenuItem,
       OnlineSession,
       Transaction,

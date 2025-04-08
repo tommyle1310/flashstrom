@@ -16,4 +16,8 @@ export declare class UpdateAdminDto extends UpdateAdminDto_base {
     assigned_customer_care?: CustomerCare[];
     status?: AdminStatus;
 }
+export declare class UpdatePermissionsDto {
+    permissions: AdminPermission[];
+    requesterId: string;
+}
 export {};

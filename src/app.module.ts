@@ -35,8 +35,15 @@ import { PenaltyRulesModule } from './penalty-rules/penalty-rules.module';
 import { FinanceRulesModule } from './finance_rules/finance_rules.module';
 import { FaqModule } from './faq/faq.module';
 import { DriverStatsRecordsModule } from './driver_stats_records/driver_stats_records.module';
+import { BannedAccountModule } from './banned-account/banned-account.module';
+import { JwtModule } from '@nestjs/jwt';
 @Module({
   imports: [
+    JwtModule.register({
+      secret: process.env.JWT_SECRET,
+      signOptions: { expiresIn: '30d' },
+      global: true // Đặt global để JwtService dùng được khắp app
+    }),
     // MongooseModule.forRoot(process.env.MONGO_URI), // Your MongoDB URI
     AddressBookModule,
     EventEmitterModule.forRoot(),
@@ -83,7 +90,8 @@ import { DriverStatsRecordsModule } from './driver_stats_records/driver_stats_re
     PenaltyRulesModule,
     FinanceRulesModule,
     FaqModule,
-    DriverStatsRecordsModule
+    DriverStatsRecordsModule,
+    BannedAccountModule
   ],
   controllers: [AppController],
   providers: [AppService, EmailService]

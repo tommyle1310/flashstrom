@@ -17,6 +17,11 @@ const common_1 = require("@nestjs/common");
 const admin_service_1 = require("./admin.service");
 const create_admin_dto_1 = require("./dto/create-admin.dto");
 const update_admin_dto_1 = require("./dto/update-admin.dto");
+const update_admin_dto_2 = require("./dto/update-admin.dto");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
+const permission_guard_1 = require("./guards/permission.guard");
+const permissions_decorator_1 = require("./decorators/permissions.decorator");
+const admin_1 = require("../utils/types/admin");
 let AdminController = class AdminController {
     constructor(adminService) {
         this.adminService = adminService;
@@ -36,10 +41,18 @@ let AdminController = class AdminController {
     remove(id) {
         return this.adminService.remove(id);
     }
+    banAccount(entityType, entityId, adminId, reason) {
+        return this.adminService.banAccount(entityType, entityId, adminId, reason);
+    }
+    updatePermissions(adminId, updatePermissionsDto, requesterId) {
+        return this.adminService.updatePermissions(adminId, updatePermissionsDto, requesterId);
+    }
 };
 exports.AdminController = AdminController;
 __decorate([
     (0, common_1.Post)(),
+    (0, common_1.UseGuards)(permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.Permissions)(admin_1.AdminPermission.MANAGE_ADMINS),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [create_admin_dto_1.CreateAdminDto]),
@@ -68,13 +81,39 @@ __decorate([
 ], AdminController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
+    (0, common_1.UseGuards)(permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.Permissions)(admin_1.AdminPermission.MANAGE_ADMINS),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Post)('ban/:entityType/:entityId'),
+    (0, common_1.UseGuards)(permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.Permissions)(admin_1.AdminPermission.BAN_ACCOUNTS),
+    __param(0, (0, common_1.Param)('entityType')),
+    __param(1, (0, common_1.Param)('entityId')),
+    __param(2, (0, common_1.Body)('adminId')),
+    __param(3, (0, common_1.Body)('reason')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, String]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "banAccount", null);
+__decorate([
+    (0, common_1.Patch)('permissions/:id'),
+    (0, common_1.UseGuards)(permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.Permissions)(admin_1.AdminPermission.MANAGE_ADMINS),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Body)('requesterId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, update_admin_dto_2.UpdatePermissionsDto, String]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "updatePermissions", null);
 exports.AdminController = AdminController = __decorate([
     (0, common_1.Controller)('admin'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [admin_service_1.AdminService])
 ], AdminController);
 //# sourceMappingURL=admin.controller.js.map

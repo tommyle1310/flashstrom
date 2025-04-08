@@ -69,6 +69,7 @@ const admin_entity_1 = require("../admin/entities/admin.entity");
 const admin_repository_1 = require("../admin/admin.repository");
 const admin_service_1 = require("../admin/admin.service");
 const users_service_1 = require("../users/users.service");
+const banned_account_entity_1 = require("../banned-account/entities/banned-account.entity");
 let UploadModule = class UploadModule {
 };
 exports.UploadModule = UploadModule;
@@ -82,6 +83,7 @@ exports.UploadModule = UploadModule = __decorate([
                 food_category_entity_1.FoodCategory,
                 restaurant_entity_1.Restaurant,
                 customer_entity_1.Customer,
+                banned_account_entity_1.BannedAccount,
                 ratings_review_entity_1.RatingsReview,
                 online_session_entity_1.OnlineSession,
                 driver_entity_1.Driver,

@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UpdateAdminDto = void 0;
+exports.UpdatePermissionsDto = exports.UpdateAdminDto = void 0;
 const mapped_types_1 = require("@nestjs/mapped-types");
 const create_admin_dto_1 = require("./create-admin.dto");
 const class_validator_1 = require("class-validator");
@@ -53,4 +53,16 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateAdminDto.prototype, "status", void 0);
+class UpdatePermissionsDto {
+}
+exports.UpdatePermissionsDto = UpdatePermissionsDto;
+__decorate([
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsEnum)(admin_1.AdminPermission, { each: true }),
+    __metadata("design:type", Array)
+], UpdatePermissionsDto.prototype, "permissions", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdatePermissionsDto.prototype, "requesterId", void 0);
 //# sourceMappingURL=update-admin.dto.js.map

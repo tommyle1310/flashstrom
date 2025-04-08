@@ -6,8 +6,10 @@ import * as dotenv from 'dotenv';
 import { HttpExceptionFilter } from './utils/createResponse';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join, resolve } from 'path';
+import { PermissionFilter } from './filters/permission.filter';
 
 dotenv.config();
+console.log('JWT_SECRET:', process.env.JWT_SECRET);
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -35,6 +37,7 @@ async function bootstrap() {
     })
   );
   app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(new PermissionFilter());
 
   // Use an absolute path to src/views
   const viewsPath = resolve(__dirname, '..', 'src', 'views');

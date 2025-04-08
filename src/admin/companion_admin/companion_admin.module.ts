@@ -58,6 +58,7 @@ import { DriverStatsRecord } from 'src/driver_stats_records/entities/driver_stat
 import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
 import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
+import { BannedAccount } from 'src/banned-account/entities/banned-account.entity';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.re
       MenuItem,
       MenuItemVariant,
       Order,
+      BannedAccount,
       CartItem,
       OnlineSession,
       FoodCategory,
