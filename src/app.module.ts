@@ -37,6 +37,7 @@ import { FaqModule } from './faq/faq.module';
 import { DriverStatsRecordsModule } from './driver_stats_records/driver_stats_records.module';
 import { BannedAccountModule } from './banned-account/banned-account.module';
 import { JwtModule } from '@nestjs/jwt';
+import { NotificationsModule } from './notifications/notifications.module';
 @Module({
   imports: [
     JwtModule.register({
@@ -91,7 +92,8 @@ import { JwtModule } from '@nestjs/jwt';
     FinanceRulesModule,
     FaqModule,
     DriverStatsRecordsModule,
-    BannedAccountModule
+    BannedAccountModule,
+    NotificationsModule
   ],
   controllers: [AppController],
   providers: [AppService, EmailService]

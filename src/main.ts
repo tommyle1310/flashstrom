@@ -36,8 +36,8 @@ async function bootstrap() {
       transform: true
     })
   );
-  app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalFilters(new PermissionFilter());
+  app.useGlobalFilters(new HttpExceptionFilter());
 
   // Use an absolute path to src/views
   const viewsPath = resolve(__dirname, '..', 'src', 'views');

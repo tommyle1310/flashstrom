@@ -21,43 +21,19 @@ function createResponse(status, data, message) {
 }
 let HttpExceptionFilter = class HttpExceptionFilter {
     catch(exception, host) {
-        const response = host.switchToHttp().getResponse();
-        const status = exception.getStatus();
+        const ctx = host.switchToHttp();
+        const response = ctx.getResponse();
         const errorResponse = exception.getResponse();
-        if (typeof errorResponse === 'string') {
-            return response.status(status).json({
-                EC: 2,
-                EM: 'InvalidFormatInput',
-                data: errorResponse
-            });
-        }
-        if (errorResponse &&
-            typeof errorResponse === 'object' &&
-            'message' in errorResponse) {
-            return response.status(status).json({
-                EC: 2,
-                EM: 'InvalidFormatInput',
-                data: errorResponse.message
-            });
-        }
         if (Array.isArray(errorResponse.message)) {
-            const formattedErrors = errorResponse.message.map((error) => {
-                return {
-                    field: error.property,
-                    constraints: error.constraints
-                };
-            });
-            return response.status(status).json({
-                EC: -6,
-                EM: 'Controller error',
-                data: formattedErrors
-            });
+            const messages = errorResponse.message;
+            const apiResponse = createResponse('InvalidFormatInput', messages, 'Please validate inputs with these errors');
+            return response.status(200).json(apiResponse);
         }
-        return response.status(status).json({
-            EC: -6,
-            EM: 'Controller error',
-            data: 'An unknown error occurred'
-        });
+        const message = typeof errorResponse === 'string'
+            ? errorResponse
+            : errorResponse.message || 'Bad request';
+        const apiResponse = createResponse('ServerError', null, message);
+        return response.status(200).json(apiResponse);
     }
 };
 exports.HttpExceptionFilter = HttpExceptionFilter;

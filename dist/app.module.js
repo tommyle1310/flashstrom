@@ -45,6 +45,7 @@ const faq_module_1 = require("./faq/faq.module");
 const driver_stats_records_module_1 = require("./driver_stats_records/driver_stats_records.module");
 const banned_account_module_1 = require("./banned-account/banned-account.module");
 const jwt_1 = require("@nestjs/jwt");
+const notifications_module_1 = require("./notifications/notifications.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -98,7 +99,8 @@ exports.AppModule = AppModule = __decorate([
             finance_rules_module_1.FinanceRulesModule,
             faq_module_1.FaqModule,
             driver_stats_records_module_1.DriverStatsRecordsModule,
-            banned_account_module_1.BannedAccountModule
+            banned_account_module_1.BannedAccountModule,
+            notifications_module_1.NotificationsModule
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService, email_service_1.EmailService]

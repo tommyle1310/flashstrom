@@ -31,8 +31,8 @@ async function bootstrap() {
         forbidNonWhitelisted: true,
         transform: true
     }));
-    app.useGlobalFilters(new createResponse_1.HttpExceptionFilter());
     app.useGlobalFilters(new permission_filter_1.PermissionFilter());
+    app.useGlobalFilters(new createResponse_1.HttpExceptionFilter());
     const viewsPath = (0, path_1.resolve)(__dirname, '..', 'src', 'views');
     console.log('Views directory:', viewsPath);
     app.setBaseViewsDir(viewsPath);

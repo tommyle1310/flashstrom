@@ -17,12 +17,16 @@ let PermissionFilter = class PermissionFilter {
         if (!response || !request) {
             return;
         }
+        console.error('Exception caught in PermissionFilter:', exception);
+        if (response.headersSent) {
+            return;
+        }
         if (request.response &&
             request.response.EC !== undefined) {
             const apiResponse = request.response;
             return response.status(common_1.HttpStatus.OK).json(apiResponse);
         }
-        const errorResponse = (0, createResponse_1.createResponse)('ServerError', null, 'An unexpected error occurred');
+        const errorResponse = (0, createResponse_1.createResponse)('ServerError', null, exception.message || 'An unexpected error occurred');
         return response.status(common_1.HttpStatus.OK).json(errorResponse);
     }
 };
