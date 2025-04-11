@@ -33,7 +33,6 @@ const drivers_gateway_1 = require("../drivers/drivers.gateway");
 const transactions_service_1 = require("../transactions/transactions.service");
 const fwallets_repository_1 = require("../fwallets/fwallets.repository");
 const promotion_entity_1 = require("../promotions/entities/promotion.entity");
-const promotion_entity_2 = require("../promotions/entities/promotion.entity");
 const typeorm_2 = require("typeorm");
 const menu_item_entity_1 = require("../menu_items/entities/menu_item.entity");
 const restaurant_entity_1 = require("../restaurants/entities/restaurant.entity");
@@ -71,70 +70,43 @@ let OrdersService = class OrdersService {
                 const menuItems = await transactionalEntityManager
                     .getRepository(menu_item_entity_1.MenuItem)
                     .findBy({
-                    id: (0, typeorm_2.In)(createOrderDto.order_items.map(item => item.item_id))
+                    id: (0, typeorm_2.In)(createOrderDto.order_items.map((item) => item.item_id)),
                 });
                 let totalAmount = createOrderDto.total_amount;
-                const appliedPromotions = [];
-                if (createOrderDto.promotions_applied?.length > 0) {
-                    const promotions = await transactionalEntityManager
+                let appliedPromotion = null;
+                if (createOrderDto.promotion_applied) {
+                    const promotion = await transactionalEntityManager
                         .getRepository(promotion_entity_1.Promotion)
-                        .find({
-                        where: { id: (0, typeorm_2.In)(createOrderDto.promotions_applied) },
-                        relations: ['food_categories']
+                        .findOne({
+                        where: { id: createOrderDto.promotion_applied },
                     });
-                    for (const promotion of promotions) {
+                    if (promotion) {
                         const now = Math.floor(Date.now() / 1000);
-                        if (promotion.start_date > now ||
-                            promotion.end_date < now ||
-                            promotion.status !== promotion_entity_2.PromotionStatus.ACTIVE) {
-                            continue;
-                        }
-                        if (!promotion.food_categories ||
-                            promotion.food_categories.length === 0) {
-                            if (promotion.discount_type === promotion_entity_2.DiscountType.FIXED) {
-                                totalAmount = Math.max(0, totalAmount - promotion.discount_value);
-                            }
-                            else if (promotion.discount_type === promotion_entity_2.DiscountType.PERCENTAGE) {
-                                totalAmount =
-                                    totalAmount * (1 - promotion.discount_value / 100);
-                            }
-                            appliedPromotions.push(promotion);
-                            continue;
-                        }
-                        const promotionCategories = promotion.food_categories.map(fc => fc.id);
-                        createOrderDto.order_items = createOrderDto.order_items.map(orderItem => {
-                            const menuItem = menuItems.find(mi => mi.id === orderItem.item_id);
-                            if (!menuItem)
-                                return orderItem;
-                            const hasMatchingCategory = menuItem.category.some(cat => promotionCategories.includes(cat));
-                            if (hasMatchingCategory) {
-                                let discountedPrice = orderItem.price_at_time_of_order;
-                                if (promotion.discount_type === promotion_entity_2.DiscountType.FIXED) {
-                                    discountedPrice = Math.max(0, discountedPrice - promotion.discount_value);
-                                }
-                                else if (promotion.discount_type === promotion_entity_2.DiscountType.PERCENTAGE) {
-                                    discountedPrice =
-                                        discountedPrice * (1 - promotion.discount_value / 100);
-                                }
-                                const discount = (orderItem.price_at_time_of_order - discountedPrice) *
-                                    orderItem.quantity;
-                                totalAmount -= discount;
+                        if (promotion.start_date <= now &&
+                            promotion.end_date >= now &&
+                            promotion.status === 'ACTIVE') {
+                            appliedPromotion = promotion;
+                            totalAmount = 0;
+                            createOrderDto.order_items = createOrderDto.order_items.map((orderItem) => {
+                                const menuItem = menuItems.find((mi) => mi.id === orderItem.item_id);
+                                if (!menuItem)
+                                    return orderItem;
+                                const priceToUse = orderItem.price_after_applied_promotion ?? orderItem.price_at_time_of_order;
+                                totalAmount += priceToUse * orderItem.quantity;
                                 return {
                                     ...orderItem,
-                                    price_at_time_of_order: discountedPrice
+                                    price_at_time_of_order: priceToUse,
                                 };
-                            }
-                            return orderItem;
-                        });
-                        appliedPromotions.push(promotion);
+                            });
+                        }
                     }
                 }
                 const orderData = {
                     ...createOrderDto,
-                    total_amount: totalAmount,
-                    promotions_applied: appliedPromotions,
+                    total_amount: totalAmount + createOrderDto.delivery_fee + createOrderDto.service_fee,
+                    promotions_applied: appliedPromotion ? [appliedPromotion] : [],
                     status: createOrderDto.status,
-                    tracking_info: order_entity_2.OrderTrackingInfo.ORDER_PLACED
+                    tracking_info: order_entity_2.OrderTrackingInfo.ORDER_PLACED,
                 };
                 if (createOrderDto.payment_method === 'FWallet') {
                     const customerWallet = await this.fWalletsRepository.findByUserId(user.user_id);
@@ -158,7 +130,7 @@ let OrdersService = class OrdersService {
                         status: 'PENDING',
                         source: 'FWALLET',
                         destination: restaurantWallet.id,
-                        destination_type: 'FWALLET'
+                        destination_type: 'FWALLET',
                     };
                     const transactionResponse = await this.transactionsService.create(transactionDto, transactionalEntityManager);
                     console.log('check transac res', transactionResponse);
@@ -171,44 +143,13 @@ let OrdersService = class OrdersService {
                 const cartItems = await transactionalEntityManager
                     .getRepository(cart_item_entity_1.CartItem)
                     .find({
-                    where: { customer_id: createOrderDto.customer_id }
+                    where: { customer_id: createOrderDto.customer_id },
                 });
                 for (const orderItem of createOrderDto.order_items) {
-                    const cartItem = cartItems.find(ci => ci.item_id === orderItem.item_id);
-                    if (!cartItem) {
-                        console.log(`Cart item with item_id ${orderItem.item_id} not found for customer ${createOrderDto.customer_id}. Proceeding without modifying cart.`);
-                        continue;
-                    }
-                    const cartVariant = cartItem.variants.find(v => v.variant_id === orderItem.variant_id);
-                    if (!cartVariant) {
-                        console.log(`Variant ${orderItem.variant_id} not found in cart item ${cartItem.id}. Proceeding without modifying cart.`);
-                        continue;
-                    }
-                    const orderQuantity = orderItem.quantity;
-                    const cartQuantity = cartVariant.quantity;
-                    if (orderQuantity > cartQuantity) {
-                        return (0, createResponse_1.createResponse)('NotAcceptingOrders', null, `Order quantity (${orderQuantity}) exceeds cart quantity (${cartQuantity}) for item ${orderItem.item_id}, variant ${orderItem.variant_id}`);
-                    }
-                    if (orderQuantity === cartQuantity) {
-                        await transactionalEntityManager
-                            .getRepository(cart_item_entity_1.CartItem)
-                            .delete(cartItem.id);
-                        console.log(`Deleted cart item ${cartItem.id} as order quantity matches cart quantity`);
-                    }
-                    else if (orderQuantity < cartQuantity) {
-                        const updatedVariants = cartItem.variants.map(v => v.variant_id === orderItem.variant_id
-                            ? { ...v, quantity: v.quantity - orderQuantity }
-                            : v);
-                        await transactionalEntityManager
-                            .getRepository(cart_item_entity_1.CartItem)
-                            .update(cartItem.id, {
-                            variants: updatedVariants,
-                            updated_at: Math.floor(Date.now() / 1000),
-                            item_id: cartItem.item_id,
-                            customer_id: cartItem.customer_id,
-                            restaurant_id: cartItem.restaurant_id
-                        });
-                        console.log(`Updated cart item ${cartItem.id} with reduced quantity`);
+                    const cartItem = cartItems.find((ci) => ci.item_id === orderItem.item_id);
+                    if (cartItem) {
+                        await transactionalEntityManager.getRepository(cart_item_entity_1.CartItem).delete(cartItem.id);
+                        console.log(`Deleted cart item ${cartItem.id} after order placement`);
                     }
                 }
                 const orderRepository = transactionalEntityManager.getRepository(order_entity_1.Order);
@@ -223,7 +164,7 @@ let OrdersService = class OrdersService {
                         .getRepository(restaurant_entity_1.Restaurant)
                         .update(createOrderDto.restaurant_id, {
                         total_orders: restaurant.total_orders + 1,
-                        updated_at: Math.floor(Date.now() / 1000)
+                        updated_at: Math.floor(Date.now() / 1000),
                     });
                 }
                 else {
@@ -252,18 +193,17 @@ let OrdersService = class OrdersService {
             const manager = transactionalEntityManager || this.dataSource.manager;
             const order = await manager.findOne(order_entity_1.Order, {
                 where: { id },
-                relations: ['promotions_applied']
+                relations: ['promotions_applied'],
             });
             if (!order) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Order not found');
             }
             let promotionsApplied = order.promotions_applied || [];
-            if (updateOrderDto.promotions_applied?.length > 0) {
-                promotionsApplied = await manager.getRepository(promotion_entity_1.Promotion).find({
-                    where: {
-                        id: (0, typeorm_2.In)(updateOrderDto.promotions_applied)
-                    }
+            if (updateOrderDto.promotion_applied) {
+                const promotion = await manager.getRepository(promotion_entity_1.Promotion).findOne({
+                    where: { id: updateOrderDto.promotion_applied },
                 });
+                promotionsApplied = promotion ? [promotion] : [];
             }
             const updatedData = {
                 ...order,
@@ -274,7 +214,7 @@ let OrdersService = class OrdersService {
                     : order.status,
                 tracking_info: updateOrderDto.tracking_info
                     ? updateOrderDto.tracking_info
-                    : order.tracking_info
+                    : order.tracking_info,
             };
             const updatedOrder = await manager.save(order_entity_1.Order, updatedData);
             return (0, createResponse_1.createResponse)('OK', updatedOrder, 'Order updated successfully');

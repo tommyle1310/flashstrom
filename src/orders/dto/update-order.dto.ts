@@ -1,16 +1,8 @@
 // update-order.dto.ts
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateOrderDto } from './create-order.dto';
-import {
-  IsString,
-  IsArray,
-  IsEnum,
-  IsNumber,
-  Min,
-  IsOptional
-} from 'class-validator';
+import { IsString, IsEnum, IsNumber, Min, IsOptional } from 'class-validator';
 
-// Loại bỏ enum thủ công, dùng thẳng từ entity
 export class UpdateOrderDto extends PartialType(CreateOrderDto) {
   @IsOptional()
   @IsEnum([
@@ -24,7 +16,7 @@ export class UpdateOrderDto extends PartialType(CreateOrderDto) {
     'EN_ROUTE',
     'OUT_FOR_DELIVERY',
     'DELIVERED',
-    'DELIVERY_FAILED'
+    'DELIVERY_FAILED',
   ])
   status:
     | 'PENDING'
@@ -49,12 +41,12 @@ export class UpdateOrderDto extends PartialType(CreateOrderDto) {
   @Min(0)
   total_amount?: number;
 
-  @IsOptional() // Sửa: Thêm @IsOptional() vì nó không bắt buộc trong update
+  @IsOptional()
   @IsNumber()
   @Min(0)
   delivery_fee?: number;
 
-  @IsOptional() // Sửa: Thêm @IsOptional()
+  @IsOptional()
   @IsNumber()
   @Min(0)
   service_fee?: number;
@@ -80,13 +72,13 @@ export class UpdateOrderDto extends PartialType(CreateOrderDto) {
   restaurant_location?: string;
 
   @IsOptional()
-  @IsArray()
   order_items?: Array<{
     item_id: string;
     variant_id: string;
     name: string;
     quantity: number;
     price_at_time_of_order: number;
+    price_after_applied_promotion?: number; // Thêm từ CreateOrderDto
   }>;
 
   @IsOptional()
@@ -116,7 +108,7 @@ export class UpdateOrderDto extends PartialType(CreateOrderDto) {
     'EN_ROUTE',
     'OUT_FOR_DELIVERY',
     'DELIVERY_FAILED',
-    'DELIVERED'
+    'DELIVERED',
   ])
   tracking_info:
     | 'ORDER_PLACED'
@@ -129,4 +121,8 @@ export class UpdateOrderDto extends PartialType(CreateOrderDto) {
     | 'OUT_FOR_DELIVERY'
     | 'DELIVERY_FAILED'
     | 'DELIVERED';
+
+  @IsOptional()
+  @IsString()
+  promotion_applied?: string; // Thêm field này, khớp với CreateOrderDto
 }

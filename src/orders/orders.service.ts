@@ -57,296 +57,163 @@ export class OrdersService {
     try {
       const validationResult = await this.validateOrderData(createOrderDto);
       if (validationResult !== true) {
-        return validationResult; // Đảm bảo validationResult là ApiResponse
+        return validationResult;
       }
       console.log('check input', createOrderDto);
-
-      const user = await this.customersRepository.findById(
-        createOrderDto.customer_id
-      );
+  
+      const user = await this.customersRepository.findById(createOrderDto.customer_id);
       if (!user) {
-        return createResponse(
-          'NotFound',
-          null,
-          `Customer ${createOrderDto.customer_id} not found`
-        );
+        return createResponse('NotFound', null, `Customer ${createOrderDto.customer_id} not found`);
       }
-
-      const result = await this.dataSource.transaction(
-        async transactionalEntityManager => {
-          const menuItems = await transactionalEntityManager
-            .getRepository(MenuItem)
-            .findBy({
-              id: In(createOrderDto.order_items.map(item => item.item_id))
+  
+      const result = await this.dataSource.transaction(async (transactionalEntityManager) => {
+        const menuItems = await transactionalEntityManager
+          .getRepository(MenuItem)
+          .findBy({
+            id: In(createOrderDto.order_items.map((item) => item.item_id)),
+          });
+  
+        let totalAmount = createOrderDto.total_amount;
+        let appliedPromotion: Promotion | null = null;
+  
+        // Xử lý một promotion duy nhất nếu có
+        if (createOrderDto.promotion_applied) {
+          const promotion = await transactionalEntityManager
+            .getRepository(Promotion)
+            .findOne({
+              where: { id: createOrderDto.promotion_applied },
             });
-
-          let totalAmount = createOrderDto.total_amount;
-          const appliedPromotions: Promotion[] = [];
-
-          if (createOrderDto.promotions_applied?.length > 0) {
-            const promotions = await transactionalEntityManager
-              .getRepository(Promotion)
-              .find({
-                where: { id: In(createOrderDto.promotions_applied) },
-                relations: ['food_categories']
+  
+          if (promotion) {
+            const now = Math.floor(Date.now() / 1000);
+            if (
+              promotion.start_date <= now &&
+              promotion.end_date >= now &&
+              promotion.status === 'ACTIVE'
+            ) {
+              appliedPromotion = promotion;
+  
+              // Cập nhật total_amount dựa trên price_after_applied_promotion từ DTO
+              totalAmount = 0;
+              createOrderDto.order_items = createOrderDto.order_items.map((orderItem) => {
+                const menuItem = menuItems.find((mi) => mi.id === orderItem.item_id);
+                if (!menuItem) return orderItem;
+  
+                const priceToUse = orderItem.price_after_applied_promotion ?? orderItem.price_at_time_of_order;
+                totalAmount += priceToUse * orderItem.quantity;
+  
+                return {
+                  ...orderItem,
+                  price_at_time_of_order: priceToUse, // Ghi đè bằng giá đã áp dụng nếu có
+                };
               });
-
-            for (const promotion of promotions) {
-              const now = Math.floor(Date.now() / 1000);
-              if (
-                promotion.start_date > now ||
-                promotion.end_date < now ||
-                promotion.status !== PromotionStatus.ACTIVE
-              ) {
-                continue;
-              }
-
-              if (
-                !promotion.food_categories ||
-                promotion.food_categories.length === 0
-              ) {
-                if (promotion.discount_type === DiscountType.FIXED) {
-                  totalAmount = Math.max(
-                    0,
-                    totalAmount - promotion.discount_value
-                  );
-                } else if (
-                  promotion.discount_type === DiscountType.PERCENTAGE
-                ) {
-                  totalAmount =
-                    totalAmount * (1 - promotion.discount_value / 100);
-                }
-                appliedPromotions.push(promotion);
-                continue;
-              }
-
-              const promotionCategories = promotion.food_categories.map(
-                fc => fc.id
-              );
-
-              createOrderDto.order_items = createOrderDto.order_items.map(
-                orderItem => {
-                  const menuItem = menuItems.find(
-                    mi => mi.id === orderItem.item_id
-                  );
-                  if (!menuItem) return orderItem;
-
-                  const hasMatchingCategory = menuItem.category.some(cat =>
-                    promotionCategories.includes(cat)
-                  );
-
-                  if (hasMatchingCategory) {
-                    let discountedPrice = orderItem.price_at_time_of_order;
-
-                    if (promotion.discount_type === DiscountType.FIXED) {
-                      discountedPrice = Math.max(
-                        0,
-                        discountedPrice - promotion.discount_value
-                      );
-                    } else if (
-                      promotion.discount_type === DiscountType.PERCENTAGE
-                    ) {
-                      discountedPrice =
-                        discountedPrice * (1 - promotion.discount_value / 100);
-                    }
-
-                    const discount =
-                      (orderItem.price_at_time_of_order - discountedPrice) *
-                      orderItem.quantity;
-                    totalAmount -= discount;
-
-                    return {
-                      ...orderItem,
-                      price_at_time_of_order: discountedPrice
-                    };
-                  }
-                  return orderItem;
-                }
-              );
-
-              appliedPromotions.push(promotion);
             }
           }
-
-          const orderData: DeepPartial<Order> = {
-            ...createOrderDto,
-            total_amount: totalAmount,
-            promotions_applied: appliedPromotions,
-            status: createOrderDto.status as OrderStatus,
-            tracking_info: OrderTrackingInfo.ORDER_PLACED as OrderTrackingInfo
-          };
-
-          if (createOrderDto.payment_method === 'FWallet') {
-            const customerWallet = await this.fWalletsRepository.findByUserId(
-              user.user_id
-            );
-            if (!customerWallet) {
-              return createResponse(
-                'NotFound',
-                null,
-                `Wallet not found for customer ${createOrderDto.customer_id}`
-              );
-            }
-
-            const restaurant = await this.restaurantRepository.findById(
-              createOrderDto.restaurant_id
-            );
-            if (!restaurant) {
-              return createResponse(
-                'NotFound',
-                null,
-                `Restaurant ${createOrderDto.restaurant_id} not found`
-              );
-            }
-
-            const restaurantWallet = await this.fWalletsRepository.findByUserId(
-              restaurant.owner_id
-            );
-            if (!restaurantWallet) {
-              return createResponse(
-                'NotFound',
-                null,
-                `Wallet not found for restaurant ${createOrderDto.restaurant_id}`
-              );
-            }
-
-            const transactionDto = {
-              user_id: user.user_id,
-              fwallet_id: customerWallet.id,
-              transaction_type: 'PURCHASE',
-              amount: totalAmount,
-              balance_after: 0,
-              status: 'PENDING',
-              source: 'FWALLET',
-              destination: restaurantWallet.id,
-              destination_type: 'FWALLET'
-            } as CreateTransactionDto;
-
-            const transactionResponse = await this.transactionsService.create(
-              transactionDto,
-              transactionalEntityManager
-            );
-            console.log('check transac res', transactionResponse);
-            if (transactionResponse.EC === -8) {
-              console.log('Transaction failed:', transactionResponse.EM);
-              return createResponse(
-                'InsufficientBalance',
-                null,
-                'Balance in the source wallet is not enough for this transaction.'
-              );
-            }
-            console.log('Transaction succeeded:', transactionResponse.data);
-          }
-
-          const cartItems = await transactionalEntityManager
-            .getRepository(CartItem)
-            .find({
-              where: { customer_id: createOrderDto.customer_id }
-            });
-
-          for (const orderItem of createOrderDto.order_items) {
-            const cartItem = cartItems.find(
-              ci => ci.item_id === orderItem.item_id
-            );
-            if (!cartItem) {
-              console.log(
-                `Cart item with item_id ${orderItem.item_id} not found for customer ${createOrderDto.customer_id}. Proceeding without modifying cart.`
-              );
-              continue;
-            }
-
-            const cartVariant = cartItem.variants.find(
-              v => v.variant_id === orderItem.variant_id
-            );
-            if (!cartVariant) {
-              console.log(
-                `Variant ${orderItem.variant_id} not found in cart item ${cartItem.id}. Proceeding without modifying cart.`
-              );
-              continue;
-            }
-
-            const orderQuantity = orderItem.quantity;
-            const cartQuantity = cartVariant.quantity;
-
-            if (orderQuantity > cartQuantity) {
-              return createResponse(
-                'NotAcceptingOrders',
-                null,
-                `Order quantity (${orderQuantity}) exceeds cart quantity (${cartQuantity}) for item ${orderItem.item_id}, variant ${orderItem.variant_id}`
-              );
-            }
-
-            if (orderQuantity === cartQuantity) {
-              await transactionalEntityManager
-                .getRepository(CartItem)
-                .delete(cartItem.id);
-              console.log(
-                `Deleted cart item ${cartItem.id} as order quantity matches cart quantity`
-              );
-            } else if (orderQuantity < cartQuantity) {
-              const updatedVariants = cartItem.variants.map(v =>
-                v.variant_id === orderItem.variant_id
-                  ? { ...v, quantity: v.quantity - orderQuantity }
-                  : v
-              );
-              await transactionalEntityManager
-                .getRepository(CartItem)
-                .update(cartItem.id, {
-                  variants: updatedVariants,
-                  updated_at: Math.floor(Date.now() / 1000),
-                  item_id: cartItem.item_id,
-                  customer_id: cartItem.customer_id,
-                  restaurant_id: cartItem.restaurant_id
-                });
-              console.log(
-                `Updated cart item ${cartItem.id} with reduced quantity`
-              );
-            }
-          }
-
-          const orderRepository =
-            transactionalEntityManager.getRepository(Order);
-          const newOrder = orderRepository.create(orderData);
-          const savedOrder = await orderRepository.save(newOrder);
-          await this.updateMenuItemPurchaseCount(createOrderDto.order_items);
-
-          // Cập nhật total_orders trong transaction
-          const restaurant = await transactionalEntityManager
-            .getRepository(Restaurant)
-            .findOne({ where: { id: createOrderDto.restaurant_id } });
-          if (restaurant) {
-            await transactionalEntityManager
-              .getRepository(Restaurant)
-              .update(createOrderDto.restaurant_id, {
-                total_orders: restaurant.total_orders + 1,
-                updated_at: Math.floor(Date.now() / 1000)
-              });
-          } else {
-            console.error(
-              `Restaurant ${createOrderDto.restaurant_id} not found during order creation`
-            );
-          }
-
-          const orderResponse =
-            await this.notifyRestaurantAndDriver(savedOrder);
-          console.log('Order transaction completed, result:', orderResponse);
-
-          return createResponse(
-            'OK',
-            savedOrder,
-            'Order created in transaction'
-          );
         }
-      );
-
+  
+        const orderData: DeepPartial<Order> = {
+          ...createOrderDto,
+          total_amount: totalAmount + createOrderDto.delivery_fee + createOrderDto.service_fee, // Bao gồm phí
+          promotions_applied: appliedPromotion ? [appliedPromotion] : [], // Sửa thành promotions_applied
+          status: createOrderDto.status as OrderStatus,
+          tracking_info: OrderTrackingInfo.ORDER_PLACED as OrderTrackingInfo,
+        };
+  
+        // Xử lý thanh toán bằng FWallet
+        if (createOrderDto.payment_method === 'FWallet') {
+          const customerWallet = await this.fWalletsRepository.findByUserId(user.user_id);
+          if (!customerWallet) {
+            return createResponse('NotFound', null, `Wallet not found for customer ${createOrderDto.customer_id}`);
+          }
+  
+          const restaurant = await this.restaurantRepository.findById(createOrderDto.restaurant_id);
+          if (!restaurant) {
+            return createResponse('NotFound', null, `Restaurant ${createOrderDto.restaurant_id} not found`);
+          }
+  
+          const restaurantWallet = await this.fWalletsRepository.findByUserId(restaurant.owner_id);
+          if (!restaurantWallet) {
+            return createResponse('NotFound', null, `Wallet not found for restaurant ${createOrderDto.restaurant_id}`);
+          }
+  
+          const transactionDto = {
+            user_id: user.user_id,
+            fwallet_id: customerWallet.id,
+            transaction_type: 'PURCHASE',
+            amount: totalAmount,
+            balance_after: 0,
+            status: 'PENDING',
+            source: 'FWALLET',
+            destination: restaurantWallet.id,
+            destination_type: 'FWALLET',
+          } as CreateTransactionDto;
+  
+          const transactionResponse = await this.transactionsService.create(
+            transactionDto,
+            transactionalEntityManager
+          );
+          console.log('check transac res', transactionResponse);
+          if (transactionResponse.EC === -8) {
+            console.log('Transaction failed:', transactionResponse.EM);
+            return createResponse(
+              'InsufficientBalance',
+              null,
+              'Balance in the source wallet is not enough for this transaction.'
+            );
+          }
+          console.log('Transaction succeeded:', transactionResponse.data);
+        }
+  
+        // Xóa toàn bộ CartItem liên quan mà không kiểm tra quantity
+        const cartItems = await transactionalEntityManager
+          .getRepository(CartItem)
+          .find({
+            where: { customer_id: createOrderDto.customer_id },
+          });
+  
+        for (const orderItem of createOrderDto.order_items) {
+          const cartItem = cartItems.find((ci) => ci.item_id === orderItem.item_id);
+          if (cartItem) {
+            await transactionalEntityManager.getRepository(CartItem).delete(cartItem.id);
+            console.log(`Deleted cart item ${cartItem.id} after order placement`);
+          }
+        }
+  
+        // Tạo order
+        const orderRepository = transactionalEntityManager.getRepository(Order);
+        const newOrder = orderRepository.create(orderData);
+        const savedOrder = await orderRepository.save(newOrder);
+        await this.updateMenuItemPurchaseCount(createOrderDto.order_items);
+  
+        // Cập nhật total_orders của restaurant
+        const restaurant = await transactionalEntityManager
+          .getRepository(Restaurant)
+          .findOne({ where: { id: createOrderDto.restaurant_id } });
+        if (restaurant) {
+          await transactionalEntityManager
+            .getRepository(Restaurant)
+            .update(createOrderDto.restaurant_id, {
+              total_orders: restaurant.total_orders + 1,
+              updated_at: Math.floor(Date.now() / 1000),
+            });
+        } else {
+          console.error(`Restaurant ${createOrderDto.restaurant_id} not found during order creation`);
+        }
+  
+        const orderResponse = await this.notifyRestaurantAndDriver(savedOrder);
+        console.log('Order transaction completed, result:', orderResponse);
+  
+        return createResponse('OK', savedOrder, 'Order created in transaction');
+      });
+  
       if (!result || typeof result.EC === 'undefined') {
         return createResponse('OK', result, 'Order created successfully');
       }
-
+  
       if (result.EC !== 0) {
         return createResponse('ServerError', result.data, result.EM);
       }
-
+  
       console.log('Order fully committed to DB');
       return createResponse('OK', result.data, 'Order created successfully');
     } catch (error) {
@@ -364,22 +231,21 @@ export class OrdersService {
       const manager = transactionalEntityManager || this.dataSource.manager;
       const order = await manager.findOne(Order, {
         where: { id },
-        relations: ['promotions_applied'] // Load relations để giữ dữ liệu cũ
+        relations: ['promotions_applied'], // Load relations để giữ dữ liệu cũ
       });
       if (!order) {
         return createResponse('NotFound', null, 'Order not found');
       }
-
-      // Xử lý promotions_applied nếu có trong DTO
+  
+      // Xử lý promotion_applied nếu có trong DTO
       let promotionsApplied: Promotion[] = order.promotions_applied || [];
-      if (updateOrderDto.promotions_applied?.length > 0) {
-        promotionsApplied = await manager.getRepository(Promotion).find({
-          where: {
-            id: In(updateOrderDto.promotions_applied) // Query Promotion từ ID
-          }
+      if (updateOrderDto.promotion_applied) {
+        const promotion = await manager.getRepository(Promotion).findOne({
+          where: { id: updateOrderDto.promotion_applied },
         });
+        promotionsApplied = promotion ? [promotion] : [];
       }
-
+  
       // Tạo updatedData với type đúng
       const updatedData: DeepPartial<Order> = {
         ...order,
@@ -390,10 +256,10 @@ export class OrdersService {
           : order.status,
         tracking_info: updateOrderDto.tracking_info
           ? (updateOrderDto.tracking_info as OrderTrackingInfo)
-          : order.tracking_info
+          : order.tracking_info,
       };
-
-      const updatedOrder = await manager.save(Order, updatedData); // Không cần cast
+  
+      const updatedOrder = await manager.save(Order, updatedData);
       return createResponse('OK', updatedOrder, 'Order updated successfully');
     } catch (error) {
       return this.handleError('Error updating order:', error);

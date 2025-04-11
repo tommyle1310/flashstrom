@@ -40,7 +40,7 @@ __decorate([
         'EN_ROUTE',
         'OUT_FOR_DELIVERY',
         'DELIVERED',
-        'DELIVERY_FAILED'
+        'DELIVERY_FAILED',
     ]),
     __metadata("design:type", String)
 ], CreateOrderDto.prototype, "status", void 0);
@@ -109,13 +109,13 @@ __decorate([
         'EN_ROUTE',
         'OUT_FOR_DELIVERY',
         'DELIVERY_FAILED',
-        'DELIVERED'
+        'DELIVERED',
     ]),
     __metadata("design:type", String)
 ], CreateOrderDto.prototype, "tracking_info", void 0);
 __decorate([
+    (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsArray)(),
-    __metadata("design:type", Array)
-], CreateOrderDto.prototype, "promotions_applied", void 0);
+    __metadata("design:type", String)
+], CreateOrderDto.prototype, "promotion_applied", void 0);
 //# sourceMappingURL=create-order.dto.js.map

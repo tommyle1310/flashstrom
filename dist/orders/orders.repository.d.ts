@@ -12,7 +12,7 @@ export declare class OrdersRepository {
     findOne(conditions: object): Promise<Order>;
     update(id: string, updateDto: any): Promise<Order>;
     delete(id: string): Promise<boolean>;
-    updateStatus(id: string, { status, tracking_info }: {
+    updateStatus(id: string, { status, tracking_info, }: {
         status: OrderStatus;
         tracking_info: OrderTrackingInfo;
     }): Promise<Order>;

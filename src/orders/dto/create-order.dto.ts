@@ -5,7 +5,7 @@ import {
   IsEnum,
   IsNumber,
   Min,
-  IsOptional
+  IsOptional,
 } from 'class-validator';
 
 export class CreateOrderDto {
@@ -31,7 +31,7 @@ export class CreateOrderDto {
     'EN_ROUTE',
     'OUT_FOR_DELIVERY',
     'DELIVERED',
-    'DELIVERY_FAILED'
+    'DELIVERY_FAILED',
   ])
   status:
     | 'PENDING'
@@ -78,6 +78,7 @@ export class CreateOrderDto {
     name: string;
     quantity: number;
     price_at_time_of_order: number;
+    price_after_applied_promotion?: number; // Thêm field này
   }>;
 
   @IsString()
@@ -104,7 +105,7 @@ export class CreateOrderDto {
     'EN_ROUTE',
     'OUT_FOR_DELIVERY',
     'DELIVERY_FAILED',
-    'DELIVERED'
+    'DELIVERED',
   ])
   tracking_info:
     | 'ORDER_PLACED'
@@ -118,7 +119,7 @@ export class CreateOrderDto {
     | 'DELIVERY_FAILED'
     | 'DELIVERED';
 
+  @IsString()
   @IsOptional()
-  @IsArray()
-  promotions_applied?: string[]; // Array of promotion IDs
+  promotion_applied?: string; // Chỉ một promotion ID, không phải mảng
 }

@@ -25,18 +25,21 @@ let OrdersRepository = class OrdersRepository {
     }
     async create(createDto) {
         let promotionsApplied = [];
-        if (createDto.promotions_applied?.length > 0) {
-            promotionsApplied = await this.promotionRepository.find({
+        if (createDto.promotion_applied) {
+            const promotion = await this.promotionRepository.findOne({
                 where: {
-                    id: (0, typeorm_1.In)(createDto.promotions_applied)
-                }
+                    id: createDto.promotion_applied,
+                },
             });
+            if (promotion) {
+                promotionsApplied = [promotion];
+            }
         }
         const orderData = {
             ...createDto,
             status: createDto.status,
             tracking_info: createDto.tracking_info,
-            promotions_applied: promotionsApplied
+            promotions_applied: promotionsApplied,
         };
         const order = this.repository.create(orderData);
         return await this.repository.save(order);
@@ -47,7 +50,7 @@ let OrdersRepository = class OrdersRepository {
     async findById(id) {
         const result = await this.repository.findOne({
             where: { id },
-            relations: ['restaurantAddress', 'customerAddress']
+            relations: ['restaurantAddress', 'customerAddress'],
         });
         return result;
     }
@@ -66,9 +69,9 @@ let OrdersRepository = class OrdersRepository {
                 : undefined,
             driver_id: updateDto.driver_id,
             distance: updateDto.distance,
-            updated_at: Math.floor(Date.now() / 1000)
+            updated_at: Math.floor(Date.now() / 1000),
         };
-        Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+        Object.keys(updateData).forEach((key) => updateData[key] === undefined && delete updateData[key]);
         await this.repository
             .createQueryBuilder()
             .update(order_entity_1.Order)
@@ -78,12 +81,12 @@ let OrdersRepository = class OrdersRepository {
         if (updateDto.promotions_applied?.length > 0) {
             const promotionsApplied = await this.promotionRepository.find({
                 where: {
-                    id: (0, typeorm_1.In)(updateDto.promotions_applied)
-                }
+                    id: (0, typeorm_1.In)(updateDto.promotions_applied),
+                },
             });
             const order = await this.repository.findOne({
                 where: { id },
-                relations: ['promotions_applied']
+                relations: ['promotions_applied'],
             });
             order.promotions_applied = promotionsApplied;
             await this.repository.save(order);
@@ -94,25 +97,25 @@ let OrdersRepository = class OrdersRepository {
         const result = await this.repository.delete(id);
         return result.affected > 0;
     }
-    async updateStatus(id, { status, tracking_info }) {
+    async updateStatus(id, { status, tracking_info, }) {
         await this.repository.update(id, {
             status,
             tracking_info,
-            updated_at: Math.floor(Date.now() / 1000)
+            updated_at: Math.floor(Date.now() / 1000),
         });
         return this.findById(id);
     }
     async updateTrackingInfo(id, tracking_info) {
         await this.repository.update(id, {
             tracking_info,
-            updated_at: Math.floor(Date.now() / 1000)
+            updated_at: Math.floor(Date.now() / 1000),
         });
         return this.findById(id);
     }
     async updateDriverTips(id, driver_tips) {
         await this.repository.update(id, {
             driver_tips,
-            updated_at: Math.floor(Date.now() / 1000)
+            updated_at: Math.floor(Date.now() / 1000),
         });
         return this.findById(id);
     }
