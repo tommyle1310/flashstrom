@@ -29,6 +29,16 @@ let RestaurantsRepository = class RestaurantsRepository {
         this.userRepository = userRepository;
         this.addressRepository = addressRepository;
     }
+    async findOne(conditions) {
+        console.log('Restaurant findOne conditions:', JSON.stringify(conditions, null, 2));
+        const { where, relations } = conditions;
+        const result = await this.repository.findOne({
+            where: where || conditions,
+            relations: relations || ['promotions', 'promotions.food_categories'],
+        });
+        console.log('Restaurant findOne result:', JSON.stringify(result, null, 2));
+        return result;
+    }
     async create(createDto) {
         const owner = await this.userRepository.findById(createDto.owner_id);
         if (!owner)
@@ -74,7 +84,13 @@ let RestaurantsRepository = class RestaurantsRepository {
     async findById(id) {
         return await this.repository.findOne({
             where: { id },
-            relations: ['owner', 'address', 'specialize_in', 'promotions']
+            relations: [
+                'owner',
+                'address',
+                'specialize_in',
+                'promotions',
+                'promotions.food_categories',
+            ],
         });
     }
     async findByOwnerId(ownerId) {

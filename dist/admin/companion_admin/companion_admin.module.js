@@ -68,6 +68,8 @@ const driver_stats_records_service_1 = require("../../driver_stats_records/drive
 const ratings_review_entity_1 = require("../../ratings_reviews/entities/ratings_review.entity");
 const ratings_reviews_repository_1 = require("../../ratings_reviews/ratings_reviews.repository");
 const banned_account_entity_1 = require("../../banned-account/entities/banned-account.entity");
+const notification_entity_1 = require("../../notifications/entities/notification.entity");
+const notifications_repository_1 = require("../../notifications/notifications.repository");
 let CompanionAdminModule = class CompanionAdminModule {
 };
 exports.CompanionAdminModule = CompanionAdminModule;
@@ -86,6 +88,7 @@ exports.CompanionAdminModule = CompanionAdminModule = __decorate([
                 banned_account_entity_1.BannedAccount,
                 cart_item_entity_1.CartItem,
                 online_session_entity_1.OnlineSession,
+                notification_entity_1.Notification,
                 food_category_entity_1.FoodCategory,
                 address_book_entity_1.AddressBook,
                 user_entity_1.User,
@@ -126,6 +129,7 @@ exports.CompanionAdminModule = CompanionAdminModule = __decorate([
             customer_cares_service_1.CustomerCareService,
             email_service_1.EmailService,
             drivers_service_1.DriversService,
+            notifications_repository_1.NotificationsRepository,
             driver_stats_records_service_1.DriverStatsService,
             online_session_repository_1.OnlineSessionsRepository,
             online_sessions_service_1.OnlineSessionsService,

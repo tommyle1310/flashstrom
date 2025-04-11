@@ -25,13 +25,15 @@ const food_categories_repository_1 = require("../food_categories/food_categories
 const fwallets_repository_1 = require("../fwallets/fwallets.repository");
 const transactions_service_1 = require("../transactions/transactions.service");
 const constants_1 = require("../utils/constants");
+const menu_items_repository_1 = require("../menu_items/menu_items.repository");
 let RestaurantsService = class RestaurantsService {
-    constructor(restaurantsRepository, userRepository, promotionRepository, addressRepository, ordersRepository, menuItemsService, menuItemVariantsService, transactionsService, restaurantsGateway, foodCategoryRepository, fWalletsRepository) {
+    constructor(restaurantsRepository, userRepository, promotionRepository, addressRepository, ordersRepository, menuItemRepository, menuItemsService, menuItemVariantsService, transactionsService, restaurantsGateway, foodCategoryRepository, fWalletsRepository) {
         this.restaurantsRepository = restaurantsRepository;
         this.userRepository = userRepository;
         this.promotionRepository = promotionRepository;
         this.addressRepository = addressRepository;
         this.ordersRepository = ordersRepository;
+        this.menuItemRepository = menuItemRepository;
         this.menuItemsService = menuItemsService;
         this.menuItemVariantsService = menuItemVariantsService;
         this.transactionsService = transactionsService;
@@ -163,10 +165,103 @@ let RestaurantsService = class RestaurantsService {
         }
         return this.menuItemsService.remove(menuItemId);
     }
+    calculateDiscountedPrice(originalPrice, promotion) {
+        let discountedPrice;
+        if (promotion.discount_type === 'PERCENTAGE') {
+            discountedPrice = originalPrice * (1 - promotion.discount_value / 100);
+        }
+        else if (promotion.discount_type === 'FIXED') {
+            discountedPrice = originalPrice - promotion.discount_value;
+        }
+        else {
+            return originalPrice;
+        }
+        return Math.max(0, Number(discountedPrice.toFixed(2)));
+    }
     async getMenuItemsForRestaurant(restaurantId) {
-        const allMenuItems = await this.menuItemsService.findAll();
-        const restaurantMenuItems = allMenuItems.data.filter(item => item.restaurant_id.toString() === restaurantId);
-        return (0, createResponse_1.createResponse)('OK', restaurantMenuItems, 'Fetched menu items for the restaurant');
+        const restaurant = await this.restaurantsRepository.findById(restaurantId);
+        if (!restaurant) {
+            return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant not found');
+        }
+        console.log('check res', JSON.stringify(restaurant, null, 2));
+        const menuItemsResult = await this.menuItemsService.findByRestaurantId(restaurantId);
+        const menuItems = menuItemsResult.data;
+        console.log('check menu item', JSON.stringify(menuItems, null, 2));
+        if (!restaurant.promotions || restaurant.promotions.length === 0) {
+            return (0, createResponse_1.createResponse)('OK', menuItems, 'Fetched menu items for the restaurant');
+        }
+        const processedMenuItems = menuItems.map((item) => {
+            let itemPriceAfterPromotion = null;
+            const processedVariants = [];
+            const now = Math.floor(Date.now() / 1000);
+            const itemCategories = item.category || [];
+            console.log('check item categories', itemCategories);
+            const applicablePromotions = restaurant.promotions.filter((promotion) => {
+                const isActive = promotion.status === 'ACTIVE' &&
+                    now >= Number(promotion.start_date) &&
+                    now <= Number(promotion.end_date);
+                const hasMatchingCategory = promotion.food_categories?.some((fc) => itemCategories.includes(fc.id)) || false;
+                console.log(`check promotion ${promotion.id}: active=${isActive}, hasMatchingCategory=${hasMatchingCategory}`, promotion.food_categories?.map((fc) => fc.id));
+                return isActive && hasMatchingCategory;
+            });
+            if (applicablePromotions.length > 0) {
+                applicablePromotions.forEach((promotion) => {
+                    const discountedPrice = this.calculateDiscountedPrice(Number(item.price), promotion);
+                    console.log(`apply promotion ${promotion.id} for item ${item.id}: original=${item.price}, discounted=${discountedPrice}`);
+                    if (itemPriceAfterPromotion === null ||
+                        discountedPrice < itemPriceAfterPromotion) {
+                        itemPriceAfterPromotion = discountedPrice;
+                    }
+                });
+            }
+            if (item.variants && item.variants.length > 0) {
+                item.variants.forEach((variant) => {
+                    let variantPriceAfterPromotion = null;
+                    if (applicablePromotions.length > 0) {
+                        applicablePromotions.forEach((promotion) => {
+                            const discountedPrice = this.calculateDiscountedPrice(Number(variant.price), promotion);
+                            console.log(`apply promotion ${promotion.id} for variant ${variant.id}: original=${variant.price}, discounted=${discountedPrice}`);
+                            if (variantPriceAfterPromotion === null ||
+                                discountedPrice < variantPriceAfterPromotion) {
+                                variantPriceAfterPromotion = discountedPrice;
+                            }
+                        });
+                    }
+                    processedVariants.push({
+                        id: variant.id,
+                        menu_id: variant.menu_id,
+                        variant: variant.variant,
+                        description: variant.description,
+                        avatar: variant.avatar,
+                        availability: variant.availability,
+                        default_restaurant_notes: variant.default_restaurant_notes,
+                        price: variant.price,
+                        discount_rate: variant.discount_rate,
+                        created_at: variant.created_at,
+                        updated_at: variant.updated_at,
+                        price_after_applied_promotion: variantPriceAfterPromotion,
+                    });
+                });
+            }
+            return {
+                id: item.id,
+                restaurant_id: item.restaurant_id,
+                name: item.name,
+                description: item.description,
+                price: item.price,
+                category: item.category,
+                avatar: item.avatar,
+                availability: item.availability,
+                suggest_notes: item.suggest_notes,
+                discount: item.discount,
+                purchase_count: item.purchase_count,
+                created_at: item.created_at,
+                updated_at: item.updated_at,
+                price_after_applied_promotion: itemPriceAfterPromotion,
+                variants: processedVariants,
+            };
+        });
+        return (0, createResponse_1.createResponse)('OK', processedMenuItems, 'Fetched menu items for the restaurant');
     }
     async createMenuItemVariantForRestaurant(menuId, createMenuItemVariantDto) {
         return this.menuItemVariantsService.create({
@@ -339,6 +434,7 @@ exports.RestaurantsService = RestaurantsService = __decorate([
         promotions_repository_1.PromotionsRepository,
         address_book_repository_1.AddressBookRepository,
         orders_repository_1.OrdersRepository,
+        menu_items_repository_1.MenuItemsRepository,
         menu_items_service_1.MenuItemsService,
         menu_item_variants_service_1.MenuItemVariantsService,
         transactions_service_1.TransactionService,

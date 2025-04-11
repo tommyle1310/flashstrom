@@ -56,6 +56,9 @@ let CustomersController = class CustomersController {
     findAllCartItemByCustomerId(customerId) {
         return this.cartItemService.findAll({ customer_id: customerId });
     }
+    getNotifications(customerId) {
+        return this.customersService.getNotifications(customerId);
+    }
     findCustomerById(id) {
         return this.customersService.findCustomerById(id);
     }
@@ -148,6 +151,13 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "findAllCartItemByCustomerId", null);
+__decorate([
+    (0, common_1.Get)('/notifications/:customerId'),
+    __param(0, (0, common_1.Param)('customerId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "getNotifications", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),

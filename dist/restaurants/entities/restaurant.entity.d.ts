@@ -4,6 +4,7 @@ import { FoodCategory } from 'src/food_categories/entities/food_category.entity'
 import { Admin } from 'src/admin/entities/admin.entity';
 import { Order } from 'src/orders/entities/order.entity';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
+import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 export declare class Restaurant {
     id: string;
     owner_id: string;
@@ -77,5 +78,6 @@ export declare class Restaurant {
     total_orders: number;
     admins: Admin[];
     orders: Order[];
+    menuItems: MenuItem[];
     generateId(): void;
 }

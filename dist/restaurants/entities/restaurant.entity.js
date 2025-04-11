@@ -18,6 +18,7 @@ const food_category_entity_1 = require("../../food_categories/entities/food_cate
 const admin_entity_1 = require("../../admin/entities/admin.entity");
 const order_entity_1 = require("../../orders/entities/order.entity");
 const promotion_entity_1 = require("../../promotions/entities/promotion.entity");
+const menu_item_entity_1 = require("../../menu_items/entities/menu_item.entity");
 let Restaurant = class Restaurant {
     generateId() {
         this.id = `FF_RES_${(0, uuid_1.v4)()}`;
@@ -127,6 +128,10 @@ __decorate([
     (0, typeorm_1.OneToMany)(() => order_entity_1.Order, order => order.restaurant),
     __metadata("design:type", Array)
 ], Restaurant.prototype, "orders", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => menu_item_entity_1.MenuItem, menuItem => menuItem.restaurant),
+    __metadata("design:type", Array)
+], Restaurant.prototype, "menuItems", void 0);
 __decorate([
     (0, typeorm_1.BeforeInsert)(),
     __metadata("design:type", Function),

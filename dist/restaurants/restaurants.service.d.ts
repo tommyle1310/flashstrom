@@ -17,19 +17,21 @@ import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionService } from 'src/transactions/transactions.service';
+import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
 export declare class RestaurantsService {
     private readonly restaurantsRepository;
     private readonly userRepository;
     private readonly promotionRepository;
     private readonly addressRepository;
     private readonly ordersRepository;
+    private readonly menuItemRepository;
     private readonly menuItemsService;
     private readonly menuItemVariantsService;
     private readonly transactionsService;
     private readonly restaurantsGateway;
     private readonly foodCategoryRepository;
     private readonly fWalletsRepository;
-    constructor(restaurantsRepository: RestaurantsRepository, userRepository: UserRepository, promotionRepository: PromotionsRepository, addressRepository: AddressBookRepository, ordersRepository: OrdersRepository, menuItemsService: MenuItemsService, menuItemVariantsService: MenuItemVariantsService, transactionsService: TransactionService, restaurantsGateway: RestaurantsGateway, foodCategoryRepository: FoodCategoriesRepository, fWalletsRepository: FWalletsRepository);
+    constructor(restaurantsRepository: RestaurantsRepository, userRepository: UserRepository, promotionRepository: PromotionsRepository, addressRepository: AddressBookRepository, ordersRepository: OrdersRepository, menuItemRepository: MenuItemsRepository, menuItemsService: MenuItemsService, menuItemVariantsService: MenuItemVariantsService, transactionsService: TransactionService, restaurantsGateway: RestaurantsGateway, foodCategoryRepository: FoodCategoriesRepository, fWalletsRepository: FWalletsRepository);
     create(createRestaurantDto: CreateRestaurantDto): Promise<ApiResponse<Restaurant>>;
     update(id: string, updateRestaurantDto: UpdateRestaurantDto): Promise<ApiResponse<Restaurant>>;
     updateEntityAvatar(uploadResult: {
@@ -39,6 +41,7 @@ export declare class RestaurantsService {
     createMenuItemForRestaurant(restaurantId: string, createMenuItemDto: CreateMenuItemDto): Promise<any>;
     updateMenuItemForRestaurant(restaurantId: string, menuItemId: string, updateMenuItemDto: UpdateMenuItemDto): Promise<any>;
     deleteMenuItemForRestaurant(restaurantId: string, menuItemId: string): Promise<any>;
+    private calculateDiscountedPrice;
     getMenuItemsForRestaurant(restaurantId: string): Promise<any>;
     createMenuItemVariantForRestaurant(menuId: string, createMenuItemVariantDto: CreateMenuItemVariantDto): Promise<any>;
     updateMenuItemVariantForRestaurant(variantId: string, updateMenuItemVariantDto: UpdateMenuItemVariantDto): Promise<any>;

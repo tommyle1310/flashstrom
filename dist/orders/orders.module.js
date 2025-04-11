@@ -64,6 +64,8 @@ const driver_stats_records_service_1 = require("../driver_stats_records/driver_s
 const driver_stats_record_entity_1 = require("../driver_stats_records/entities/driver_stats_record.entity");
 const ratings_review_entity_1 = require("../ratings_reviews/entities/ratings_review.entity");
 const ratings_reviews_repository_1 = require("../ratings_reviews/ratings_reviews.repository");
+const notifications_repository_1 = require("../notifications/notifications.repository");
+const notification_entity_1 = require("../notifications/entities/notification.entity");
 let OrdersModule = class OrdersModule {
 };
 exports.OrdersModule = OrdersModule;
@@ -82,6 +84,7 @@ exports.OrdersModule = OrdersModule = __decorate([
                 customer_entity_1.Customer,
                 transaction_entity_1.Transaction,
                 food_category_entity_1.FoodCategory,
+                notification_entity_1.Notification,
                 driver_entity_1.Driver,
                 user_entity_1.User,
                 online_session_entity_1.OnlineSession,
@@ -97,6 +100,7 @@ exports.OrdersModule = OrdersModule = __decorate([
         providers: [
             orders_service_1.OrdersService,
             orders_repository_1.OrdersRepository,
+            notifications_repository_1.NotificationsRepository,
             orders_gateway_1.OrdersGateway,
             menu_items_repository_1.MenuItemsRepository,
             menu_item_variants_repository_1.MenuItemVariantsRepository,

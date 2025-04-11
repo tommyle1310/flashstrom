@@ -81,6 +81,12 @@ export class CustomersController {
     return this.cartItemService.findAll({ customer_id: customerId });
   }
 
+  // Trong file customers.controller.ts
+  @Get('/notifications/:customerId')
+  getNotifications(@Param('customerId') customerId: string) {
+    return this.customersService.getNotifications(customerId);
+  }
+
   @Get(':id')
   findCustomerById(@Param('id') id: string) {
     return this.customersService.findCustomerById(id);

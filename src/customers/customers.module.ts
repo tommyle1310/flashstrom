@@ -27,6 +27,8 @@ import { Order } from 'src/orders/entities/order.entity';
 import { JwtService } from '@nestjs/jwt';
 import { PromotionsRepository } from 'src/promotions/promotions.repository';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
+import { Notification } from 'src/notifications/entities/notification.entity';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -37,6 +39,7 @@ import { Promotion } from 'src/promotions/entities/promotion.entity';
       Customer,
       Promotion,
       CartItem,
+      Notification,
       Order
     ]),
     forwardRef(() => CartItemsModule),
@@ -51,6 +54,7 @@ import { Promotion } from 'src/promotions/entities/promotion.entity';
     CustomersGateway,
     UserRepository,
     AddressBookRepository,
+    NotificationsRepository,
     FoodCategoriesRepository,
     RestaurantsRepository,
     CustomersRepository,

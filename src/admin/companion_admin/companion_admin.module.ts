@@ -59,6 +59,8 @@ import { DriverStatsService } from 'src/driver_stats_records/driver_stats_record
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
 import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
 import { BannedAccount } from 'src/banned-account/entities/banned-account.entity';
+import { Notification } from 'src/notifications/entities/notification.entity';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
 
 @Module({
   imports: [
@@ -74,6 +76,7 @@ import { BannedAccount } from 'src/banned-account/entities/banned-account.entity
       BannedAccount,
       CartItem,
       OnlineSession,
+      Notification,
       FoodCategory,
       AddressBook,
       User,
@@ -117,6 +120,7 @@ import { BannedAccount } from 'src/banned-account/entities/banned-account.entity
     CustomerCareService,
     EmailService,
     DriversService,
+    NotificationsRepository,
     DriverStatsService,
     OnlineSessionsRepository,
     OnlineSessionsService,

@@ -7,7 +7,7 @@ declare class TargetContent {
     avatar: Avatar;
     title: string;
     desc: string;
-    image?: string;
+    image?: Avatar;
     link?: string;
 }
 declare class Content {

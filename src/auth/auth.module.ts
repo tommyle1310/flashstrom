@@ -65,6 +65,8 @@ import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.re
 import { DriverStatsRecord } from 'src/driver_stats_records/entities/driver_stats_record.entity';
 import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
 import { BannedAccount } from 'src/banned-account/entities/banned-account.entity';
+import { Notification } from 'src/notifications/entities/notification.entity';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
 @Module({
   imports: [
     JwtModule.register({
@@ -75,6 +77,7 @@ import { BannedAccount } from 'src/banned-account/entities/banned-account.entity
       User,
       Admin,
       Promotion,
+      Notification,
       AddressBook,
       FoodCategory,
       Customer,
@@ -117,6 +120,7 @@ import { BannedAccount } from 'src/banned-account/entities/banned-account.entity
     DriverProgressStagesRepository,
     OnlineSessionsRepository,
     OnlineSessionsService,
+    NotificationsRepository,
     TransactionsRepository,
     DriversService,
     FWalletService,

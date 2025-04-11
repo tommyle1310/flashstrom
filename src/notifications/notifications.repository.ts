@@ -17,10 +17,11 @@ export class NotificationsRepository {
     });
   }
 
-  async findAll(): Promise<Notification[]> {
+  async findAll(options?: any): Promise<Notification[]> {
     return await this.notificationEntityRepository.find({
-      order: { created_at: 'DESC' },
-      relations: ['created_by']
+      ...options,
+      order: { created_at: 'DESC' }, // Giữ nguyên sắp xếp mặc định
+      relations: options?.relations || ['created_by'] // Mặc định populate created_by
     });
   }
 

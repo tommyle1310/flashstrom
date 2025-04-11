@@ -14,6 +14,7 @@ export declare class MenuItemsService {
     constructor(menuItemRepository: MenuItemsRepository, restaurantRepository: RestaurantsRepository, foodCategoriesRepository: FoodCategoriesRepository, menuItemVariantsService: MenuItemVariantsService);
     create(createMenuItemDto: CreateMenuItemDto): Promise<ApiResponse<any>>;
     findAll(): Promise<ApiResponse<MenuItem[]>>;
+    private calculateDiscountedPrice;
     findOne(id: string): Promise<ApiResponse<any>>;
     update(id: string, updateMenuItemDto: UpdateMenuItemDto): Promise<ApiResponse<MenuItem>>;
     remove(id: string): Promise<ApiResponse<null>>;
@@ -29,4 +30,5 @@ export declare class MenuItemsService {
     private createVariant;
     private handleMenuItemResponse;
     private handleError;
+    findByRestaurantId(restaurantId: string): Promise<ApiResponse<MenuItem[]>>;
 }

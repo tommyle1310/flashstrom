@@ -61,6 +61,8 @@ import { AdminRepository } from 'src/admin/admin.repository';
 import { AdminService } from 'src/admin/admin.service';
 import { UsersService } from 'src/users/users.service';
 import { BannedAccount } from 'src/banned-account/entities/banned-account.entity';
+import { Notification } from 'src/notifications/entities/notification.entity';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -70,6 +72,7 @@ import { BannedAccount } from 'src/banned-account/entities/banned-account.entity
       FoodCategory,
       Restaurant,
       Customer,
+      Notification,
       BannedAccount,
       RatingsReview,
       OnlineSession,
@@ -117,6 +120,7 @@ import { BannedAccount } from 'src/banned-account/entities/banned-account.entity
     TransactionService,
     PromotionsService,
     PromotionsRepository,
+    NotificationsRepository,
     AddressBookRepository,
     FoodCategoriesRepository,
     DriverProgressStagesRepository,

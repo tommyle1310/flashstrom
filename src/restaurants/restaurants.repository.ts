@@ -21,6 +21,17 @@ export class RestaurantsRepository {
     private addressRepository: AddressBookRepository
   ) {}
 
+  async findOne(conditions: any): Promise<Restaurant> {
+    console.log('Restaurant findOne conditions:', JSON.stringify(conditions, null, 2));
+    const { where, relations } = conditions; // Tách where và relations
+    const result = await this.repository.findOne({
+      where: where || conditions, // Nếu không có where, dùng conditions (hỗ trợ cú pháp cũ)
+      relations: relations || ['promotions', 'promotions.food_categories'], // Default relations
+    });
+    console.log('Restaurant findOne result:', JSON.stringify(result, null, 2));
+    return result;
+  }
+
   async create(
     createDto: CreateRestaurantDto & { specialize_in?: FoodCategory[] }
   ): Promise<any> {
@@ -70,12 +81,19 @@ export class RestaurantsRepository {
     });
   }
 
-  async findById(id: string): Promise<Restaurant> {
-    return await this.repository.findOne({
-      where: { id },
-      relations: ['owner', 'address', 'specialize_in', 'promotions']
-    });
-  }
+// restaurants.repository.ts
+async findById(id: string): Promise<Restaurant> {
+  return await this.repository.findOne({
+    where: { id },
+    relations: [
+      'owner',
+      'address',
+      'specialize_in',
+      'promotions',
+      'promotions.food_categories', // Thêm quan hệ lồng nhau
+    ],
+  });
+}
 
   async findByOwnerId(ownerId: string): Promise<Restaurant> {
     return await this.repository.findOne({

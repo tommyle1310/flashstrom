@@ -12,6 +12,7 @@ export declare class CartItemsService {
     private readonly menuItemsRepository;
     private readonly menuItemVariantsRepository;
     constructor(cartItemsRepository: CartItemsRepository, restaurantRepository: RestaurantsRepository, customersRepository: CustomersRepository, menuItemsRepository: MenuItemsRepository, menuItemVariantsRepository: MenuItemVariantsRepository);
+    private calculateDiscountedPrice;
     create(createCartItemDto: CreateCartItemDto): Promise<any>;
     update(id: string, updateCartItemDto: UpdateCartItemDto): Promise<any>;
     findAll(query?: Record<string, any>): Promise<any>;

@@ -26,16 +26,30 @@ let MenuItemsRepository = class MenuItemsRepository {
         return this.menuItemRepository.save(menuItem);
     }
     async findById(id) {
+        console.log('findById with id:', id);
         return this.menuItemRepository.findOne({
-            where: { id },
-            relations: ['variants']
+            where: { id: (0, typeorm_2.Equal)(id) },
+            relations: ['variants', 'restaurant'],
         });
     }
     async findOne(conditions) {
-        return this.menuItemRepository.findOne({ where: conditions });
+        console.log('findOne conditions:', JSON.stringify(conditions, null, 2));
+        const { where, relations } = conditions;
+        const result = await this.menuItemRepository.findOne({
+            where: where || conditions,
+            relations: relations || ['variants', 'restaurant'],
+        });
+        console.log('findOne result:', JSON.stringify(result, null, 2));
+        return result;
     }
     async findAll() {
         return this.menuItemRepository.find({ relations: ['variants'] });
+    }
+    async findByRestaurantId(restaurantId) {
+        return this.menuItemRepository.find({
+            where: { restaurant_id: (0, typeorm_2.Equal)(restaurantId) },
+            relations: ['variants'],
+        });
     }
     async update(id, data) {
         await this.menuItemRepository

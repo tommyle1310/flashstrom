@@ -70,6 +70,8 @@ const admin_repository_1 = require("../admin/admin.repository");
 const admin_service_1 = require("../admin/admin.service");
 const users_service_1 = require("../users/users.service");
 const banned_account_entity_1 = require("../banned-account/entities/banned-account.entity");
+const notification_entity_1 = require("../notifications/entities/notification.entity");
+const notifications_repository_1 = require("../notifications/notifications.repository");
 let UploadModule = class UploadModule {
 };
 exports.UploadModule = UploadModule;
@@ -83,6 +85,7 @@ exports.UploadModule = UploadModule = __decorate([
                 food_category_entity_1.FoodCategory,
                 restaurant_entity_1.Restaurant,
                 customer_entity_1.Customer,
+                notification_entity_1.Notification,
                 banned_account_entity_1.BannedAccount,
                 ratings_review_entity_1.RatingsReview,
                 online_session_entity_1.OnlineSession,
@@ -130,6 +133,7 @@ exports.UploadModule = UploadModule = __decorate([
             transactions_service_1.TransactionService,
             promotions_service_1.PromotionsService,
             promotions_repository_1.PromotionsRepository,
+            notifications_repository_1.NotificationsRepository,
             address_book_repository_1.AddressBookRepository,
             food_categories_repository_1.FoodCategoriesRepository,
             driver_progress_stages_repository_1.DriverProgressStagesRepository,

@@ -11,6 +11,7 @@ export declare class RestaurantsRepository {
     private userRepository;
     private addressRepository;
     constructor(repository: Repository<Restaurant>, foodCategoryRepository: Repository<FoodCategory>, userRepository: UserRepository, addressRepository: AddressBookRepository);
+    findOne(conditions: any): Promise<Restaurant>;
     create(createDto: CreateRestaurantDto & {
         specialize_in?: FoodCategory[];
     }): Promise<any>;

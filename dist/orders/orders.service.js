@@ -327,6 +327,7 @@ let OrdersService = class OrdersService {
         }
     }
     async tipToDriver(orderId, tipAmount) {
+        console.log('check tipamount', tipAmount, typeof tipAmount);
         try {
             if (tipAmount < 0) {
                 return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Tip amount cannot be negative');

@@ -45,9 +45,11 @@ __decorate([
     __metadata("design:type", String)
 ], TargetContent.prototype, "desc", void 0);
 __decorate([
-    (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", String)
+    (0, class_validator_1.IsObject)(),
+    (0, class_validator_1.ValidateNested)(),
+    (0, class_transformer_1.Type)(() => Avatar),
+    __metadata("design:type", Avatar)
 ], TargetContent.prototype, "image", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),

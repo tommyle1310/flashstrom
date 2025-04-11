@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("typeorm");
 const typeorm_2 = require("@nestjs/typeorm");
 const cart_item_entity_1 = require("./entities/cart_item.entity");
+const typeorm_3 = require("typeorm");
 let CartItemsRepository = class CartItemsRepository {
     constructor(repository) {
         this.repository = repository;
@@ -26,18 +27,28 @@ let CartItemsRepository = class CartItemsRepository {
         return await this.repository.save(cartItem);
     }
     async findAll(query = {}) {
-        return await this.repository.find({ where: query });
+        return await this.repository.find({
+            where: query,
+            relations: ['item', 'restaurant'],
+        });
     }
     async findById(id) {
-        return await this.repository.findOne({ where: { id } });
+        return await this.repository.findOne({
+            where: { id: (0, typeorm_3.Equal)(id) },
+            relations: ['item', 'restaurant'],
+        });
     }
     async findOne(query) {
-        return await this.repository.findOne({ where: query });
+        const { where, relations } = query;
+        return await this.repository.findOne({
+            where: where || query,
+            relations: relations || ['item', 'restaurant'],
+        });
     }
     async update(id, updateDto) {
         await this.repository.update(id, {
             ...updateDto,
-            updated_at: Math.floor(Date.now() / 1000)
+            updated_at: Math.floor(Date.now() / 1000),
         });
         return await this.findById(id);
     }

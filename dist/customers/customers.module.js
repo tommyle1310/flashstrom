@@ -34,6 +34,8 @@ const order_entity_1 = require("../orders/entities/order.entity");
 const jwt_1 = require("@nestjs/jwt");
 const promotions_repository_1 = require("../promotions/promotions.repository");
 const promotion_entity_1 = require("../promotions/entities/promotion.entity");
+const notification_entity_1 = require("../notifications/entities/notification.entity");
+const notifications_repository_1 = require("../notifications/notifications.repository");
 let CustomersModule = class CustomersModule {
 };
 exports.CustomersModule = CustomersModule;
@@ -48,6 +50,7 @@ exports.CustomersModule = CustomersModule = __decorate([
                 customer_entity_1.Customer,
                 promotion_entity_1.Promotion,
                 cart_item_entity_1.CartItem,
+                notification_entity_1.Notification,
                 order_entity_1.Order
             ]),
             (0, common_1.forwardRef)(() => cart_items_module_1.CartItemsModule),
@@ -62,6 +65,7 @@ exports.CustomersModule = CustomersModule = __decorate([
             customers_gateway_1.CustomersGateway,
             users_repository_1.UserRepository,
             address_book_repository_1.AddressBookRepository,
+            notifications_repository_1.NotificationsRepository,
             food_categories_repository_1.FoodCategoriesRepository,
             restaurants_repository_1.RestaurantsRepository,
             customers_repository_1.CustomersRepository,

@@ -459,6 +459,7 @@ export class OrdersService {
     orderId: string,
     tipAmount: number
   ): Promise<ApiResponse<Order>> {
+    console.log('check tipamount', tipAmount, typeof tipAmount)
     try {
       if (tipAmount < 0) {
         return createResponse(

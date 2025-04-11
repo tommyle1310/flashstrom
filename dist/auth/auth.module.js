@@ -74,6 +74,8 @@ const ratings_reviews_repository_1 = require("../ratings_reviews/ratings_reviews
 const driver_stats_record_entity_1 = require("../driver_stats_records/entities/driver_stats_record.entity");
 const driver_stats_records_service_1 = require("../driver_stats_records/driver_stats_records.service");
 const banned_account_entity_1 = require("../banned-account/entities/banned-account.entity");
+const notification_entity_1 = require("../notifications/entities/notification.entity");
+const notifications_repository_1 = require("../notifications/notifications.repository");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -88,6 +90,7 @@ exports.AuthModule = AuthModule = __decorate([
                 user_entity_1.User,
                 admin_entity_1.Admin,
                 promotion_entity_1.Promotion,
+                notification_entity_1.Notification,
                 address_book_entity_1.AddressBook,
                 food_category_entity_1.FoodCategory,
                 customer_entity_1.Customer,
@@ -128,6 +131,7 @@ exports.AuthModule = AuthModule = __decorate([
             driver_progress_stages_repository_1.DriverProgressStagesRepository,
             online_session_repository_1.OnlineSessionsRepository,
             online_sessions_service_1.OnlineSessionsService,
+            notifications_repository_1.NotificationsRepository,
             transactions_repository_1.TransactionsRepository,
             drivers_service_1.DriversService,
             fwallets_service_1.FWalletService,

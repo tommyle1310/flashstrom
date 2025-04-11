@@ -9,6 +9,47 @@ import { MenuItemsRepository } from './menu_items.repository';
 import { MenuItem } from './entities/menu_item.entity';
 import { MenuItemVariantDto } from 'src/menu_item_variants/dto/create-menu_item_variant.dto';
 import { Injectable } from '@nestjs/common';
+import { Promotion } from 'src/promotions/entities/promotion.entity';
+import { MenuItemVariant } from 'src/menu_item_variants/entities/menu_item_variant.entity';
+import { Equal } from 'typeorm';
+
+interface MenuItemVariantResponse {
+  id: string;
+  menu_id: string;
+  variant: string;
+  description: string | null;
+  avatar: { key: string; url: string } | null;
+  availability: boolean;
+  default_restaurant_notes: string[];
+  price: number;
+  discount_rate: number | null;
+  created_at: number;
+  updated_at: number;
+  price_after_applied_promotion: number | null;
+}
+
+interface MenuItemResponse {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  category: string[];
+  avatar: { key: string; url: string } | null;
+  availability: boolean;
+  suggest_notes: string[];
+  discount: {
+    discount_type: 'FIXED' | 'PERCENTAGE';
+    discount_value: number;
+    start_date: number;
+    end_date: number;
+  } | null;
+  purchase_count: number;
+  created_at: number;
+  updated_at: number;
+  price_after_applied_promotion: number | null;
+  variants: MenuItemVariantResponse[];
+}
 
 @Injectable()
 export class MenuItemsService {
@@ -16,7 +57,8 @@ export class MenuItemsService {
     private readonly menuItemRepository: MenuItemsRepository,
     private readonly restaurantRepository: RestaurantsRepository,
     private readonly foodCategoriesRepository: FoodCategoriesRepository,
-    private readonly menuItemVariantsService: MenuItemVariantsService
+    private readonly menuItemVariantsService: MenuItemVariantsService,
+    
   ) {}
 
   async create(
@@ -56,28 +98,152 @@ export class MenuItemsService {
     }
   }
 
-  async findOne(id: string): Promise<ApiResponse<any>> {
-    try {
-      const menuItem = await this.menuItemRepository.findById(id);
-      if (!menuItem) {
-        return createResponse('NotFound', null, 'Menu Item not found');
-      }
-
-      const menuItemVariants = await this.menuItemVariantsService.findAll();
-      const filteredVariants = menuItemVariants.data.filter(
-        v => v.menu_id === id
-      );
-
-      return createResponse(
-        'OK',
-        { menuItem, variants: filteredVariants },
-        'Fetched menu item successfully'
-      );
-    } catch (error) {
-      return this.handleError('Error fetching menu item:', error);
+  private calculateDiscountedPrice(
+    originalPrice: number,
+    promotion: Promotion
+  ): number {
+    let discountedPrice: number;
+    if (promotion.discount_type === 'PERCENTAGE') {
+      discountedPrice = originalPrice * (1 - promotion.discount_value / 100);
+    } else if (promotion.discount_type === 'FIXED') {
+      discountedPrice = originalPrice - promotion.discount_value;
+    } else {
+      return originalPrice;
     }
+    return Math.max(0, Number(discountedPrice.toFixed(2)));
   }
 
+// menu_items.service.ts (chỉ trích đoạn findOne)
+async findOne(id: string): Promise<ApiResponse<any>> {
+  try {
+    console.log('Starting findOne with id:', id);
+    const menuItem = await this.menuItemRepository.findOne({
+      where: { id: Equal(id) },
+      relations: ['variants', 'restaurant'],
+    });
+    console.log('check menu item', JSON.stringify(menuItem, null, 2));
+    if (!menuItem) {
+      return createResponse('NotFound', null, 'Menu Item not found');
+    }
+
+    const restaurant = await this.restaurantRepository.findOne({
+      where: { id: Equal(menuItem.restaurant_id) },
+      relations: ['promotions', 'promotions.food_categories'], // Thêm relations
+    });
+    console.log('check res', JSON.stringify(restaurant, null, 2));
+    if (!restaurant) {
+      return createResponse('NotFound', null, 'Restaurant not found');
+    }
+
+    let itemPriceAfterPromotion: number | null = null;
+    const processedVariants: MenuItemVariantResponse[] = [];
+
+    const now = Math.floor(Date.now() / 1000);
+    const itemCategories = menuItem.category || [];
+    console.log('check item categories', itemCategories);
+
+    const applicablePromotions = restaurant.promotions?.filter((promotion) => {
+      const isActive =
+        promotion.status === 'ACTIVE' &&
+        now >= Number(promotion.start_date) &&
+        now <= Number(promotion.end_date);
+      const hasMatchingCategory = promotion.food_categories?.some((fc) =>
+        itemCategories.includes(fc.id)
+      ) || false;
+      console.log(
+        `check promotion ${promotion.id}: active=${isActive}, hasMatchingCategory=${hasMatchingCategory}`,
+        promotion.food_categories?.map((fc) => fc.id)
+      );
+      return isActive && hasMatchingCategory;
+    }) || [];
+
+    if (applicablePromotions.length > 0) {
+      applicablePromotions.forEach((promotion) => {
+        const discountedPrice = this.calculateDiscountedPrice(
+          Number(menuItem.price),
+          promotion
+        );
+        console.log(
+          `apply promotion ${promotion.id} for item ${menuItem.id}: original=${menuItem.price}, discounted=${discountedPrice}`
+        );
+        if (
+          itemPriceAfterPromotion === null ||
+          discountedPrice < itemPriceAfterPromotion
+        ) {
+          itemPriceAfterPromotion = discountedPrice;
+        }
+      });
+    }
+
+    if (menuItem.variants && menuItem.variants.length > 0) {
+      menuItem.variants.forEach((variant: MenuItemVariant) => {
+        let variantPriceAfterPromotion: number | null = null;
+
+        if (applicablePromotions.length > 0) {
+          applicablePromotions.forEach((promotion) => {
+            const discountedPrice = this.calculateDiscountedPrice(
+              Number(variant.price),
+              promotion
+            );
+            console.log(
+              `apply promotion ${promotion.id} for variant ${variant.id}: original=${variant.price}, discounted=${discountedPrice}`
+            );
+            if (
+              variantPriceAfterPromotion === null ||
+              discountedPrice < variantPriceAfterPromotion
+            ) {
+              variantPriceAfterPromotion = discountedPrice;
+            }
+          });
+        }
+
+        processedVariants.push({
+          id: variant.id,
+          menu_id: variant.menu_id,
+          variant: variant.variant,
+          description: variant.description,
+          avatar: variant.avatar,
+          availability: variant.availability,
+          default_restaurant_notes: variant.default_restaurant_notes,
+          price: variant.price,
+          discount_rate: variant.discount_rate,
+          created_at: variant.created_at,
+          updated_at: variant.updated_at,
+          price_after_applied_promotion: variantPriceAfterPromotion,
+        });
+      });
+    }
+
+    const menuItemResponse: MenuItemResponse = {
+      id: menuItem.id,
+      restaurant_id: menuItem.restaurant_id,
+      name: menuItem.name,
+      description: menuItem.description,
+      price: menuItem.price,
+      category: menuItem.category,
+      avatar: menuItem.avatar,
+      availability: menuItem.availability,
+      suggest_notes: menuItem.suggest_notes,
+      discount: menuItem.discount,
+      purchase_count: menuItem.purchase_count,
+      created_at: menuItem.created_at,
+      updated_at: menuItem.updated_at,
+      price_after_applied_promotion: itemPriceAfterPromotion,
+      variants: processedVariants,
+    };
+
+    console.log('Returning response for menu item:', menuItemResponse.id);
+    return createResponse(
+      'OK',
+      { menuItem: menuItemResponse, variants: processedVariants },
+      'Fetched menu item successfully'
+    );
+  } catch (error) {
+    console.error('Caught error in findOne:', error);
+    return this.handleError('Error fetching menu item:', error);
+  }
+}
+  
   async update(
     id: string,
     updateMenuItemDto: UpdateMenuItemDto
@@ -156,8 +322,7 @@ export class MenuItemsService {
     restaurantId: string
   ): Promise<MenuItem | null> {
     return this.menuItemRepository.findOne({
-      name,
-      restaurant_id: restaurantId
+      where: { name: Equal(name), restaurant_id: Equal(restaurantId) },
     });
   }
 
@@ -293,4 +458,13 @@ export class MenuItemsService {
       'An error occurred while processing your request'
     );
   }
+
+    async findByRestaurantId(restaurantId: string): Promise<ApiResponse<MenuItem[]>> {
+      try {
+        const menuItems = await this.menuItemRepository.findByRestaurantId(restaurantId);
+        return createResponse('OK', menuItems, 'Fetched menu items for restaurant');
+      } catch (error) {
+        return createResponse('ServerError', null, 'An error occurred while fetching menu items');
+      }
+    }
 }

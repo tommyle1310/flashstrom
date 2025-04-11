@@ -22,6 +22,7 @@ export declare class CustomersController {
     getFavoriteRestaurants(customerId: string): Promise<import("../utils/createResponse").ApiResponse<import("../restaurants/entities/restaurant.entity").Restaurant[]>>;
     getAllOrders(id: string): Promise<any>;
     findAllCartItemByCustomerId(customerId: string): Promise<any>;
+    getNotifications(customerId: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findCustomerById(id: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findOne(field: string, value: string): Promise<import("../utils/createResponse").ApiResponse<import("./entities/customer.entity").Customer>>;
     toggleFavoriteRestaurant(id: string, dto: UpdateCustomerFavoriteRestaurantDto): Promise<import("../utils/createResponse").ApiResponse<import("./entities/customer.entity").Customer>>;

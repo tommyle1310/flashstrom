@@ -1,3 +1,4 @@
+// restaurants/entities/restaurant.entity.ts
 import {
   Entity,
   Column,
@@ -16,6 +17,7 @@ import { FoodCategory } from 'src/food_categories/entities/food_category.entity'
 import { Admin } from 'src/admin/entities/admin.entity';
 import { Order } from 'src/orders/entities/order.entity';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
+import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 
 @Entity('restaurants')
 export class Restaurant {
@@ -103,7 +105,7 @@ export class Restaurant {
   @Column({ name: 'updated_at' })
   updated_at: number;
 
-  @Column({ type: 'int', default: 0 }) // Thêm field total_orders
+  @Column({ type: 'int', default: 0 })
   total_orders: number;
 
   @ManyToMany(() => Admin, admin => admin.assigned_restaurants)
@@ -112,11 +114,14 @@ export class Restaurant {
   @OneToMany(() => Order, order => order.restaurant)
   orders: Order[];
 
+  @OneToMany(() => MenuItem, menuItem => menuItem.restaurant) // Thêm quan hệ ngược
+  menuItems: MenuItem[];
+
   @BeforeInsert()
   generateId() {
     this.id = `FF_RES_${uuidv4()}`;
     this.created_at = Math.floor(Date.now() / 1000);
     this.updated_at = Math.floor(Date.now() / 1000);
-    this.total_orders = 0; // Đặt giá trị mặc định trong logic nếu cần
+    this.total_orders = 0;
   }
 }

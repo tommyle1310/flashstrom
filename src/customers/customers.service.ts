@@ -15,8 +15,10 @@ import { CustomersRepository } from './customers.repository';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 // import { OrdersRepository } from 'src/orders/orders.repository';
 import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
-import { DataSource, ILike, In } from 'typeorm';
+import { Any, DataSource, ILike, In, Raw } from 'typeorm';
 import { Order } from 'src/orders/entities/order.entity';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
+import { TargetUser } from 'src/notifications/entities/notification.entity';
 export interface AddressPopulate {
   id?: string;
   street?: string;
@@ -34,7 +36,8 @@ export class CustomersService {
     private readonly restaurantRepository: RestaurantsRepository,
     private readonly userRepository: UserRepository,
     private readonly dataSource: DataSource,
-    private readonly customerRepository: CustomersRepository
+    private readonly customerRepository: CustomersRepository,
+    private readonly notificationsRepository: NotificationsRepository
   ) {}
 
   async create(
@@ -658,6 +661,62 @@ export class CustomersService {
         'ServerError',
         null,
         'An error occurred while finding the customer'
+      );
+    }
+  }
+
+  async getNotifications(customerId: string): Promise<ApiResponse<any>> {
+    try {
+      // Kiểm tra customer có tồn tại không
+      const customer = await this.customerRepository.findById(customerId);
+      if (!customer) {
+        return createResponse('NotFound', null, 'Customer not found');
+      }
+
+      // Lấy thông báo chỉ định riêng cho customer (target_user_id = customerId)
+      const specificNotifications = await this.notificationsRepository.findAll({
+        where: { target_user_id: customerId },
+        relations: ['created_by']
+      });
+
+      // Lấy thông báo broadcast cho vai trò CUSTOMER
+      const broadcastNotifications = await this.notificationsRepository.findAll(
+        {
+          where: {
+            target_user: Raw(
+              alias => `'CUSTOMER' = ANY(${alias})` // Thủ công viết điều kiện cho cột mảng
+            )
+          },
+          relations: ['created_by']
+        }
+      );
+
+      // Gộp hai danh sách thông báo và loại bỏ trùng lặp
+      const allNotifications = [
+        ...specificNotifications,
+        ...broadcastNotifications
+      ];
+      const uniqueNotificationsMap = new Map(
+        allNotifications.map(n => [n.id, n])
+      );
+      const uniqueNotifications = Array.from(uniqueNotificationsMap.values());
+
+      // Sắp xếp theo thời gian tạo (mới nhất trước)
+      const sortedNotifications = uniqueNotifications.sort(
+        (a, b) => b.created_at - a.created_at
+      );
+
+      return createResponse(
+        'OK',
+        sortedNotifications,
+        `Fetched ${sortedNotifications.length} notifications for customer ${customerId}`
+      );
+    } catch (error) {
+      console.error('Error fetching notifications for customer:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while fetching notifications'
       );
     }
   }

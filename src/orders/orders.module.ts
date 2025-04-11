@@ -55,6 +55,8 @@ import { DriverStatsService } from 'src/driver_stats_records/driver_stats_record
 import { DriverStatsRecord } from 'src/driver_stats_records/entities/driver_stats_record.entity';
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
 import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
+import { Notification } from 'src/notifications/entities/notification.entity';
 
 @Module({
   imports: [
@@ -70,6 +72,7 @@ import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.re
       Customer,
       Transaction,
       FoodCategory,
+      Notification,
       Driver, // Cung cấp Repository<Driver>
       User,
       OnlineSession,
@@ -85,6 +88,7 @@ import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.re
   providers: [
     OrdersService,
     OrdersRepository,
+    NotificationsRepository,
     OrdersGateway,
     MenuItemsRepository,
     MenuItemVariantsRepository,

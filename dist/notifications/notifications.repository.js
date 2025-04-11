@@ -27,10 +27,11 @@ let NotificationsRepository = class NotificationsRepository {
             relations: ['created_by']
         });
     }
-    async findAll() {
+    async findAll(options) {
         return await this.notificationEntityRepository.find({
+            ...options,
             order: { created_at: 'DESC' },
-            relations: ['created_by']
+            relations: options?.relations || ['created_by']
         });
     }
     async create(createNotificationDto) {

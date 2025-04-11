@@ -7,6 +7,7 @@ import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { CustomersRepository } from './customers.repository';
 import { DataSource } from 'typeorm';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
 export interface AddressPopulate {
     id?: string;
     street?: string;
@@ -22,7 +23,8 @@ export declare class CustomersService {
     private readonly userRepository;
     private readonly dataSource;
     private readonly customerRepository;
-    constructor(restaurantRepository: RestaurantsRepository, userRepository: UserRepository, dataSource: DataSource, customerRepository: CustomersRepository);
+    private readonly notificationsRepository;
+    constructor(restaurantRepository: RestaurantsRepository, userRepository: UserRepository, dataSource: DataSource, customerRepository: CustomersRepository, notificationsRepository: NotificationsRepository);
     create(createCustomerDto: CreateCustomerDto): Promise<ApiResponse<Customer>>;
     searchRestaurantsByKeyword(keyword: string, page?: number, limit?: number): Promise<ApiResponse<Restaurant[]>>;
     findAll(): Promise<ApiResponse<Customer[]>>;
@@ -39,4 +41,5 @@ export declare class CustomersService {
     getAllRestaurants(customerId: string): Promise<any>;
     getAllOrders(customerId: string): Promise<any>;
     findOne(conditions: Partial<Customer>): Promise<ApiResponse<Customer>>;
+    getNotifications(customerId: string): Promise<ApiResponse<any>>;
 }

@@ -26,7 +26,50 @@ import { CreateTransactionDto } from 'src/transactions/dto/create-transaction.dt
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionService } from 'src/transactions/transactions.service';
 import { FLASHFOOD_FINANCE } from 'src/utils/constants';
+import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
+import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
+import { Promotion } from 'src/promotions/entities/promotion.entity';
+import { MenuItemVariant } from 'src/menu_item_variants/entities/menu_item_variant.entity';
 // import { Promotion } from 'src/promotions/entities/promotion.entity';
+
+interface MenuItemVariantResponse {
+  id: string;
+  menu_id: string;
+  variant: string;
+  description: string | null;
+  avatar: { key: string; url: string } | null;
+  availability: boolean;
+  default_restaurant_notes: string[];
+  price: number;
+  discount_rate: number | null;
+  created_at: number;
+  updated_at: number;
+  price_after_applied_promotion: number | null;
+}
+
+// Interface cho response của MenuItem
+interface MenuItemResponse {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  category: string[];
+  avatar: { key: string; url: string } | null;
+  availability: boolean;
+  suggest_notes: string[];
+  discount: {
+    discount_type: 'FIXED' | 'PERCENTAGE';
+    discount_value: number;
+    start_date: number;
+    end_date: number;
+  } | null;
+  purchase_count: number;
+  created_at: number;
+  updated_at: number;
+  price_after_applied_promotion: number | null;
+  variants: MenuItemVariantResponse[];
+}
 
 @Injectable()
 export class RestaurantsService {
@@ -36,6 +79,7 @@ export class RestaurantsService {
     private readonly promotionRepository: PromotionsRepository,
     private readonly addressRepository: AddressBookRepository,
     private readonly ordersRepository: OrdersRepository,
+    private readonly menuItemRepository: MenuItemsRepository,
     private readonly menuItemsService: MenuItemsService,
     private readonly menuItemVariantsService: MenuItemVariantsService,
     private readonly transactionsService: TransactionService,
@@ -285,15 +329,153 @@ export class RestaurantsService {
     return this.menuItemsService.remove(menuItemId);
   }
 
+  private calculateDiscountedPrice(
+    originalPrice: number,
+    promotion: Promotion
+  ): number {
+    let discountedPrice: number;
+    if (promotion.discount_type === 'PERCENTAGE') {
+      discountedPrice = originalPrice * (1 - promotion.discount_value / 100);
+    } else if (promotion.discount_type === 'FIXED') {
+      discountedPrice = originalPrice - promotion.discount_value;
+    } else {
+      // BOGO: Bỏ qua vì chưa có logic cụ thể
+      return originalPrice;
+    }
+    return Math.max(0, Number(discountedPrice.toFixed(2)));
+  }
+
   async getMenuItemsForRestaurant(restaurantId: string): Promise<any> {
-    const allMenuItems = await this.menuItemsService.findAll();
-    const restaurantMenuItems = allMenuItems.data.filter(
-      item => item.restaurant_id.toString() === restaurantId
-    );
+    // Lấy nhà hàng cùng với promotions
+    const restaurant = await this.restaurantsRepository.findById(restaurantId);
+    if (!restaurant) {
+      return createResponse('NotFound', null, 'Restaurant not found');
+    }
+    console.log('check res', JSON.stringify(restaurant, null, 2));
+
+    // Lấy tất cả menu items của nhà hàng, bao gồm variants
+    const menuItemsResult = await this.menuItemsService.findByRestaurantId(restaurantId);
+    const menuItems = menuItemsResult.data;
+    console.log('check menu item', JSON.stringify(menuItems, null, 2));
+
+    // Nếu nhà hàng không có promotion, trả về response như cũ
+    if (!restaurant.promotions || restaurant.promotions.length === 0) {
+      return createResponse(
+        'OK',
+        menuItems,
+        'Fetched menu items for the restaurant'
+      );
+    }
+
+    // Xử lý promotion cho từng menu item và variants
+    const processedMenuItems: MenuItemResponse[] = menuItems.map((item: MenuItem) => {
+      let itemPriceAfterPromotion: number | null = null;
+      const processedVariants: MenuItemVariantResponse[] = [];
+
+      // Kiểm tra promotion áp dụng cho menu item và variants
+      const now = Math.floor(Date.now() / 1000);
+      const itemCategories = item.category || [];
+      console.log('check item categories', itemCategories);
+
+      const applicablePromotions = restaurant.promotions.filter((promotion) => {
+        const isActive =
+          promotion.status === 'ACTIVE' &&
+          now >= Number(promotion.start_date) &&
+          now <= Number(promotion.end_date);
+        const hasMatchingCategory = promotion.food_categories?.some((fc) =>
+          itemCategories.includes(fc.id)
+        ) || false;
+        console.log(
+          `check promotion ${promotion.id}: active=${isActive}, hasMatchingCategory=${hasMatchingCategory}`,
+          promotion.food_categories?.map((fc) => fc.id)
+        );
+        return isActive && hasMatchingCategory;
+      });
+
+      // Tính giá sau khi áp dụng promotion cho MenuItem
+      if (applicablePromotions.length > 0) {
+        applicablePromotions.forEach((promotion) => {
+          const discountedPrice = this.calculateDiscountedPrice(
+            Number(item.price),
+            promotion
+          );
+          console.log(
+            `apply promotion ${promotion.id} for item ${item.id}: original=${item.price}, discounted=${discountedPrice}`
+          );
+          if (
+            itemPriceAfterPromotion === null ||
+            discountedPrice < itemPriceAfterPromotion
+          ) {
+            itemPriceAfterPromotion = discountedPrice;
+          }
+        });
+      }
+
+      // Xử lý variants
+      if (item.variants && item.variants.length > 0) {
+        item.variants.forEach((variant: MenuItemVariant) => {
+          let variantPriceAfterPromotion: number | null = null;
+
+          // Áp dụng cùng promotion cho variant
+          if (applicablePromotions.length > 0) {
+            applicablePromotions.forEach((promotion) => {
+              const discountedPrice = this.calculateDiscountedPrice(
+                Number(variant.price),
+                promotion
+              );
+              console.log(
+                `apply promotion ${promotion.id} for variant ${variant.id}: original=${variant.price}, discounted=${discountedPrice}`
+              );
+              if (
+                variantPriceAfterPromotion === null ||
+                discountedPrice < variantPriceAfterPromotion
+              ) {
+                variantPriceAfterPromotion = discountedPrice;
+              }
+            });
+          }
+
+          // Thêm variant đã xử lý vào danh sách
+          processedVariants.push({
+            id: variant.id,
+            menu_id: variant.menu_id,
+            variant: variant.variant,
+            description: variant.description,
+            avatar: variant.avatar,
+            availability: variant.availability,
+            default_restaurant_notes: variant.default_restaurant_notes,
+            price: variant.price,
+            discount_rate: variant.discount_rate,
+            created_at: variant.created_at,
+            updated_at: variant.updated_at,
+            price_after_applied_promotion: variantPriceAfterPromotion,
+          });
+        });
+      }
+
+      // Tạo object mới cho menu item
+      return {
+        id: item.id,
+        restaurant_id: item.restaurant_id,
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        category: item.category,
+        avatar: item.avatar,
+        availability: item.availability,
+        suggest_notes: item.suggest_notes,
+        discount: item.discount,
+        purchase_count: item.purchase_count,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        price_after_applied_promotion: itemPriceAfterPromotion,
+        variants: processedVariants,
+      };
+    });
 
     return createResponse(
       'OK',
-      restaurantMenuItems,
+      processedMenuItems,
       'Fetched menu items for the restaurant'
     );
   }

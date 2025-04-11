@@ -20,12 +20,14 @@ const food_category_entity_1 = require("../food_categories/entities/food_categor
 const menu_item_entity_1 = require("../menu_items/entities/menu_item.entity");
 const typeorm_1 = require("typeorm");
 const order_entity_1 = require("../orders/entities/order.entity");
+const notifications_repository_1 = require("../notifications/notifications.repository");
 let CustomersService = class CustomersService {
-    constructor(restaurantRepository, userRepository, dataSource, customerRepository) {
+    constructor(restaurantRepository, userRepository, dataSource, customerRepository, notificationsRepository) {
         this.restaurantRepository = restaurantRepository;
         this.userRepository = userRepository;
         this.dataSource = dataSource;
         this.customerRepository = customerRepository;
+        this.notificationsRepository = notificationsRepository;
     }
     async create(createCustomerDto) {
         try {
@@ -406,6 +408,36 @@ let CustomersService = class CustomersService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while finding the customer');
         }
     }
+    async getNotifications(customerId) {
+        try {
+            const customer = await this.customerRepository.findById(customerId);
+            if (!customer) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Customer not found');
+            }
+            const specificNotifications = await this.notificationsRepository.findAll({
+                where: { target_user_id: customerId },
+                relations: ['created_by']
+            });
+            const broadcastNotifications = await this.notificationsRepository.findAll({
+                where: {
+                    target_user: (0, typeorm_1.Raw)(alias => `'CUSTOMER' = ANY(${alias})`)
+                },
+                relations: ['created_by']
+            });
+            const allNotifications = [
+                ...specificNotifications,
+                ...broadcastNotifications
+            ];
+            const uniqueNotificationsMap = new Map(allNotifications.map(n => [n.id, n]));
+            const uniqueNotifications = Array.from(uniqueNotificationsMap.values());
+            const sortedNotifications = uniqueNotifications.sort((a, b) => b.created_at - a.created_at);
+            return (0, createResponse_1.createResponse)('OK', sortedNotifications, `Fetched ${sortedNotifications.length} notifications for customer ${customerId}`);
+        }
+        catch (error) {
+            console.error('Error fetching notifications for customer:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching notifications');
+        }
+    }
 };
 exports.CustomersService = CustomersService;
 exports.CustomersService = CustomersService = __decorate([
@@ -413,6 +445,7 @@ exports.CustomersService = CustomersService = __decorate([
     __metadata("design:paramtypes", [restaurants_repository_1.RestaurantsRepository,
         users_repository_1.UserRepository,
         typeorm_1.DataSource,
-        customers_repository_1.CustomersRepository])
+        customers_repository_1.CustomersRepository,
+        notifications_repository_1.NotificationsRepository])
 ], CustomersService);
 //# sourceMappingURL=customers.service.js.map

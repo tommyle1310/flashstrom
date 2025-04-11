@@ -38,9 +38,11 @@ class TargetContent {
   @IsNotEmpty()
   desc: string;
 
-  @IsString()
   @IsOptional()
-  image?: string;
+  @IsObject()
+  @ValidateNested()
+  @Type(() => Avatar) // Transform avatar thành instance của Avatar
+  image?: Avatar;
 
   @IsString()
   @IsOptional()
