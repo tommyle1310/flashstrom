@@ -45,22 +45,33 @@ let CartItemsService = class CartItemsService {
             if (!item_id || !customer_id) {
                 return (0, createResponse_1.createResponse)('MissingInput', null, 'Item ID and Customer ID are required');
             }
+            console.log('Starting cart item creation:', { item_id, customer_id });
             const [menuItem, customer] = await Promise.all([
                 this.menuItemsRepository.findById(item_id),
                 this.customersRepository.findById(customer_id),
             ]);
             if (!menuItem || !customer) {
+                console.log('MenuItem or Customer not found:', { menuItem, customer });
                 return (0, createResponse_1.createResponse)('NotFound', null, 'MenuItem or Customer not found');
             }
+            console.log('Fetched menuItem and customer successfully');
             const restaurant = await this.restaurantRepository.findById(menuItem.restaurant_id);
             if (!restaurant) {
+                console.log('Restaurant not found:', menuItem.restaurant_id);
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant not found');
             }
+            console.log('Fetched restaurant successfully');
             const existingCartItem = await this.cartItemsRepository.findOne({
                 where: { customer_id: (0, typeorm_1.Equal)(customer_id), item_id: (0, typeorm_1.Equal)(item_id) },
             });
+            console.log('Checked existing cart item:', { existingCartItem });
             if (existingCartItem) {
-                const updatedVariants = await this.updateExistingCartItemVariants(existingCartItem, variants, restaurant.promotions, menuItem);
+                console.log('Updating existing cart item:', existingCartItem.id);
+                const updatedVariants = await Promise.race([
+                    this.updateExistingCartItemVariants(existingCartItem, variants || [], restaurant.promotions || [], menuItem),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('updateExistingCartItemVariants timeout')), 5000)),
+                ]);
+                console.log('Updated variants:', updatedVariants);
                 const updated = await this.cartItemsRepository.update(existingCartItem.id, {
                     variants: updatedVariants,
                     updated_at: Math.floor(Date.now() / 1000),
@@ -68,19 +79,26 @@ let CartItemsService = class CartItemsService {
                     customer_id: existingCartItem.customer_id,
                     restaurant_id: existingCartItem.restaurant_id,
                 });
+                console.log('Cart item updated:', updated);
                 return (0, createResponse_1.createResponse)('OK', updated, 'Cart item added quantity successfully');
             }
-            const populatedVariants = await this.populateVariants(variants, restaurant.promotions, menuItem);
+            console.log('Creating new cart item');
+            const populatedVariants = await Promise.race([
+                this.populateVariants(variants || [], restaurant.promotions || [], menuItem),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('populateVariants timeout')), 5000)),
+            ]);
+            console.log('Populated variants:', populatedVariants);
             const newCartItem = await this.cartItemsRepository.create({
                 ...createCartItemDto,
                 variants: populatedVariants,
                 restaurant_id: menuItem.restaurant_id,
             });
+            console.log('Created new cart item:', newCartItem);
             return (0, createResponse_1.createResponse)('OK', newCartItem, 'Cart item created successfully');
         }
         catch (error) {
-            console.log('error', error);
-            return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to create cart item');
+            console.error('Error creating cart item:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, `Failed to create cart item: ${error.message}`);
         }
     }
     async update(id, updateCartItemDto) {
@@ -109,7 +127,7 @@ let CartItemsService = class CartItemsService {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant not found');
             }
             const updatedVariants = variants
-                ? await this.populateVariants(variants, restaurant.promotions, menuItem)
+                ? await this.populateVariants(variants, restaurant.promotions || [], menuItem)
                 : existingCartItem.variants;
             const updatedCartItem = await this.cartItemsRepository.update(id, {
                 ...updateData,
@@ -121,8 +139,8 @@ let CartItemsService = class CartItemsService {
             return (0, createResponse_1.createResponse)('OK', updatedCartItem, 'Cart item updated successfully');
         }
         catch (error) {
-            console.log('error', error);
-            return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to update cart item');
+            console.error('Error updating cart item:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, `Failed to update cart item: ${error.message}`);
         }
     }
     async findAll(query = {}) {
@@ -148,6 +166,15 @@ let CartItemsService = class CartItemsService {
                 }) || [];
                 const populatedVariants = await Promise.all(cartItem.variants.map(async (variant) => {
                     const variantDetails = await this.menuItemVariantsRepository.findById(variant.variant_id);
+                    if (!variantDetails) {
+                        return {
+                            variant_id: variant.variant_id,
+                            variant_name: 'Unknown',
+                            variant_price_at_time_of_addition: 0,
+                            quantity: variant.quantity,
+                            price_after_applied_promotion: null,
+                        };
+                    }
                     let priceAfterPromotion = null;
                     if (applicablePromotions.length > 0) {
                         applicablePromotions.forEach((promotion) => {
@@ -159,7 +186,7 @@ let CartItemsService = class CartItemsService {
                     }
                     return {
                         variant_id: variant.variant_id,
-                        variant_name: variantDetails ? variantDetails.variant : 'Unknown',
+                        variant_name: variantDetails.variant,
                         variant_price_at_time_of_addition: variantDetails.price,
                         quantity: variant.quantity,
                         price_after_applied_promotion: priceAfterPromotion,
@@ -175,8 +202,8 @@ let CartItemsService = class CartItemsService {
             return (0, createResponse_1.createResponse)('OK', populatedCartItems, 'Cart items fetched successfully');
         }
         catch (error) {
-            console.log('error', error);
-            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching cart items');
+            console.error('Error fetching cart items:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, `Failed to fetch cart items: ${error.message}`);
         }
     }
     async findById(id) {
@@ -198,6 +225,15 @@ let CartItemsService = class CartItemsService {
             }) || [];
             const populatedVariants = await Promise.all(cartItem.variants.map(async (variant) => {
                 const variantDetails = await this.menuItemVariantsRepository.findById(variant.variant_id);
+                if (!variantDetails) {
+                    return {
+                        variant_id: variant.variant_id,
+                        variant_name: 'Unknown',
+                        variant_price_at_time_of_addition: 0,
+                        quantity: variant.quantity,
+                        price_after_applied_promotion: null,
+                    };
+                }
                 let priceAfterPromotion = null;
                 if (applicablePromotions.length > 0) {
                     applicablePromotions.forEach((promotion) => {
@@ -209,7 +245,7 @@ let CartItemsService = class CartItemsService {
                 }
                 return {
                     variant_id: variant.variant_id,
-                    variant_name: variantDetails ? variantDetails.variant : 'Unknown',
+                    variant_name: variantDetails.variant,
                     variant_price_at_time_of_addition: variantDetails.price,
                     quantity: variant.quantity,
                     price_after_applied_promotion: priceAfterPromotion,
@@ -223,8 +259,8 @@ let CartItemsService = class CartItemsService {
             }, 'Fetched cart item successfully');
         }
         catch (error) {
-            console.log('error', error);
-            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching the cart item');
+            console.error('Error fetching cart item:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, `Failed to fetch cart item: ${error.message}`);
         }
     }
     async findOne(query) {
@@ -246,6 +282,15 @@ let CartItemsService = class CartItemsService {
             }) || [];
             const populatedVariants = await Promise.all(cartItem.variants.map(async (variant) => {
                 const variantDetails = await this.menuItemVariantsRepository.findById(variant.variant_id);
+                if (!variantDetails) {
+                    return {
+                        variant_id: variant.variant_id,
+                        variant_name: 'Unknown',
+                        variant_price_at_time_of_addition: 0,
+                        quantity: variant.quantity,
+                        price_after_applied_promotion: null,
+                    };
+                }
                 let priceAfterPromotion = null;
                 if (applicablePromotions.length > 0) {
                     applicablePromotions.forEach((promotion) => {
@@ -257,7 +302,7 @@ let CartItemsService = class CartItemsService {
                 }
                 return {
                     variant_id: variant.variant_id,
-                    variant_name: variantDetails ? variantDetails.variant : 'Unknown',
+                    variant_name: variantDetails.variant,
                     variant_price_at_time_of_addition: variantDetails.price,
                     quantity: variant.quantity,
                     price_after_applied_promotion: priceAfterPromotion,
@@ -271,8 +316,8 @@ let CartItemsService = class CartItemsService {
             }, 'Fetched cart item successfully');
         }
         catch (error) {
-            console.log('error', error);
-            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching the cart item');
+            console.error('Error fetching cart item:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, `Failed to fetch cart item: ${error.message}`);
         }
     }
     async remove(id) {
@@ -284,8 +329,8 @@ let CartItemsService = class CartItemsService {
             return (0, createResponse_1.createResponse)('OK', null, 'Cart item deleted successfully');
         }
         catch (error) {
-            console.log('error', error);
-            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while deleting the cart item');
+            console.error('Error deleting cart item:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, `Failed to delete cart item: ${error.message}`);
         }
     }
     async populateVariants(variants, promotions, menuItem) {
@@ -293,8 +338,12 @@ let CartItemsService = class CartItemsService {
         const itemCategories = menuItem.category || [];
         return Promise.all(variants.map(async (variant) => {
             const variantDetails = await this.menuItemVariantsRepository.findById(variant.variant_id);
+            if (!variantDetails) {
+                console.warn(`Variant not found: ${variant.variant_id}`);
+                throw new Error(`Variant with ID ${variant.variant_id} not found`);
+            }
             let priceToUse = variantDetails.price;
-            if (promotions && promotions.length > 0) {
+            if (promotions?.length > 0) {
                 const applicablePromotions = promotions.filter((promotion) => {
                     const isActive = promotion.status === 'ACTIVE' &&
                         now >= Number(promotion.start_date) &&
@@ -329,52 +378,38 @@ let CartItemsService = class CartItemsService {
         const itemCategories = menuItem.category || [];
         for (const newVariant of newVariants) {
             const existingVariantIndex = updatedVariants.findIndex((v) => v.variant_id === newVariant.variant_id);
-            if (existingVariantIndex > -1) {
-                updatedVariants[existingVariantIndex].quantity += newVariant.quantity;
-                const variantDetails = await this.menuItemVariantsRepository.findById(newVariant.variant_id);
-                let priceAfterPromotion = null;
-                if (promotions && promotions.length > 0) {
-                    const applicablePromotions = promotions.filter((promotion) => {
-                        const isActive = promotion.status === 'ACTIVE' &&
-                            now >= Number(promotion.start_date) &&
-                            now <= Number(promotion.end_date);
-                        const hasMatchingCategory = promotion.food_categories?.some((fc) => itemCategories.includes(fc.id)) || false;
-                        return isActive && hasMatchingCategory;
-                    });
-                    if (applicablePromotions.length > 0) {
-                        applicablePromotions.forEach((promotion) => {
-                            const discountedPrice = this.calculateDiscountedPrice(variantDetails.price, promotion);
-                            if (priceAfterPromotion === null || discountedPrice < priceAfterPromotion) {
-                                priceAfterPromotion = discountedPrice;
-                            }
-                        });
-                        if (priceAfterPromotion !== null) {
-                            updatedVariants[existingVariantIndex].variant_price_at_time_of_addition = priceAfterPromotion;
+            const variantDetails = await this.menuItemVariantsRepository.findById(newVariant.variant_id);
+            if (!variantDetails) {
+                console.warn(`Variant not found: ${newVariant.variant_id}`);
+                throw new Error(`Variant with ID ${newVariant.variant_id} not found`);
+            }
+            let priceToUse = variantDetails.price;
+            if (promotions?.length > 0) {
+                const applicablePromotions = promotions.filter((promotion) => {
+                    const isActive = promotion.status === 'ACTIVE' &&
+                        now >= Number(promotion.start_date) &&
+                        now <= Number(promotion.end_date);
+                    const hasMatchingCategory = promotion.food_categories?.some((fc) => itemCategories.includes(fc.id)) || false;
+                    return isActive && hasMatchingCategory;
+                });
+                if (applicablePromotions.length > 0) {
+                    let priceAfterPromotion = null;
+                    applicablePromotions.forEach((promotion) => {
+                        const discountedPrice = this.calculateDiscountedPrice(variantDetails.price, promotion);
+                        if (priceAfterPromotion === null || discountedPrice < priceAfterPromotion) {
+                            priceAfterPromotion = discountedPrice;
                         }
+                    });
+                    if (priceAfterPromotion !== null) {
+                        priceToUse = priceAfterPromotion;
                     }
                 }
             }
+            if (existingVariantIndex > -1) {
+                updatedVariants[existingVariantIndex].quantity += newVariant.quantity;
+                updatedVariants[existingVariantIndex].variant_price_at_time_of_addition = priceToUse;
+            }
             else {
-                const variantDetails = await this.menuItemVariantsRepository.findById(newVariant.variant_id);
-                let priceAfterPromotion = null;
-                if (promotions && promotions.length > 0) {
-                    const applicablePromotions = promotions.filter((promotion) => {
-                        const isActive = promotion.status === 'ACTIVE' &&
-                            now >= Number(promotion.start_date) &&
-                            now <= Number(promotion.end_date);
-                        const hasMatchingCategory = promotion.food_categories?.some((fc) => itemCategories.includes(fc.id)) || false;
-                        return isActive && hasMatchingCategory;
-                    });
-                    if (applicablePromotions.length > 0) {
-                        applicablePromotions.forEach((promotion) => {
-                            const discountedPrice = this.calculateDiscountedPrice(variantDetails.price, promotion);
-                            if (priceAfterPromotion === null || discountedPrice < priceAfterPromotion) {
-                                priceAfterPromotion = discountedPrice;
-                            }
-                        });
-                    }
-                }
-                const priceToUse = priceAfterPromotion !== null ? priceAfterPromotion : variantDetails.price;
                 updatedVariants.push({
                     variant_id: newVariant.variant_id,
                     variant_name: variantDetails.variant,
