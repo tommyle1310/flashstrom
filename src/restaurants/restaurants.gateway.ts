@@ -100,7 +100,7 @@ export class RestaurantsGateway
     const restaurantData = await this.validateToken(client);
     if (!restaurantData) return;
 
-    const restaurantId = restaurantData.id; // Giả sử token có field `id`
+    const restaurantId = restaurantData.id;
     if (restaurantId) {
       client.join(`restaurant_${restaurantId}`);
       console.log(
@@ -129,9 +129,21 @@ export class RestaurantsGateway
   async handleNewOrder(@MessageBody() order: any) {
     await this.server
       .to(`restaurant_${order.restaurant_id}`)
-      .emit('incomingOrderForRestaurant', order); //
+      .emit('incomingOrderForRestaurant', {
+        orderId: order.order.orderId,
+        status: order.order.status,
+        tracking_info: order.order.tracking_info,
+        updated_at: order.order.updated_at,
+        customer_id: order.order.customer_id,
+        driver_id: order.order.driver_id,
+        restaurant_id: order.order.restaurant_id,
+        restaurant_avatar: order.order.restaurant_avatar || null,
+        driver_avatar: order.order.driver_avatar || null,
+        restaurantAddress: order.order.restaurantAddress,
+        customerAddress: order.order.customerAddress
+      });
     console.log(
-      `Emitted notifyOrderStatus to restaurant_${order.restaurant_id}`
+      `Emitted incomingOrderForRestaurant to restaurant_${order.restaurant_id}`
     );
     return {
       event: 'newOrderForRestaurant',
@@ -139,11 +151,6 @@ export class RestaurantsGateway
       message: `Notified customer ${order.customer_id}`
     };
   }
-
-  // @OnEvent('incomingOrderForRestaurant')
-  // async listenIncomingOrderForRestaurant(@MessageBody() order: any) {
-  //   return order;
-  // }
 
   @SubscribeMessage('restaurantAcceptWithAvailableDrivers')
   async handleRestaurantAcceptWithDrivers(
@@ -157,7 +164,6 @@ export class RestaurantsGateway
         return { event: 'error', data: { message: 'Order not found' } };
       }
 
-      // Cập nhật trạng thái đầu tiên
       await this.ordersRepository.update(orderId, {
         status: OrderStatus.RESTAURANT_ACCEPTED,
         tracking_info: OrderTrackingInfo.ORDER_RECEIVED
@@ -214,10 +220,9 @@ export class RestaurantsGateway
         } else if (distance > 4 && distance <= 5) {
           driver_wage = data.driver_fixed_wage['4-5km'];
         } else if (distance > 5) {
-          const formula = data.driver_fixed_wage['>5km']; // Ví dụ: "5 + 1.2*km"
+          const formula = data.driver_fixed_wage['>5km'];
 
           try {
-            // Thay thế 'km' trong công thức bằng giá trị distance và tính toán
             driver_wage = evaluate(formula.replace('km', distance.toString()));
             console.log('Calculated driver wage:', driver_wage);
           } catch (error) {
@@ -226,7 +231,6 @@ export class RestaurantsGateway
 
           return { event: 'error', data: { message: 'Invalid wage formula' } };
         } else {
-          // Xử lý trường hợp distance âm hoặc không hợp lệ (nếu cần)
           return {
             event: 'error',
             data: { message: 'Invalid distance value' }
@@ -234,7 +238,6 @@ export class RestaurantsGateway
         }
         console.log('check drier wage', driver_wage);
 
-        // Cập nhật trạng thái thứ hai với dữ liệu thuần
         const updatedFields = {
           distance: +distance,
           status: OrderStatus.PREPARING,
@@ -244,7 +247,6 @@ export class RestaurantsGateway
         console.log('Fields to update:', updatedFields);
         await this.ordersRepository.update(orderId, updatedFields);
 
-        // Lấy dữ liệu order sau khi cập nhật để emit và notify
         const orderWithDistance = await this.ordersRepository.findById(orderId);
         if (!orderWithDistance) {
           throw new Error('Failed to retrieve updated order');
@@ -292,23 +294,20 @@ export class RestaurantsGateway
     try {
       this.notificationLock.set(notifyKey, true);
       const trackingUpdate = {
-        orderDetails: order,
         orderId: order.id,
-        order_items: order.order_items,
         status: order.status,
-        total_amount: order.total_amount,
         tracking_info: order.tracking_info,
         updated_at: order.updated_at,
         customer_id: order.customer_id,
         driver_id: order.driver_id,
         restaurant_id: order.restaurant_id,
-        driver_tips: order.driver_tips || 0 // Thêm driver_tips nếu có
+        restaurant_avatar: order.restaurant?.avatar || null,
+        driver_avatar: order.driver?.avatar || null,
+        restaurantAddress: order.restaurantAddress,
+        customerAddress: order.customerAddress
       };
-      // Emit qua EventEmitter2 cho customer
       this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
-      // Emit qua EventEmitter2 cho driver
       this.eventEmitter.emit('notifyDriverOrderStatus', trackingUpdate);
-      // Chỉ emit trực tiếp cho restaurant trong namespace này
       this.server
         .to(`restaurant_${order.restaurant_id}`)
         .emit('notifyOrderStatus', trackingUpdate);
@@ -330,7 +329,10 @@ export class RestaurantsGateway
         customer_id: order.customer_id,
         driver_id: order.driver_id,
         restaurant_id: order.restaurant_id,
-        driver_tips: order.driver_tips || 0 // Thêm driver_tips
+        restaurant_avatar: order.restaurant_avatar || null,
+        driver_avatar: order.driver_avatar || null,
+        restaurantAddress: order.restaurantAddress,
+        customerAddress: order.customerAddress
       });
     return {
       event: 'notifyOrderStatus',

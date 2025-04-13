@@ -393,12 +393,12 @@ let OrdersService = class OrdersService {
             return this.handleError('Error fetching orders:', error);
         }
     }
-    async findOne(id, transactionalEntityManager) {
+    async findOne(id, transactionalEntityManager, relations = ['driver', 'customer', 'restaurant']) {
         try {
             const manager = transactionalEntityManager || this.dataSource.manager;
             const order = await manager.getRepository(order_entity_1.Order).findOne({
                 where: { id },
-                relations: ['driver', 'customer', 'restaurant']
+                relations
             });
             return this.handleOrderResponse(order);
         }

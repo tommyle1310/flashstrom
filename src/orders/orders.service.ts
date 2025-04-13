@@ -493,15 +493,16 @@ export class OrdersService {
 
   async findOne(
     id: string,
-    transactionalEntityManager?: EntityManager
+    transactionalEntityManager?: EntityManager,
+    relations: string[] = ['driver', 'customer', 'restaurant'] // Default relations for backward compatibility
   ): Promise<ApiResponse<Order>> {
     try {
       const manager = transactionalEntityManager || this.dataSource.manager;
       const order = await manager.getRepository(Order).findOne({
         where: { id },
-        relations: ['driver', 'customer', 'restaurant']
+        relations
       });
-
+  
       return this.handleOrderResponse(order);
     } catch (error) {
       return this.handleError('Error fetching order:', error);

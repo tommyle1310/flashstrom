@@ -86,8 +86,20 @@ let RestaurantsGateway = class RestaurantsGateway {
     async handleNewOrder(order) {
         await this.server
             .to(`restaurant_${order.restaurant_id}`)
-            .emit('incomingOrderForRestaurant', order);
-        console.log(`Emitted notifyOrderStatus to restaurant_${order.restaurant_id}`);
+            .emit('incomingOrderForRestaurant', {
+            orderId: order.order.orderId,
+            status: order.order.status,
+            tracking_info: order.order.tracking_info,
+            updated_at: order.order.updated_at,
+            customer_id: order.order.customer_id,
+            driver_id: order.order.driver_id,
+            restaurant_id: order.order.restaurant_id,
+            restaurant_avatar: order.order.restaurant_avatar || null,
+            driver_avatar: order.order.driver_avatar || null,
+            restaurantAddress: order.order.restaurantAddress,
+            customerAddress: order.order.customerAddress
+        });
+        console.log(`Emitted incomingOrderForRestaurant to restaurant_${order.restaurant_id}`);
         return {
             event: 'newOrderForRestaurant',
             data: order,
@@ -206,17 +218,17 @@ let RestaurantsGateway = class RestaurantsGateway {
         try {
             this.notificationLock.set(notifyKey, true);
             const trackingUpdate = {
-                orderDetails: order,
                 orderId: order.id,
-                order_items: order.order_items,
                 status: order.status,
-                total_amount: order.total_amount,
                 tracking_info: order.tracking_info,
                 updated_at: order.updated_at,
                 customer_id: order.customer_id,
                 driver_id: order.driver_id,
                 restaurant_id: order.restaurant_id,
-                driver_tips: order.driver_tips || 0
+                restaurant_avatar: order.restaurant?.avatar || null,
+                driver_avatar: order.driver?.avatar || null,
+                restaurantAddress: order.restaurantAddress,
+                customerAddress: order.customerAddress
             };
             this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
             this.eventEmitter.emit('notifyDriverOrderStatus', trackingUpdate);
@@ -240,7 +252,10 @@ let RestaurantsGateway = class RestaurantsGateway {
             customer_id: order.customer_id,
             driver_id: order.driver_id,
             restaurant_id: order.restaurant_id,
-            driver_tips: order.driver_tips || 0
+            restaurant_avatar: order.restaurant_avatar || null,
+            driver_avatar: order.driver_avatar || null,
+            restaurantAddress: order.restaurantAddress,
+            customerAddress: order.customerAddress
         });
         return {
             event: 'notifyOrderStatus',

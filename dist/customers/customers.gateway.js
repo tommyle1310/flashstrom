@@ -70,6 +70,7 @@ let CustomersGateway = class CustomersGateway {
             restaurant_id: order.restaurant_id,
             restaurantAddress: order.restaurantAddress,
             customerAddress: order.customerAddress,
+            driverDetails: order.driverDetails,
         };
         await this.server
             .to(`customer_${customerId}`)
@@ -97,6 +98,7 @@ let CustomersGateway = class CustomersGateway {
             driver_avatar: order.driver_avatar,
             restaurantAddress: order.restaurantAddress,
             customerAddress: order.customerAddress,
+            driverDetails: order.driverDetails,
         };
         console.log('check tackign udpate', order);
         await this.server

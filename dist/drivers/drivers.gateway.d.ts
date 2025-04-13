@@ -46,6 +46,19 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
     handleDisconnect(client: Socket): void;
     handleUpdateDriver(updateDriverDto: UpdateDriverDto): Promise<import("../utils/createResponse").ApiResponse<Driver>>;
     handleNewOrder(order: any): Promise<any>;
+    notifyPartiesOnce(order: Order): Promise<void>;
+    handleDriverProgressUpdate(data: {
+        stageId: string;
+        orderId?: string;
+    }): Promise<{
+        success: boolean;
+        message: string;
+        stage?: undefined;
+    } | {
+        success: boolean;
+        stage: DriverProgressStage;
+        message?: undefined;
+    }>;
     handleDriverAcceptOrder(data: {
         driverId: string;
         orderId: string;
@@ -60,19 +73,6 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
     private calculateEstimatedTime;
     private calculateTotalEarns;
     private getStageDetails;
-    handleDriverProgressUpdate(data: {
-        stageId: string;
-        orderId?: string;
-    }): Promise<{
-        success: boolean;
-        message: string;
-        stage?: undefined;
-    } | {
-        success: boolean;
-        stage: DriverProgressStage;
-        message?: undefined;
-    }>;
-    notifyPartiesOnce(order: Order): Promise<void>;
     handleOrderAssignedToDriver(orderAssignment: any): Promise<{
         event: string;
         data: {
