@@ -9,7 +9,7 @@ import { UpdateAddressBookDto } from './dto/update-address_book.dto';
 export class AddressBookRepository {
   constructor(
     @InjectRepository(AddressBook)
-    private repository: Repository<AddressBook>
+    private repository: Repository<AddressBook>,
   ) {}
 
   async create(createDto: CreateAddressBookDto): Promise<AddressBook> {
@@ -21,24 +21,28 @@ export class AddressBookRepository {
     return await this.repository.find();
   }
 
-  async findById(id: string): Promise<AddressBook> {
+  async findById(id: string): Promise<AddressBook | null> {
     return await this.repository.findOne({ where: { id } });
   }
 
-  async findByStreetAndCity(
-    street: string,
-    city: string
-  ): Promise<AddressBook> {
+  // async findByUserId(user_id: string): Promise<AddressBook[]> {
+  //   return await this.repository.find({ where: { user_id } });
+  // }
+
+  // async findDefaultByUserId(user_id: string): Promise<AddressBook | null> {
+  //   return await this.repository.findOne({ where: { user_id, is_default: true } });
+  // }
+
+  async findByStreetAndCity(street: string, city: string): Promise<AddressBook | null> {
     return await this.repository.findOne({ where: { street, city } });
   }
 
-  async update(
-    id: string,
-    updateDto: UpdateAddressBookDto
-  ): Promise<AddressBook> {
+  async update(id: string, updateDto: UpdateAddressBookDto): Promise<AddressBook | null> {
+    const address = await this.findById(id);
+    if (!address) return null;
     await this.repository.update(id, {
       ...updateDto,
-      updated_at: Math.floor(Date.now() / 1000)
+      updated_at: Math.floor(Date.now() / 1000),
     });
     return await this.findById(id);
   }

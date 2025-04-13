@@ -35,9 +35,12 @@ let AddressBookRepository = class AddressBookRepository {
         return await this.repository.findOne({ where: { street, city } });
     }
     async update(id, updateDto) {
+        const address = await this.findById(id);
+        if (!address)
+            return null;
         await this.repository.update(id, {
             ...updateDto,
-            updated_at: Math.floor(Date.now() / 1000)
+            updated_at: Math.floor(Date.now() / 1000),
         });
         return await this.findById(id);
     }

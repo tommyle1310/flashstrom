@@ -7,8 +7,8 @@ export declare class AddressBookRepository {
     constructor(repository: Repository<AddressBook>);
     create(createDto: CreateAddressBookDto): Promise<AddressBook>;
     findAll(): Promise<AddressBook[]>;
-    findById(id: string): Promise<AddressBook>;
-    findByStreetAndCity(street: string, city: string): Promise<AddressBook>;
-    update(id: string, updateDto: UpdateAddressBookDto): Promise<AddressBook>;
+    findById(id: string): Promise<AddressBook | null>;
+    findByStreetAndCity(street: string, city: string): Promise<AddressBook | null>;
+    update(id: string, updateDto: UpdateAddressBookDto): Promise<AddressBook | null>;
     delete(id: string): Promise<boolean>;
 }

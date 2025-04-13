@@ -20,6 +20,8 @@ export declare class CustomersGateway {
             customer_id: any;
             driver_id: any;
             restaurant_id: any;
+            restaurantAddress: any;
+            customerAddress: any;
         };
         message: string;
     }>;

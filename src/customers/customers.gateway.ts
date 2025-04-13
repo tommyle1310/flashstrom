@@ -76,7 +76,9 @@ export class CustomersGateway {
       updated_at: order.updated_at,
       customer_id: order.customer_id,
       driver_id: order.driver_id,
-      restaurant_id: order.restaurant_id
+      restaurant_id: order.restaurant_id,
+      restaurantAddress: order.restaurantAddress,
+      customerAddress: order.customerAddress,
     };
     await this.server
       .to(`customer_${customerId}`)
@@ -106,8 +108,11 @@ export class CustomersGateway {
       driver_id: order.driver_id,
       restaurant_id: order.restaurant_id,
       restaurant_avatar: order.restaurant_avatar,
-      driver_avatar: order.driver_avatar
+      driver_avatar: order.driver_avatar,
+      restaurantAddress: order.restaurantAddress,
+      customerAddress: order.customerAddress,
     };
+    console.log('check tackign udpate', order)
     await this.server
       .to(`customer_${order.customer_id}`)
       .emit('notifyOrderStatus', trackingUpdate); // Đổi thành notifyOrderStatus
