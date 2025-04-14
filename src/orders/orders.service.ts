@@ -124,7 +124,7 @@ export class OrdersService {
 
         const orderData: DeepPartial<Order> = {
           ...createOrderDto,
-          total_amount: totalAmount + createOrderDto.delivery_fee + createOrderDto.service_fee,
+          total_amount: totalAmount ,
           promotions_applied: appliedPromotion ? [appliedPromotion] : [],
           status: createOrderDto.status as OrderStatus || OrderStatus.PENDING,
           tracking_info: createOrderDto.tracking_info as OrderTrackingInfo || OrderTrackingInfo.ORDER_PLACED,

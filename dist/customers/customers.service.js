@@ -134,6 +134,8 @@ let CustomersService = class CustomersService {
             const { favorite_restaurant, ...otherUpdateData } = updateCustomerDto;
             if (favorite_restaurant) {
                 const currentFavoriteRestaurants = customer.favorite_restaurants || [];
+                console.log('check curent fav res', currentFavoriteRestaurants);
+                console.log('check favorite restaurant', favorite_restaurant);
                 const restaurantIds = currentFavoriteRestaurants.map(r => r.id);
                 if (restaurantIds.includes(favorite_restaurant)) {
                     customer.favorite_restaurants = currentFavoriteRestaurants.filter(r => r.id !== favorite_restaurant);

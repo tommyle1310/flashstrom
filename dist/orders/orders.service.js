@@ -117,7 +117,7 @@ let OrdersService = class OrdersService {
                 }
                 const orderData = {
                     ...createOrderDto,
-                    total_amount: totalAmount + createOrderDto.delivery_fee + createOrderDto.service_fee,
+                    total_amount: totalAmount,
                     promotions_applied: appliedPromotion ? [appliedPromotion] : [],
                     status: createOrderDto.status || order_entity_1.OrderStatus.PENDING,
                     tracking_info: createOrderDto.tracking_info || order_entity_1.OrderTrackingInfo.ORDER_PLACED,

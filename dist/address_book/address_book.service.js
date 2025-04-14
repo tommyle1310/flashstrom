@@ -110,14 +110,17 @@ let AddressBookService = class AddressBookService {
                 customer.address = [];
             }
             const existingIndex = customer.address.findIndex(addr => addr.id === addressId);
-            if (existingIndex > -1) {
-                customer.address.splice(existingIndex, 1);
+            if (existingIndex === -1) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Address not associated with customer');
             }
-            else {
-                customer.address.push(address);
-            }
+            customer.address.forEach(addr => {
+                if (addr.id !== addressId) {
+                    addr.is_default = false;
+                }
+            });
+            customer.address[existingIndex].is_default = !customer.address[existingIndex].is_default;
             await this.customerRepository.save(customer);
-            return (0, createResponse_1.createResponse)('OK', customer, 'Customer address updated successfully');
+            return (0, createResponse_1.createResponse)('OK', customer, 'Customer default address updated successfully');
         }
         catch (error) {
             console.error('Error toggling customer address:', error);

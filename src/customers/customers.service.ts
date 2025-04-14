@@ -215,6 +215,8 @@ export class CustomersService {
 
       if (favorite_restaurant) {
         const currentFavoriteRestaurants = customer.favorite_restaurants || [];
+        console.log('check curent fav res', currentFavoriteRestaurants)
+        console.log('check favorite restaurant', favorite_restaurant)
         const restaurantIds = currentFavoriteRestaurants.map(r => r.id);
 
         // Kiểm tra xem favorite_restaurant đã có trong danh sách chưa

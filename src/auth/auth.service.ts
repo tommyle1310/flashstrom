@@ -207,7 +207,7 @@ export class AuthService {
       customer_id: userWithRole.id
     });
     const fwallet = await this.fWalletsRepository.findByUserId(user.id);
-
+    console.log('cehck custeomr data', userWithRole, 'check address ', userWithRole.address)
     const customerPayload = {
       ...basePayload,
       id: userWithRole.id,

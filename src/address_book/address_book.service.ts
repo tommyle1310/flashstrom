@@ -149,20 +149,29 @@ export class AddressBookService {
         customer.address = [];
       }
 
+      // Find if address exists in customer's addresses
       const existingIndex = customer.address.findIndex(
         addr => addr.id === addressId
       );
-      if (existingIndex > -1) {
-        customer.address.splice(existingIndex, 1);
-      } else {
-        customer.address.push(address);
+      if (existingIndex === -1) {
+        return createResponse('NotFound', null, 'Address not associated with customer');
       }
+
+      // Reset all addresses is_default to false
+      customer.address.forEach(addr => {
+        if (addr.id !== addressId) {
+          addr.is_default = false;
+        }
+      });
+
+      // Toggle is_default for the target address
+      customer.address[existingIndex].is_default = !customer.address[existingIndex].is_default;
 
       await this.customerRepository.save(customer);
       return createResponse(
         'OK',
         customer,
-        'Customer address updated successfully'
+        'Customer default address updated successfully'
       );
     } catch (error) {
       console.error('Error toggling customer address:', error);
