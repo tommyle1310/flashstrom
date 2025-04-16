@@ -73,10 +73,5 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
     private calculateEstimatedTime;
     private calculateTotalEarns;
     private getStageDetails;
-    handleOrderAssignedToDriver(orderAssignment: any): Promise<{
-        event: string;
-        data: {
-            success: boolean;
-        };
-    }>;
+    handleOrderAssignedToDriver(orderAssignment: any): Promise<void>;
 }

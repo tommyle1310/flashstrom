@@ -166,68 +166,158 @@ let RestaurantsService = class RestaurantsService {
         return this.menuItemsService.remove(menuItemId);
     }
     calculateDiscountedPrice(originalPrice, promotion) {
+        console.log(`\n>> calculateDiscountedPrice called with:`);
+        console.log(`- Original price: ${originalPrice}`);
+        console.log(`- Promotion ID: ${promotion.id}`);
+        console.log(`- Discount type: ${promotion.discount_type}`);
+        console.log(`- Discount value: ${promotion.discount_value}`);
+        const discountValue = Number(promotion.discount_value);
+        const minimumOrderValue = Number(promotion.minimum_order_value || 0);
+        if (isNaN(originalPrice) || isNaN(discountValue)) {
+            console.log('>> Error: Invalid numeric values for price or discount');
+            return null;
+        }
+        const now = Math.floor(Date.now() / 1000);
+        if (promotion.status !== 'ACTIVE' ||
+            now < Number(promotion.start_date) ||
+            now > Number(promotion.end_date)) {
+            console.log(`>> Promotion not active - status: ${promotion.status}, timeframe: ${now} not in ${promotion.start_date}-${promotion.end_date}`);
+            return null;
+        }
+        if (minimumOrderValue > 0 && originalPrice < minimumOrderValue) {
+            console.log(`>> Price ${originalPrice} below minimum order value ${minimumOrderValue}`);
+            return null;
+        }
         let discountedPrice;
         if (promotion.discount_type === 'PERCENTAGE') {
-            discountedPrice = originalPrice * (1 - promotion.discount_value / 100);
+            discountedPrice = originalPrice * (1 - discountValue / 100);
+            console.log(`>> Percentage discount: ${discountValue}% off ${originalPrice} = ${discountedPrice}`);
         }
         else if (promotion.discount_type === 'FIXED') {
-            discountedPrice = originalPrice - promotion.discount_value;
+            discountedPrice = originalPrice - discountValue;
+            discountedPrice = Math.max(0, discountedPrice);
+            console.log(`>> Fixed discount: ${discountValue} off ${originalPrice} = ${discountedPrice}`);
         }
         else {
-            return originalPrice;
+            console.log(`>> Unsupported discount type: ${promotion.discount_type}`);
+            return null;
         }
-        return Math.max(0, Number(discountedPrice.toFixed(2)));
+        const roundedPrice = Number(discountedPrice.toFixed(2));
+        console.log(`>> Final discounted price (rounded): ${roundedPrice}`);
+        return roundedPrice;
     }
     async getMenuItemsForRestaurant(restaurantId) {
         const restaurant = await this.restaurantsRepository.findById(restaurantId);
         if (!restaurant) {
             return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant not found');
         }
-        console.log('check res', JSON.stringify(restaurant, null, 2));
+        console.log('Restaurant found:', restaurant.id);
+        console.log('Restaurant promotions:', restaurant.promotions ? restaurant.promotions.length : 0);
+        if (restaurant.promotions && restaurant.promotions.length > 0) {
+            restaurant.promotions.forEach((promo, index) => {
+                console.log(`Promotion ${index + 1}:`, {
+                    id: promo.id,
+                    name: promo.name,
+                    status: promo.status,
+                    discount_type: promo.discount_type,
+                    discount_value: promo.discount_value,
+                    start_date: new Date(Number(promo.start_date) * 1000).toISOString(),
+                    end_date: new Date(Number(promo.end_date) * 1000).toISOString(),
+                    current_time: new Date().toISOString(),
+                    food_categories: promo.food_categories?.map(fc => fc.id)
+                });
+            });
+        }
         const menuItemsResult = await this.menuItemsService.findByRestaurantId(restaurantId);
         const menuItems = menuItemsResult.data;
-        console.log('check menu item', JSON.stringify(menuItems, null, 2));
+        console.log('Menu items count:', menuItems.length);
         if (!restaurant.promotions || restaurant.promotions.length === 0) {
+            console.log('No promotions found for restaurant, returning normal menu items');
             return (0, createResponse_1.createResponse)('OK', menuItems, 'Fetched menu items for the restaurant');
         }
         const processedMenuItems = menuItems.map((item) => {
-            let itemPriceAfterPromotion = null;
+            console.log(`\n--- Processing menu item: ${item.id} - ${item.name} ---`);
+            console.log(`Original price: ${item.price}`);
+            let currentItemPrice = Number(item.price);
             const processedVariants = [];
-            const now = Math.floor(Date.now() / 1000);
             const itemCategories = item.category || [];
-            console.log('check item categories', itemCategories);
-            const applicablePromotions = restaurant.promotions.filter((promotion) => {
+            console.log('Item categories:', itemCategories);
+            const applicablePromotions = restaurant.promotions.filter(promotion => {
+                const now = Math.floor(Date.now() / 1000);
                 const isActive = promotion.status === 'ACTIVE' &&
                     now >= Number(promotion.start_date) &&
                     now <= Number(promotion.end_date);
-                const hasMatchingCategory = promotion.food_categories?.some((fc) => itemCategories.includes(fc.id)) || false;
-                console.log(`check promotion ${promotion.id}: active=${isActive}, hasMatchingCategory=${hasMatchingCategory}`, promotion.food_categories?.map((fc) => fc.id));
+                const hasMatchingCategory = promotion.food_categories?.some(fc => itemCategories.includes(fc.id)) || false;
+                console.log(`Checking promotion ${promotion.id}:`, {
+                    status: promotion.status,
+                    isTimeValid: `${now} between ${promotion.start_date}-${promotion.end_date}: ${isActive}`,
+                    hasMatchingCategory: hasMatchingCategory,
+                    foodCategories: promotion.food_categories?.map(fc => fc.id),
+                    isApplicable: isActive && hasMatchingCategory
+                });
                 return isActive && hasMatchingCategory;
             });
+            console.log(`Found ${applicablePromotions.length} applicable promotions for item ${item.id}`);
+            let isPromotionApplied = false;
             if (applicablePromotions.length > 0) {
-                applicablePromotions.forEach((promotion) => {
-                    const discountedPrice = this.calculateDiscountedPrice(Number(item.price), promotion);
-                    console.log(`apply promotion ${promotion.id} for item ${item.id}: original=${item.price}, discounted=${discountedPrice}`);
-                    if (itemPriceAfterPromotion === null ||
-                        discountedPrice < itemPriceAfterPromotion) {
-                        itemPriceAfterPromotion = discountedPrice;
+                const sortedPromotions = [...applicablePromotions].sort((a, b) => {
+                    if (a.discount_type === 'PERCENTAGE' &&
+                        b.discount_type !== 'PERCENTAGE')
+                        return -1;
+                    if (a.discount_type !== 'PERCENTAGE' &&
+                        b.discount_type === 'PERCENTAGE')
+                        return 1;
+                    return 0;
+                });
+                sortedPromotions.forEach(promotion => {
+                    console.log(`\nApplying promotion ${promotion.id} to item ${item.id}:`);
+                    console.log(`- Current price: ${currentItemPrice}`);
+                    console.log(`- Discount type: ${promotion.discount_type}`);
+                    console.log(`- Discount value: ${promotion.discount_value}`);
+                    console.log(`- Minimum order value: ${promotion.minimum_order_value || 'none'}`);
+                    const discountedPrice = this.calculateDiscountedPrice(currentItemPrice, promotion);
+                    console.log(`- Calculated discounted price: ${discountedPrice}`);
+                    if (discountedPrice !== null) {
+                        console.log(`- Applied promotion: new price ${discountedPrice} (was: ${currentItemPrice})`);
+                        currentItemPrice = discountedPrice;
+                        isPromotionApplied = true;
                     }
                 });
             }
+            console.log(`Final price after all promotions for item ${item.id}: ${currentItemPrice}`);
             if (item.variants && item.variants.length > 0) {
+                console.log(`\nProcessing ${item.variants.length} variants for item ${item.id}`);
                 item.variants.forEach((variant) => {
-                    let variantPriceAfterPromotion = null;
+                    console.log(`\n--- Processing variant: ${variant.id} - ${variant.variant} ---`);
+                    console.log(`Original price: ${variant.price}`);
+                    let currentVariantPrice = Number(variant.price);
+                    let isVariantPromotionApplied = false;
                     if (applicablePromotions.length > 0) {
-                        applicablePromotions.forEach((promotion) => {
-                            const discountedPrice = this.calculateDiscountedPrice(Number(variant.price), promotion);
-                            console.log(`apply promotion ${promotion.id} for variant ${variant.id}: original=${variant.price}, discounted=${discountedPrice}`);
-                            if (variantPriceAfterPromotion === null ||
-                                discountedPrice < variantPriceAfterPromotion) {
-                                variantPriceAfterPromotion = discountedPrice;
+                        const sortedPromotions = [...applicablePromotions].sort((a, b) => {
+                            if (a.discount_type === 'PERCENTAGE' &&
+                                b.discount_type !== 'PERCENTAGE')
+                                return -1;
+                            if (a.discount_type !== 'PERCENTAGE' &&
+                                b.discount_type === 'PERCENTAGE')
+                                return 1;
+                            return 0;
+                        });
+                        sortedPromotions.forEach(promotion => {
+                            console.log(`\nApplying promotion ${promotion.id} to variant ${variant.id}:`);
+                            console.log(`- Current price: ${currentVariantPrice}`);
+                            console.log(`- Discount type: ${promotion.discount_type}`);
+                            console.log(`- Discount value: ${promotion.discount_value}`);
+                            const discountedPrice = this.calculateDiscountedPrice(currentVariantPrice, promotion);
+                            console.log(`- Calculated discounted price: ${discountedPrice}`);
+                            if (discountedPrice !== null) {
+                                console.log(`- Applied promotion: new price ${discountedPrice} (was: ${currentVariantPrice})`);
+                                currentVariantPrice = discountedPrice;
+                                isVariantPromotionApplied = true;
                             }
                         });
                     }
-                    processedVariants.push({
+                    console.log(`Final price after all promotions for variant ${variant.id}: ${currentVariantPrice}`);
+                    const variantResponse = {
                         id: variant.id,
                         menu_id: variant.menu_id,
                         variant: variant.variant,
@@ -238,12 +328,16 @@ let RestaurantsService = class RestaurantsService {
                         price: variant.price,
                         discount_rate: variant.discount_rate,
                         created_at: variant.created_at,
-                        updated_at: variant.updated_at,
-                        price_after_applied_promotion: variantPriceAfterPromotion,
-                    });
+                        updated_at: variant.updated_at
+                    };
+                    if (isVariantPromotionApplied) {
+                        variantResponse.price_after_applied_promotion =
+                            currentVariantPrice;
+                    }
+                    processedVariants.push(variantResponse);
                 });
             }
-            return {
+            const itemResponse = {
                 id: item.id,
                 restaurant_id: item.restaurant_id,
                 name: item.name,
@@ -257,9 +351,19 @@ let RestaurantsService = class RestaurantsService {
                 purchase_count: item.purchase_count,
                 created_at: item.created_at,
                 updated_at: item.updated_at,
-                price_after_applied_promotion: itemPriceAfterPromotion,
-                variants: processedVariants,
+                variants: processedVariants
             };
+            if (isPromotionApplied) {
+                itemResponse.price_after_applied_promotion = currentItemPrice;
+            }
+            return itemResponse;
+        });
+        console.log('Processed items check:');
+        processedMenuItems.forEach(item => {
+            console.log(`Item ${item.id} final price: ${item.price_after_applied_promotion || item.price}`);
+            item.variants.forEach(variant => {
+                console.log(`Variant ${variant.id} final price: ${variant.price_after_applied_promotion || variant.price}`);
+            });
         });
         return (0, createResponse_1.createResponse)('OK', processedMenuItems, 'Fetched menu items for the restaurant');
     }

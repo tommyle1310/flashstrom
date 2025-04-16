@@ -72,7 +72,7 @@ let OrdersService = class OrdersService {
                 const menuItems = await transactionalEntityManager
                     .getRepository(menu_item_entity_1.MenuItem)
                     .findBy({
-                    id: (0, typeorm_1.In)(createOrderDto.order_items.map((item) => item.item_id)),
+                    id: (0, typeorm_1.In)(createOrderDto.order_items.map(item => item.item_id))
                 });
                 let totalAmount = createOrderDto.total_amount;
                 let appliedPromotion = null;
@@ -80,7 +80,7 @@ let OrdersService = class OrdersService {
                     const promotion = await transactionalEntityManager
                         .getRepository(promotion_entity_1.Promotion)
                         .findOne({
-                        where: { id: createOrderDto.promotion_applied },
+                        where: { id: createOrderDto.promotion_applied }
                     });
                     if (promotion) {
                         const now = Math.floor(Date.now() / 1000);
@@ -89,15 +89,16 @@ let OrdersService = class OrdersService {
                             promotion.status === 'ACTIVE') {
                             appliedPromotion = promotion;
                             totalAmount = 0;
-                            createOrderDto.order_items = createOrderDto.order_items.map((orderItem) => {
-                                const menuItem = menuItems.find((mi) => mi.id === orderItem.item_id);
+                            createOrderDto.order_items = createOrderDto.order_items.map(orderItem => {
+                                const menuItem = menuItems.find(mi => mi.id === orderItem.item_id);
                                 if (!menuItem)
                                     return orderItem;
-                                const priceToUse = orderItem.price_after_applied_promotion ?? orderItem.price_at_time_of_order;
+                                const priceToUse = orderItem.price_after_applied_promotion ??
+                                    orderItem.price_at_time_of_order;
                                 totalAmount += priceToUse * orderItem.quantity;
                                 return {
                                     ...orderItem,
-                                    price_at_time_of_order: priceToUse,
+                                    price_at_time_of_order: priceToUse
                                 };
                             });
                         }
@@ -120,11 +121,12 @@ let OrdersService = class OrdersService {
                     total_amount: totalAmount,
                     promotions_applied: appliedPromotion ? [appliedPromotion] : [],
                     status: createOrderDto.status || order_entity_1.OrderStatus.PENDING,
-                    tracking_info: createOrderDto.tracking_info || order_entity_1.OrderTrackingInfo.ORDER_PLACED,
+                    tracking_info: createOrderDto.tracking_info ||
+                        order_entity_1.OrderTrackingInfo.ORDER_PLACED,
                     customerAddress: customerAddress,
                     restaurantAddress: restaurantAddress,
                     created_at: Math.floor(Date.now() / 1000),
-                    updated_at: Math.floor(Date.now() / 1000),
+                    updated_at: Math.floor(Date.now() / 1000)
                 };
                 if (createOrderDto.payment_method === 'FWallet') {
                     const customerWallet = await this.fWalletsRepository.findByUserId(user.user_id);
@@ -144,7 +146,7 @@ let OrdersService = class OrdersService {
                         status: 'PENDING',
                         source: 'FWALLET',
                         destination: restaurantWallet.id,
-                        destination_type: 'FWALLET',
+                        destination_type: 'FWALLET'
                     };
                     const transactionResponse = await this.transactionsService.create(transactionDto, transactionalEntityManager);
                     logger.log('Transaction response:', transactionResponse);
@@ -155,12 +157,14 @@ let OrdersService = class OrdersService {
                 const cartItems = await transactionalEntityManager
                     .getRepository(cart_item_entity_1.CartItem)
                     .find({
-                    where: { customer_id: createOrderDto.customer_id },
+                    where: { customer_id: createOrderDto.customer_id }
                 });
                 for (const orderItem of createOrderDto.order_items) {
-                    const cartItem = cartItems.find((ci) => ci.item_id === orderItem.item_id);
+                    const cartItem = cartItems.find(ci => ci.item_id === orderItem.item_id);
                     if (cartItem) {
-                        await transactionalEntityManager.getRepository(cart_item_entity_1.CartItem).delete(cartItem.id);
+                        await transactionalEntityManager
+                            .getRepository(cart_item_entity_1.CartItem)
+                            .delete(cartItem.id);
                         logger.log(`Deleted cart item ${cartItem.id}`);
                     }
                 }
@@ -172,7 +176,7 @@ let OrdersService = class OrdersService {
                     .getRepository(restaurant_entity_1.Restaurant)
                     .update(createOrderDto.restaurant_id, {
                     total_orders: restaurant.total_orders + 1,
-                    updated_at: Math.floor(Date.now() / 1000),
+                    updated_at: Math.floor(Date.now() / 1000)
                 });
                 const trackingUpdate = {
                     orderId: savedOrder.id,
@@ -189,12 +193,12 @@ let OrdersService = class OrdersService {
                     delivery_fee: savedOrder.delivery_fee,
                     service_fee: savedOrder.service_fee,
                     promotions_applied: savedOrder.promotions_applied,
-                    restaurant_avatar: restaurant.avatar || null,
+                    restaurant_avatar: restaurant.avatar || null
                 };
                 this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
                 this.eventEmitter.emit('newOrderForRestaurant', {
                     restaurant_id: savedOrder.restaurant_id,
-                    order: trackingUpdate,
+                    order: trackingUpdate
                 });
                 logger.log('Emitted events:', trackingUpdate);
                 return (0, createResponse_1.createResponse)('OK', savedOrder, 'Order created in transaction');
@@ -233,12 +237,12 @@ let OrdersService = class OrdersService {
             delivery_fee: order.delivery_fee,
             service_fee: order.service_fee,
             promotions_applied: order.promotions_applied,
-            restaurant_avatar: restaurant.avatar || null,
+            restaurant_avatar: restaurant.avatar || null
         };
         this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
         this.eventEmitter.emit('newOrderForRestaurant', {
             restaurant_id: order.restaurant_id,
-            order: trackingUpdate,
+            order: trackingUpdate
         });
         logger.log('Notified restaurant and driver:', trackingUpdate);
         return (0, createResponse_1.createResponse)('OK', trackingUpdate, 'Notified successfully');
@@ -248,7 +252,7 @@ let OrdersService = class OrdersService {
             const manager = transactionalEntityManager || this.dataSource.manager;
             const order = await manager.findOne(order_entity_1.Order, {
                 where: { id },
-                relations: ['promotions_applied'],
+                relations: ['promotions_applied']
             });
             if (!order) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Order not found');
@@ -256,7 +260,7 @@ let OrdersService = class OrdersService {
             let promotionsApplied = order.promotions_applied || [];
             if (updateOrderDto.promotion_applied) {
                 const promotion = await manager.getRepository(promotion_entity_1.Promotion).findOne({
-                    where: { id: updateOrderDto.promotion_applied },
+                    where: { id: updateOrderDto.promotion_applied }
                 });
                 promotionsApplied = promotion ? [promotion] : [];
             }
@@ -269,7 +273,7 @@ let OrdersService = class OrdersService {
                     : order.status,
                 tracking_info: updateOrderDto.tracking_info
                     ? updateOrderDto.tracking_info
-                    : order.tracking_info,
+                    : order.tracking_info
             };
             const updatedOrder = await manager.save(order_entity_1.Order, updatedData);
             return (0, createResponse_1.createResponse)('OK', updatedOrder, 'Order updated successfully');
@@ -303,7 +307,7 @@ let OrdersService = class OrdersService {
                 [order_entity_1.OrderStatus.EN_ROUTE]: order_entity_1.OrderTrackingInfo.EN_ROUTE,
                 [order_entity_1.OrderStatus.OUT_FOR_DELIVERY]: order_entity_1.OrderTrackingInfo.OUT_FOR_DELIVERY,
                 [order_entity_1.OrderStatus.DELIVERY_FAILED]: order_entity_1.OrderTrackingInfo.DELIVERY_FAILED,
-                [order_entity_1.OrderStatus.DELIVERED]: order_entity_1.OrderTrackingInfo.DELIVERED,
+                [order_entity_1.OrderStatus.DELIVERED]: order_entity_1.OrderTrackingInfo.DELIVERED
             };
             const trackingInfo = trackingInfoMap[status];
             if (trackingInfo) {

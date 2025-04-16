@@ -169,7 +169,7 @@ let DriversGateway = class DriversGateway {
                     updated_at: 0,
                     postal_code: 0,
                     location: { lat: 0, lng: 0 },
-                    title: '',
+                    title: ''
                 },
                 customerAddress: order.customerAddress || {
                     id: '',
@@ -181,7 +181,7 @@ let DriversGateway = class DriversGateway {
                     updated_at: 0,
                     postal_code: 0,
                     location: { lat: 0, lng: 0 },
-                    title: '',
+                    title: ''
                 },
                 driverDetails: driver
                     ? {
@@ -193,8 +193,8 @@ let DriversGateway = class DriversGateway {
                         vehicle: driver.vehicle || {
                             color: 'N/A',
                             model: 'N/A',
-                            license_plate: 'N/A',
-                        },
+                            license_plate: 'N/A'
+                        }
                     }
                     : order.driver_id
                         ? {
@@ -206,8 +206,8 @@ let DriversGateway = class DriversGateway {
                             vehicle: {
                                 color: 'N/A',
                                 model: 'N/A',
-                                license_plate: 'N/A',
-                            },
+                                license_plate: 'N/A'
+                            }
                         }
                         : null,
                 customerFullAddress: order.customerAddress
@@ -215,7 +215,7 @@ let DriversGateway = class DriversGateway {
                     : 'N/A',
                 restaurantFullAddress: order.restaurantAddress
                     ? `${order.restaurantAddress.street}, ${order.restaurantAddress.city}, ${order.restaurantAddress.nationality}`
-                    : 'N/A',
+                    : 'N/A'
             };
             console.log('[DEBUG] notifyPartiesOnce - trackingUpdate:', JSON.stringify(trackingUpdate, null, 2));
             this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
@@ -238,15 +238,15 @@ let DriversGateway = class DriversGateway {
                         'orders.driver',
                         'orders.customer',
                         'orders.restaurantAddress',
-                        'orders.customerAddress',
-                    ],
+                        'orders.customerAddress'
+                    ]
                 });
                 if (!dps || !dps.orders || dps.orders.length === 0) {
                     return {
                         success: false,
                         message: !dps
                             ? 'Stage not found'
-                            : 'No orders associated with this stage',
+                            : 'No orders associated with this stage'
                     };
                 }
                 const oldStagesString = JSON.stringify(dps.stages);
@@ -259,21 +259,21 @@ let DriversGateway = class DriversGateway {
                     'waiting_for_pickup',
                     'restaurant_pickup',
                     'en_route_to_customer',
-                    'delivery_complete',
+                    'delivery_complete'
                 ];
                 const stageToStatusMap = {
                     driver_ready: order_entity_1.OrderStatus.DISPATCHED,
                     waiting_for_pickup: order_entity_1.OrderStatus.READY_FOR_PICKUP,
                     restaurant_pickup: order_entity_1.OrderStatus.RESTAURANT_PICKUP,
                     en_route_to_customer: order_entity_1.OrderStatus.EN_ROUTE,
-                    delivery_complete: order_entity_1.OrderStatus.DELIVERED,
+                    delivery_complete: order_entity_1.OrderStatus.DELIVERED
                 };
                 const stageToTrackingMap = {
                     driver_ready: order_entity_1.OrderTrackingInfo.DISPATCHED,
                     waiting_for_pickup: order_entity_1.OrderTrackingInfo.PREPARING,
                     restaurant_pickup: order_entity_1.OrderTrackingInfo.RESTAURANT_PICKUP,
                     en_route_to_customer: order_entity_1.OrderTrackingInfo.EN_ROUTE,
-                    delivery_complete: order_entity_1.OrderTrackingInfo.DELIVERED,
+                    delivery_complete: order_entity_1.OrderTrackingInfo.DELIVERED
                 };
                 let targetOrderId = data.orderId ||
                     dps.orders.find((order, index) => {
@@ -322,7 +322,7 @@ let DriversGateway = class DriversGateway {
                                     return {
                                         ...stage,
                                         status: 'completed',
-                                        duration: actualTime,
+                                        duration: actualTime
                                     };
                                 }
                                 if (nextState && stage.state === nextState) {
@@ -337,7 +337,7 @@ let DriversGateway = class DriversGateway {
                                             ...stage,
                                             status: 'completed',
                                             timestamp,
-                                            duration: 0,
+                                            duration: 0
                                         };
                                     }
                                     else if (stage.status === 'pending') {
@@ -352,7 +352,7 @@ let DriversGateway = class DriversGateway {
                                 await transactionalEntityManager.update(order_entity_1.Order, { id: order.id }, {
                                     status: newStatus,
                                     tracking_info: newTrackingInfo,
-                                    updated_at: Math.floor(Date.now() / 1000),
+                                    updated_at: Math.floor(Date.now() / 1000)
                                 });
                                 if (nextStateBase === 'delivery_complete') {
                                     dps.total_tips =
@@ -365,7 +365,7 @@ let DriversGateway = class DriversGateway {
                                         .delete()
                                         .from('driver_current_orders')
                                         .where('driver_id = :driverId', {
-                                        driverId: dps.driver_id,
+                                        driverId: dps.driver_id
                                     })
                                         .andWhere('order_id = :orderId', { orderId: order.id })
                                         .execute();
@@ -390,7 +390,7 @@ let DriversGateway = class DriversGateway {
                             await transactionalEntityManager.update(order_entity_1.Order, { id: order.id }, {
                                 status: newStatus,
                                 tracking_info: newTrackingInfo,
-                                updated_at: Math.floor(Date.now() / 1000),
+                                updated_at: Math.floor(Date.now() / 1000)
                             });
                         }
                     }
@@ -428,7 +428,7 @@ let DriversGateway = class DriversGateway {
                         await transactionalEntityManager.update(order_entity_1.Order, { id: targetOrderId }, {
                             status: newStatus,
                             tracking_info: newTrackingInfo,
-                            updated_at: Math.floor(Date.now() / 1000),
+                            updated_at: Math.floor(Date.now() / 1000)
                         });
                     }
                 }
@@ -471,7 +471,7 @@ let DriversGateway = class DriversGateway {
                     total_tips: dps.total_tips,
                     total_earns: dps.total_earns,
                     transactions_processed: dps.transactions_processed ||
-                        (allDeliveryCompleteDone ? false : undefined),
+                        (allDeliveryCompleteDone ? false : undefined)
                 }, transactionalEntityManager);
                 if (allDeliveryCompleteDone &&
                     allDeliveryCompleteStages.length > 0 &&
@@ -503,7 +503,7 @@ let DriversGateway = class DriversGateway {
                                 status: 'PENDING',
                                 source: 'FWALLET',
                                 destination: restaurantWallet.id,
-                                destination_type: 'FWALLET',
+                                destination_type: 'FWALLET'
                             };
                             const codTransactionResponse = await this.transactionsService.create(codTransactionDto, transactionalEntityManager);
                             if (codTransactionResponse.EC !== 0) {
@@ -523,7 +523,7 @@ let DriversGateway = class DriversGateway {
                             status: 'PENDING',
                             source: 'FWALLET',
                             destination: driverWallet.id,
-                            destination_type: 'FWALLET',
+                            destination_type: 'FWALLET'
                         };
                         const earningsTransactionResponse = await this.transactionsService.create(earningsTransactionDto, transactionalEntityManager);
                         if (earningsTransactionResponse.EC !== 0) {
@@ -553,10 +553,10 @@ let DriversGateway = class DriversGateway {
                         newStagesString,
                         oldCurrentState,
                         newCurrentState: updateResult.data.current_state,
-                        allStagesCompleted,
+                        allStagesCompleted
                     });
                 }
-                let updatedOrder = await transactionalEntityManager
+                const updatedOrder = await transactionalEntityManager
                     .getRepository(order_entity_1.Order)
                     .findOne({
                     where: { id: targetOrderId },
@@ -565,8 +565,8 @@ let DriversGateway = class DriversGateway {
                         'driver',
                         'customer',
                         'restaurantAddress',
-                        'customerAddress',
-                    ],
+                        'customerAddress'
+                    ]
                 });
                 if (!updatedOrder) {
                     console.error(`Order ${targetOrderId} not found after update`);
@@ -638,8 +638,8 @@ let DriversGateway = class DriversGateway {
                                 'customer.address',
                                 'restaurant',
                                 'restaurant.address',
-                                'driver',
-                            ],
+                                'driver'
+                            ]
                         });
                         if (!orderWithRelations)
                             throw new websockets_1.WsException('Order not found');
@@ -652,7 +652,7 @@ let DriversGateway = class DriversGateway {
                             .getRepository(driver_entity_1.Driver)
                             .findOne({
                             where: { id: driverId },
-                            relations: ['current_orders'],
+                            relations: ['current_orders']
                         });
                         if (!driverWithRelations)
                             throw new websockets_1.WsException('Driver not found');
@@ -661,7 +661,7 @@ let DriversGateway = class DriversGateway {
                             .createQueryBuilder('dps')
                             .where('dps.driver_id = :driverId', { driverId })
                             .andWhere('dps.current_state NOT LIKE :completedState', {
-                            completedState: 'delivery_complete_%',
+                            completedState: 'delivery_complete_%'
                         })
                             .getOne();
                         let dpsWithRelations = null;
@@ -670,7 +670,7 @@ let DriversGateway = class DriversGateway {
                                 .getRepository(driver_progress_stage_entity_1.DriverProgressStage)
                                 .findOne({
                                 where: { id: existingDPS.id },
-                                relations: ['orders'],
+                                relations: ['orders']
                             });
                         }
                         let dps;
@@ -730,12 +730,12 @@ let DriversGateway = class DriversGateway {
                                 estimated_time_remaining: estimatedTime,
                                 total_distance_travelled: Number(distance.toFixed(4)),
                                 total_tips: totalTips,
-                                total_earns: totalEarns,
+                                total_earns: totalEarns
                             }, transactionalEntityManager);
                             if (dpsResponse.EC !== 0 || !dpsResponse.data)
                                 throw new websockets_1.WsException(`Failed to create new DPS`);
                             dps = dpsResponse.data;
-                            dps.stages = dps.stages.map((stage) => {
+                            dps.stages = dps.stages.map(stage => {
                                 const details = this.getStageDetails(stage.state, orderWithRelations, driverWithRelations, estimatedTime, totalTips);
                                 return { ...stage, details };
                             });
@@ -749,7 +749,7 @@ let DriversGateway = class DriversGateway {
                             if (dpsResponse.EC !== 0 || !dpsResponse.data)
                                 throw new websockets_1.WsException(`Failed to add order to existing DPS`);
                             dps = dpsResponse.data;
-                            const orderAlreadyInDPS = dps.orders?.some((o) => o.id === orderId);
+                            const orderAlreadyInDPS = dps.orders?.some(o => o.id === orderId);
                             if (!orderAlreadyInDPS) {
                                 dps.total_distance_travelled =
                                     (dps.total_distance_travelled || 0) +
@@ -764,7 +764,7 @@ let DriversGateway = class DriversGateway {
                             else {
                                 console.log(`[DEBUG] Order ${orderId} already in DPS, skipping earnings update`);
                             }
-                            dps.stages = dps.stages.map((stage) => {
+                            dps.stages = dps.stages.map(stage => {
                                 const details = this.getStageDetails(stage.state, orderWithRelations, driverWithRelations, estimatedTime, totalTips);
                                 return { ...stage, details };
                             });
@@ -780,7 +780,7 @@ let DriversGateway = class DriversGateway {
                         await transactionalEntityManager.save(order_entity_1.Order, orderWithRelations);
                         driverWithRelations.current_orders =
                             driverWithRelations.current_orders || [];
-                        if (!driverWithRelations.current_orders.some((o) => o.id === orderId)) {
+                        if (!driverWithRelations.current_orders.some(o => o.id === orderId)) {
                             driverWithRelations.current_orders.push(orderWithRelations);
                         }
                         console.log('[DEBUG] Saving driver');
@@ -796,15 +796,15 @@ let DriversGateway = class DriversGateway {
                                 'customer.address',
                                 'restaurant',
                                 'restaurant.address',
-                                'driver',
-                            ],
+                                'driver'
+                            ]
                         });
                         if (!updatedOrder)
                             throw new websockets_1.WsException('Order not found after update');
                         console.log('[DEBUG] Transaction completed');
                         return { success: true, order: updatedOrder, dps };
                     }),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Transaction timeout after 30s')), 30000)),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Transaction timeout after 30s')), 30000))
                 ]);
                 if (result instanceof Error)
                     throw result;
@@ -825,7 +825,7 @@ let DriversGateway = class DriversGateway {
                         console.warn(`[DEBUG] Emit failed, retry ${i + 1}/${maxEmitRetries}:`, emitError);
                         if (i === maxEmitRetries - 1)
                             console.error('[DEBUG] Emit failed after retries');
-                        await new Promise((resolve) => setTimeout(resolve, 100 * (i + 1)));
+                        await new Promise(resolve => setTimeout(resolve, 100 * (i + 1)));
                     }
                 }
                 return result;
@@ -834,13 +834,13 @@ let DriversGateway = class DriversGateway {
                 if (error.code === '40001' && attempt < maxRetries - 1) {
                     attempt++;
                     console.log(`Retry attempt ${attempt} for driver ${driverId} due to serialization failure`);
-                    await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+                    await new Promise(resolve => setTimeout(resolve, 100 * attempt));
                     continue;
                 }
                 console.error('Error in handleDriverAcceptOrder:', error);
                 return {
                     success: false,
-                    message: error.message || 'Internal server error',
+                    message: error.message || 'Internal server error'
                 };
             }
             finally {
@@ -903,86 +903,74 @@ let DriversGateway = class DriversGateway {
         return baseDetails;
     }
     async handleOrderAssignedToDriver(orderAssignment) {
-        try {
-            const driverId = orderAssignment.driverListenerId;
-            if (!driverId)
-                throw new websockets_1.WsException('Driver ID is required');
-            const order = await this.ordersService.findOne(orderAssignment.id, null, [
-                'restaurant',
-                'driver',
-                'customer',
-                'restaurantAddress',
-                'customerAddress'
-            ]);
-            if (!order?.data)
-                throw new websockets_1.WsException('Order not found');
-            await this.server
-                .to(`driver_${driverId}`)
-                .emit('incomingOrderForDriver', {
-                event: 'incomingOrderForDriver',
-                data: {
-                    orderId: order.data.id,
-                    status: order.data.status,
-                    tracking_info: order.data.tracking_info,
-                    updated_at: order.data.updated_at,
-                    customer_id: order.data.customer_id,
-                    driver_id: order.data.driver_id,
-                    restaurant_id: order.data.restaurant_id,
-                    restaurant_avatar: order.data.restaurant?.avatar || null,
-                    driver_avatar: order.data.driver?.avatar || null,
-                    restaurantAddress: order.data.restaurantAddress || {
-                        id: '',
-                        street: 'N/A',
-                        city: '',
-                        nationality: '',
-                        is_default: false,
-                        created_at: 0,
-                        updated_at: 0,
-                        postal_code: 0,
-                        location: { lat: 0, lon: 0 },
-                        title: ''
-                    },
-                    customerAddress: order.data.customerAddress || {
-                        id: '',
-                        street: 'N/A',
-                        city: '',
-                        nationality: '',
-                        is_default: false,
-                        created_at: 0,
-                        updated_at: 0,
-                        postal_code: 0,
-                        location: { lat: 0, lon: 0 },
-                        title: ''
-                    },
-                    driverDetails: order.data.driver
-                        ? {
-                            id: order.data.driver.id,
-                            first_name: order.data.driver.first_name || 'N/A',
-                            last_name: order.data.driver.last_name || 'N/A',
-                            avatar: order.data.driver.avatar,
-                            rating: order.data.driver.rating || { average_rating: '4.8' },
-                            vehicle: order.data.driver.vehicle || {
-                                color: 'N/A',
-                                model: 'N/A',
-                                license_plate: 'N/A'
-                            }
-                        }
-                        : null,
-                    customerFullAddress: order.data.customerAddress
-                        ? `${order.data.customerAddress.street}, ${order.data.customerAddress.city}, ${order.data.customerAddress.nationality}`
-                        : 'N/A',
-                    restaurantFullAddress: order.data.restaurantAddress
-                        ? `${order.data.restaurantAddress.street}, ${order.data.restaurantAddress.city}, ${order.data.restaurantAddress.nationality}`
-                        : 'N/A'
+        const { driverListenerId } = orderAssignment;
+        await this.server
+            .to(`driver_${driverListenerId}`)
+            .emit('incomingOrderForDriver', {
+            event: 'incomingOrderForDriver',
+            data: {
+                orderId: orderAssignment.id,
+                status: orderAssignment.status,
+                tracking_info: orderAssignment.tracking_info,
+                updated_at: orderAssignment.updated_at,
+                customer_id: orderAssignment.customer_id,
+                driver_id: orderAssignment.driver_id,
+                restaurant_id: orderAssignment.restaurant_id,
+                restaurant_avatar: orderAssignment.restaurant?.avatar || null,
+                driver_avatar: orderAssignment.driver?.avatar || null,
+                total_amount: orderAssignment.total_amount,
+                driver_wage: orderAssignment.driver_wage,
+                driver_earn: orderAssignment.driver_wage,
+                order_items: orderAssignment.order_items,
+                restaurantAddress: orderAssignment.restaurantAddress || {
+                    id: '',
+                    street: 'N/A',
+                    city: '',
+                    nationality: '',
+                    is_default: false,
+                    created_at: 0,
+                    updated_at: 0,
+                    postal_code: 0,
+                    location: { lat: 0, lon: 0 },
+                    title: ''
                 },
-                message: 'Order received successfully'
-            });
-            return { event: 'orderAssigned', data: { success: true } };
-        }
-        catch (error) {
-            console.error('Error handling order.assignedToDriver:', error);
-            throw new websockets_1.WsException(error instanceof websockets_1.WsException ? error.message : 'Internal server error');
-        }
+                customerAddress: orderAssignment.customerAddress || {
+                    id: '',
+                    street: 'N/A',
+                    city: '',
+                    nationality: '',
+                    is_default: false,
+                    created_at: 0,
+                    updated_at: 0,
+                    postal_code: 0,
+                    location: { lat: 0, lon: 0 },
+                    title: ''
+                },
+                driverDetails: orderAssignment.driver
+                    ? {
+                        id: orderAssignment.driver.id,
+                        first_name: orderAssignment.driver.first_name || 'N/A',
+                        last_name: orderAssignment.driver.last_name || 'N/A',
+                        avatar: orderAssignment.driver.avatar,
+                        rating: orderAssignment.driver.rating || {
+                            average_rating: '4.8'
+                        },
+                        vehicle: orderAssignment.driver.vehicle || {
+                            color: 'N/A',
+                            model: 'N/A',
+                            license_plate: 'N/A'
+                        }
+                    }
+                    : null,
+                customerFullAddress: orderAssignment.customerAddress
+                    ? `${orderAssignment.customerAddress.street}, ${orderAssignment.customerAddress.city}, ${orderAssignment.customerAddress.nationality}`
+                    : 'N/A',
+                restaurantFullAddress: orderAssignment.restaurantAddress
+                    ? `${orderAssignment.restaurantAddress.street}, ${orderAssignment.restaurantAddress.city}, ${orderAssignment.restaurantAddress.nationality}`
+                    : 'N/A'
+            },
+            message: 'Order received successfully'
+        });
     }
 };
 exports.DriversGateway = DriversGateway;

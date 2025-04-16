@@ -48,7 +48,7 @@ export class OrdersService {
     private readonly driversGateway: DriversGateway,
     private readonly transactionsService: TransactionService,
     private readonly fWalletsRepository: FWalletsRepository,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   async createOrder(createOrderDto: CreateOrderDto): Promise<ApiResponse<any>> {
@@ -59,171 +59,227 @@ export class OrdersService {
       }
       logger.log('Input DTO:', createOrderDto);
 
-      const user = await this.customersRepository.findById(createOrderDto.customer_id);
+      const user = await this.customersRepository.findById(
+        createOrderDto.customer_id
+      );
       if (!user) {
-        return createResponse('NotFound', null, `Customer ${createOrderDto.customer_id} not found`);
+        return createResponse(
+          'NotFound',
+          null,
+          `Customer ${createOrderDto.customer_id} not found`
+        );
       }
 
-      const result = await this.dataSource.transaction(async (transactionalEntityManager) => {
-        const menuItems = await transactionalEntityManager
-          .getRepository(MenuItem)
-          .findBy({
-            id: In(createOrderDto.order_items.map((item) => item.item_id)),
-          });
-
-        let totalAmount = createOrderDto.total_amount;
-        let appliedPromotion: Promotion | null = null;
-
-        if (createOrderDto.promotion_applied) {
-          const promotion = await transactionalEntityManager
-            .getRepository(Promotion)
-            .findOne({
-              where: { id: createOrderDto.promotion_applied },
+      const result = await this.dataSource.transaction(
+        async transactionalEntityManager => {
+          const menuItems = await transactionalEntityManager
+            .getRepository(MenuItem)
+            .findBy({
+              id: In(createOrderDto.order_items.map(item => item.item_id))
             });
 
-          if (promotion) {
-            const now = Math.floor(Date.now() / 1000);
-            if (
-              promotion.start_date <= now &&
-              promotion.end_date >= now &&
-              promotion.status === 'ACTIVE'
-            ) {
-              appliedPromotion = promotion;
-              totalAmount = 0;
-              createOrderDto.order_items = createOrderDto.order_items.map((orderItem) => {
-                const menuItem = menuItems.find((mi) => mi.id === orderItem.item_id);
-                if (!menuItem) return orderItem;
+          let totalAmount = createOrderDto.total_amount;
+          let appliedPromotion: Promotion | null = null;
 
-                const priceToUse = orderItem.price_after_applied_promotion ?? orderItem.price_at_time_of_order;
-                totalAmount += priceToUse * orderItem.quantity;
-
-                return {
-                  ...orderItem,
-                  price_at_time_of_order: priceToUse,
-                };
+          if (createOrderDto.promotion_applied) {
+            const promotion = await transactionalEntityManager
+              .getRepository(Promotion)
+              .findOne({
+                where: { id: createOrderDto.promotion_applied }
               });
+
+            if (promotion) {
+              const now = Math.floor(Date.now() / 1000);
+              if (
+                promotion.start_date <= now &&
+                promotion.end_date >= now &&
+                promotion.status === 'ACTIVE'
+              ) {
+                appliedPromotion = promotion;
+                totalAmount = 0;
+                createOrderDto.order_items = createOrderDto.order_items.map(
+                  orderItem => {
+                    const menuItem = menuItems.find(
+                      mi => mi.id === orderItem.item_id
+                    );
+                    if (!menuItem) return orderItem;
+
+                    const priceToUse =
+                      orderItem.price_after_applied_promotion ??
+                      orderItem.price_at_time_of_order;
+                    totalAmount += priceToUse * orderItem.quantity;
+
+                    return {
+                      ...orderItem,
+                      price_at_time_of_order: priceToUse
+                    };
+                  }
+                );
+              }
             }
           }
-        }
 
-        const restaurant = await this.restaurantRepository.findById(createOrderDto.restaurant_id);
-        if (!restaurant) {
-          return createResponse('NotFound', null, `Restaurant ${createOrderDto.restaurant_id} not found`);
-        }
-
-        // Lấy địa chỉ từ AddressBook
-        const customerAddress = await this.addressBookRepository.findById(createOrderDto.customer_location);
-        const restaurantAddress = await this.addressBookRepository.findById(createOrderDto.restaurant_location);
-
-        if (!customerAddress) {
-          return createResponse('NotFound', null, `Customer address ${createOrderDto.customer_location} not found`);
-        }
-        if (!restaurantAddress) {
-          return createResponse('NotFound', null, `Restaurant address ${createOrderDto.restaurant_location} not found`);
-        }
-
-        const orderData: DeepPartial<Order> = {
-          ...createOrderDto,
-          total_amount: totalAmount ,
-          promotions_applied: appliedPromotion ? [appliedPromotion] : [],
-          status: createOrderDto.status as OrderStatus || OrderStatus.PENDING,
-          tracking_info: createOrderDto.tracking_info as OrderTrackingInfo || OrderTrackingInfo.ORDER_PLACED,
-          customerAddress: customerAddress,
-          restaurantAddress: restaurantAddress,
-          created_at: Math.floor(Date.now() / 1000),
-          updated_at: Math.floor(Date.now() / 1000),
-        };
-
-        if (createOrderDto.payment_method === 'FWallet') {
-          const customerWallet = await this.fWalletsRepository.findByUserId(user.user_id);
-          if (!customerWallet) {
-            return createResponse('NotFound', null, `Wallet not found for customer ${createOrderDto.customer_id}`);
-          }
-
-          const restaurantWallet = await this.fWalletsRepository.findByUserId(restaurant.owner_id);
-          if (!restaurantWallet) {
-            return createResponse('NotFound', null, `Wallet not found for restaurant ${createOrderDto.restaurant_id}`);
-          }
-
-          const transactionDto = {
-            user_id: user.user_id,
-            fwallet_id: customerWallet.id,
-            transaction_type: 'PURCHASE',
-            amount: totalAmount,
-            balance_after: 0,
-            status: 'PENDING',
-            source: 'FWALLET',
-            destination: restaurantWallet.id,
-            destination_type: 'FWALLET',
-          } as CreateTransactionDto;
-
-          const transactionResponse = await this.transactionsService.create(
-            transactionDto,
-            transactionalEntityManager,
+          const restaurant = await this.restaurantRepository.findById(
+            createOrderDto.restaurant_id
           );
-          logger.log('Transaction response:', transactionResponse);
-          if (transactionResponse.EC === -8) {
+          if (!restaurant) {
             return createResponse(
-              'InsufficientBalance',
+              'NotFound',
               null,
-              'Balance in the source wallet is not enough for this transaction.',
+              `Restaurant ${createOrderDto.restaurant_id} not found`
             );
           }
-        }
 
-        const cartItems = await transactionalEntityManager
-          .getRepository(CartItem)
-          .find({
-            where: { customer_id: createOrderDto.customer_id },
-          });
+          // Lấy địa chỉ từ AddressBook
+          const customerAddress = await this.addressBookRepository.findById(
+            createOrderDto.customer_location
+          );
+          const restaurantAddress = await this.addressBookRepository.findById(
+            createOrderDto.restaurant_location
+          );
 
-        for (const orderItem of createOrderDto.order_items) {
-          const cartItem = cartItems.find((ci) => ci.item_id === orderItem.item_id);
-          if (cartItem) {
-            await transactionalEntityManager.getRepository(CartItem).delete(cartItem.id);
-            logger.log(`Deleted cart item ${cartItem.id}`);
+          if (!customerAddress) {
+            return createResponse(
+              'NotFound',
+              null,
+              `Customer address ${createOrderDto.customer_location} not found`
+            );
           }
-        }
+          if (!restaurantAddress) {
+            return createResponse(
+              'NotFound',
+              null,
+              `Restaurant address ${createOrderDto.restaurant_location} not found`
+            );
+          }
 
-        const orderRepository = transactionalEntityManager.getRepository(Order);
-        const newOrder = orderRepository.create(orderData);
-        const savedOrder = await orderRepository.save(newOrder);
-        await this.updateMenuItemPurchaseCount(createOrderDto.order_items);
+          const orderData: DeepPartial<Order> = {
+            ...createOrderDto,
+            total_amount: totalAmount,
+            promotions_applied: appliedPromotion ? [appliedPromotion] : [],
+            status:
+              (createOrderDto.status as OrderStatus) || OrderStatus.PENDING,
+            tracking_info:
+              (createOrderDto.tracking_info as OrderTrackingInfo) ||
+              OrderTrackingInfo.ORDER_PLACED,
+            customerAddress: customerAddress,
+            restaurantAddress: restaurantAddress,
+            created_at: Math.floor(Date.now() / 1000),
+            updated_at: Math.floor(Date.now() / 1000)
+          };
 
-        await transactionalEntityManager
-          .getRepository(Restaurant)
-          .update(createOrderDto.restaurant_id, {
-            total_orders: restaurant.total_orders + 1,
-            updated_at: Math.floor(Date.now() / 1000),
+          if (createOrderDto.payment_method === 'FWallet') {
+            const customerWallet = await this.fWalletsRepository.findByUserId(
+              user.user_id
+            );
+            if (!customerWallet) {
+              return createResponse(
+                'NotFound',
+                null,
+                `Wallet not found for customer ${createOrderDto.customer_id}`
+              );
+            }
+
+            const restaurantWallet = await this.fWalletsRepository.findByUserId(
+              restaurant.owner_id
+            );
+            if (!restaurantWallet) {
+              return createResponse(
+                'NotFound',
+                null,
+                `Wallet not found for restaurant ${createOrderDto.restaurant_id}`
+              );
+            }
+
+            const transactionDto = {
+              user_id: user.user_id,
+              fwallet_id: customerWallet.id,
+              transaction_type: 'PURCHASE',
+              amount: totalAmount,
+              balance_after: 0,
+              status: 'PENDING',
+              source: 'FWALLET',
+              destination: restaurantWallet.id,
+              destination_type: 'FWALLET'
+            } as CreateTransactionDto;
+
+            const transactionResponse = await this.transactionsService.create(
+              transactionDto,
+              transactionalEntityManager
+            );
+            logger.log('Transaction response:', transactionResponse);
+            if (transactionResponse.EC === -8) {
+              return createResponse(
+                'InsufficientBalance',
+                null,
+                'Balance in the source wallet is not enough for this transaction.'
+              );
+            }
+          }
+
+          const cartItems = await transactionalEntityManager
+            .getRepository(CartItem)
+            .find({
+              where: { customer_id: createOrderDto.customer_id }
+            });
+
+          for (const orderItem of createOrderDto.order_items) {
+            const cartItem = cartItems.find(
+              ci => ci.item_id === orderItem.item_id
+            );
+            if (cartItem) {
+              await transactionalEntityManager
+                .getRepository(CartItem)
+                .delete(cartItem.id);
+              logger.log(`Deleted cart item ${cartItem.id}`);
+            }
+          }
+
+          const orderRepository =
+            transactionalEntityManager.getRepository(Order);
+          const newOrder = orderRepository.create(orderData);
+          const savedOrder = await orderRepository.save(newOrder);
+          await this.updateMenuItemPurchaseCount(createOrderDto.order_items);
+
+          await transactionalEntityManager
+            .getRepository(Restaurant)
+            .update(createOrderDto.restaurant_id, {
+              total_orders: restaurant.total_orders + 1,
+              updated_at: Math.floor(Date.now() / 1000)
+            });
+
+          const trackingUpdate = {
+            orderId: savedOrder.id,
+            status: savedOrder.status,
+            tracking_info: savedOrder.tracking_info,
+            updated_at: savedOrder.updated_at,
+            customer_id: savedOrder.customer_id,
+            driver_id: savedOrder.driver_id,
+            restaurant_id: savedOrder.restaurant_id,
+            restaurantAddress: savedOrder.restaurantAddress,
+            customerAddress: savedOrder.customerAddress,
+            order_items: createOrderDto.order_items,
+            total_amount: savedOrder.total_amount,
+            delivery_fee: savedOrder.delivery_fee,
+            service_fee: savedOrder.service_fee,
+            promotions_applied: savedOrder.promotions_applied,
+            restaurant_avatar: restaurant.avatar || null
+          };
+
+          this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
+          this.eventEmitter.emit('newOrderForRestaurant', {
+            restaurant_id: savedOrder.restaurant_id,
+            order: trackingUpdate
           });
+          logger.log('Emitted events:', trackingUpdate);
 
-        const trackingUpdate = {
-          orderId: savedOrder.id,
-          status: savedOrder.status,
-          tracking_info: savedOrder.tracking_info,
-          updated_at: savedOrder.updated_at,
-          customer_id: savedOrder.customer_id,
-          driver_id: savedOrder.driver_id,
-          restaurant_id: savedOrder.restaurant_id,
-          restaurantAddress: savedOrder.restaurantAddress,
-          customerAddress: savedOrder.customerAddress,
-          order_items: createOrderDto.order_items,
-          total_amount: savedOrder.total_amount,
-          delivery_fee: savedOrder.delivery_fee,
-          service_fee: savedOrder.service_fee,
-          promotions_applied: savedOrder.promotions_applied,
-          restaurant_avatar: restaurant.avatar || null,
-        };
-
-        this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
-        this.eventEmitter.emit('newOrderForRestaurant', {
-          restaurant_id: savedOrder.restaurant_id,
-          order: trackingUpdate,
-        });
-        logger.log('Emitted events:', trackingUpdate);
-
-        return createResponse('OK', savedOrder, 'Order created in transaction');
-      });
+          return createResponse(
+            'OK',
+            savedOrder,
+            'Order created in transaction'
+          );
+        }
+      );
 
       if (!result || typeof result.EC === 'undefined') {
         return createResponse('OK', result, 'Order created successfully');
@@ -242,9 +298,15 @@ export class OrdersService {
   }
 
   async notifyRestaurantAndDriver(order: Order): Promise<ApiResponse<any>> {
-    const restaurant = await this.restaurantRepository.findById(order.restaurant_id);
+    const restaurant = await this.restaurantRepository.findById(
+      order.restaurant_id
+    );
     if (!restaurant) {
-      return createResponse('NotFound', null, `Restaurant ${order.restaurant_id} not found`);
+      return createResponse(
+        'NotFound',
+        null,
+        `Restaurant ${order.restaurant_id} not found`
+      );
     }
 
     const trackingUpdate = {
@@ -262,13 +324,13 @@ export class OrdersService {
       delivery_fee: order.delivery_fee,
       service_fee: order.service_fee,
       promotions_applied: order.promotions_applied,
-      restaurant_avatar: restaurant.avatar || null,
+      restaurant_avatar: restaurant.avatar || null
     };
 
     this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
     this.eventEmitter.emit('newOrderForRestaurant', {
       restaurant_id: order.restaurant_id,
-      order: trackingUpdate,
+      order: trackingUpdate
     });
 
     logger.log('Notified restaurant and driver:', trackingUpdate);
@@ -284,7 +346,7 @@ export class OrdersService {
       const manager = transactionalEntityManager || this.dataSource.manager;
       const order = await manager.findOne(Order, {
         where: { id },
-        relations: ['promotions_applied'],
+        relations: ['promotions_applied']
       });
       if (!order) {
         return createResponse('NotFound', null, 'Order not found');
@@ -293,7 +355,7 @@ export class OrdersService {
       let promotionsApplied: Promotion[] = order.promotions_applied || [];
       if (updateOrderDto.promotion_applied) {
         const promotion = await manager.getRepository(Promotion).findOne({
-          where: { id: updateOrderDto.promotion_applied },
+          where: { id: updateOrderDto.promotion_applied }
         });
         promotionsApplied = promotion ? [promotion] : [];
       }
@@ -307,7 +369,7 @@ export class OrdersService {
           : order.status,
         tracking_info: updateOrderDto.tracking_info
           ? (updateOrderDto.tracking_info as OrderTrackingInfo)
-          : order.tracking_info,
+          : order.tracking_info
       };
 
       const updatedOrder = await manager.save(Order, updatedData);
@@ -348,7 +410,7 @@ export class OrdersService {
         [OrderStatus.EN_ROUTE]: OrderTrackingInfo.EN_ROUTE,
         [OrderStatus.OUT_FOR_DELIVERY]: OrderTrackingInfo.OUT_FOR_DELIVERY,
         [OrderStatus.DELIVERY_FAILED]: OrderTrackingInfo.DELIVERY_FAILED,
-        [OrderStatus.DELIVERED]: OrderTrackingInfo.DELIVERED,
+        [OrderStatus.DELIVERED]: OrderTrackingInfo.DELIVERED
       };
       const trackingInfo = trackingInfoMap[status];
       if (trackingInfo) {
@@ -502,7 +564,7 @@ export class OrdersService {
         where: { id },
         relations
       });
-  
+
       return this.handleOrderResponse(order);
     } catch (error) {
       return this.handleError('Error fetching order:', error);
@@ -554,12 +616,14 @@ export class OrdersService {
       );
     }
 
-    const customerAddress = await this.addressRepository.findById(customer_location);
+    const customerAddress =
+      await this.addressRepository.findById(customer_location);
     if (!customerAddress) {
       return createResponse('NotFound', null, 'Customer address not found');
     }
 
-    const restaurantAddress = await this.addressRepository.findById(restaurant_location);
+    const restaurantAddress =
+      await this.addressRepository.findById(restaurant_location);
     if (!restaurantAddress) {
       return createResponse('NotFound', null, 'Restaurant address not found');
     }
@@ -586,7 +650,9 @@ export class OrdersService {
       }
 
       if (item.variant_id) {
-        const variant = await this.menuItemVariantsRepository.findById(item.variant_id);
+        const variant = await this.menuItemVariantsRepository.findById(
+          item.variant_id
+        );
         if (!variant) {
           return createResponse(
             'NotFound',

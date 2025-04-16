@@ -179,10 +179,17 @@ let RestaurantsGateway = class RestaurantsGateway {
                 if (!orderWithDistance) {
                     throw new Error('Failed to retrieve updated order');
                 }
-                await this.eventEmitter.emit('order.assignedToDriver', {
+                const driverNotificationData = {
                     ...orderWithDistance,
+                    driver_wage,
+                    total_amount: orderWithDistance.total_amount,
+                    order_items: orderWithDistance.order_items,
+                    driver_earn: driver_wage,
+                    restaurantAddress: orderWithDistance.restaurantAddress,
+                    customerAddress: orderWithDistance.customerAddress,
                     driverListenerId: selectedDriver.id
-                });
+                };
+                await this.eventEmitter.emit('order.assignedToDriver', driverNotificationData);
                 await this.notifyPartiesOnce(orderWithDistance);
                 return { event: 'orderAssigned', data: orderWithDistance };
             }
