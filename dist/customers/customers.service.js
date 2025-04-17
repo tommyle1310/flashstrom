@@ -322,6 +322,12 @@ let CustomersService = class CustomersService {
                     order_time: true,
                     delivery_time: true,
                     tracking_info: true,
+                    cancelled_by: true,
+                    cancelled_by_id: true,
+                    cancellation_reason: true,
+                    cancellation_title: true,
+                    cancellation_description: true,
+                    cancelled_at: true,
                     restaurant: {
                         id: true,
                         restaurant_name: true,
@@ -379,7 +385,7 @@ let CustomersService = class CustomersService {
                     };
                 }));
                 const restaurantSpecializations = specializationMap.get(order.restaurant_id) || [];
-                return {
+                const baseOrder = {
                     ...order,
                     order_items: populatedOrderItems,
                     customer_address: order.customerAddress,
@@ -389,6 +395,19 @@ let CustomersService = class CustomersService {
                         specialize_in: restaurantSpecializations
                     }
                 };
+                if (order.status === 'CANCELLED' ||
+                    order.tracking_info === 'CANCELLED') {
+                    return {
+                        ...baseOrder,
+                        cancelled_by: order.cancelled_by,
+                        cancelled_by_id: order.cancelled_by_id,
+                        cancellation_reason: order.cancellation_reason,
+                        cancellation_title: order.cancellation_title,
+                        cancellation_description: order.cancellation_description,
+                        cancelled_at: order.cancelled_at
+                    };
+                }
+                return baseOrder;
             }));
             return (0, createResponse_1.createResponse)('OK', populatedOrders, 'Fetched orders successfully');
         }

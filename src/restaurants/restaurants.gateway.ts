@@ -160,117 +160,46 @@ export class RestaurantsGateway
       const { availableDrivers, orderDetails: orderId } = data;
       const fullOrderDetails =
         await this.restaurantsService.getOrderById(orderId);
+
       if (!fullOrderDetails) {
         return { event: 'error', data: { message: 'Order not found' } };
       }
 
-      await this.ordersRepository.update(orderId, {
-        status: OrderStatus.RESTAURANT_ACCEPTED,
-        tracking_info: OrderTrackingInfo.ORDER_RECEIVED
-      });
+      await this.updateOrderStatus(
+        orderId,
+        OrderStatus.RESTAURANT_ACCEPTED,
+        OrderTrackingInfo.ORDER_RECEIVED
+      );
 
-      const mappedDrivers = availableDrivers.map(item => ({
-        id: item.id,
-        location: { lat: item.lat, lng: item.lng },
-        active_points: 0,
-        current_order_id: []
-      }));
-
+      const mappedDrivers = this.prepareDriverData(availableDrivers);
       const responsePrioritizeDrivers =
         await this.driverService.prioritizeAndAssignDriver(
           mappedDrivers,
           fullOrderDetails as unknown as Type_Delivery_Order
         );
 
-      if (
-        responsePrioritizeDrivers.EC === 0 &&
-        responsePrioritizeDrivers.data.length > 0
-      ) {
+      if (this.isValidDriverResponse(responsePrioritizeDrivers)) {
         const selectedDriver = responsePrioritizeDrivers.data[0];
-        const res_location = fullOrderDetails.restaurantAddress as unknown as {
-          location: { lat: number; lng: number };
-        };
-        const customer_location =
-          fullOrderDetails.customerAddress as unknown as {
-            location: { lat: number; lng: number };
-          };
-        const distance = calculateDistance(
-          customer_location?.location?.lat ?? 0,
-          customer_location?.location?.lng ?? 0,
-          res_location?.location?.lat ?? 0,
-          res_location?.location?.lng ?? 0
-        );
+        const { distance, driver_wage } =
+          await this.calculateOrderMetrics(fullOrderDetails);
 
-        const latestFinanceRuleResponse =
-          await this.financeRulesService.findOneLatest();
-        const { EC, EM, data } = latestFinanceRuleResponse;
-        console.log('cehck naow', data);
-
-        if (EC !== 0) {
-          return { event: 'error', data: { message: EM } };
-        }
-        let driver_wage: number | string;
-
-        if (distance >= 0 && distance <= 1) {
-          driver_wage = data.driver_fixed_wage['0-1km'];
-        } else if (distance > 1 && distance <= 2) {
-          driver_wage = data.driver_fixed_wage['1-2km'];
-        } else if (distance > 2 && distance <= 3) {
-          driver_wage = data.driver_fixed_wage['2-3km'];
-        } else if (distance > 4 && distance <= 5) {
-          driver_wage = data.driver_fixed_wage['4-5km'];
-        } else if (distance > 5) {
-          const formula = data.driver_fixed_wage['>5km'];
-
-          try {
-            driver_wage = evaluate(formula.replace('km', distance.toString()));
-            console.log('Calculated driver wage:', driver_wage);
-          } catch (error) {
-            console.error('Error evaluating wage formula:', error);
-          }
-
-          return { event: 'error', data: { message: 'Invalid wage formula' } };
-        } else {
+        if (driver_wage === null) {
           return {
             event: 'error',
-            data: { message: 'Invalid distance value' }
+            data: { message: 'Failed to calculate driver wage' }
           };
         }
-        console.log('check drier wage', driver_wage);
 
-        const updatedFields = {
-          distance: +distance,
-          status: OrderStatus.PREPARING,
-          tracking_info: OrderTrackingInfo.PREPARING,
+        await this.updateOrderWithMetrics(orderId, distance, driver_wage);
+        const updatedOrder = await this.getUpdatedOrder(orderId);
+
+        await this.notifyDriverAndParties(
+          updatedOrder,
+          selectedDriver.id,
           driver_wage
-        };
-        console.log('Fields to update:', updatedFields);
-        await this.ordersRepository.update(orderId, updatedFields);
-
-        const orderWithDistance = await this.ordersRepository.findById(orderId);
-        if (!orderWithDistance) {
-          throw new Error('Failed to retrieve updated order');
-        }
-
-        // Prepare the complete order data for driver notification
-        const driverNotificationData = {
-          ...orderWithDistance,
-          driver_wage,
-          total_amount: orderWithDistance.total_amount,
-          order_items: orderWithDistance.order_items,
-          driver_earn: driver_wage, // Using the calculated driver wage
-          restaurantAddress: orderWithDistance.restaurantAddress,
-          customerAddress: orderWithDistance.customerAddress,
-          driverListenerId: selectedDriver.id
-        };
-
-        await this.eventEmitter.emit(
-          'order.assignedToDriver',
-          driverNotificationData
         );
-        await this.notifyPartiesOnce(orderWithDistance);
 
-        return { event: 'orderAssigned', data: orderWithDistance };
+        return { event: 'orderAssigned', data: updatedOrder };
       }
 
       return {
@@ -281,6 +210,125 @@ export class RestaurantsGateway
       console.error('Error in handleRestaurantAcceptWithDrivers:', error);
       return { event: 'error', data: { message: 'Internal server error' } };
     }
+  }
+
+  private prepareDriverData(availableDrivers: AvailableDriver[]) {
+    return availableDrivers.map(item => ({
+      id: item.id,
+      location: { lat: item.lat, lng: item.lng },
+      active_points: 0,
+      current_order_id: []
+    }));
+  }
+
+  private isValidDriverResponse(response: any) {
+    return response.EC === 0 && response.data.length > 0;
+  }
+
+  private async calculateOrderMetrics(order: any) {
+    const res_location = order.restaurantAddress as unknown as {
+      location: { lat: number; lng: number };
+    };
+    const customer_location = order.customerAddress as unknown as {
+      location: { lat: number; lng: number };
+    };
+
+    const distance = calculateDistance(
+      customer_location?.location?.lat ?? 0,
+      customer_location?.location?.lng ?? 0,
+      res_location?.location?.lat ?? 0,
+      res_location?.location?.lng ?? 0
+    );
+
+    const driver_wage = await this.calculateDriverWage(distance);
+    return { distance, driver_wage };
+  }
+
+  private async calculateDriverWage(distance: number) {
+    const latestFinanceRuleResponse =
+      await this.financeRulesService.findOneLatest();
+    const { EC, EM, data } = latestFinanceRuleResponse;
+
+    if (EC !== 0) {
+      console.error('Error getting finance rules:', EM);
+      return null;
+    }
+
+    try {
+      if (distance >= 0 && distance <= 1) {
+        return data.driver_fixed_wage['0-1km'];
+      } else if (distance > 1 && distance <= 2) {
+        return data.driver_fixed_wage['1-2km'];
+      } else if (distance > 2 && distance <= 3) {
+        return data.driver_fixed_wage['2-3km'];
+      } else if (distance > 4 && distance <= 5) {
+        return data.driver_fixed_wage['4-5km'];
+      } else if (distance > 5) {
+        const formula = data.driver_fixed_wage['>5km'];
+        return evaluate(formula.replace('km', distance.toString()));
+      }
+      return null;
+    } catch (error) {
+      console.error('Error calculating driver wage:', error);
+      return null;
+    }
+  }
+
+  private async updateOrderStatus(
+    orderId: string,
+    status: OrderStatus,
+    trackingInfo: OrderTrackingInfo
+  ) {
+    await this.ordersRepository.update(orderId, {
+      status,
+      tracking_info: trackingInfo
+    });
+  }
+
+  private async updateOrderWithMetrics(
+    orderId: string,
+    distance: number,
+    driver_wage: number
+  ) {
+    const updatedFields = {
+      distance: +distance,
+      status: OrderStatus.PREPARING,
+      tracking_info: OrderTrackingInfo.PREPARING,
+      driver_wage
+    };
+
+    await this.ordersRepository.update(orderId, updatedFields);
+  }
+
+  private async getUpdatedOrder(orderId: string) {
+    const order = await this.ordersRepository.findById(orderId);
+    if (!order) {
+      throw new Error('Failed to retrieve updated order');
+    }
+    return order;
+  }
+
+  private async notifyDriverAndParties(
+    order: any,
+    driverId: string,
+    driver_wage: number
+  ) {
+    const driverNotificationData = {
+      ...order,
+      driver_wage,
+      total_amount: order.total_amount,
+      order_items: order.order_items,
+      driver_earn: driver_wage,
+      restaurantAddress: order.restaurantAddress,
+      customerAddress: order.customerAddress,
+      driverListenerId: driverId
+    };
+
+    await this.eventEmitter.emit(
+      'order.assignedToDriver',
+      driverNotificationData
+    );
+    await this.notifyPartiesOnce(order);
   }
 
   @SubscribeMessage('restaurantOrderReady')

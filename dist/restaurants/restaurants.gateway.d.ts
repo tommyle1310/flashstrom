@@ -40,6 +40,14 @@ export declare class RestaurantsGateway implements OnGatewayConnection, OnGatewa
         message: string;
     }>;
     handleRestaurantAcceptWithDrivers(data: RestaurantAcceptData): Promise<WsResponse<any>>;
+    private prepareDriverData;
+    private isValidDriverResponse;
+    private calculateOrderMetrics;
+    private calculateDriverWage;
+    private updateOrderStatus;
+    private updateOrderWithMetrics;
+    private getUpdatedOrder;
+    private notifyDriverAndParties;
     handleRestaurantOrderReady(data: {
         orderId: string;
     }): Promise<{

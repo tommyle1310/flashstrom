@@ -872,15 +872,15 @@ export class DriversGateway
                 })
                 .getOne();
 
-              let dpsWithRelations: DriverProgressStage | null = null;
-              if (existingDPS) {
-                dpsWithRelations = await transactionalEntityManager
-                  .getRepository(DriverProgressStage)
-                  .findOne({
-                    where: { id: existingDPS.id },
-                    relations: ['orders']
-                  });
-              }
+              // let dpsWithRelations: DriverProgressStage | null = null;
+              // if (existingDPS) {
+              //   dpsWithRelations = await transactionalEntityManager
+              //     .getRepository(DriverProgressStage)
+              //     .findOne({
+              //       where: { id: existingDPS.id },
+              //       relations: ['orders']
+              //     });
+              // }
 
               let dps: DriverProgressStage;
               const timestamp = Math.floor(Date.now() / 1000);
@@ -1191,74 +1191,100 @@ export class DriversGateway
 
   @OnEvent('order.assignedToDriver')
   async handleOrderAssignedToDriver(orderAssignment: any) {
-    const { driverListenerId } = orderAssignment;
+    try {
+      const driverId = orderAssignment.driverListenerId;
+      if (!driverId) throw new WsException('Driver ID is required');
 
-    await this.server
-      .to(`driver_${driverListenerId}`)
-      .emit('incomingOrderForDriver', {
-        event: 'incomingOrderForDriver',
-        data: {
-          orderId: orderAssignment.id,
-          status: orderAssignment.status,
-          tracking_info: orderAssignment.tracking_info,
-          updated_at: orderAssignment.updated_at,
-          customer_id: orderAssignment.customer_id,
-          driver_id: orderAssignment.driver_id,
-          restaurant_id: orderAssignment.restaurant_id,
-          restaurant_avatar: orderAssignment.restaurant?.avatar || null,
-          driver_avatar: orderAssignment.driver?.avatar || null,
-          total_amount: orderAssignment.total_amount,
-          driver_wage: orderAssignment.driver_wage,
-          driver_earn: orderAssignment.driver_wage,
-          order_items: orderAssignment.order_items,
-          restaurantAddress: orderAssignment.restaurantAddress || {
-            id: '',
-            street: 'N/A',
-            city: '',
-            nationality: '',
-            is_default: false,
-            created_at: 0,
-            updated_at: 0,
-            postal_code: 0,
-            location: { lat: 0, lon: 0 },
-            title: ''
-          },
-          customerAddress: orderAssignment.customerAddress || {
-            id: '',
-            street: 'N/A',
-            city: '',
-            nationality: '',
-            is_default: false,
-            created_at: 0,
-            updated_at: 0,
-            postal_code: 0,
-            location: { lat: 0, lon: 0 },
-            title: ''
-          },
-          driverDetails: orderAssignment.driver
-            ? {
-                id: orderAssignment.driver.id,
-                first_name: orderAssignment.driver.first_name || 'N/A',
-                last_name: orderAssignment.driver.last_name || 'N/A',
-                avatar: orderAssignment.driver.avatar,
-                rating: orderAssignment.driver.rating || {
-                  average_rating: '4.8'
-                },
-                vehicle: orderAssignment.driver.vehicle || {
-                  color: 'N/A',
-                  model: 'N/A',
-                  license_plate: 'N/A'
-                }
-              }
-            : null,
-          customerFullAddress: orderAssignment.customerAddress
-            ? `${orderAssignment.customerAddress.street}, ${orderAssignment.customerAddress.city}, ${orderAssignment.customerAddress.nationality}`
-            : 'N/A',
-          restaurantFullAddress: orderAssignment.restaurantAddress
-            ? `${orderAssignment.restaurantAddress.street}, ${orderAssignment.restaurantAddress.city}, ${orderAssignment.restaurantAddress.nationality}`
-            : 'N/A'
-        },
-        message: 'Order received successfully'
-      });
+      const order = await this.ordersService.findOne(orderAssignment.id, null, [
+        'restaurant',
+        'driver',
+        'customer',
+        'restaurantAddress',
+        'customerAddress'
+      ]);
+
+      if (!order?.data) throw new WsException('Order not found');
+
+      const driverNotificationData = this.prepareDriverNotificationData(
+        order.data
+      );
+
+      await this.server
+        .to(`driver_${driverId}`)
+        .emit('incomingOrderForDriver', {
+          event: 'incomingOrderForDriver',
+          data: driverNotificationData,
+          message: 'Order received successfully'
+        });
+
+      return { event: 'orderAssigned', data: { success: true } };
+    } catch (error) {
+      console.error('Error handling order.assignedToDriver:', error);
+      throw new WsException(
+        error instanceof WsException ? error.message : 'Internal server error'
+      );
+    }
+  }
+
+  private prepareDriverNotificationData(order: any) {
+    return {
+      orderId: order.id,
+      status: order.status,
+      tracking_info: order.tracking_info,
+      updated_at: order.updated_at,
+      customer_id: order.customer_id,
+      driver_id: order.driver_id,
+      restaurant_id: order.restaurant_id,
+      restaurant_avatar: order.restaurant?.avatar || null,
+      driver_avatar: order.driver?.avatar || null,
+      total_amount: order.total_amount,
+      driver_wage: order.driver_wage,
+      driver_earn: order.driver_wage,
+      order_items: order.order_items,
+      restaurantAddress: this.prepareAddressData(order.restaurantAddress),
+      customerAddress: this.prepareAddressData(order.customerAddress),
+      driverDetails: this.prepareDriverDetails(order.driver),
+      customerFullAddress: this.formatFullAddress(order.customerAddress),
+      restaurantFullAddress: this.formatFullAddress(order.restaurantAddress)
+    };
+  }
+
+  private prepareAddressData(address: any) {
+    return (
+      address || {
+        id: '',
+        street: 'N/A',
+        city: '',
+        nationality: '',
+        is_default: false,
+        created_at: 0,
+        updated_at: 0,
+        postal_code: 0,
+        location: { lat: 0, lon: 0 },
+        title: ''
+      }
+    );
+  }
+
+  private prepareDriverDetails(driver: any) {
+    if (!driver) return null;
+
+    return {
+      id: driver.id,
+      first_name: driver.first_name || 'N/A',
+      last_name: driver.last_name || 'N/A',
+      avatar: driver.avatar,
+      rating: driver.rating || { average_rating: '4.8' },
+      vehicle: driver.vehicle || {
+        color: 'N/A',
+        model: 'N/A',
+        license_plate: 'N/A'
+      }
+    };
+  }
+
+  private formatFullAddress(address: any) {
+    if (!address) return 'N/A';
+    return `${address.street}, ${address.city}, ${address.nationality}`;
   }
 }

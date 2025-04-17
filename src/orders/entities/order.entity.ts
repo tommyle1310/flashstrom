@@ -50,6 +50,17 @@ export enum OrderStatus {
   DELIVERY_FAILED = 'DELIVERY_FAILED'
 }
 
+export enum OrderCancellationReason {
+  CUSTOMER_CANCELLED = 'CUSTOMER_CANCELLED',
+  RESTAURANT_CANCELLED = 'RESTAURANT_CANCELLED',
+  DRIVER_CANCELLED = 'DRIVER_CANCELLED',
+  OUT_OF_STOCK = 'OUT_OF_STOCK',
+  RESTAURANT_CLOSED = 'RESTAURANT_CLOSED',
+  DRIVER_UNAVAILABLE = 'DRIVER_UNAVAILABLE',
+  CUSTOMER_UNAVAILABLE = 'CUSTOMER_UNAVAILABLE',
+  OTHER = 'OTHER'
+}
+
 @Entity('orders')
 export class Order {
   @PrimaryColumn({ type: 'varchar' })
@@ -187,6 +198,28 @@ export class Order {
     }
   })
   promotions_applied: Promotion[];
+
+  @Column({ nullable: true })
+  cancelled_by: 'customer' | 'restaurant' | 'driver';
+
+  @Column({ nullable: true })
+  cancelled_by_id: string;
+
+  @Column({
+    type: 'enum',
+    enum: OrderCancellationReason,
+    nullable: true
+  })
+  cancellation_reason: OrderCancellationReason;
+
+  @Column({ nullable: true })
+  cancellation_title: string;
+
+  @Column({ nullable: true })
+  cancellation_description: string;
+
+  @Column({ nullable: true })
+  cancelled_at: number;
 
   @BeforeInsert()
   generateId() {

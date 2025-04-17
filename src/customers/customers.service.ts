@@ -15,10 +15,9 @@ import { CustomersRepository } from './customers.repository';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 // import { OrdersRepository } from 'src/orders/orders.repository';
 import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
-import { Any, DataSource, ILike, In, Raw } from 'typeorm';
+import { DataSource, ILike, In, Raw } from 'typeorm';
 import { Order } from 'src/orders/entities/order.entity';
 import { NotificationsRepository } from 'src/notifications/notifications.repository';
-import { TargetUser } from 'src/notifications/entities/notification.entity';
 export interface AddressPopulate {
   id?: string;
   street?: string;
@@ -215,8 +214,8 @@ export class CustomersService {
 
       if (favorite_restaurant) {
         const currentFavoriteRestaurants = customer.favorite_restaurants || [];
-        console.log('check curent fav res', currentFavoriteRestaurants)
-        console.log('check favorite restaurant', favorite_restaurant)
+        console.log('check curent fav res', currentFavoriteRestaurants);
+        console.log('check favorite restaurant', favorite_restaurant);
         const restaurantIds = currentFavoriteRestaurants.map(r => r.id);
 
         // Kiểm tra xem favorite_restaurant đã có trong danh sách chưa
@@ -537,7 +536,7 @@ export class CustomersService {
           payment_method: true,
           customer_location: true,
           restaurant_location: true,
-          order_items: true, // Lấy order_items
+          order_items: true,
           customer_note: true,
           restaurant_note: true,
           distance: true,
@@ -546,6 +545,13 @@ export class CustomersService {
           order_time: true,
           delivery_time: true,
           tracking_info: true,
+          // Add cancellation fields
+          cancelled_by: true,
+          cancelled_by_id: true,
+          cancellation_reason: true,
+          cancellation_title: true,
+          cancellation_description: true,
+          cancelled_at: true,
           restaurant: {
             id: true,
             restaurant_name: true,
@@ -621,16 +627,35 @@ export class CustomersService {
           const restaurantSpecializations =
             specializationMap.get(order.restaurant_id) || [];
 
-          return {
+          // Create base order object
+          const baseOrder = {
             ...order,
-            order_items: populatedOrderItems, // Thay order_items bằng dữ liệu đã populate
-            customer_address: order.customerAddress, // Thêm thông tin từ AddressBook
-            restaurant_address: order.restaurantAddress, // Thêm thông tin từ AddressBook
+            order_items: populatedOrderItems,
+            customer_address: order.customerAddress,
+            restaurant_address: order.restaurantAddress,
             restaurant: {
               ...order.restaurant,
-              specialize_in: restaurantSpecializations // Thêm specialize_in vào restaurant
+              specialize_in: restaurantSpecializations
             }
           };
+
+          // Only add cancellation fields if the order is cancelled
+          if (
+            order.status === 'CANCELLED' ||
+            order.tracking_info === 'CANCELLED'
+          ) {
+            return {
+              ...baseOrder,
+              cancelled_by: order.cancelled_by,
+              cancelled_by_id: order.cancelled_by_id,
+              cancellation_reason: order.cancellation_reason,
+              cancellation_title: order.cancellation_title,
+              cancellation_description: order.cancellation_description,
+              cancelled_at: order.cancelled_at
+            };
+          }
+
+          return baseOrder;
         })
       );
 

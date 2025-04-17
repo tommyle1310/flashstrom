@@ -79,7 +79,7 @@ export class CustomersGateway {
       restaurant_id: order.restaurant_id,
       restaurantAddress: order.restaurantAddress,
       customerAddress: order.customerAddress,
-      driverDetails: order.driverDetails,
+      driverDetails: order.driverDetails
     };
     await this.server
       .to(`customer_${customerId}`)
@@ -112,9 +112,9 @@ export class CustomersGateway {
       driver_avatar: order.driver_avatar,
       restaurantAddress: order.restaurantAddress,
       customerAddress: order.customerAddress,
-      driverDetails: order.driverDetails,
+      driverDetails: order.driverDetails
     };
-    console.log('check tackign udpate', order)
+    console.log('check tackign udpate', order);
     await this.server
       .to(`customer_${order.customer_id}`)
       .emit('notifyOrderStatus', trackingUpdate); // Đổi thành notifyOrderStatus

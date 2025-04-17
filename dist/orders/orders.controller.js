@@ -22,22 +22,50 @@ let OrdersController = class OrdersController {
         this.ordersService = ordersService;
     }
     async createOrder(createOrderDto) {
-        return this.ordersService.createOrder(createOrderDto);
+        const order = await this.ordersService.createOrder(createOrderDto);
+        return {
+            status: 'OK',
+            data: order,
+            message: 'Order created successfully'
+        };
     }
     async tipDriver(body) {
         return this.ordersService.tipToDriver(body.orderId, body.tipAmount);
     }
-    findAll() {
-        return this.ordersService.findAll();
+    async findAll() {
+        const orders = await this.ordersService.findAll();
+        return {
+            status: 'OK',
+            data: orders,
+            message: 'Orders retrieved successfully'
+        };
     }
-    findOne(id) {
-        return this.ordersService.findOne(id);
+    async findOne(id) {
+        const order = await this.ordersService.findOne(id);
+        return {
+            status: 'OK',
+            data: order,
+            message: 'Order retrieved successfully'
+        };
     }
-    update(id, updateOrderDto) {
-        return this.ordersService.update(id, updateOrderDto);
+    async update(id, updateOrderDto) {
+        const order = await this.ordersService.update(id, updateOrderDto);
+        return {
+            status: 'OK',
+            data: order,
+            message: 'Order updated successfully'
+        };
     }
-    remove(id) {
-        return this.ordersService.remove(id);
+    async remove(id) {
+        await this.ordersService.remove(id);
+        return {
+            status: 'OK',
+            data: null,
+            message: 'Order deleted successfully'
+        };
+    }
+    async cancelOrder(id, cancelOrderDto) {
+        return this.ordersService.cancelOrder(id, cancelOrderDto.cancelled_by, cancelOrderDto.cancelled_by_id, cancelOrderDto.reason, cancelOrderDto.title, cancelOrderDto.description);
     }
 };
 exports.OrdersController = OrdersController;
@@ -59,14 +87,14 @@ __decorate([
     (0, common_1.Get)(),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),
@@ -74,15 +102,23 @@ __decorate([
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, update_order_dto_1.UpdateOrderDto]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Post)(':id/cancel'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "cancelOrder", null);
 exports.OrdersController = OrdersController = __decorate([
     (0, common_1.Controller)('orders'),
     __metadata("design:paramtypes", [orders_service_1.OrdersService])

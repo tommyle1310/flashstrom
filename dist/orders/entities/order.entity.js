@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Order = exports.OrderStatus = exports.OrderTrackingInfo = void 0;
+exports.Order = exports.OrderCancellationReason = exports.OrderStatus = exports.OrderTrackingInfo = void 0;
 const typeorm_1 = require("typeorm");
 const uuid_1 = require("uuid");
 const driver_progress_stage_entity_1 = require("../../driver_progress_stages/entities/driver_progress_stage.entity");
@@ -50,6 +50,17 @@ var OrderStatus;
     OrderStatus["RETURNED"] = "RETURNED";
     OrderStatus["DELIVERY_FAILED"] = "DELIVERY_FAILED";
 })(OrderStatus || (exports.OrderStatus = OrderStatus = {}));
+var OrderCancellationReason;
+(function (OrderCancellationReason) {
+    OrderCancellationReason["CUSTOMER_CANCELLED"] = "CUSTOMER_CANCELLED";
+    OrderCancellationReason["RESTAURANT_CANCELLED"] = "RESTAURANT_CANCELLED";
+    OrderCancellationReason["DRIVER_CANCELLED"] = "DRIVER_CANCELLED";
+    OrderCancellationReason["OUT_OF_STOCK"] = "OUT_OF_STOCK";
+    OrderCancellationReason["RESTAURANT_CLOSED"] = "RESTAURANT_CLOSED";
+    OrderCancellationReason["DRIVER_UNAVAILABLE"] = "DRIVER_UNAVAILABLE";
+    OrderCancellationReason["CUSTOMER_UNAVAILABLE"] = "CUSTOMER_UNAVAILABLE";
+    OrderCancellationReason["OTHER"] = "OTHER";
+})(OrderCancellationReason || (exports.OrderCancellationReason = OrderCancellationReason = {}));
 let Order = class Order {
     generateId() {
         this.id = `FF_ORDER_${(0, uuid_1.v4)()}`;
@@ -216,6 +227,34 @@ __decorate([
     }),
     __metadata("design:type", Array)
 ], Order.prototype, "promotions_applied", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Order.prototype, "cancelled_by", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Order.prototype, "cancelled_by_id", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: 'enum',
+        enum: OrderCancellationReason,
+        nullable: true
+    }),
+    __metadata("design:type", String)
+], Order.prototype, "cancellation_reason", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Order.prototype, "cancellation_title", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Order.prototype, "cancellation_description", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Number)
+], Order.prototype, "cancelled_at", void 0);
 __decorate([
     (0, typeorm_1.BeforeInsert)(),
     __metadata("design:type", Function),

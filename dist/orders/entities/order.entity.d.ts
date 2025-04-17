@@ -34,6 +34,16 @@ export declare enum OrderStatus {
     RETURNED = "RETURNED",
     DELIVERY_FAILED = "DELIVERY_FAILED"
 }
+export declare enum OrderCancellationReason {
+    CUSTOMER_CANCELLED = "CUSTOMER_CANCELLED",
+    RESTAURANT_CANCELLED = "RESTAURANT_CANCELLED",
+    DRIVER_CANCELLED = "DRIVER_CANCELLED",
+    OUT_OF_STOCK = "OUT_OF_STOCK",
+    RESTAURANT_CLOSED = "RESTAURANT_CLOSED",
+    DRIVER_UNAVAILABLE = "DRIVER_UNAVAILABLE",
+    CUSTOMER_UNAVAILABLE = "CUSTOMER_UNAVAILABLE",
+    OTHER = "OTHER"
+}
 export declare class Order {
     id: string;
     customer_id: string;
@@ -72,5 +82,11 @@ export declare class Order {
     drivers: Driver[];
     ratings_reviews: RatingsReview[];
     promotions_applied: Promotion[];
+    cancelled_by: 'customer' | 'restaurant' | 'driver';
+    cancelled_by_id: string;
+    cancellation_reason: OrderCancellationReason;
+    cancellation_title: string;
+    cancellation_description: string;
+    cancelled_at: number;
     generateId(): void;
 }

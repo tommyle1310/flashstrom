@@ -1,9 +1,13 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
-import { Order, OrderStatus, OrderTrackingInfo } from './entities/order.entity';
+import {
+  Order,
+  OrderStatus,
+  OrderTrackingInfo,
+  OrderCancellationReason
+} from './entities/order.entity';
 import { createResponse, ApiResponse } from 'src/utils/createResponse';
-import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
 import { OrdersRepository } from './orders.repository';
 import { RestaurantsGateway } from '../restaurants/restaurants.gateway';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
@@ -26,6 +30,7 @@ import { DriverStatsService } from 'src/driver_stats_records/driver_stats_record
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Logger } from '@nestjs/common';
+import { DriversService } from 'src/drivers/drivers.service';
 
 const logger = new Logger('OrdersService');
 
@@ -48,7 +53,8 @@ export class OrdersService {
     private readonly driversGateway: DriversGateway,
     private readonly transactionsService: TransactionService,
     private readonly fWalletsRepository: FWalletsRepository,
-    private readonly eventEmitter: EventEmitter2
+    private readonly eventEmitter: EventEmitter2,
+    private readonly driverService: DriversService
   ) {}
 
   async createOrder(createOrderDto: CreateOrderDto): Promise<ApiResponse<any>> {
@@ -581,6 +587,99 @@ export class OrdersService {
     } catch (error) {
       return this.handleError('Error deleting order:', error);
     }
+  }
+
+  async cancelOrder(
+    orderId: string,
+    cancelledBy: 'customer' | 'restaurant' | 'driver',
+    cancelledById: string,
+    reason: OrderCancellationReason,
+    title: string,
+    description: string
+  ): Promise<ApiResponse<Order>> {
+    try {
+      const order = await this.ordersRepository.findById(orderId);
+      if (!order) {
+        return createResponse('NotFound', null, 'Order not found');
+      }
+
+      // Validate the cancelling entity exists
+      let entityExists = false;
+      switch (cancelledBy) {
+        case 'customer':
+          const customer =
+            await this.customersRepository.findById(cancelledById);
+          entityExists = !!customer;
+          break;
+        case 'restaurant':
+          const restaurant =
+            await this.restaurantRepository.findById(cancelledById);
+          entityExists = !!restaurant;
+          break;
+        case 'driver':
+          const driver = await this.driverService.findDriverById(cancelledById);
+          entityExists = !!driver;
+          break;
+      }
+
+      if (!entityExists) {
+        return createResponse(
+          'NotFound',
+          null,
+          `${cancelledBy} with ID ${cancelledById} not found`
+        );
+      }
+
+      // Check if order can be cancelled based on its current status
+      if (!this.canOrderBeCancelled(order.status)) {
+        return createResponse(
+          'Forbidden',
+          null,
+          'Order cannot be cancelled in its current status'
+        );
+      }
+
+      const updatedOrder = await this.dataSource.transaction(
+        async transactionalEntityManager => {
+          const orderToUpdate = await transactionalEntityManager
+            .getRepository(Order)
+            .findOne({ where: { id: orderId } });
+
+          if (!orderToUpdate) throw new Error('Order not found in transaction');
+
+          orderToUpdate.status = OrderStatus.CANCELLED;
+          orderToUpdate.tracking_info = OrderTrackingInfo.CANCELLED;
+          orderToUpdate.cancelled_by = cancelledBy;
+          orderToUpdate.cancelled_by_id = cancelledById;
+          orderToUpdate.cancellation_reason = reason;
+          orderToUpdate.cancellation_title = title;
+          orderToUpdate.cancellation_description = description;
+          orderToUpdate.cancelled_at = Math.floor(Date.now() / 1000);
+          orderToUpdate.updated_at = Math.floor(Date.now() / 1000);
+
+          await transactionalEntityManager.save(Order, orderToUpdate);
+          return orderToUpdate;
+        }
+      );
+
+      // Notify all parties about the cancellation
+      await this.notifyRestaurantAndDriver(updatedOrder);
+
+      return createResponse('OK', updatedOrder, 'Order cancelled successfully');
+    } catch (error) {
+      logger.error('Error cancelling order:', error);
+      return createResponse('ServerError', null, 'Error cancelling order');
+    }
+  }
+
+  private canOrderBeCancelled(status: OrderStatus): boolean {
+    const nonCancellableStatuses = [
+      OrderStatus.DELIVERED,
+      OrderStatus.CANCELLED,
+      OrderStatus.RETURNED,
+      OrderStatus.DELIVERY_FAILED
+    ];
+    return !nonCancellableStatuses.includes(status);
   }
 
   private async validateOrderData(
