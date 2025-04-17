@@ -22,7 +22,7 @@ import {
   OrderStatus,
   OrderTrackingInfo
 } from 'src/orders/entities/order.entity';
-import { DataSource, Like, Not } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
 import { Driver } from './entities/driver.entity';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
@@ -31,7 +31,6 @@ import { StageDto } from 'src/driver_progress_stages/dto/create-driver-progress-
 import { JwtService } from '@nestjs/jwt';
 import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
 import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
-import { Customer } from 'src/customers/entities/customer.entity';
 import { CreateTransactionDto } from 'src/transactions/dto/create-transaction.dto';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionService } from 'src/transactions/transactions.service';
