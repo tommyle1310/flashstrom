@@ -34,7 +34,7 @@ let RestaurantsController = class RestaurantsController {
     findAll() {
         return this.restaurantsService.findAll();
     }
-    findOne(id) {
+    async findOne(id) {
         return this.restaurantsService.findOne(id);
     }
     update(id, updateRestaurantDto) {
@@ -95,7 +95,7 @@ __decorate([
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], RestaurantsController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),

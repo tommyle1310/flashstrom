@@ -125,6 +125,7 @@ let RestaurantsGateway = class RestaurantsGateway {
                         data: { message: 'Failed to calculate driver wage' }
                     };
                 }
+                console.log('cehck drier wage', driver_wage);
                 await this.updateOrderWithMetrics(orderId, distance, driver_wage);
                 const updatedOrder = await this.getUpdatedOrder(orderId);
                 await this.notifyDriverAndParties(updatedOrder, selectedDriver.id, driver_wage);
@@ -200,18 +201,21 @@ let RestaurantsGateway = class RestaurantsGateway {
             distance: +distance,
             status: order_entity_1.OrderStatus.PREPARING,
             tracking_info: order_entity_1.OrderTrackingInfo.PREPARING,
-            driver_wage
+            driver_wage: +driver_wage
         };
+        console.log('cehck udpate field', updatedFields);
         await this.ordersRepository.update(orderId, updatedFields);
     }
     async getUpdatedOrder(orderId) {
         const order = await this.ordersRepository.findById(orderId);
+        console.log('check wher my driver money', order);
         if (!order) {
             throw new Error('Failed to retrieve updated order');
         }
         return order;
     }
     async notifyDriverAndParties(order, driverId, driver_wage) {
+        console.log('check wher my driver money', order, driver_wage);
         const driverNotificationData = {
             ...order,
             driver_wage,

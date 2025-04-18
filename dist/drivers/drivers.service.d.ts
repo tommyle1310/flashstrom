@@ -11,6 +11,7 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
 import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
 import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
+import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
 export declare class DriversService {
     private readonly driversRepository;
     private driverEntityRepository;
@@ -20,13 +21,12 @@ export declare class DriversService {
     private readonly driverProgressStageRepository;
     private readonly onlineSessionsService;
     private readonly dataSource;
-    constructor(driversRepository: DriversRepository, driverEntityRepository: Repository<Driver>, ordersRepository: OrdersRepository, driverStatsService: DriverStatsService, addressRepository: AddressBookRepository, driverProgressStageRepository: DriverProgressStagesRepository, onlineSessionsService: OnlineSessionsService, dataSource: DataSource);
+    private readonly ratingsReviewsRepository;
+    constructor(driversRepository: DriversRepository, driverEntityRepository: Repository<Driver>, ordersRepository: OrdersRepository, driverStatsService: DriverStatsService, addressRepository: AddressBookRepository, driverProgressStageRepository: DriverProgressStagesRepository, onlineSessionsService: OnlineSessionsService, dataSource: DataSource, ratingsReviewsRepository: RatingsReviewsRepository);
     setAvailability(id: string): Promise<ApiResponse<Driver>>;
     create(createDriverDto: CreateDriverDto): Promise<ApiResponse<Driver>>;
     findAll(): Promise<ApiResponse<Driver[]>>;
-    findDriverById(id: string, options?: {
-        relations?: string[];
-    }): Promise<ApiResponse<Driver>>;
+    findDriverById(id: string): Promise<ApiResponse<Driver>>;
     findOne(conditions: object): Promise<ApiResponse<Driver>>;
     update(id: string, updateDriverDto: UpdateDriverDto): Promise<ApiResponse<Driver>>;
     remove(id: string): Promise<ApiResponse<null>>;
@@ -66,4 +66,5 @@ export declare class DriversService {
         offset?: number;
     }): Promise<ApiResponse<any>>;
     formatTime(milliseconds: any): Promise<string>;
+    getDriverRatingsReviews(driverId: string): Promise<ApiResponse<any>>;
 }

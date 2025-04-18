@@ -1213,7 +1213,11 @@ export class DriversGateway
         .to(`driver_${driverId}`)
         .emit('incomingOrderForDriver', {
           event: 'incomingOrderForDriver',
-          data: driverNotificationData,
+          data: {
+            ...driverNotificationData,
+            driver_wage: orderAssignment.driver_wage,
+            driver_earn: orderAssignment.driver_wage
+          },
           message: 'Order received successfully'
         });
 

@@ -189,7 +189,7 @@ export class RestaurantsGateway
             data: { message: 'Failed to calculate driver wage' }
           };
         }
-
+        console.log('cehck drier wage', driver_wage);
         await this.updateOrderWithMetrics(orderId, distance, driver_wage);
         const updatedOrder = await this.getUpdatedOrder(orderId);
 
@@ -294,14 +294,17 @@ export class RestaurantsGateway
       distance: +distance,
       status: OrderStatus.PREPARING,
       tracking_info: OrderTrackingInfo.PREPARING,
-      driver_wage
+      driver_wage: +driver_wage
     };
+    console.log('cehck udpate field', updatedFields);
 
     await this.ordersRepository.update(orderId, updatedFields);
   }
 
   private async getUpdatedOrder(orderId: string) {
     const order = await this.ordersRepository.findById(orderId);
+    console.log('check wher my driver money', order);
+
     if (!order) {
       throw new Error('Failed to retrieve updated order');
     }
@@ -313,6 +316,7 @@ export class RestaurantsGateway
     driverId: string,
     driver_wage: number
   ) {
+    console.log('check wher my driver money', order, driver_wage);
     const driverNotificationData = {
       ...order,
       driver_wage,

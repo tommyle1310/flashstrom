@@ -52,6 +52,7 @@ export declare class Order {
     restaurant: Restaurant;
     driver_id: string;
     distance: number;
+    driver_wage: number;
     driver: Driver;
     status: OrderStatus;
     total_amount: number;

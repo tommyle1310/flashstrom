@@ -17,6 +17,7 @@ import { DriverProgressStagesRepository } from 'src/driver_progress_stages/drive
 import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
 import { CreateOnlineSessionDto } from 'src/online-sessions/dto/create-online-session.dto';
 import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
+import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
 
 @Injectable()
 export class DriversService {
@@ -29,7 +30,8 @@ export class DriversService {
     private readonly addressRepository: AddressBookRepository,
     private readonly driverProgressStageRepository: DriverProgressStagesRepository,
     private readonly onlineSessionsService: OnlineSessionsService,
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
+    private readonly ratingsReviewsRepository: RatingsReviewsRepository
   ) {}
 
   async setAvailability(id: string): Promise<ApiResponse<Driver>> {
@@ -123,15 +125,16 @@ export class DriversService {
     }
   }
 
-  async findDriverById(
-    id: string,
-    options?: { relations?: string[] }
-  ): Promise<ApiResponse<Driver>> {
+  async findDriverById(id: string): Promise<ApiResponse<Driver>> {
     try {
-      const driver = await this.driversRepository.findById(id, options);
-      return this.handleDriverResponse(driver);
+      const driver = await this.driversRepository.findById(id);
+      if (!driver) {
+        return createResponse('NotFound', null, 'Driver not found');
+      }
+      return createResponse('OK', driver, 'Driver retrieved successfully');
     } catch (error) {
-      return this.handleError('Error fetching driver:', error);
+      console.error('Error finding driver:', error);
+      return createResponse('ServerError', null, 'Error retrieving driver');
     }
   }
 
@@ -611,5 +614,72 @@ export class DriversService {
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  async getDriverRatingsReviews(driverId: string): Promise<ApiResponse<any>> {
+    try {
+      const driver = await this.driversRepository.findById(driverId);
+      if (!driver) {
+        return createResponse('NotFound', null, 'Driver not found');
+      }
+
+      const ratingsReviews = await this.ratingsReviewsRepository.findAll({
+        where: {
+          rr_recipient_driver_id: driverId,
+          recipient_type: 'driver'
+        },
+        relations: ['reviewer_customer', 'reviewer_restaurant', 'order']
+      });
+
+      // Calculate average ratings
+      const totalReviews = ratingsReviews.length;
+      const totalFoodRating = ratingsReviews.reduce(
+        (sum, review) => sum + review.food_rating,
+        0
+      );
+      const totalDeliveryRating = ratingsReviews.reduce(
+        (sum, review) => sum + review.delivery_rating,
+        0
+      );
+      const averageFoodRating =
+        totalReviews > 0 ? totalFoodRating / totalReviews : 0;
+      const averageDeliveryRating =
+        totalReviews > 0 ? totalDeliveryRating / totalReviews : 0;
+
+      const response = {
+        driver_id: driverId,
+        total_reviews: totalReviews,
+        average_food_rating: averageFoodRating,
+        average_delivery_rating: averageDeliveryRating,
+        reviews: ratingsReviews.map(review => ({
+          id: review.id,
+          reviewer_type: review.reviewer_type,
+          reviewer:
+            review.reviewer_type === 'customer'
+              ? review.reviewer_customer
+              : review.reviewer_restaurant,
+          food_rating: review.food_rating,
+          delivery_rating: review.delivery_rating,
+          food_review: review.food_review,
+          delivery_review: review.delivery_review,
+          images: review.images,
+          created_at: review.created_at,
+          order_id: review.order_id
+        }))
+      };
+
+      return createResponse(
+        'OK',
+        response,
+        'Driver ratings and reviews retrieved successfully'
+      );
+    } catch (error) {
+      console.error('Error getting driver ratings and reviews:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error retrieving driver ratings and reviews'
+      );
+    }
   }
 }

@@ -4,7 +4,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Order, OrderStatus, OrderTrackingInfo } from './entities/order.entity';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { UpdateOrderDto } from './dto/update-order.dto';
 
 @Injectable()
 export class OrdersRepository {
@@ -18,11 +17,12 @@ export class OrdersRepository {
   async create(createDto: CreateOrderDto): Promise<Order> {
     // Xử lý promotion_applied nếu có
     let promotionsApplied: Promotion[] = [];
-    if (createDto.promotion_applied) { // Sửa từ promotions_applied thành promotion_applied
+    if (createDto.promotion_applied) {
+      // Sửa từ promotions_applied thành promotion_applied
       const promotion = await this.promotionRepository.findOne({
         where: {
-          id: createDto.promotion_applied, // Chỉ query một ID
-        },
+          id: createDto.promotion_applied // Chỉ query một ID
+        }
       });
       if (promotion) {
         promotionsApplied = [promotion]; // Gán thành mảng Promotion[]
@@ -34,7 +34,7 @@ export class OrdersRepository {
       ...createDto,
       status: createDto.status as OrderStatus,
       tracking_info: createDto.tracking_info as OrderTrackingInfo,
-      promotions_applied: promotionsApplied, // Gán Promotion[]
+      promotions_applied: promotionsApplied // Gán Promotion[]
     };
 
     const order = this.repository.create(orderData);
@@ -49,6 +49,7 @@ export class OrdersRepository {
     const result = await this.repository.findOne({
       where: { id },
       relations: ['restaurantAddress', 'customerAddress'],
+      cache: false // Disable caching to ensure fresh data
     });
     return result;
   }
@@ -72,12 +73,12 @@ export class OrdersRepository {
         : undefined,
       driver_id: updateDto.driver_id,
       distance: updateDto.distance,
-      updated_at: Math.floor(Date.now() / 1000),
+      updated_at: Math.floor(Date.now() / 1000)
     };
 
     // Xóa các trường undefined để tránh ghi đè không mong muốn
     Object.keys(updateData).forEach(
-      (key) => updateData[key] === undefined && delete updateData[key]
+      key => updateData[key] === undefined && delete updateData[key]
     );
 
     // Cập nhật các trường đơn giản
@@ -92,12 +93,12 @@ export class OrdersRepository {
     if (updateDto.promotions_applied?.length > 0) {
       const promotionsApplied = await this.promotionRepository.find({
         where: {
-          id: In(updateDto.promotions_applied),
-        },
+          id: In(updateDto.promotions_applied)
+        }
       });
       const order = await this.repository.findOne({
         where: { id },
-        relations: ['promotions_applied'],
+        relations: ['promotions_applied']
       });
       order.promotions_applied = promotionsApplied;
       await this.repository.save(order);
@@ -115,13 +116,13 @@ export class OrdersRepository {
     id: string,
     {
       status,
-      tracking_info,
+      tracking_info
     }: { status: OrderStatus; tracking_info: OrderTrackingInfo }
   ): Promise<Order> {
     await this.repository.update(id, {
       status,
       tracking_info,
-      updated_at: Math.floor(Date.now() / 1000),
+      updated_at: Math.floor(Date.now() / 1000)
     });
     return this.findById(id);
   }
@@ -132,7 +133,7 @@ export class OrdersRepository {
   ): Promise<Order> {
     await this.repository.update(id, {
       tracking_info,
-      updated_at: Math.floor(Date.now() / 1000),
+      updated_at: Math.floor(Date.now() / 1000)
     });
     return this.findById(id);
   }
@@ -140,7 +141,7 @@ export class OrdersRepository {
   async updateDriverTips(id: string, driver_tips: number): Promise<Order> {
     await this.repository.update(id, {
       driver_tips,
-      updated_at: Math.floor(Date.now() / 1000),
+      updated_at: Math.floor(Date.now() / 1000)
     });
     return this.findById(id);
   }

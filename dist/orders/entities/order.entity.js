@@ -100,6 +100,10 @@ __decorate([
     __metadata("design:type", Number)
 ], Order.prototype, "distance", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ nullable: true, type: 'decimal' }),
+    __metadata("design:type", Number)
+], Order.prototype, "driver_wage", void 0);
+__decorate([
     (0, typeorm_1.ManyToOne)(() => driver_entity_1.Driver, driver => driver.orders),
     (0, typeorm_1.JoinColumn)({ name: 'driver_id' }),
     __metadata("design:type", driver_entity_1.Driver)

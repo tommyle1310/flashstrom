@@ -38,7 +38,7 @@ let DriversController = class DriversController {
             limit: limitNum,
             offset: offsetNum
         });
-        const { EC, EM, data } = response;
+        const { EC, data } = response;
         if (EC === 0) {
             const groupedData = data.reduce((acc, curr) => {
                 const startDate = new Date(parseInt(`${curr.start_time}`) * 1000);
@@ -81,6 +81,9 @@ let DriversController = class DriversController {
     }
     findDriverById(id) {
         return this.driversService.findDriverById(id);
+    }
+    async getDriverRatingsReviews(id) {
+        return this.driversService.getDriverRatingsReviews(id);
     }
     findOne(field, value) {
         return this.driversService.findOne({ [field]: value });
@@ -137,6 +140,13 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], DriversController.prototype, "findDriverById", null);
+__decorate([
+    (0, common_1.Get)(':id/ratings-reviews'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], DriversController.prototype, "getDriverRatingsReviews", null);
 __decorate([
     (0, common_1.Get)(':field/:value'),
     __param(0, (0, common_1.Param)('field')),

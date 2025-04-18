@@ -16,6 +16,7 @@ export declare class DriversController {
     }[]>>;
     findAllDpsByDriverId(driverId: string, limit?: string, offset?: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
     findDriverById(id: string): Promise<import("src/utils/createResponse").ApiResponse<import("./entities/driver.entity").Driver>>;
+    getDriverRatingsReviews(id: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
     findOne(field: string, value: string): Promise<import("src/utils/createResponse").ApiResponse<import("./entities/driver.entity").Driver>>;
     updateDriverVehicle(updateVehicleDto: UpdateVehicleDto, driverId: string): Promise<import("src/utils/createResponse").ApiResponse<import("./entities/driver.entity").Driver>>;
     update(id: string, updateDriverDto: UpdateDriverDto): Promise<import("src/utils/createResponse").ApiResponse<import("./entities/driver.entity").Driver>>;

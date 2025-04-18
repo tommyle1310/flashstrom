@@ -18,7 +18,36 @@ export class RatingsReviewsRepository {
   }
 
   async findAll(query: Record<string, any> = {}): Promise<RatingsReview[]> {
-    return await this.repository.find({ where: query });
+    const whereClause: Record<string, any> = {};
+
+    // Map the query parameters to the correct entity property names
+    if (query.rr_recipient_driver_id) {
+      whereClause.rr_recipient_driver_id = query.rr_recipient_driver_id;
+    }
+    if (query.rr_recipient_restaurant_id) {
+      whereClause.rr_recipient_restaurant_id = query.rr_recipient_restaurant_id;
+    }
+    if (query.rr_recipient_customer_id) {
+      whereClause.rr_recipient_customer_id = query.rr_recipient_customer_id;
+    }
+    if (query.rr_recipient_customercare_id) {
+      whereClause.rr_recipient_customercare_id =
+        query.rr_recipient_customercare_id;
+    }
+    if (query.recipient_type) {
+      whereClause.recipient_type = query.recipient_type;
+    }
+
+    return await this.repository.find({
+      where: whereClause,
+      relations: [
+        'reviewer_customer',
+        'reviewer_restaurant',
+        'reviewer_driver',
+        'reviewer_customercare',
+        'order'
+      ]
+    });
   }
 
   async findById(id: string): Promise<RatingsReview> {

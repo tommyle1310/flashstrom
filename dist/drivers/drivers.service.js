@@ -27,8 +27,9 @@ const typeorm_2 = require("@nestjs/typeorm");
 const driver_progress_stages_repository_1 = require("../driver_progress_stages/driver_progress_stages.repository");
 const online_sessions_service_1 = require("../online-sessions/online-sessions.service");
 const driver_stats_records_service_1 = require("../driver_stats_records/driver_stats_records.service");
+const ratings_reviews_repository_1 = require("../ratings_reviews/ratings_reviews.repository");
 let DriversService = class DriversService {
-    constructor(driversRepository, driverEntityRepository, ordersRepository, driverStatsService, addressRepository, driverProgressStageRepository, onlineSessionsService, dataSource) {
+    constructor(driversRepository, driverEntityRepository, ordersRepository, driverStatsService, addressRepository, driverProgressStageRepository, onlineSessionsService, dataSource, ratingsReviewsRepository) {
         this.driversRepository = driversRepository;
         this.driverEntityRepository = driverEntityRepository;
         this.ordersRepository = ordersRepository;
@@ -37,6 +38,7 @@ let DriversService = class DriversService {
         this.driverProgressStageRepository = driverProgressStageRepository;
         this.onlineSessionsService = onlineSessionsService;
         this.dataSource = dataSource;
+        this.ratingsReviewsRepository = ratingsReviewsRepository;
     }
     async setAvailability(id) {
         try {
@@ -98,13 +100,17 @@ let DriversService = class DriversService {
             return this.handleError('Error fetching drivers:', error);
         }
     }
-    async findDriverById(id, options) {
+    async findDriverById(id) {
         try {
-            const driver = await this.driversRepository.findById(id, options);
-            return this.handleDriverResponse(driver);
+            const driver = await this.driversRepository.findById(id);
+            if (!driver) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Driver not found');
+            }
+            return (0, createResponse_1.createResponse)('OK', driver, 'Driver retrieved successfully');
         }
         catch (error) {
-            return this.handleError('Error fetching driver:', error);
+            console.error('Error finding driver:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error retrieving driver');
         }
     }
     async findOne(conditions) {
@@ -384,6 +390,51 @@ let DriversService = class DriversService {
         const seconds = totalSeconds % 60;
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
+    async getDriverRatingsReviews(driverId) {
+        try {
+            const driver = await this.driversRepository.findById(driverId);
+            if (!driver) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Driver not found');
+            }
+            const ratingsReviews = await this.ratingsReviewsRepository.findAll({
+                where: {
+                    rr_recipient_driver_id: driverId,
+                    recipient_type: 'driver'
+                },
+                relations: ['reviewer_customer', 'reviewer_restaurant', 'order']
+            });
+            const totalReviews = ratingsReviews.length;
+            const totalFoodRating = ratingsReviews.reduce((sum, review) => sum + review.food_rating, 0);
+            const totalDeliveryRating = ratingsReviews.reduce((sum, review) => sum + review.delivery_rating, 0);
+            const averageFoodRating = totalReviews > 0 ? totalFoodRating / totalReviews : 0;
+            const averageDeliveryRating = totalReviews > 0 ? totalDeliveryRating / totalReviews : 0;
+            const response = {
+                driver_id: driverId,
+                total_reviews: totalReviews,
+                average_food_rating: averageFoodRating,
+                average_delivery_rating: averageDeliveryRating,
+                reviews: ratingsReviews.map(review => ({
+                    id: review.id,
+                    reviewer_type: review.reviewer_type,
+                    reviewer: review.reviewer_type === 'customer'
+                        ? review.reviewer_customer
+                        : review.reviewer_restaurant,
+                    food_rating: review.food_rating,
+                    delivery_rating: review.delivery_rating,
+                    food_review: review.food_review,
+                    delivery_review: review.delivery_review,
+                    images: review.images,
+                    created_at: review.created_at,
+                    order_id: review.order_id
+                }))
+            };
+            return (0, createResponse_1.createResponse)('OK', response, 'Driver ratings and reviews retrieved successfully');
+        }
+        catch (error) {
+            console.error('Error getting driver ratings and reviews:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error retrieving driver ratings and reviews');
+        }
+    }
 };
 exports.DriversService = DriversService;
 exports.DriversService = DriversService = __decorate([
@@ -396,6 +447,7 @@ exports.DriversService = DriversService = __decorate([
         address_book_repository_1.AddressBookRepository,
         driver_progress_stages_repository_1.DriverProgressStagesRepository,
         online_sessions_service_1.OnlineSessionsService,
-        typeorm_1.DataSource])
+        typeorm_1.DataSource,
+        ratings_reviews_repository_1.RatingsReviewsRepository])
 ], DriversService);
 //# sourceMappingURL=drivers.service.js.map

@@ -26,7 +26,33 @@ let RatingsReviewsRepository = class RatingsReviewsRepository {
         return await this.repository.save(review);
     }
     async findAll(query = {}) {
-        return await this.repository.find({ where: query });
+        const whereClause = {};
+        if (query.rr_recipient_driver_id) {
+            whereClause.rr_recipient_driver_id = query.rr_recipient_driver_id;
+        }
+        if (query.rr_recipient_restaurant_id) {
+            whereClause.rr_recipient_restaurant_id = query.rr_recipient_restaurant_id;
+        }
+        if (query.rr_recipient_customer_id) {
+            whereClause.rr_recipient_customer_id = query.rr_recipient_customer_id;
+        }
+        if (query.rr_recipient_customercare_id) {
+            whereClause.rr_recipient_customercare_id =
+                query.rr_recipient_customercare_id;
+        }
+        if (query.recipient_type) {
+            whereClause.recipient_type = query.recipient_type;
+        }
+        return await this.repository.find({
+            where: whereClause,
+            relations: [
+                'reviewer_customer',
+                'reviewer_restaurant',
+                'reviewer_driver',
+                'reviewer_customercare',
+                'order'
+            ]
+        });
     }
     async findById(id) {
         return await this.repository.findOne({ where: { id } });

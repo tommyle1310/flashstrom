@@ -44,7 +44,7 @@ export class DriversController {
       limit: limitNum,
       offset: offsetNum
     });
-    const { EC, EM, data } = response;
+    const { EC, data } = response;
 
     if (EC === 0) {
       const groupedData = data.reduce(
@@ -113,7 +113,12 @@ export class DriversController {
   }
   @Get(':id')
   findDriverById(@Param('id') id: string) {
-    return this.driversService.findDriverById(id); // Corrected service method to use driversService
+    return this.driversService.findDriverById(id);
+  }
+
+  @Get(':id/ratings-reviews')
+  async getDriverRatingsReviews(@Param('id') id: string) {
+    return this.driversService.getDriverRatingsReviews(id);
   }
 
   @Get(':field/:value')

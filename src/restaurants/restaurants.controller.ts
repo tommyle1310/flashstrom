@@ -14,6 +14,8 @@ import { UpdateMenuItemDto } from 'src/menu_items/dto/update-menu_item.dto';
 import { CreateMenuItemDto } from 'src/menu_items/dto/create-menu_item.dto';
 import { CreateMenuItemVariantDto } from 'src/menu_item_variants/dto/create-menu_item_variant.dto';
 import { UpdateMenuItemVariantDto } from 'src/menu_item_variants/dto/update-menu_item_variant.dto';
+import { ApiResponse } from 'src/utils/createResponse';
+import { Restaurant } from './entities/restaurant.entity';
 
 @Controller('restaurants')
 export class RestaurantsController {
@@ -38,9 +40,16 @@ export class RestaurantsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string): Promise<ApiResponse<Restaurant>> {
     return this.restaurantsService.findOne(id);
   }
+
+  // @Get(':id/ratings-reviews')
+  // async getRestaurantRatingsReviews(
+  //   @Param('id') id: string
+  // ): Promise<ApiResponse<any>> {
+  //   return this.restaurantsService.getRestaurantRatingsReviews(id);
+  // }
 
   @Patch(':id')
   update(

@@ -96,7 +96,7 @@ export class RatingsReview {
   @JoinColumn({ name: 'order_id' })
   order: Order;
 
-  // Các cột khác giữ nguyên
+  // Ratings and Reviews
   @Column('int')
   food_rating: number;
 
