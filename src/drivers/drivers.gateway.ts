@@ -632,6 +632,7 @@ export class DriversGateway
                   transaction_type: 'WITHDRAW',
                   amount: order.total_amount,
                   balance_after: 0,
+                  version: 0,
                   status: 'PENDING',
                   source: 'FWALLET',
                   destination: restaurantWallet.id,
@@ -670,6 +671,7 @@ export class DriversGateway
                 amount: dps.total_earns,
                 balance_after: 0,
                 status: 'PENDING',
+                version: 0,
                 source: 'FWALLET',
                 destination: driverWallet.id,
                 destination_type: 'FWALLET'

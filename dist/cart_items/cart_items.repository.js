@@ -18,42 +18,71 @@ const typeorm_1 = require("typeorm");
 const typeorm_2 = require("@nestjs/typeorm");
 const cart_item_entity_1 = require("./entities/cart_item.entity");
 const typeorm_3 = require("typeorm");
+const redis_1 = require("redis");
+const redis = (0, redis_1.createClient)({
+    url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redis.connect().catch(err => console.error('Redis connection error:', err));
 let CartItemsRepository = class CartItemsRepository {
     constructor(repository) {
         this.repository = repository;
     }
     async create(createDto) {
         const cartItem = this.repository.create(createDto);
-        return await this.repository.save(cartItem);
+        const savedItem = await this.repository.save(cartItem);
+        await redis.del(`cart_items:${createDto.customer_id}`);
+        return savedItem;
     }
     async findAll(query = {}) {
         return await this.repository.find({
             where: query,
-            relations: ['item', 'restaurant'],
+            select: ['id', 'customer_id', 'item_id', 'variants']
         });
     }
     async findById(id) {
         return await this.repository.findOne({
             where: { id: (0, typeorm_3.Equal)(id) },
-            relations: ['item', 'restaurant'],
+            select: ['id', 'customer_id', 'item_id', 'variants']
         });
     }
+    async findByCustomerId(customerId) {
+        const cacheKey = `cart_items:${customerId}`;
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+            return JSON.parse(cached);
+        }
+        const items = await this.repository.find({
+            where: { customer_id: (0, typeorm_3.Equal)(customerId) },
+            select: ['id', 'customer_id', 'item_id', 'variants'],
+            take: 50
+        });
+        await redis.setEx(cacheKey, 600, JSON.stringify(items));
+        return items;
+    }
     async findOne(query) {
-        const { where, relations } = query;
+        const { where } = query;
         return await this.repository.findOne({
             where: where || query,
-            relations: relations || ['item', 'restaurant'],
+            select: ['id', 'customer_id', 'item_id', 'variants']
         });
     }
     async update(id, updateDto) {
         await this.repository.update(id, {
             ...updateDto,
-            updated_at: Math.floor(Date.now() / 1000),
+            updated_at: Math.floor(Date.now() / 1000)
         });
-        return await this.findById(id);
+        const updatedItem = await this.findById(id);
+        if (updatedItem) {
+            await redis.del(`cart_items:${updatedItem.customer_id}`);
+        }
+        return updatedItem;
     }
     async remove(id) {
+        const item = await this.findById(id);
         const result = await this.repository.delete(id);
+        if (item) {
+            await redis.del(`cart_items:${item.customer_id}`);
+        }
         return result.affected > 0;
     }
 };

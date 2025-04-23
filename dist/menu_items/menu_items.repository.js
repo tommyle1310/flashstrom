@@ -21,6 +21,12 @@ let MenuItemsRepository = class MenuItemsRepository {
     constructor(menuItemRepository) {
         this.menuItemRepository = menuItemRepository;
     }
+    async findByIds(ids) {
+        return this.menuItemRepository.find({
+            where: { id: (0, typeorm_2.In)(ids) },
+            select: ['id', 'price', 'restaurant_id']
+        });
+    }
     async create(data) {
         const menuItem = this.menuItemRepository.create(data);
         return this.menuItemRepository.save(menuItem);
@@ -29,7 +35,7 @@ let MenuItemsRepository = class MenuItemsRepository {
         console.log('findById with id:', id);
         return this.menuItemRepository.findOne({
             where: { id: (0, typeorm_2.Equal)(id) },
-            relations: ['variants', 'restaurant'],
+            relations: ['variants', 'restaurant']
         });
     }
     async findOne(conditions) {
@@ -37,7 +43,7 @@ let MenuItemsRepository = class MenuItemsRepository {
         const { where, relations } = conditions;
         const result = await this.menuItemRepository.findOne({
             where: where || conditions,
-            relations: relations || ['variants', 'restaurant'],
+            relations: relations || ['variants', 'restaurant']
         });
         console.log('findOne result:', JSON.stringify(result, null, 2));
         return result;
@@ -48,7 +54,7 @@ let MenuItemsRepository = class MenuItemsRepository {
     async findByRestaurantId(restaurantId) {
         return this.menuItemRepository.find({
             where: { restaurant_id: (0, typeorm_2.Equal)(restaurantId) },
-            relations: ['variants'],
+            relations: ['variants']
         });
     }
     async update(id, data) {

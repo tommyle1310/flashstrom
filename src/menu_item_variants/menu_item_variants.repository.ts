@@ -1,7 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { MenuItemVariant } from './entities/menu_item_variant.entity';
+import { createClient } from 'redis';
+
+const redis = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redis.connect().catch(err => console.error('Redis connection error:', err));
 
 @Injectable()
 export class MenuItemVariantsRepository {
@@ -16,10 +22,34 @@ export class MenuItemVariantsRepository {
   }
 
   async findById(id: string): Promise<MenuItemVariant> {
-    return this.menuItemVariantRepository.findOne({
+    const cacheKey = `variant:${id}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+    const variant = await this.menuItemVariantRepository.findOne({
       where: { id },
-      relations: ['menu_item']
+      select: ['id', 'price', 'description', 'menu_id']
     });
+    if (variant) {
+      await redis.setEx(cacheKey, 3600, JSON.stringify(variant));
+    }
+    return variant;
+  }
+
+  async findByIds(ids: string[]): Promise<MenuItemVariant[]> {
+    if (!ids.length) return [];
+    const cacheKey = `variants:${ids.join(',')}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+    const variants = await this.menuItemVariantRepository.find({
+      where: { id: In(ids) },
+      select: ['id', 'price', 'description', 'menu_id']
+    });
+    await redis.setEx(cacheKey, 3600, JSON.stringify(variants));
+    return variants;
   }
 
   async findByDetails(
@@ -28,14 +58,15 @@ export class MenuItemVariantsRepository {
     menu_id: string
   ): Promise<MenuItemVariant> {
     return this.menuItemVariantRepository.findOne({
-      where: { price, description, menu_id }
+      where: { price, description, menu_id },
+      select: ['id', 'price', 'description', 'menu_id']
     });
   }
 
   async findAll(conditions?: any): Promise<MenuItemVariant[]> {
     return this.menuItemVariantRepository.find({
       where: conditions,
-      relations: ['menu_item']
+      select: ['id', 'price', 'description', 'menu_id']
     });
   }
 
@@ -47,10 +78,12 @@ export class MenuItemVariantsRepository {
       ...data,
       updated_at: Math.floor(Date.now() / 1000)
     });
+    await redis.del(`variant:${id}`);
     return this.findById(id);
   }
 
   async remove(id: string): Promise<void> {
     await this.menuItemVariantRepository.delete(id);
+    await redis.del(`variant:${id}`);
   }
 }

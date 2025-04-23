@@ -8,6 +8,7 @@ export declare class CartItemsRepository {
     create(createDto: CreateCartItemDto): Promise<CartItem>;
     findAll(query?: Record<string, any>): Promise<CartItem[]>;
     findById(id: string): Promise<CartItem>;
+    findByCustomerId(customerId: string): Promise<CartItem[]>;
     findOne(query: Record<string, any>): Promise<CartItem>;
     update(id: string, updateDto: UpdateCartItemDto): Promise<CartItem>;
     remove(id: string): Promise<boolean>;

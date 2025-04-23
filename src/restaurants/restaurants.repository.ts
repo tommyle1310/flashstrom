@@ -9,6 +9,12 @@ import { createResponse } from 'src/utils/createResponse';
 import { UserRepository } from 'src/users/users.repository';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
+import { createClient } from 'redis';
+
+const redis = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redis.connect().catch(err => console.error('Redis connection error:', err));
 
 @Injectable()
 export class RestaurantsRepository {
@@ -22,11 +28,14 @@ export class RestaurantsRepository {
   ) {}
 
   async findOne(conditions: any): Promise<Restaurant> {
-    console.log('Restaurant findOne conditions:', JSON.stringify(conditions, null, 2));
+    console.log(
+      'Restaurant findOne conditions:',
+      JSON.stringify(conditions, null, 2)
+    );
     const { where, relations } = conditions; // Tách where và relations
     const result = await this.repository.findOne({
       where: where || conditions, // Nếu không có where, dùng conditions (hỗ trợ cú pháp cũ)
-      relations: relations || ['promotions', 'promotions.food_categories'], // Default relations
+      relations: relations || ['promotions', 'promotions.food_categories'] // Default relations
     });
     console.log('Restaurant findOne result:', JSON.stringify(result, null, 2));
     return result;
@@ -81,19 +90,22 @@ export class RestaurantsRepository {
     });
   }
 
-// restaurants.repository.ts
-async findById(id: string): Promise<Restaurant> {
-  return await this.repository.findOne({
-    where: { id },
-    relations: [
-      'owner',
-      'address',
-      'specialize_in',
-      'promotions',
-      'promotions.food_categories', // Thêm quan hệ lồng nhau
-    ],
-  });
-}
+  // restaurants.repository.ts
+  async findById(id: string): Promise<Restaurant> {
+    const cacheKey = `restaurant:${id}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+    const restaurant = await this.repository.findOne({
+      where: { id },
+      select: ['id', 'owner_id', 'total_orders', 'avatar', 'status']
+    });
+    if (restaurant) {
+      await redis.setEx(cacheKey, 3600, JSON.stringify(restaurant));
+    }
+    return restaurant;
+  }
 
   async findByOwnerId(ownerId: string): Promise<Restaurant> {
     return await this.repository.findOne({

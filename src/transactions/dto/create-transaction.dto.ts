@@ -1,10 +1,20 @@
 // src/transactions/dto/create-transaction.dto.ts
-import { IsString, IsEnum, IsNumber, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsNumber,
+  IsNotEmpty,
+  IsOptional
+} from 'class-validator';
 
 export class CreateTransactionDto {
   @IsString()
   @IsNotEmpty()
   user_id: string; // Reference to the User's ID (who performed the transaction)
+
+  @IsOptional()
+  @IsNumber()
+  version: number;
 
   @IsString()
   @IsNotEmpty()

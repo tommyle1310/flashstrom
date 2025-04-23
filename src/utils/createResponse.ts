@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ResponseStatus } from './constants';
 import { Response } from 'express';
-import { ValidationError } from 'class-validator';
+// import { ValidationError } from 'class-validator';
 
 export type ResponseStatusType = keyof typeof ResponseStatus;
 

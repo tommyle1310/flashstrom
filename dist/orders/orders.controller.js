@@ -22,12 +22,7 @@ let OrdersController = class OrdersController {
         this.ordersService = ordersService;
     }
     async createOrder(createOrderDto) {
-        const order = await this.ordersService.createOrder(createOrderDto);
-        return {
-            status: 'OK',
-            data: order,
-            message: 'Order created successfully'
-        };
+        return await this.ordersService.createOrder(createOrderDto);
     }
     async tipDriver(body) {
         return this.ordersService.tipToDriver(body.orderId, body.tipAmount);

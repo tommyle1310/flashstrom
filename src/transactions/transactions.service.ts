@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { Transaction } from './entities/transaction.entity';
@@ -7,7 +7,15 @@ import { UserRepository } from 'src/users/users.repository';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionsRepository } from './transactions.repository';
 import { FWallet } from 'src/fwallets/entities/fwallet.entity';
-import { DataSource, EntityManager } from 'typeorm'; // Thêm import DataSource
+import { DataSource, EntityManager } from 'typeorm';
+import { createClient } from 'redis';
+
+const logger = new Logger('TransactionService');
+
+const redis = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redis.connect().catch(err => logger.error('Redis connection error:', err));
 
 @Injectable()
 export class TransactionService {
@@ -15,55 +23,95 @@ export class TransactionService {
     private readonly transactionsRepository: TransactionsRepository,
     private readonly userRepository: UserRepository,
     private readonly fWalletsRepository: FWalletsRepository,
-    private readonly dataSource: DataSource // Inject DataSource
+    private readonly dataSource: DataSource
   ) {}
 
   async create(
     createTransactionDto: CreateTransactionDto,
-    manager?: EntityManager // Nhận manager từ OrdersService nếu có
+    manager?: EntityManager
   ): Promise<ApiResponse<Transaction>> {
+    const start = Date.now();
     try {
-      const validationResult =
-        await this.validateTransaction(createTransactionDto);
-      if (validationResult !== true) {
-        return validationResult;
-      }
+      logger.log('check transaction dto', createTransactionDto);
 
-      const { transaction_type, amount, fwallet_id, destination } =
-        createTransactionDto;
-      console.log('check transaciton dto', createTransactionDto);
-      if (transaction_type === 'WITHDRAW' || transaction_type === 'PURCHASE') {
-        const sourceWallet = await this.fWalletsRepository.findById(
-          fwallet_id,
-          manager
-        );
-        if (!sourceWallet) {
-          return createResponse('NotFound', null, 'Source wallet not found');
-        }
-        await this.handleSourceWalletTransaction(sourceWallet, amount, manager);
-      }
+      // Dùng manager từ param hoặc tạo mới trong transaction
+      const txManager = manager || this.dataSource.createEntityManager();
+      const isExternalManager = !!manager;
 
-      if (transaction_type === 'DEPOSIT' || transaction_type === 'PURCHASE') {
-        await this.handleDestinationWalletTransaction(
-          destination,
-          amount,
-          manager
-        );
-      }
+      const result = isExternalManager
+        ? await this.processTransaction(createTransactionDto, txManager)
+        : await this.dataSource.transaction(async txManager =>
+            this.processTransaction(createTransactionDto, txManager)
+          );
 
-      const newTransaction = await this.transactionsRepository.create(
-        createTransactionDto,
+      logger.log(`Transaction service took ${Date.now() - start}ms`);
+      return result;
+    } catch (error) {
+      logger.error('Error creating transaction:', error);
+      return createResponse('ServerError', null, 'Error creating transaction');
+    }
+  }
+
+  private async processTransaction(
+    createTransactionDto: CreateTransactionDto,
+    manager: EntityManager
+  ): Promise<ApiResponse<Transaction>> {
+    const { transaction_type, amount, fwallet_id, destination } =
+      createTransactionDto;
+
+    // Validate
+    const validationResult = await this.validateTransaction(
+      createTransactionDto,
+      manager
+    );
+    if (validationResult !== true) {
+      return validationResult;
+    }
+
+    // Xử lý source wallet (WITHDRAW, PURCHASE)
+    let sourceWallet: FWallet | null = null;
+    if (transaction_type === 'WITHDRAW' || transaction_type === 'PURCHASE') {
+      sourceWallet = await manager.findOne(FWallet, {
+        where: { id: fwallet_id },
+        lock: { mode: 'optimistic', version: createTransactionDto.version || 0 }
+      });
+      logger.log('check sourcewallet', sourceWallet);
+      if (!sourceWallet) {
+        return createResponse('NotFound', null, 'Source wallet not found');
+      }
+      await this.handleSourceWalletTransaction(sourceWallet, amount, manager);
+    }
+
+    // Xử lý destination wallet (DEPOSIT, PURCHASE)
+    if (transaction_type === 'DEPOSIT' || transaction_type === 'PURCHASE') {
+      await this.handleDestinationWalletTransaction(
+        destination,
+        amount,
         manager
       );
-      console.log('Transaction prepared:', newTransaction);
-      return createResponse(
-        'OK',
-        newTransaction,
-        'Transaction created successfully'
-      );
-    } catch (error) {
-      return this.handleError('Error creating transaction:', error);
     }
+
+    // Tạo transaction
+    const newTransaction = await this.transactionsRepository.create(
+      createTransactionDto,
+      manager
+    );
+    logger.log('Transaction prepared:', newTransaction);
+
+    // Cập nhật Redis cache cho source wallet
+    if (sourceWallet) {
+      await redis.setEx(
+        `fwallet:${sourceWallet.id}`,
+        3600,
+        JSON.stringify(sourceWallet)
+      );
+    }
+
+    return createResponse(
+      'OK',
+      newTransaction,
+      'Transaction created successfully'
+    );
   }
 
   async findAll(): Promise<ApiResponse<Transaction[]>> {
@@ -123,24 +171,30 @@ export class TransactionService {
 
   // Private helper methods
   private async validateTransaction(
-    createTransactionDto: CreateTransactionDto
+    createTransactionDto: CreateTransactionDto,
+    manager: EntityManager
   ): Promise<true | ApiResponse<null>> {
     const { user_id, transaction_type, amount, fwallet_id } =
       createTransactionDto;
 
-    console.log('check creat dto transactoin service', createTransactionDto);
-    const userResponse = await this.userRepository.findById(user_id);
+    logger.log('check create dto transaction service', createTransactionDto);
+
+    const userResponse = await manager
+      .getRepository('User')
+      .findOne({ where: { id: user_id } });
     if (!userResponse) {
       return createResponse('NotFound', null, 'User not found');
     }
 
     if (transaction_type === 'WITHDRAW' || transaction_type === 'PURCHASE') {
-      const sourceWallet = await this.fWalletsRepository.findById(fwallet_id);
+      const sourceWallet = await manager.findOne(FWallet, {
+        where: { id: fwallet_id }
+      });
       if (!sourceWallet) {
         return createResponse('NotFound', null, 'Source wallet not found');
       }
 
-      const currentBalance = parseFloat(sourceWallet.balance.toString());
+      const currentBalance = Number(sourceWallet.balance);
       if (currentBalance < amount) {
         return createResponse(
           'InsufficientBalance',
@@ -158,92 +212,84 @@ export class TransactionService {
     amount: number,
     manager: EntityManager
   ): Promise<void> {
-    console.log('check sourcewallet,', sourceWallet);
-    const currentBalance = parseFloat(sourceWallet.balance.toString());
-    console.log('debug here ', currentBalance, '-??', amount);
+    logger.log('check sourcewallet', sourceWallet);
+    const currentBalance = Number(sourceWallet.balance);
+    logger.log('debug here', currentBalance, '-??', amount);
     const newBalance = Number((currentBalance - amount).toFixed(2));
-    sourceWallet.balance = newBalance;
-    console.log('check balance before update', sourceWallet.balance);
+    logger.log('check balance before update', newBalance);
 
-    const updateResult = await this.fWalletsRepository.update(
-      sourceWallet.id,
-      { balance: sourceWallet.balance },
-      manager
+    const updateResult = await manager.update(
+      FWallet,
+      { id: sourceWallet.id, version: sourceWallet.version || 0 },
+      {
+        balance: newBalance,
+        updated_at: Math.floor(Date.now() / 1000)
+      }
     );
-    console.log('check update result', updateResult);
+    logger.log('repository update result', updateResult);
 
     if (updateResult.affected === 0) {
-      throw new Error(`Failed to update wallet ${sourceWallet.id}`);
+      throw new Error(
+        `Failed to update wallet ${sourceWallet.id} due to version conflict`
+      );
     }
 
-    const updatedWallet = await this.fWalletsRepository.findById(
-      sourceWallet.id,
-      manager
-    );
-    console.log('check wallet after update', updatedWallet);
+    sourceWallet.balance = newBalance;
+    sourceWallet.updated_at = Math.floor(Date.now() / 1000);
+    logger.log('check wallet after update', sourceWallet);
   }
 
   private async handleDestinationWalletTransaction(
     destination: string,
-    amount: number | string, // amount có thể là string từ DTO
+    amount: number,
     manager: EntityManager
   ): Promise<void> {
-    const destinationWallet = await this.fWalletsRepository.findById(
-      destination,
-      manager
-    );
+    const destinationWallet = await manager.findOne(FWallet, {
+      where: { id: destination }
+    });
     if (destinationWallet) {
-      // Ép kiểu balance thành số
       const currentBalance = Number(destinationWallet.balance);
-      if (isNaN(currentBalance)) {
-        throw new Error('Invalid balance value in destination wallet');
-      }
-
-      // Ép kiểu amount thành số
-      const amountNumber = Number(amount);
-      if (isNaN(amountNumber)) {
-        throw new Error('Invalid amount value');
-      }
-
-      // Cộng hai số và làm tròn đến 2 chữ số thập phân
-      const newBalance =
-        Math.round((currentBalance + amountNumber) * 100) / 100;
+      const newBalance = Number((currentBalance + amount).toFixed(2));
       destinationWallet.balance = newBalance;
+      destinationWallet.updated_at = Math.floor(Date.now() / 1000);
 
-      const updateResult = await this.fWalletsRepository.update(
-        destinationWallet.id,
-        { balance: newBalance },
-        manager
+      const updateResult = await manager.update(
+        FWallet,
+        { id: destinationWallet.id },
+        {
+          balance: newBalance,
+          updated_at: Math.floor(Date.now() / 1000)
+        }
       );
+      logger.log('check update result', updateResult);
+
       if (updateResult.affected === 0) {
         throw new Error(`Failed to update wallet ${destinationWallet.id}`);
       }
-    } else {
-      const destinationUser = await this.userRepository.findById(
-        destination,
-        manager
+
+      await redis.setEx(
+        `fwallet:${destinationWallet.id}`,
+        3600,
+        JSON.stringify(destinationWallet)
       );
+    } else {
+      const destinationUser = await manager
+        .getRepository('User')
+        .findOne({ where: { id: destination } });
       if (destinationUser) {
-        // Ép kiểu balance thành số, mặc định 0 nếu không có
         const currentBalance = Number(destinationUser.balance || 0);
-        if (isNaN(currentBalance)) {
-          throw new Error('Invalid balance value in destination user');
-        }
-
-        // Ép kiểu amount thành số
-        const amountNumber = Number(amount);
-        if (isNaN(amountNumber)) {
-          throw new Error('Invalid amount value');
-        }
-
-        // Cộng hai số và làm tròn đến 2 chữ số thập phân
-        const newBalance =
-          Math.round((currentBalance + amountNumber) * 100) / 100;
-        await this.userRepository.update(
-          destination,
-          { balance: newBalance },
-          manager
+        const newBalance = Number((currentBalance + amount).toFixed(2));
+        const updateResult = await manager.update(
+          'User',
+          { id: destination },
+          {
+            balance: newBalance,
+            updated_at: Math.floor(Date.now() / 1000)
+          }
         );
+        if (updateResult.affected === 0) {
+          throw new Error(`Failed to update user ${destination}`);
+        }
       }
     }
   }
@@ -262,7 +308,7 @@ export class TransactionService {
   }
 
   private handleError(message: string, error: any): ApiResponse<null> {
-    console.error(message, error);
+    logger.error(message, error);
     return createResponse(
       'ServerError',
       null,

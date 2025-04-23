@@ -17,6 +17,11 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const menu_item_variant_entity_1 = require("./entities/menu_item_variant.entity");
+const redis_1 = require("redis");
+const redis = (0, redis_1.createClient)({
+    url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redis.connect().catch(err => console.error('Redis connection error:', err));
 let MenuItemVariantsRepository = class MenuItemVariantsRepository {
     constructor(menuItemVariantRepository) {
         this.menuItemVariantRepository = menuItemVariantRepository;
@@ -26,20 +31,45 @@ let MenuItemVariantsRepository = class MenuItemVariantsRepository {
         return this.menuItemVariantRepository.save(variant);
     }
     async findById(id) {
-        return this.menuItemVariantRepository.findOne({
+        const cacheKey = `variant:${id}`;
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+            return JSON.parse(cached);
+        }
+        const variant = await this.menuItemVariantRepository.findOne({
             where: { id },
-            relations: ['menu_item']
+            select: ['id', 'price', 'description', 'menu_id']
         });
+        if (variant) {
+            await redis.setEx(cacheKey, 3600, JSON.stringify(variant));
+        }
+        return variant;
+    }
+    async findByIds(ids) {
+        if (!ids.length)
+            return [];
+        const cacheKey = `variants:${ids.join(',')}`;
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+            return JSON.parse(cached);
+        }
+        const variants = await this.menuItemVariantRepository.find({
+            where: { id: (0, typeorm_2.In)(ids) },
+            select: ['id', 'price', 'description', 'menu_id']
+        });
+        await redis.setEx(cacheKey, 3600, JSON.stringify(variants));
+        return variants;
     }
     async findByDetails(price, description, menu_id) {
         return this.menuItemVariantRepository.findOne({
-            where: { price, description, menu_id }
+            where: { price, description, menu_id },
+            select: ['id', 'price', 'description', 'menu_id']
         });
     }
     async findAll(conditions) {
         return this.menuItemVariantRepository.find({
             where: conditions,
-            relations: ['menu_item']
+            select: ['id', 'price', 'description', 'menu_id']
         });
     }
     async update(id, data) {
@@ -47,10 +77,12 @@ let MenuItemVariantsRepository = class MenuItemVariantsRepository {
             ...data,
             updated_at: Math.floor(Date.now() / 1000)
         });
+        await redis.del(`variant:${id}`);
         return this.findById(id);
     }
     async remove(id) {
         await this.menuItemVariantRepository.delete(id);
+        await redis.del(`variant:${id}`);
     }
 };
 exports.MenuItemVariantsRepository = MenuItemVariantsRepository;

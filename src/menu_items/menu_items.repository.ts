@@ -1,7 +1,7 @@
 // menu_items.repository.ts
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Equal } from 'typeorm';
+import { Repository, Equal, In } from 'typeorm';
 import { MenuItem } from './entities/menu_item.entity';
 
 @Injectable()
@@ -10,6 +10,13 @@ export class MenuItemsRepository {
     @InjectRepository(MenuItem)
     private menuItemRepository: Repository<MenuItem>
   ) {}
+
+  async findByIds(ids: string[]): Promise<MenuItem[]> {
+    return this.menuItemRepository.find({
+      where: { id: In(ids) },
+      select: ['id', 'price', 'restaurant_id']
+    });
+  }
 
   async create(data: Partial<MenuItem>): Promise<MenuItem> {
     const menuItem = this.menuItemRepository.create(data);
@@ -20,7 +27,7 @@ export class MenuItemsRepository {
     console.log('findById with id:', id);
     return this.menuItemRepository.findOne({
       where: { id: Equal(id) },
-      relations: ['variants', 'restaurant'],
+      relations: ['variants', 'restaurant']
     });
   }
 
@@ -29,7 +36,7 @@ export class MenuItemsRepository {
     const { where, relations } = conditions; // Tách where và relations
     const result = await this.menuItemRepository.findOne({
       where: where || conditions, // Nếu không có where, dùng conditions (cho trường hợp cũ)
-      relations: relations || ['variants', 'restaurant'], // Default relations
+      relations: relations || ['variants', 'restaurant'] // Default relations
     });
     console.log('findOne result:', JSON.stringify(result, null, 2));
     return result;
@@ -42,7 +49,7 @@ export class MenuItemsRepository {
   async findByRestaurantId(restaurantId: string): Promise<MenuItem[]> {
     return this.menuItemRepository.find({
       where: { restaurant_id: Equal(restaurantId) },
-      relations: ['variants'],
+      relations: ['variants']
     });
   }
 

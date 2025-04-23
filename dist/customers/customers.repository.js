@@ -20,6 +20,11 @@ const customer_entity_1 = require("./entities/customer.entity");
 const address_book_entity_1 = require("../address_book/entities/address_book.entity");
 const food_category_entity_1 = require("../food_categories/entities/food_category.entity");
 const restaurant_entity_1 = require("../restaurants/entities/restaurant.entity");
+const redis_1 = require("redis");
+const redis = (0, redis_1.createClient)({
+    url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redis.connect().catch(err => console.error('Redis connection error:', err));
 let CustomersRepository = class CustomersRepository {
     constructor(customerRepository, addressRepository, foodCategoryRepository, restaurantRepository) {
         this.customerRepository = customerRepository;
@@ -28,7 +33,10 @@ let CustomersRepository = class CustomersRepository {
         this.restaurantRepository = restaurantRepository;
     }
     async save(customer) {
-        return await this.customerRepository.save(customer);
+        const savedCustomer = await this.customerRepository.save(customer);
+        await redis.del(`customer:${customer.id}`);
+        await redis.del(`customer:user:${customer.user_id}`);
+        return savedCustomer;
     }
     async create(createCustomerDto) {
         const { address_ids = [], preferred_category_ids = [], favorite_restaurant_ids = [], ...customerData } = createCustomerDto;
@@ -63,35 +71,38 @@ let CustomersRepository = class CustomersRepository {
     }
     async findAll() {
         return await this.customerRepository.find({
-            relations: [
-                'user',
-                'address',
-                'preferred_category',
-                'favorite_restaurants'
-            ]
+            select: ['id', 'user_id']
         });
     }
     async findById(id) {
-        return await this.customerRepository.findOne({
+        const cacheKey = `customer:${id}`;
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+            return JSON.parse(cached);
+        }
+        const customer = await this.customerRepository.findOne({
             where: { id },
-            relations: [
-                'user',
-                'address',
-                'preferred_category',
-                'favorite_restaurants'
-            ]
+            select: ['id', 'user_id']
         });
+        if (customer) {
+            await redis.setEx(cacheKey, 3600, JSON.stringify(customer));
+        }
+        return customer;
     }
     async findByUserId(userId) {
-        return await this.customerRepository.findOne({
+        const cacheKey = `customer:user:${userId}`;
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+            return JSON.parse(cached);
+        }
+        const customer = await this.customerRepository.findOne({
             where: { user_id: userId },
-            relations: [
-                'user',
-                'address',
-                'preferred_category',
-                'favorite_restaurants'
-            ]
+            select: ['id', 'user_id']
         });
+        if (customer) {
+            await redis.setEx(cacheKey, 3600, JSON.stringify(customer));
+        }
+        return customer;
     }
     async update(id, updateCustomerDto) {
         const customer = await this.findById(id);
@@ -119,20 +130,23 @@ let CustomersRepository = class CustomersRepository {
         }
         Object.assign(customer, updateData);
         customer.updated_at = Math.floor(Date.now() / 1000);
-        return await this.customerRepository.save(customer);
+        const updatedCustomer = await this.customerRepository.save(customer);
+        await redis.del(`customer:${id}`);
+        await redis.del(`customer:user:${customer.user_id}`);
+        return updatedCustomer;
     }
     async remove(id) {
+        const customer = await this.findById(id);
         await this.customerRepository.delete(id);
+        if (customer) {
+            await redis.del(`customer:${id}`);
+            await redis.del(`customer:user:${customer.user_id}`);
+        }
     }
     async findOneBy(conditions) {
         return await this.customerRepository.findOne({
             where: conditions,
-            relations: [
-                'user',
-                'address',
-                'preferred_category',
-                'favorite_restaurants'
-            ]
+            select: ['id', 'user_id']
         });
     }
 };

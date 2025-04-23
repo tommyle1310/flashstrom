@@ -5,6 +5,7 @@ export declare class MenuItemVariantsRepository {
     constructor(menuItemVariantRepository: Repository<MenuItemVariant>);
     create(data: Partial<MenuItemVariant>): Promise<MenuItemVariant>;
     findById(id: string): Promise<MenuItemVariant>;
+    findByIds(ids: string[]): Promise<MenuItemVariant[]>;
     findByDetails(price: number, description: string, menu_id: string): Promise<MenuItemVariant>;
     findAll(conditions?: any): Promise<MenuItemVariant[]>;
     update(id: string, data: Partial<MenuItemVariant>): Promise<MenuItemVariant>;

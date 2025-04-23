@@ -26,6 +26,7 @@ __decorate([
     __metadata("design:type", String)
 ], FWallet.prototype, "id", void 0);
 __decorate([
+    (0, typeorm_1.Index)('idx_fwallet_user_id'),
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], FWallet.prototype, "user_id", void 0);
@@ -64,6 +65,10 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], FWallet.prototype, "generateId", null);
+__decorate([
+    (0, typeorm_1.VersionColumn)(),
+    __metadata("design:type", Number)
+], FWallet.prototype, "version", void 0);
 exports.FWallet = FWallet = __decorate([
     (0, typeorm_1.Entity)('fwallets')
 ], FWallet);

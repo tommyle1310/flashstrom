@@ -13,6 +13,7 @@ export declare class TransactionService {
     private readonly dataSource;
     constructor(transactionsRepository: TransactionsRepository, userRepository: UserRepository, fWalletsRepository: FWalletsRepository, dataSource: DataSource);
     create(createTransactionDto: CreateTransactionDto, manager?: EntityManager): Promise<ApiResponse<Transaction>>;
+    private processTransaction;
     findAll(): Promise<ApiResponse<Transaction[]>>;
     findTransactionById(id: string): Promise<ApiResponse<Transaction>>;
     findOne(conditions: object): Promise<ApiResponse<Transaction>>;

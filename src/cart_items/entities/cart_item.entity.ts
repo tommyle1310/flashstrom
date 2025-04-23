@@ -7,7 +7,8 @@ import {
   PrimaryColumn,
   BeforeInsert,
   ManyToOne,
-  JoinColumn
+  JoinColumn,
+  Index // Thêm Index
 } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -16,6 +17,7 @@ export class CartItem {
   @PrimaryColumn()
   id: string;
 
+  @Index('idx_cart_item_customer_id') // Thêm index
   @Column()
   customer_id: string;
 

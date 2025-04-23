@@ -1,12 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, FindOptionsWhere } from 'typeorm';
+import { Repository, FindOptionsWhere, In } from 'typeorm';
 import { Customer } from './entities/customer.entity';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import { createClient } from 'redis';
+
+const redis = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redis.connect().catch(err => console.error('Redis connection error:', err));
 
 @Injectable()
 export class CustomersRepository {
@@ -22,7 +28,10 @@ export class CustomersRepository {
   ) {}
 
   async save(customer: Customer): Promise<Customer> {
-    return await this.customerRepository.save(customer);
+    const savedCustomer = await this.customerRepository.save(customer);
+    await redis.del(`customer:${customer.id}`);
+    await redis.del(`customer:user:${customer.user_id}`);
+    return savedCustomer;
   }
 
   async create(createCustomerDto: CreateCustomerDto): Promise<Customer> {
@@ -69,38 +78,40 @@ export class CustomersRepository {
 
   async findAll(): Promise<Customer[]> {
     return await this.customerRepository.find({
-      relations: [
-        'user',
-        'address',
-        'preferred_category',
-        'favorite_restaurants'
-      ]
+      select: ['id', 'user_id']
     });
   }
 
-  // Trong file customers.repository.ts
   async findById(id: string): Promise<Customer> {
-    return await this.customerRepository.findOne({
+    const cacheKey = `customer:${id}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+    const customer = await this.customerRepository.findOne({
       where: { id },
-      relations: [
-        'user',
-        'address',
-        'preferred_category',
-        'favorite_restaurants' // Đảm bảo đã có relation này
-      ]
+      select: ['id', 'user_id']
     });
+    if (customer) {
+      await redis.setEx(cacheKey, 3600, JSON.stringify(customer));
+    }
+    return customer;
   }
 
   async findByUserId(userId: string): Promise<Customer> {
-    return await this.customerRepository.findOne({
+    const cacheKey = `customer:user:${userId}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+    const customer = await this.customerRepository.findOne({
       where: { user_id: userId },
-      relations: [
-        'user',
-        'address',
-        'preferred_category',
-        'favorite_restaurants'
-      ]
+      select: ['id', 'user_id']
     });
+    if (customer) {
+      await redis.setEx(cacheKey, 3600, JSON.stringify(customer));
+    }
+    return customer;
   }
 
   async update(
@@ -143,22 +154,25 @@ export class CustomersRepository {
     Object.assign(customer, updateData);
     customer.updated_at = Math.floor(Date.now() / 1000);
 
-    return await this.customerRepository.save(customer);
+    const updatedCustomer = await this.customerRepository.save(customer);
+    await redis.del(`customer:${id}`);
+    await redis.del(`customer:user:${customer.user_id}`);
+    return updatedCustomer;
   }
 
   async remove(id: string): Promise<void> {
+    const customer = await this.findById(id);
     await this.customerRepository.delete(id);
+    if (customer) {
+      await redis.del(`customer:${id}`);
+      await redis.del(`customer:user:${customer.user_id}`);
+    }
   }
 
   async findOneBy(conditions: Partial<Customer>): Promise<Customer | null> {
     return await this.customerRepository.findOne({
       where: conditions as unknown as FindOptionsWhere<Customer>,
-      relations: [
-        'user',
-        'address',
-        'preferred_category',
-        'favorite_restaurants'
-      ]
+      select: ['id', 'user_id']
     });
   }
 }

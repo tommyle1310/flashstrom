@@ -4,21 +4,24 @@ import {
   PrimaryColumn,
   BeforeInsert,
   ManyToOne,
-  JoinColumn
+  JoinColumn,
+  Index, // Thêm Index
+  VersionColumn
 } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { User } from 'src/users/entities/user.entity'; // Import User
+import { User } from 'src/users/entities/user.entity';
 
 @Entity('fwallets')
 export class FWallet {
-  @PrimaryColumn({ type: 'varchar' }) // Thêm type cho chắc
+  @PrimaryColumn({ type: 'varchar' })
   id: string;
 
+  @Index('idx_fwallet_user_id') // Thêm index
   @Column({ nullable: true })
   user_id: string;
 
-  @ManyToOne(() => User, user => user.fwallets) // Quan hệ với User
-  @JoinColumn({ name: 'user_id' }) // Trỏ tới cột user_id
+  @ManyToOne(() => User, user => user.fwallets)
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
@@ -45,4 +48,7 @@ export class FWallet {
     this.created_at = Math.floor(Date.now() / 1000);
     this.updated_at = Math.floor(Date.now() / 1000);
   }
+
+  @VersionColumn()
+  version: number;
 }

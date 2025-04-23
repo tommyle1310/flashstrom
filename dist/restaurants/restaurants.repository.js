@@ -22,6 +22,11 @@ const createResponse_1 = require("../utils/createResponse");
 const users_repository_1 = require("../users/users.repository");
 const address_book_repository_1 = require("../address_book/address_book.repository");
 const promotion_entity_1 = require("../promotions/entities/promotion.entity");
+const redis_1 = require("redis");
+const redis = (0, redis_1.createClient)({
+    url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redis.connect().catch(err => console.error('Redis connection error:', err));
 let RestaurantsRepository = class RestaurantsRepository {
     constructor(repository, foodCategoryRepository, userRepository, addressRepository) {
         this.repository = repository;
@@ -34,7 +39,7 @@ let RestaurantsRepository = class RestaurantsRepository {
         const { where, relations } = conditions;
         const result = await this.repository.findOne({
             where: where || conditions,
-            relations: relations || ['promotions', 'promotions.food_categories'],
+            relations: relations || ['promotions', 'promotions.food_categories']
         });
         console.log('Restaurant findOne result:', JSON.stringify(result, null, 2));
         return result;
@@ -82,16 +87,19 @@ let RestaurantsRepository = class RestaurantsRepository {
         });
     }
     async findById(id) {
-        return await this.repository.findOne({
+        const cacheKey = `restaurant:${id}`;
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+            return JSON.parse(cached);
+        }
+        const restaurant = await this.repository.findOne({
             where: { id },
-            relations: [
-                'owner',
-                'address',
-                'specialize_in',
-                'promotions',
-                'promotions.food_categories',
-            ],
+            select: ['id', 'owner_id', 'total_orders', 'avatar', 'status']
         });
+        if (restaurant) {
+            await redis.setEx(cacheKey, 3600, JSON.stringify(restaurant));
+        }
+        return restaurant;
     }
     async findByOwnerId(ownerId) {
         return await this.repository.findOne({

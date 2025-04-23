@@ -10,4 +10,5 @@ export declare class FWallet {
     created_at: number;
     updated_at: number;
     generateId(): void;
+    version: number;
 }

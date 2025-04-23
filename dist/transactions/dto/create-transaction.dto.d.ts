@@ -1,5 +1,6 @@
 export declare class CreateTransactionDto {
     user_id: string;
+    version: number;
     fwallet_id: string;
     transaction_type: 'DEPOSIT' | 'WITHDRAW' | 'PURCHASE' | 'REFUND';
     amount: number;

@@ -38,6 +38,7 @@ export declare class OrdersService {
     private readonly driverService;
     constructor(ordersRepository: OrdersRepository, menuItemsRepository: MenuItemsRepository, menuItemVariantsRepository: MenuItemVariantsRepository, addressRepository: AddressBookRepository, customersRepository: CustomersRepository, driverStatsService: DriverStatsService, restaurantRepository: RestaurantsRepository, addressBookRepository: AddressBookRepository, restaurantsGateway: RestaurantsGateway, dataSource: DataSource, cartItemsRepository: CartItemsRepository, customersGateway: CustomersGateway, driversGateway: DriversGateway, transactionsService: TransactionService, fWalletsRepository: FWalletsRepository, eventEmitter: EventEmitter2, driverService: DriversService);
     createOrder(createOrderDto: CreateOrderDto): Promise<ApiResponse<any>>;
+    private updateMenuItemPurchaseCount;
     notifyRestaurantAndDriver(order: Order): Promise<ApiResponse<any>>;
     update(id: string, updateOrderDto: UpdateOrderDto, transactionalEntityManager?: EntityManager): Promise<ApiResponse<Order>>;
     updateOrderStatus(orderId: string, status: OrderStatus, transactionalEntityManager?: EntityManager): Promise<ApiResponse<Order>>;
@@ -49,7 +50,6 @@ export declare class OrdersService {
     private canOrderBeCancelled;
     private validateOrderData;
     private validateOrderItems;
-    private updateMenuItemPurchaseCount;
     private handleOrderResponse;
     private handleError;
 }

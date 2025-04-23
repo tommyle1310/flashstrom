@@ -20,12 +20,7 @@ export class OrdersController {
   // Create a new order
   @Post()
   async createOrder(@Body() createOrderDto: CreateOrderDto): Promise<any> {
-    const order = await this.ordersService.createOrder(createOrderDto);
-    return {
-      status: 'OK',
-      data: order,
-      message: 'Order created successfully'
-    };
+    return await this.ordersService.createOrder(createOrderDto);
   }
 
   @Post('tip')
