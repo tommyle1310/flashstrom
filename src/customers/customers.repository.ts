@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, In } from 'typeorm';
+import { DataSource, Repository, FindOptionsWhere, In } from 'typeorm';
 import { Customer } from './entities/customer.entity';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -24,7 +24,8 @@ export class CustomersRepository {
     @InjectRepository(FoodCategory)
     private readonly foodCategoryRepository: Repository<FoodCategory>,
     @InjectRepository(Restaurant)
-    private readonly restaurantRepository: Repository<Restaurant>
+    private readonly restaurantRepository: Repository<Restaurant>,
+    private readonly dataSource: DataSource
   ) {}
 
   async save(customer: Customer): Promise<Customer> {
@@ -82,20 +83,12 @@ export class CustomersRepository {
     });
   }
 
-  async findById(id: string): Promise<Customer> {
-    const cacheKey = `customer:${id}`;
-    const cached = await redis.get(cacheKey);
-    if (cached) {
-      return JSON.parse(cached);
-    }
-    const customer = await this.customerRepository.findOne({
-      where: { id },
-      select: ['id', 'user_id']
-    });
-    if (customer) {
-      await redis.setEx(cacheKey, 3600, JSON.stringify(customer));
-    }
-    return customer;
+  async findById(customerId: string): Promise<Customer | null> {
+    return this.dataSource
+      .createQueryBuilder(Customer, 'customer')
+      .where('customer.id = :customerId', { customerId })
+      .select(['customer.id', 'customer.user_id'])
+      .getOne();
   }
 
   async findByUserId(userId: string): Promise<Customer> {

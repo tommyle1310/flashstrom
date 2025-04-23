@@ -26,11 +26,12 @@ const redis = (0, redis_1.createClient)({
 });
 redis.connect().catch(err => console.error('Redis connection error:', err));
 let CustomersRepository = class CustomersRepository {
-    constructor(customerRepository, addressRepository, foodCategoryRepository, restaurantRepository) {
+    constructor(customerRepository, addressRepository, foodCategoryRepository, restaurantRepository, dataSource) {
         this.customerRepository = customerRepository;
         this.addressRepository = addressRepository;
         this.foodCategoryRepository = foodCategoryRepository;
         this.restaurantRepository = restaurantRepository;
+        this.dataSource = dataSource;
     }
     async save(customer) {
         const savedCustomer = await this.customerRepository.save(customer);
@@ -74,20 +75,12 @@ let CustomersRepository = class CustomersRepository {
             select: ['id', 'user_id']
         });
     }
-    async findById(id) {
-        const cacheKey = `customer:${id}`;
-        const cached = await redis.get(cacheKey);
-        if (cached) {
-            return JSON.parse(cached);
-        }
-        const customer = await this.customerRepository.findOne({
-            where: { id },
-            select: ['id', 'user_id']
-        });
-        if (customer) {
-            await redis.setEx(cacheKey, 3600, JSON.stringify(customer));
-        }
-        return customer;
+    async findById(customerId) {
+        return this.dataSource
+            .createQueryBuilder(customer_entity_1.Customer, 'customer')
+            .where('customer.id = :customerId', { customerId })
+            .select(['customer.id', 'customer.user_id'])
+            .getOne();
     }
     async findByUserId(userId) {
         const cacheKey = `customer:user:${userId}`;
@@ -160,6 +153,7 @@ exports.CustomersRepository = CustomersRepository = __decorate([
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
-        typeorm_2.Repository])
+        typeorm_2.Repository,
+        typeorm_2.DataSource])
 ], CustomersRepository);
 //# sourceMappingURL=customers.repository.js.map

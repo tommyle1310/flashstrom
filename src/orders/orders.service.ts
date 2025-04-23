@@ -66,7 +66,7 @@ export class OrdersService {
   async createOrder(createOrderDto: CreateOrderDto): Promise<ApiResponse<any>> {
     const start = Date.now();
     try {
-      // 1. Batch fetch dữ liệu song song trước validation và transaction
+      // 1. Batch fetch dữ liệu song song
       const fetchStart = Date.now();
       const [
         customer,
@@ -80,17 +80,36 @@ export class OrdersService {
       ] = await Promise.all([
         (async () => {
           const start = Date.now();
+          const cacheKey = `customer:${createOrderDto.customer_id}`;
+          const cached = await redis.get(cacheKey);
+          if (cached) {
+            logger.log(`Fetch customer (cache) took ${Date.now() - start}ms`);
+            return JSON.parse(cached);
+          }
           const result = await this.customersRepository.findById(
             createOrderDto.customer_id
           );
+          if (result) {
+            await redis.setEx(cacheKey, 7200, JSON.stringify(result));
+            logger.log(`Stored customer in Redis: ${cacheKey}`);
+          } else {
+            logger.warn(`Customer not found: ${createOrderDto.customer_id}`);
+          }
           logger.log(`Fetch customer took ${Date.now() - start}ms`);
           return result;
         })(),
         (async () => {
           const start = Date.now();
+          const cacheKey = `restaurant:${createOrderDto.restaurant_id}`;
+          const cached = await redis.get(cacheKey);
+          if (cached) {
+            logger.log(`Fetch restaurant (cache) took ${Date.now() - start}ms`);
+            return JSON.parse(cached);
+          }
           const result = await this.restaurantRepository.findById(
             createOrderDto.restaurant_id
           );
+          if (result) await redis.setEx(cacheKey, 7200, JSON.stringify(result));
           logger.log(`Fetch restaurant took ${Date.now() - start}ms`);
           return result;
         })(),
@@ -108,7 +127,7 @@ export class OrdersService {
             createOrderDto.customer_location
           );
           if (address)
-            await redis.setEx(cacheKey, 3600, JSON.stringify(address));
+            await redis.setEx(cacheKey, 7200, JSON.stringify(address));
           logger.log(`Fetch customer address took ${Date.now() - start}ms`);
           return address;
         })(),
@@ -126,7 +145,7 @@ export class OrdersService {
             createOrderDto.restaurant_location
           );
           if (address)
-            await redis.setEx(cacheKey, 3600, JSON.stringify(address));
+            await redis.setEx(cacheKey, 7200, JSON.stringify(address));
           logger.log(`Fetch restaurant address took ${Date.now() - start}ms`);
           return address;
         })(),
@@ -141,7 +160,7 @@ export class OrdersService {
           const items = await this.menuItemsRepository.findByIds(
             createOrderDto.order_items.map(item => item.item_id)
           );
-          await redis.setEx(cacheKey, 3600, JSON.stringify(items));
+          await redis.setEx(cacheKey, 7200, JSON.stringify(items));
           logger.log(`Fetch menu items took ${Date.now() - start}ms`);
           return items;
         })(),
@@ -159,7 +178,7 @@ export class OrdersService {
           }
           const variants =
             await this.menuItemVariantsRepository.findByIds(variantIds);
-          await redis.setEx(cacheKey, 3600, JSON.stringify(variants));
+          await redis.setEx(cacheKey, 7200, JSON.stringify(variants));
           logger.log(`Fetch variants took ${Date.now() - start}ms`);
           return variants;
         })(),
@@ -178,13 +197,18 @@ export class OrdersService {
                 .getRepository(Promotion)
                 .findOne({ where: { id: createOrderDto.promotion_applied } });
               if (promo)
-                await redis.setEx(cacheKey, 3600, JSON.stringify(promo));
+                await redis.setEx(cacheKey, 7200, JSON.stringify(promo));
               logger.log(`Fetch promotion took ${Date.now() - start}ms`);
               return promo;
             })()
           : Promise.resolve(null),
         (async () => {
           const start = Date.now();
+          // Skip cart items nếu order_items đã đủ thông tin
+          if (createOrderDto.order_items?.length > 0) {
+            logger.log(`Skipping cart items fetch, using order_items`);
+            return [];
+          }
           const cacheKey = `cart_items:${createOrderDto.customer_id}`;
           const cached = await redis.get(cacheKey);
           if (cached) {
@@ -192,57 +216,75 @@ export class OrdersService {
             return JSON.parse(cached);
           }
           const items = await this.cartItemsRepository.findByCustomerId(
-            createOrderDto.customer_id
+            createOrderDto.customer_id,
+            { take: 50 }
           );
-          await redis.setEx(cacheKey, 600, JSON.stringify(items));
+          if (items.length > 0) {
+            await redis.setEx(cacheKey, 600, JSON.stringify(items));
+            logger.log(`Stored cart items in Redis: ${cacheKey}`);
+          } else {
+            logger.warn(
+              `No cart items found for customer: ${createOrderDto.customer_id}`
+            );
+          }
           logger.log(`Fetch cart items took ${Date.now() - start}ms`);
           return items;
         })()
       ]);
-      const [customerWallet, restaurantWallet] = await Promise.all([
-        (async () => {
-          const start = Date.now();
-          const cacheKey = `fwallet:${customer.user_id}`;
-          const cached = await redis.get(cacheKey);
-          if (cached) {
-            logger.log(
-              `Fetch customer wallet (cache) took ${Date.now() - start}ms`
-            );
-            return JSON.parse(cached);
-          }
-          const wallet = await this.fWalletsRepository.findByUserId(
-            customer.user_id
-          );
-          if (wallet) await redis.setEx(cacheKey, 3600, JSON.stringify(wallet));
-          logger.log(`Fetch customer wallet took ${Date.now() - start}ms`);
-          return wallet;
-        })(),
-        createOrderDto.payment_method === 'FWallet' && restaurant
-          ? (async () => {
-              const start = Date.now();
-              const cacheKey = `fwallet:${restaurant.owner_id}`;
-              const cached = await redis.get(cacheKey);
-              if (cached) {
-                logger.log(
-                  `Fetch restaurant wallet (cache) took ${Date.now() - start}ms`
-                );
-                return JSON.parse(cached);
-              }
-              const wallet = await this.fWalletsRepository.findByUserId(
-                restaurant.owner_id
-              );
-              if (wallet)
-                await redis.setEx(cacheKey, 3600, JSON.stringify(wallet));
+
+      // Fetch wallets song song
+      let customerWallet = null;
+      let restaurantWallet = null;
+      if (
+        createOrderDto.payment_method === 'FWallet' &&
+        customer &&
+        restaurant
+      ) {
+        const walletStart = Date.now();
+        [customerWallet, restaurantWallet] = await Promise.all([
+          (async () => {
+            const cacheKey = `fwallet:${customer.user_id}`;
+            const cached = await redis.get(cacheKey);
+            if (cached) {
               logger.log(
-                `Fetch restaurant wallet took ${Date.now() - start}ms`
+                `Fetch customer wallet (cache) took ${Date.now() - walletStart}ms`
               );
-              return wallet;
-            })()
-          : Promise.resolve(null)
-      ]);
+              return JSON.parse(cached);
+            }
+            const wallet = await this.fWalletsRepository.findByUserId(
+              customer.user_id
+            );
+            if (wallet)
+              await redis.setEx(cacheKey, 7200, JSON.stringify(wallet));
+            logger.log(
+              `Fetch customer wallet took ${Date.now() - walletStart}ms`
+            );
+            return wallet;
+          })(),
+          (async () => {
+            const cacheKey = `fwallet:${restaurant.owner_id}`;
+            const cached = await redis.get(cacheKey);
+            if (cached) {
+              logger.log(
+                `Fetch restaurant wallet (cache) took ${Date.now() - walletStart}ms`
+              );
+              return JSON.parse(cached);
+            }
+            const wallet = await this.fWalletsRepository.findByUserId(
+              restaurant.owner_id
+            );
+            if (wallet)
+              await redis.setEx(cacheKey, 7200, JSON.stringify(wallet));
+            logger.log(
+              `Fetch restaurant wallet took ${Date.now() - walletStart}ms`
+            );
+            return wallet;
+          })()
+        ]);
+      }
       logger.log(`Data fetch took ${Date.now() - fetchStart}ms`);
 
-      // 2. Validate input using fetched data
+      // 2. Validate input
       const validationStart = Date.now();
       const validationResult = await this.validateOrderData(createOrderDto, {
         customer,
@@ -299,7 +341,7 @@ export class OrdersService {
         return createResponse('NotFound', null, `Wallet not found`);
       }
 
-      // 4. Tính total_amount và áp dụng promotion trước transaction
+      // 4. Tính total_amount và promotion
       const calcStart = Date.now();
       let totalAmount = createOrderDto.total_amount;
       let appliedPromotion: Promotion | null = null;
@@ -326,11 +368,11 @@ export class OrdersService {
       }
       logger.log(`Calculation took ${Date.now() - calcStart}ms`);
 
-      // 5. Transaction chỉ chứa thao tác ghi cần thiết
+      // 5. Transaction
       const txStart = Date.now();
       const result = await this.dataSource.transaction(
         async transactionalEntityManager => {
-          // Tạo order
+          // Tạo order với minimal relations
           const orderData: DeepPartial<Order> = {
             ...createOrderDto,
             total_amount: totalAmount,
@@ -340,8 +382,8 @@ export class OrdersService {
             tracking_info:
               (createOrderDto.tracking_info as OrderTrackingInfo) ||
               OrderTrackingInfo.ORDER_PLACED,
-            customerAddress,
-            restaurantAddress,
+            customerAddress: { id: customerAddress.id },
+            restaurantAddress: { id: restaurantAddress.id },
             created_at: Math.floor(Date.now() / 1000),
             updated_at: Math.floor(Date.now() / 1000)
           };
@@ -354,7 +396,7 @@ export class OrdersService {
               fwallet_id: customerWallet!.id,
               transaction_type: 'PURCHASE',
               amount: totalAmount,
-              balance_after: 0,
+              balance_after: Number(customerWallet!.balance) - totalAmount,
               status: 'PENDING',
               source: 'FWALLET',
               destination: restaurantWallet!.id,
@@ -369,12 +411,8 @@ export class OrdersService {
             logger.log(
               `Transaction service took ${Date.now() - txServiceStart}ms`
             );
-            if (transactionResponse.EC === -8) {
-              return createResponse(
-                'InsufficientBalance',
-                null,
-                'Balance in the source wallet is not enough for this transaction.'
-              );
+            if (transactionResponse.EC !== 0) {
+              return transactionResponse;
             }
           }
 
@@ -404,8 +442,11 @@ export class OrdersService {
       );
       logger.log(`Transaction took ${Date.now() - txStart}ms`);
 
-      // 6. Xử lý kết quả transaction và cập nhật bất đồng bộ
-      const savedOrder = result.data;
+      if (result.EC !== 0) {
+        return result;
+      }
+      const savedOrder = result.data as Order;
+
       // Xóa cart items bất đồng bộ
       if (cartItems.length > 0) {
         this.dataSource
@@ -415,15 +456,19 @@ export class OrdersService {
           .where('customer_id = :customerId', {
             customerId: createOrderDto.customer_id
           })
-          .execute();
+          .execute()
+          .then(() => redis.del(`cart_items:${createOrderDto.customer_id}`))
+          .catch(err => logger.error('Error deleting cart items:', err));
       }
+
       // Cập nhật menu item purchase count bất đồng bộ
       this.updateMenuItemPurchaseCount(createOrderDto.order_items).catch(err =>
         logger.error('Error updating menu item purchase count:', err)
       );
 
-      // 7. Emit event và log
+      // 6. Emit event
       const emitStart = Date.now();
+      const eventId = `${savedOrder.id}-${Date.now()}`;
       const trackingUpdate = {
         orderId: savedOrder.id,
         status: savedOrder.status,
@@ -440,14 +485,25 @@ export class OrdersService {
         service_fee: savedOrder.service_fee,
         promotions_applied: savedOrder.promotions_applied,
         restaurant_avatar: restaurant.avatar || null,
-        eventId: `${savedOrder.id}-${Date.now()}`
+        eventId
       };
 
-      this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
-      this.eventEmitter.emit('newOrderForRestaurant', {
-        restaurant_id: savedOrder.restaurant_id,
-        order: trackingUpdate
+      // Emit chỉ 1 lần, dùng Redis để deduplicate
+      const redisResult = await redis.set(`event:${eventId}`, '1', {
+        NX: true,
+        EX: 60
       });
+      logger.log(`Emitting event ${eventId} with redisResult: ${redisResult}`);
+      if (redisResult === 'OK') {
+        this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
+        this.eventEmitter.emit('newOrderForRestaurant', {
+          restaurant_id: savedOrder.restaurant_id,
+          order: trackingUpdate
+        });
+        logger.log('check tracking update', trackingUpdate);
+      } else {
+        logger.log(`Event ${eventId} already emitted, skipped`);
+      }
       logger.log(`Emit events took ${Date.now() - emitStart}ms`);
       logger.log(`Total execution took ${Date.now() - start}ms`);
 

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CartItem } from './entities/cart_item.entity';
 import { CreateCartItemDto } from './dto/create-cart_item.dto';
@@ -16,7 +16,8 @@ redis.connect().catch(err => console.error('Redis connection error:', err));
 export class CartItemsRepository {
   constructor(
     @InjectRepository(CartItem)
-    private repository: Repository<CartItem>
+    private repository: Repository<CartItem>,
+    private readonly dataSource: DataSource
   ) {}
 
   async create(createDto: CreateCartItemDto): Promise<CartItem> {
@@ -41,19 +42,25 @@ export class CartItemsRepository {
     });
   }
 
-  async findByCustomerId(customerId: string): Promise<CartItem[]> {
-    const cacheKey = `cart_items:${customerId}`;
-    const cached = await redis.get(cacheKey);
-    if (cached) {
-      return JSON.parse(cached);
-    }
-    const items = await this.repository.find({
-      where: { customer_id: Equal(customerId) },
-      select: ['id', 'customer_id', 'item_id', 'variants'],
-      take: 50 // Giới hạn 50 bản ghi
-    });
-    await redis.setEx(cacheKey, 600, JSON.stringify(items));
-    return items;
+  async findByCustomerId(
+    customerId: string,
+    options: { take: number }
+  ): Promise<CartItem[]> {
+    return this.dataSource
+      .createQueryBuilder(CartItem, 'cart_item')
+      .where('cart_item.customer_id = :customerId', { customerId })
+      .andWhere('cart_item.deleted_at IS NULL')
+      .select([
+        'cart_item.id',
+        'cart_item.customer_id',
+        'cart_item.item_id',
+        'cart_item.restaurant_id',
+        'cart_item.created_at',
+        'cart_item.updated_at'
+      ])
+      .take(options.take)
+      .useIndex('idx_cart_items_customer_id')
+      .getMany();
   }
 
   async findOne(query: Record<string, any>): Promise<CartItem> {

@@ -24,8 +24,9 @@ const redis = (0, redis_1.createClient)({
 });
 redis.connect().catch(err => console.error('Redis connection error:', err));
 let CartItemsRepository = class CartItemsRepository {
-    constructor(repository) {
+    constructor(repository, dataSource) {
         this.repository = repository;
+        this.dataSource = dataSource;
     }
     async create(createDto) {
         const cartItem = this.repository.create(createDto);
@@ -45,19 +46,22 @@ let CartItemsRepository = class CartItemsRepository {
             select: ['id', 'customer_id', 'item_id', 'variants']
         });
     }
-    async findByCustomerId(customerId) {
-        const cacheKey = `cart_items:${customerId}`;
-        const cached = await redis.get(cacheKey);
-        if (cached) {
-            return JSON.parse(cached);
-        }
-        const items = await this.repository.find({
-            where: { customer_id: (0, typeorm_3.Equal)(customerId) },
-            select: ['id', 'customer_id', 'item_id', 'variants'],
-            take: 50
-        });
-        await redis.setEx(cacheKey, 600, JSON.stringify(items));
-        return items;
+    async findByCustomerId(customerId, options) {
+        return this.dataSource
+            .createQueryBuilder(cart_item_entity_1.CartItem, 'cart_item')
+            .where('cart_item.customer_id = :customerId', { customerId })
+            .andWhere('cart_item.deleted_at IS NULL')
+            .select([
+            'cart_item.id',
+            'cart_item.customer_id',
+            'cart_item.item_id',
+            'cart_item.restaurant_id',
+            'cart_item.created_at',
+            'cart_item.updated_at'
+        ])
+            .take(options.take)
+            .useIndex('idx_cart_items_customer_id')
+            .getMany();
     }
     async findOne(query) {
         const { where } = query;
@@ -90,6 +94,7 @@ exports.CartItemsRepository = CartItemsRepository;
 exports.CartItemsRepository = CartItemsRepository = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_2.InjectRepository)(cart_item_entity_1.CartItem)),
-    __metadata("design:paramtypes", [typeorm_1.Repository])
+    __metadata("design:paramtypes", [typeorm_1.Repository,
+        typeorm_1.DataSource])
 ], CartItemsRepository);
 //# sourceMappingURL=cart_items.repository.js.map
