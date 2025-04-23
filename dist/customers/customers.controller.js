@@ -65,9 +65,8 @@ let CustomersController = class CustomersController {
     findOne(field, value) {
         return this.customersService.findOne({ [field]: value });
     }
-    toggleFavoriteRestaurant(id, dto) {
-        console.log('check toggle favourite restaurant controller', id);
-        return this.customersService.update(id, dto);
+    toggleFavoriteRestaurant(id, toggleDto) {
+        return this.customersService.toggleFavoriteRestaurant(id, toggleDto);
     }
     togglePreferredCategory(id, preferred_category) {
         return this.customersService.update(id, preferred_category);
@@ -178,8 +177,8 @@ __decorate([
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_customer_dto_1.UpdateCustomerFavoriteRestaurantDto]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [String, update_customer_dto_1.ToggleCustomerFavoriteRestaurantDto]),
+    __metadata("design:returntype", Promise)
 ], CustomersController.prototype, "toggleFavoriteRestaurant", null);
 __decorate([
     (0, common_1.Patch)('/preferred-category/:id'),

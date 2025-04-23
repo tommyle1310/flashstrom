@@ -32,4 +32,7 @@ export declare class UpdateCustomerPreferredCategoryDto extends UpdateCustomerDt
 export declare class UpdateCustomerFavoriteRestaurantDto extends UpdateCustomerDto {
     favorite_restaurant: string;
 }
+export declare class ToggleCustomerFavoriteRestaurantDto extends UpdateCustomerDto {
+    favorite_restaurant: string;
+}
 export {};

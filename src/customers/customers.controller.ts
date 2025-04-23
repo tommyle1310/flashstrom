@@ -11,8 +11,8 @@ import {
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import {
+  ToggleCustomerFavoriteRestaurantDto,
   UpdateCustomerDto,
-  UpdateCustomerFavoriteRestaurantDto,
   UpdateCustomerPreferredCategoryDto
 } from './dto/update-customer.dto';
 import { CartItemsService } from 'src/cart_items/cart_items.service';
@@ -20,6 +20,8 @@ import { CreateCartItemDto } from 'src/cart_items/dto/create-cart_item.dto';
 import { UpdateCartItemDto } from 'src/cart_items/dto/update-cart_item.dto';
 import { AddressBookService } from 'src/address_book/address_book.service';
 import { CreateAddressBookDto } from 'src/address_book/dto/create-address_book.dto';
+import { ApiResponse } from 'src/utils/createResponse';
+import { Customer } from './entities/customer.entity';
 
 @Controller('customers')
 export class CustomersController {
@@ -100,10 +102,9 @@ export class CustomersController {
   @Patch('/favorite-restaurant/:id')
   toggleFavoriteRestaurant(
     @Param('id') id: string,
-    @Body() dto: UpdateCustomerFavoriteRestaurantDto
-  ) {
-    console.log('check toggle favourite restaurant controller', id);
-    return this.customersService.update(id, dto);
+    @Body() toggleDto: ToggleCustomerFavoriteRestaurantDto
+  ): Promise<ApiResponse<Customer>> {
+    return this.customersService.toggleFavoriteRestaurant(id, toggleDto);
   }
 
   @Patch('/preferred-category/:id')

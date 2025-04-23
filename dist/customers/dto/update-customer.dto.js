@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UpdateCustomerFavoriteRestaurantDto = exports.UpdateCustomerPreferredCategoryDto = exports.UpdateCustomerDto = void 0;
+exports.ToggleCustomerFavoriteRestaurantDto = exports.UpdateCustomerFavoriteRestaurantDto = exports.UpdateCustomerPreferredCategoryDto = exports.UpdateCustomerDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 const Payload_1 = require("../../types/Payload");
@@ -118,6 +118,10 @@ __decorate([
 class UpdateCustomerPreferredCategoryDto extends UpdateCustomerDto {
 }
 exports.UpdateCustomerPreferredCategoryDto = UpdateCustomerPreferredCategoryDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateCustomerPreferredCategoryDto.prototype, "preferred_category", void 0);
 class UpdateCustomerFavoriteRestaurantDto extends UpdateCustomerDto {
 }
 exports.UpdateCustomerFavoriteRestaurantDto = UpdateCustomerFavoriteRestaurantDto;
@@ -126,4 +130,11 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], UpdateCustomerFavoriteRestaurantDto.prototype, "favorite_restaurant", void 0);
+class ToggleCustomerFavoriteRestaurantDto extends UpdateCustomerDto {
+}
+exports.ToggleCustomerFavoriteRestaurantDto = ToggleCustomerFavoriteRestaurantDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ToggleCustomerFavoriteRestaurantDto.prototype, "favorite_restaurant", void 0);
 //# sourceMappingURL=update-customer.dto.js.map

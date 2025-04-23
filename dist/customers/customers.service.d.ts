@@ -1,5 +1,5 @@
 import { CreateCustomerDto } from './dto/create-customer.dto';
-import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { ToggleCustomerFavoriteRestaurantDto, UpdateCustomerDto } from './dto/update-customer.dto';
 import { Customer } from './entities/customer.entity';
 import { ApiResponse } from 'src/utils/createResponse';
 import { UserRepository } from '../users/users.repository';
@@ -25,11 +25,13 @@ export declare class CustomersService {
     private readonly customerRepository;
     private readonly notificationsRepository;
     constructor(restaurantRepository: RestaurantsRepository, userRepository: UserRepository, dataSource: DataSource, customerRepository: CustomersRepository, notificationsRepository: NotificationsRepository);
+    onModuleInit(): Promise<void>;
     create(createCustomerDto: CreateCustomerDto): Promise<ApiResponse<Customer>>;
     searchRestaurantsByKeyword(keyword: string, page?: number, limit?: number): Promise<ApiResponse<Restaurant[]>>;
     findAll(): Promise<ApiResponse<Customer[]>>;
     findCustomerById(id: string): Promise<ApiResponse<any>>;
     update(id: string, updateCustomerDto: UpdateCustomerDto): Promise<ApiResponse<Customer>>;
+    toggleFavoriteRestaurant(id: string, toggleDto: ToggleCustomerFavoriteRestaurantDto): Promise<ApiResponse<any>>;
     remove(id: string): Promise<ApiResponse<null>>;
     updateEntityAvatar(uploadResult: {
         url: string;

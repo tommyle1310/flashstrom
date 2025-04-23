@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import {
-  UpdateCustomerDto,
-  UpdateCustomerFavoriteRestaurantDto
+  ToggleCustomerFavoriteRestaurantDto,
+  UpdateCustomerDto
 } from './dto/update-customer.dto';
 import { Customer } from './entities/customer.entity';
 import { createResponse, ApiResponse } from 'src/utils/createResponse';
@@ -28,7 +28,14 @@ export interface AddressPopulate {
     lng?: number;
   };
 }
+import { createClient } from 'redis';
 
+const redis = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redis.connect().catch(err => logger.error('Redis connection error:', err));
+
+const logger = new Logger('CustomersService');
 @Injectable()
 export class CustomersService {
   constructor(
@@ -38,6 +45,30 @@ export class CustomersService {
     private readonly customerRepository: CustomersRepository,
     private readonly notificationsRepository: NotificationsRepository
   ) {}
+
+  async onModuleInit() {
+    // Preload restaurants phổ biến vào Redis
+    try {
+      const start = Date.now();
+      const restaurants = await this.restaurantRepository.repository.find({
+        select: ['id'],
+        take: 1000 // Top 1000 restaurants
+      });
+      for (const restaurant of restaurants) {
+        const cacheKey = `restaurant:${restaurant.id}`;
+        await redis.setEx(
+          cacheKey,
+          86400,
+          JSON.stringify({ id: restaurant.id })
+        );
+      }
+      logger.log(
+        `Preloaded ${restaurants.length} restaurants into Redis in ${Date.now() - start}ms`
+      );
+    } catch (error) {
+      logger.error('Error preloading restaurants into Redis:', error);
+    }
+  }
 
   async create(
     createCustomerDto: CreateCustomerDto
@@ -201,71 +232,190 @@ export class CustomersService {
     id: string,
     updateCustomerDto: UpdateCustomerDto
   ): Promise<ApiResponse<Customer>> {
+    const start = Date.now();
     try {
-      // Lấy customer hiện tại từ repository
-      const customer = await this.customerRepository.findById(id);
+      // Lấy customer từ cache hoặc DB
+      const cacheKey = `customer:${id}`;
+      let customer: Customer | null = null;
+
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        customer = JSON.parse(cached);
+        logger.log(`Fetch customer (cache) took ${Date.now() - start}ms`);
+      } else {
+        customer = await this.customerRepository.findById(id);
+        if (customer) {
+          await redis.setEx(cacheKey, 7200, JSON.stringify(customer));
+          logger.log(`Stored customer in Redis: ${cacheKey}`);
+        }
+        logger.log(`Fetch customer took ${Date.now() - start}ms`);
+      }
+
       if (!customer) {
         return createResponse('NotFound', null, 'Customer not found');
       }
 
-      // Xử lý toggle favorite_restaurant nếu có trong DTO
-      const { favorite_restaurant, ...otherUpdateData } =
-        updateCustomerDto as UpdateCustomerFavoriteRestaurantDto;
+      // Cập nhật các trường từ DTO
+      Object.assign(customer, updateCustomerDto);
 
-      if (favorite_restaurant) {
-        const currentFavoriteRestaurants = customer.favorite_restaurants || [];
-        console.log('check curent fav res', currentFavoriteRestaurants);
-        console.log('check favorite restaurant', favorite_restaurant);
-        const restaurantIds = currentFavoriteRestaurants.map(r => r.id);
-
-        // Kiểm tra xem favorite_restaurant đã có trong danh sách chưa
-        if (restaurantIds.includes(favorite_restaurant)) {
-          // Nếu đã có, remove nó ra
-          customer.favorite_restaurants = currentFavoriteRestaurants.filter(
-            r => r.id !== favorite_restaurant
-          );
-        } else {
-          // Nếu chưa có, kiểm tra restaurant có tồn tại không rồi thêm vào
-          const restaurant = await this.restaurantRepository.repository.findOne(
-            {
-              where: { id: favorite_restaurant }
-            }
-          );
-          if (!restaurant) {
-            return createResponse('NotFound', null, 'Restaurant not found');
-          }
-          customer.favorite_restaurants = [
-            ...currentFavoriteRestaurants,
-            restaurant
-          ];
-        }
-      }
-
-      // Cập nhật các trường khác từ DTO (nếu có)
-      Object.assign(customer, otherUpdateData);
-
-      // Lưu customer đã cập nhật
+      // Lưu customer
+      const saveStart = Date.now();
       const updatedCustomer = await this.customerRepository.save(customer);
+      await redis.setEx(cacheKey, 7200, JSON.stringify(updatedCustomer));
+      logger.log(`Save customer took ${Date.now() - saveStart}ms`);
 
-      console.log(
-        'check toggle favourite restaurant',
-        id,
-        updatedCustomer,
-        'customerdto',
-        updateCustomerDto
-      );
-
+      logger.log(`Update customer took ${Date.now() - start}ms`);
       return createResponse(
         'OK',
         updatedCustomer,
         'Customer updated successfully'
       );
     } catch (error) {
-      console.error('Error updating customer:', error);
+      logger.error('Error updating customer:', error);
       return createResponse(
         'ServerError',
         null,
         'An error occurred while updating the customer'
+      );
+    }
+  }
+
+  async toggleFavoriteRestaurant(
+    id: string,
+    toggleDto: ToggleCustomerFavoriteRestaurantDto
+  ): Promise<ApiResponse<any>> {
+    const start = Date.now();
+    try {
+      const restaurantId = toggleDto.favorite_restaurant;
+
+      // Lấy customer từ cache hoặc DB
+      const cacheKey = `customer:${id}`;
+      let customer: Customer | null = null;
+      let favoriteRestaurantIds: string[] = [];
+
+      const fetchCustomerStart = Date.now();
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        customer = JSON.parse(cached);
+        favoriteRestaurantIds = (customer.favorite_restaurants || []).map(
+          r => r.id
+        );
+        logger.log(
+          `Fetch customer (cache) took ${Date.now() - fetchCustomerStart}ms`
+        );
+      } else {
+        customer = await this.customerRepository.findById(id);
+        if (customer) {
+          favoriteRestaurantIds = (customer.favorite_restaurants || []).map(
+            r => r.id
+          );
+          await redis.setEx(cacheKey, 7200, JSON.stringify(customer));
+          logger.log(`Stored customer in Redis: ${cacheKey}`);
+        }
+        logger.log(`Fetch customer took ${Date.now() - fetchCustomerStart}ms`);
+      }
+
+      if (!customer) {
+        return createResponse('NotFound', null, 'Customer not found');
+      }
+
+      // Kiểm tra restaurant từ cache hoặc DB
+      const restaurantCacheKey = `restaurant:${restaurantId}`;
+      let restaurantExists = false;
+
+      const restaurantFetchStart = Date.now();
+      const restaurantCached = await redis.get(restaurantCacheKey);
+      if (restaurantCached) {
+        restaurantExists = true;
+        logger.log(
+          `Fetch restaurant (cache) took ${Date.now() - restaurantFetchStart}ms`
+        );
+      } else {
+        const restaurant = await this.dataSource
+          .createQueryBuilder()
+          .from('restaurants', 'restaurant')
+          .where('restaurant.id = :id', { id: restaurantId })
+          .select('1')
+          .getRawOne();
+        if (restaurant) {
+          restaurantExists = true;
+          await redis.setEx(
+            restaurantCacheKey,
+            86400,
+            JSON.stringify({ id: restaurantId })
+          );
+          logger.log(`Stored restaurant in Redis: ${restaurantCacheKey}`);
+        }
+        logger.log(
+          `Fetch restaurant took ${Date.now() - restaurantFetchStart}ms`
+        );
+      }
+
+      if (!restaurantExists) {
+        return createResponse('NotFound', null, 'Restaurant not found');
+      }
+
+      // Toggle favorite_restaurants
+      let updatedFavoriteIds: string[];
+      let isAdding = false;
+      if (favoriteRestaurantIds.includes(restaurantId)) {
+        updatedFavoriteIds = favoriteRestaurantIds.filter(
+          id => id !== restaurantId
+        );
+        logger.log(`Removed restaurant ${restaurantId} from favorites`);
+      } else {
+        updatedFavoriteIds = [...favoriteRestaurantIds, restaurantId];
+        isAdding = true;
+        logger.log(`Added restaurant ${restaurantId} to favorites`);
+      }
+
+      // Cập nhật bảng customer_favorite_restaurants
+      const updateStart = Date.now();
+      if (isAdding) {
+        await this.dataSource
+          .createQueryBuilder()
+          .insert()
+          .into('customer_favorite_restaurants')
+          .values({ customer_id: id, restaurant_id: restaurantId })
+          .orIgnore()
+          .execute();
+      } else {
+        await this.dataSource
+          .createQueryBuilder()
+          .delete()
+          .from('customer_favorite_restaurants')
+          .where(
+            'customer_id = :customerId AND restaurant_id = :restaurantId',
+            {
+              customerId: id,
+              restaurantId
+            }
+          )
+          .execute();
+      }
+      logger.log(
+        `Update favorite restaurants took ${Date.now() - updateStart}ms`
+      );
+
+      // Cập nhật cache và response
+      const updatedCustomer = {
+        ...customer,
+        favorite_restaurants: updatedFavoriteIds.map(id => ({ id }))
+      };
+      await redis.setEx(cacheKey, 7200, JSON.stringify(updatedCustomer));
+
+      logger.log(`Toggle favorite restaurant took ${Date.now() - start}ms`);
+      return createResponse(
+        'OK',
+        updatedCustomer,
+        'Favorite restaurant toggled successfully'
+      );
+    } catch (error) {
+      logger.error('Error toggling favorite restaurant:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while toggling favorite restaurant'
       );
     }
   }

@@ -95,10 +95,17 @@ export class UpdateCustomerDto extends PartialType(CreateCustomerDto) {
 }
 
 export class UpdateCustomerPreferredCategoryDto extends UpdateCustomerDto {
+  @IsString()
   preferred_category: string;
 }
+
 export class UpdateCustomerFavoriteRestaurantDto extends UpdateCustomerDto {
   @IsOptional()
+  @IsString()
+  favorite_restaurant: string;
+}
+
+export class ToggleCustomerFavoriteRestaurantDto extends UpdateCustomerDto {
   @IsString()
   favorite_restaurant: string;
 }

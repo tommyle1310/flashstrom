@@ -21,6 +21,12 @@ const menu_item_entity_1 = require("../menu_items/entities/menu_item.entity");
 const typeorm_1 = require("typeorm");
 const order_entity_1 = require("../orders/entities/order.entity");
 const notifications_repository_1 = require("../notifications/notifications.repository");
+const redis_1 = require("redis");
+const redis = (0, redis_1.createClient)({
+    url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redis.connect().catch(err => logger.error('Redis connection error:', err));
+const logger = new common_1.Logger('CustomersService');
 let CustomersService = class CustomersService {
     constructor(restaurantRepository, userRepository, dataSource, customerRepository, notificationsRepository) {
         this.restaurantRepository = restaurantRepository;
@@ -28,6 +34,23 @@ let CustomersService = class CustomersService {
         this.dataSource = dataSource;
         this.customerRepository = customerRepository;
         this.notificationsRepository = notificationsRepository;
+    }
+    async onModuleInit() {
+        try {
+            const start = Date.now();
+            const restaurants = await this.restaurantRepository.repository.find({
+                select: ['id'],
+                take: 1000
+            });
+            for (const restaurant of restaurants) {
+                const cacheKey = `restaurant:${restaurant.id}`;
+                await redis.setEx(cacheKey, 86400, JSON.stringify({ id: restaurant.id }));
+            }
+            logger.log(`Preloaded ${restaurants.length} restaurants into Redis in ${Date.now() - start}ms`);
+        }
+        catch (error) {
+            logger.error('Error preloading restaurants into Redis:', error);
+        }
     }
     async create(createCustomerDto) {
         try {
@@ -126,41 +149,134 @@ let CustomersService = class CustomersService {
         }
     }
     async update(id, updateCustomerDto) {
+        const start = Date.now();
         try {
-            const customer = await this.customerRepository.findById(id);
+            const cacheKey = `customer:${id}`;
+            let customer = null;
+            const cached = await redis.get(cacheKey);
+            if (cached) {
+                customer = JSON.parse(cached);
+                logger.log(`Fetch customer (cache) took ${Date.now() - start}ms`);
+            }
+            else {
+                customer = await this.customerRepository.findById(id);
+                if (customer) {
+                    await redis.setEx(cacheKey, 7200, JSON.stringify(customer));
+                    logger.log(`Stored customer in Redis: ${cacheKey}`);
+                }
+                logger.log(`Fetch customer took ${Date.now() - start}ms`);
+            }
             if (!customer) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Customer not found');
             }
-            const { favorite_restaurant, ...otherUpdateData } = updateCustomerDto;
-            if (favorite_restaurant) {
-                const currentFavoriteRestaurants = customer.favorite_restaurants || [];
-                console.log('check curent fav res', currentFavoriteRestaurants);
-                console.log('check favorite restaurant', favorite_restaurant);
-                const restaurantIds = currentFavoriteRestaurants.map(r => r.id);
-                if (restaurantIds.includes(favorite_restaurant)) {
-                    customer.favorite_restaurants = currentFavoriteRestaurants.filter(r => r.id !== favorite_restaurant);
-                }
-                else {
-                    const restaurant = await this.restaurantRepository.repository.findOne({
-                        where: { id: favorite_restaurant }
-                    });
-                    if (!restaurant) {
-                        return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant not found');
-                    }
-                    customer.favorite_restaurants = [
-                        ...currentFavoriteRestaurants,
-                        restaurant
-                    ];
-                }
-            }
-            Object.assign(customer, otherUpdateData);
+            Object.assign(customer, updateCustomerDto);
+            const saveStart = Date.now();
             const updatedCustomer = await this.customerRepository.save(customer);
-            console.log('check toggle favourite restaurant', id, updatedCustomer, 'customerdto', updateCustomerDto);
+            await redis.setEx(cacheKey, 7200, JSON.stringify(updatedCustomer));
+            logger.log(`Save customer took ${Date.now() - saveStart}ms`);
+            logger.log(`Update customer took ${Date.now() - start}ms`);
             return (0, createResponse_1.createResponse)('OK', updatedCustomer, 'Customer updated successfully');
         }
         catch (error) {
-            console.error('Error updating customer:', error);
+            logger.error('Error updating customer:', error);
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while updating the customer');
+        }
+    }
+    async toggleFavoriteRestaurant(id, toggleDto) {
+        const start = Date.now();
+        try {
+            const restaurantId = toggleDto.favorite_restaurant;
+            const cacheKey = `customer:${id}`;
+            let customer = null;
+            let favoriteRestaurantIds = [];
+            const fetchCustomerStart = Date.now();
+            const cached = await redis.get(cacheKey);
+            if (cached) {
+                customer = JSON.parse(cached);
+                favoriteRestaurantIds = (customer.favorite_restaurants || []).map(r => r.id);
+                logger.log(`Fetch customer (cache) took ${Date.now() - fetchCustomerStart}ms`);
+            }
+            else {
+                customer = await this.customerRepository.findById(id);
+                if (customer) {
+                    favoriteRestaurantIds = (customer.favorite_restaurants || []).map(r => r.id);
+                    await redis.setEx(cacheKey, 7200, JSON.stringify(customer));
+                    logger.log(`Stored customer in Redis: ${cacheKey}`);
+                }
+                logger.log(`Fetch customer took ${Date.now() - fetchCustomerStart}ms`);
+            }
+            if (!customer) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Customer not found');
+            }
+            const restaurantCacheKey = `restaurant:${restaurantId}`;
+            let restaurantExists = false;
+            const restaurantFetchStart = Date.now();
+            const restaurantCached = await redis.get(restaurantCacheKey);
+            if (restaurantCached) {
+                restaurantExists = true;
+                logger.log(`Fetch restaurant (cache) took ${Date.now() - restaurantFetchStart}ms`);
+            }
+            else {
+                const restaurant = await this.dataSource
+                    .createQueryBuilder()
+                    .from('restaurants', 'restaurant')
+                    .where('restaurant.id = :id', { id: restaurantId })
+                    .select('1')
+                    .getRawOne();
+                if (restaurant) {
+                    restaurantExists = true;
+                    await redis.setEx(restaurantCacheKey, 86400, JSON.stringify({ id: restaurantId }));
+                    logger.log(`Stored restaurant in Redis: ${restaurantCacheKey}`);
+                }
+                logger.log(`Fetch restaurant took ${Date.now() - restaurantFetchStart}ms`);
+            }
+            if (!restaurantExists) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant not found');
+            }
+            let updatedFavoriteIds;
+            let isAdding = false;
+            if (favoriteRestaurantIds.includes(restaurantId)) {
+                updatedFavoriteIds = favoriteRestaurantIds.filter(id => id !== restaurantId);
+                logger.log(`Removed restaurant ${restaurantId} from favorites`);
+            }
+            else {
+                updatedFavoriteIds = [...favoriteRestaurantIds, restaurantId];
+                isAdding = true;
+                logger.log(`Added restaurant ${restaurantId} to favorites`);
+            }
+            const updateStart = Date.now();
+            if (isAdding) {
+                await this.dataSource
+                    .createQueryBuilder()
+                    .insert()
+                    .into('customer_favorite_restaurants')
+                    .values({ customer_id: id, restaurant_id: restaurantId })
+                    .orIgnore()
+                    .execute();
+            }
+            else {
+                await this.dataSource
+                    .createQueryBuilder()
+                    .delete()
+                    .from('customer_favorite_restaurants')
+                    .where('customer_id = :customerId AND restaurant_id = :restaurantId', {
+                    customerId: id,
+                    restaurantId
+                })
+                    .execute();
+            }
+            logger.log(`Update favorite restaurants took ${Date.now() - updateStart}ms`);
+            const updatedCustomer = {
+                ...customer,
+                favorite_restaurants: updatedFavoriteIds.map(id => ({ id }))
+            };
+            await redis.setEx(cacheKey, 7200, JSON.stringify(updatedCustomer));
+            logger.log(`Toggle favorite restaurant took ${Date.now() - start}ms`);
+            return (0, createResponse_1.createResponse)('OK', updatedCustomer, 'Favorite restaurant toggled successfully');
+        }
+        catch (error) {
+            logger.error('Error toggling favorite restaurant:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while toggling favorite restaurant');
         }
     }
     async remove(id) {
