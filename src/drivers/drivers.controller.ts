@@ -12,7 +12,8 @@ import { DriversService } from './drivers.service'; // Corrected to use DriversS
 import { CreateDriverDto, UpdateVehicleDto } from './dto/create-driver.dto'; // Corrected to use CreateDriverDto
 import { UpdateDriverDto } from './dto/update-driver.dto'; // Corrected to use UpdateDriverDto
 import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
-import { createResponse } from 'src/utils/createResponse';
+import { ApiResponse, createResponse } from 'src/utils/createResponse';
+import { ToggleDriverAvailabilityDto } from './dto/driver-availability.dto';
 
 @Controller('drivers') // Updated route to 'drivers'
 export class DriversController {
@@ -24,6 +25,11 @@ export class DriversController {
   @Post()
   create(@Body() createDriverDto: CreateDriverDto) {
     return this.driversService.create(createDriverDto); // Corrected service method to use driversService
+  }
+
+  @Post('clear-redis')
+  clearRedis(): Promise<ApiResponse<null>> {
+    return this.driversService.clearRedis();
   }
 
   @Get()
@@ -143,8 +149,11 @@ export class DriversController {
   }
 
   @Patch(':id/availability')
-  setAvailability(@Param('id') id: string) {
-    return this.driversService.setAvailability(id); // Call service with the id
+  toggleAvailability(
+    @Param('id') id: string,
+    @Body() toggleDto: ToggleDriverAvailabilityDto
+  ): Promise<ApiResponse<any>> {
+    return this.driversService.toggleAvailability(id, toggleDto);
   }
 
   @Delete(':id')

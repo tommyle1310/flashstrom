@@ -39,6 +39,8 @@ const event_emitter_1 = require("@nestjs/event-emitter");
 const common_2 = require("@nestjs/common");
 const drivers_service_1 = require("../drivers/drivers.service");
 const redis_1 = require("redis");
+const dotenv = require("dotenv");
+dotenv.config();
 const logger = new common_2.Logger('OrdersService');
 const redis = (0, redis_1.createClient)({
     url: process.env.REDIS_URL || 'redis://localhost:6379'

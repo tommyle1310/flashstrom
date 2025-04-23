@@ -28,6 +28,15 @@ const driver_progress_stages_repository_1 = require("../driver_progress_stages/d
 const online_sessions_service_1 = require("../online-sessions/online-sessions.service");
 const driver_stats_records_service_1 = require("../driver_stats_records/driver_stats_records.service");
 const ratings_reviews_repository_1 = require("../ratings_reviews/ratings_reviews.repository");
+const redis_1 = require("redis");
+const online_session_entity_1 = require("../online-sessions/entities/online-session.entity");
+const dotenv = require("dotenv");
+dotenv.config();
+const logger = new common_1.Logger('DriversService');
+const redis = (0, redis_1.createClient)({
+    url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redis.connect().catch(err => logger.error('Redis connection error:', err));
 let DriversService = class DriversService {
     constructor(driversRepository, driverEntityRepository, ordersRepository, driverStatsService, addressRepository, driverProgressStageRepository, onlineSessionsService, dataSource, ratingsReviewsRepository) {
         this.driversRepository = driversRepository;
@@ -40,41 +49,139 @@ let DriversService = class DriversService {
         this.dataSource = dataSource;
         this.ratingsReviewsRepository = ratingsReviewsRepository;
     }
-    async setAvailability(id) {
+    async onModuleInit() {
+        await this.preloadDrivers();
+    }
+    async preloadDrivers() {
         try {
-            const driver = await this.driversRepository.findById(id);
+            const start = Date.now();
+            const drivers = await this.driverEntityRepository.find({
+                select: ['id', 'available_for_work'],
+                take: 5000
+            });
+            const batchSize = 1000;
+            for (let i = 0; i < drivers.length; i += batchSize) {
+                const batch = drivers.slice(i, i + batchSize);
+                await Promise.all(batch.map(driver => {
+                    const cacheKey = `driver:${driver.id}`;
+                    return redis.setEx(cacheKey, 86400, JSON.stringify(driver));
+                }));
+            }
+            logger.log(`Preloaded ${drivers.length} drivers into Redis in ${Date.now() - start}ms`);
+        }
+        catch (error) {
+            logger.error('Error preloading drivers into Redis:', error);
+        }
+    }
+    async clearRedis() {
+        const start = Date.now();
+        try {
+            const keys = await redis.keys('*');
+            if (keys.length > 0) {
+                await redis.del(keys);
+            }
+            logger.log(`Cleared ${keys.length} keys from Redis in ${Date.now() - start}ms`);
+            await this.preloadDrivers();
+            return (0, createResponse_1.createResponse)('OK', null, 'Redis cleared and drivers preloaded successfully');
+        }
+        catch (error) {
+            logger.error('Error clearing Redis:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error clearing Redis');
+        }
+    }
+    async toggleAvailability(id, toggleDto) {
+        const start = Date.now();
+        try {
+            const cacheKey = `driver:${id}`;
+            let driver = null;
+            const fetchStart = Date.now();
+            const cached = await redis.get(cacheKey);
+            if (cached) {
+                driver = JSON.parse(cached);
+                logger.log(`Fetch driver (cache) took ${Date.now() - fetchStart}ms`);
+            }
+            else {
+                driver = await this.driversRepository.findById(id);
+                if (driver) {
+                    await redis.setEx(cacheKey, 86400, JSON.stringify(driver));
+                    logger.log(`Stored driver in Redis: ${cacheKey}`);
+                }
+                logger.log(`Fetch driver took ${Date.now() - fetchStart}ms`);
+            }
             if (!driver) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Driver not found');
             }
-            const newAvailability = !driver.available_for_work;
-            driver.available_for_work = newAvailability;
-            const savedDriver = await this.driversRepository.save(driver);
-            if (newAvailability) {
-                const createOnlineSessionDto = {
-                    driver_id: driver.id,
-                    end_time: null,
-                    start_time: Math.floor(Date.now() / 1000),
-                    is_active: true
-                };
-                console.log(`[DEBUG] Creating OnlineSession for driver ${driver.id}:`, createOnlineSessionDto);
-                const session = await this.onlineSessionsService.create(createOnlineSessionDto);
-                console.log(`[DEBUG] Created OnlineSession:`, session);
+            const newAvailability = toggleDto.available_for_work ?? !driver.available_for_work;
+            const updateStart = Date.now();
+            const updateResult = await this.dataSource
+                .createQueryBuilder()
+                .update(driver_entity_1.Driver)
+                .set({ available_for_work: newAvailability })
+                .where('id = :id', { id })
+                .execute();
+            if (updateResult.affected === 0) {
+                logger.warn(`Failed to update driver ${id}`);
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Driver not found');
             }
-            else {
-                const activeSession = await this.onlineSessionsService.findOneByDriverIdAndActive(driver.id);
-                if (activeSession) {
-                    console.log(`[DEBUG] Ending OnlineSession ${activeSession.id} for driver ${driver.id}`);
-                    await this.onlineSessionsService.endSession(activeSession.id);
+            logger.log(`Update driver availability took ${Date.now() - updateStart}ms`);
+            const sessionCacheKey = `online_session:${id}`;
+            if (newAvailability) {
+                const sessionStart = Date.now();
+                const activeSessions = await this.dataSource
+                    .getRepository(online_session_entity_1.OnlineSession)
+                    .createQueryBuilder('session')
+                    .where('session.driver_id = :driverId AND session.is_active = :isActive', {
+                    driverId: id,
+                    isActive: true
+                })
+                    .getMany();
+                for (const session of activeSessions) {
+                    await this.onlineSessionsService.endSession(session.id);
+                }
+                const cachedSession = await redis.get(sessionCacheKey);
+                if (!cachedSession) {
+                    const createOnlineSessionDto = {
+                        driver_id: id,
+                        end_time: null,
+                        start_time: Math.floor(Date.now() / 1000),
+                        is_active: true
+                    };
+                    const session = await this.onlineSessionsService.create(createOnlineSessionDto);
+                    await redis.setEx(sessionCacheKey, 86400, JSON.stringify(session));
+                    logger.log(`Create online session took ${Date.now() - sessionStart}ms`);
                 }
                 else {
-                    console.log(`[DEBUG] No active OnlineSession found for driver ${driver.id}`);
+                    logger.log(`Online session (cache) took ${Date.now() - sessionStart}ms`);
                 }
             }
-            await this.driverStatsService.updateStatsForDriver(driver.id, 'daily');
-            return (0, createResponse_1.createResponse)('OK', savedDriver, 'Driver availability updated successfully');
+            else {
+                const sessionStart = Date.now();
+                const activeSessions = await this.dataSource
+                    .getRepository(online_session_entity_1.OnlineSession)
+                    .createQueryBuilder('session')
+                    .where('session.driver_id = :driverId AND session.is_active = :isActive', {
+                    driverId: id,
+                    isActive: true
+                })
+                    .select(['session.id'])
+                    .getMany();
+                for (const session of activeSessions) {
+                    await this.onlineSessionsService.endSession(session.id);
+                }
+                await redis.del(sessionCacheKey);
+                logger.log(`End online session took ${Date.now() - sessionStart}ms`);
+            }
+            this.driverStatsService
+                .updateStatsForDriver(id, 'daily')
+                .catch(err => logger.error('Error updating stats:', err));
+            driver.available_for_work = newAvailability;
+            await redis.setEx(cacheKey, 86400, JSON.stringify(driver));
+            logger.log(`Toggle driver availability took ${Date.now() - start}ms`);
+            return (0, createResponse_1.createResponse)('OK', driver, 'Driver availability toggled successfully');
         }
         catch (error) {
-            return this.handleError('Error updating driver availability:', error);
+            logger.error('Error toggling driver availability:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while toggling driver availability');
         }
     }
     async create(createDriverDto) {

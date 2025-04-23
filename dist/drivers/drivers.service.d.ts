@@ -12,6 +12,7 @@ import { DriverProgressStagesRepository } from 'src/driver_progress_stages/drive
 import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
 import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
 import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
+import { ToggleDriverAvailabilityDto } from './dto/driver-availability.dto';
 export declare class DriversService {
     private readonly driversRepository;
     private driverEntityRepository;
@@ -23,7 +24,10 @@ export declare class DriversService {
     private readonly dataSource;
     private readonly ratingsReviewsRepository;
     constructor(driversRepository: DriversRepository, driverEntityRepository: Repository<Driver>, ordersRepository: OrdersRepository, driverStatsService: DriverStatsService, addressRepository: AddressBookRepository, driverProgressStageRepository: DriverProgressStagesRepository, onlineSessionsService: OnlineSessionsService, dataSource: DataSource, ratingsReviewsRepository: RatingsReviewsRepository);
-    setAvailability(id: string): Promise<ApiResponse<Driver>>;
+    onModuleInit(): Promise<void>;
+    preloadDrivers(): Promise<void>;
+    clearRedis(): Promise<ApiResponse<null>>;
+    toggleAvailability(id: string, toggleDto: ToggleDriverAvailabilityDto): Promise<ApiResponse<Driver>>;
     create(createDriverDto: CreateDriverDto): Promise<ApiResponse<Driver>>;
     findAll(): Promise<ApiResponse<Driver[]>>;
     findDriverById(id: string): Promise<ApiResponse<Driver>>;

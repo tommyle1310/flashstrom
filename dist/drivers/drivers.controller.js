@@ -19,6 +19,7 @@ const create_driver_dto_1 = require("./dto/create-driver.dto");
 const update_driver_dto_1 = require("./dto/update-driver.dto");
 const online_sessions_service_1 = require("../online-sessions/online-sessions.service");
 const createResponse_1 = require("../utils/createResponse");
+const driver_availability_dto_1 = require("./dto/driver-availability.dto");
 let DriversController = class DriversController {
     constructor(driversService, onlineSessionsService) {
         this.driversService = driversService;
@@ -26,6 +27,9 @@ let DriversController = class DriversController {
     }
     create(createDriverDto) {
         return this.driversService.create(createDriverDto);
+    }
+    clearRedis() {
+        return this.driversService.clearRedis();
     }
     findAll() {
         return this.driversService.findAll();
@@ -94,8 +98,8 @@ let DriversController = class DriversController {
     update(id, updateDriverDto) {
         return this.driversService.update(id, updateDriverDto);
     }
-    setAvailability(id) {
-        return this.driversService.setAvailability(id);
+    toggleAvailability(id, toggleDto) {
+        return this.driversService.toggleAvailability(id, toggleDto);
     }
     remove(id) {
         return this.driversService.remove(id);
@@ -109,6 +113,12 @@ __decorate([
     __metadata("design:paramtypes", [create_driver_dto_1.CreateDriverDto]),
     __metadata("design:returntype", void 0)
 ], DriversController.prototype, "create", null);
+__decorate([
+    (0, common_1.Post)('clear-redis'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], DriversController.prototype, "clearRedis", null);
 __decorate([
     (0, common_1.Get)(),
     __metadata("design:type", Function),
@@ -174,10 +184,11 @@ __decorate([
 __decorate([
     (0, common_1.Patch)(':id/availability'),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], DriversController.prototype, "setAvailability", null);
+    __metadata("design:paramtypes", [String, driver_availability_dto_1.ToggleDriverAvailabilityDto]),
+    __metadata("design:returntype", Promise)
+], DriversController.prototype, "toggleAvailability", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     __param(0, (0, common_1.Param)('id')),

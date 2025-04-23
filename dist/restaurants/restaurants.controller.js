@@ -21,6 +21,7 @@ const update_menu_item_dto_1 = require("../menu_items/dto/update-menu_item.dto")
 const create_menu_item_dto_1 = require("../menu_items/dto/create-menu_item.dto");
 const create_menu_item_variant_dto_1 = require("../menu_item_variants/dto/create-menu_item_variant.dto");
 const update_menu_item_variant_dto_1 = require("../menu_item_variants/dto/update-menu_item_variant.dto");
+const restaurant_availability_dto_1 = require("./dto/restaurant-availability.dto");
 let RestaurantsController = class RestaurantsController {
     constructor(restaurantsService) {
         this.restaurantsService = restaurantsService;
@@ -30,6 +31,9 @@ let RestaurantsController = class RestaurantsController {
     }
     applyPromotion(restaurantId, promotionId) {
         return this.restaurantsService.applyPromotion(restaurantId, promotionId);
+    }
+    clearRedis() {
+        return this.restaurantsService.clearRedis();
     }
     findAll() {
         return this.restaurantsService.findAll();
@@ -54,6 +58,9 @@ let RestaurantsController = class RestaurantsController {
     }
     updateMenuItem(restaurantId, id, updateMenuItemDto) {
         return this.restaurantsService.updateMenuItemForRestaurant(restaurantId, id, updateMenuItemDto);
+    }
+    toggleAvailability(id, toggleDto) {
+        return this.restaurantsService.toggleAvailability(id, toggleDto);
     }
     removeMenuItem(restaurantId, id) {
         return this.restaurantsService.deleteMenuItemForRestaurant(restaurantId, id);
@@ -84,6 +91,12 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", void 0)
 ], RestaurantsController.prototype, "applyPromotion", null);
+__decorate([
+    (0, common_1.Post)('clear-redis'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], RestaurantsController.prototype, "clearRedis", null);
 __decorate([
     (0, common_1.Get)(),
     __metadata("design:type", Function),
@@ -144,6 +157,14 @@ __decorate([
     __metadata("design:paramtypes", [String, String, update_menu_item_dto_1.UpdateMenuItemDto]),
     __metadata("design:returntype", void 0)
 ], RestaurantsController.prototype, "updateMenuItem", null);
+__decorate([
+    (0, common_1.Patch)(':id/availability'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, restaurant_availability_dto_1.ToggleRestaurantAvailabilityDto]),
+    __metadata("design:returntype", Promise)
+], RestaurantsController.prototype, "toggleAvailability", null);
 __decorate([
     (0, common_1.Delete)('/menu-items/:restaurantId/:id'),
     __param(0, (0, common_1.Param)('restaurantId')),

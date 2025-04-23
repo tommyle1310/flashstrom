@@ -22,6 +22,8 @@ const typeorm_1 = require("typeorm");
 const order_entity_1 = require("../orders/entities/order.entity");
 const notifications_repository_1 = require("../notifications/notifications.repository");
 const redis_1 = require("redis");
+const dotenv = require("dotenv");
+dotenv.config();
 const redis = (0, redis_1.createClient)({
     url: process.env.REDIS_URL || 'redis://localhost:6379'
 });

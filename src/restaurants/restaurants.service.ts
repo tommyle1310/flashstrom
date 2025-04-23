@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { createResponse } from 'src/utils/createResponse';
@@ -30,7 +30,19 @@ import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
 import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { MenuItemVariant } from 'src/menu_item_variants/entities/menu_item_variant.entity';
-// import { Promotion } from 'src/promotions/entities/promotion.entity';
+import { createClient } from 'redis';
+import { DataSource } from 'typeorm';
+import { ToggleRestaurantAvailabilityDto } from './dto/restaurant-availability.dto';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+const logger = new Logger('RestaurantsService');
+
+const redis = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redis.connect().catch(err => logger.error('Redis connection error:', err));
 
 interface MenuItemVariantResponse {
   id: string;
@@ -85,8 +97,295 @@ export class RestaurantsService {
     private readonly transactionsService: TransactionService,
     private readonly restaurantsGateway: RestaurantsGateway,
     private readonly foodCategoryRepository: FoodCategoriesRepository,
-    private readonly fWalletsRepository: FWalletsRepository
+    private readonly fWalletsRepository: FWalletsRepository,
+    private readonly dataSource: DataSource
   ) {}
+
+  async onModuleInit() {
+    // Preload restaurants vào Redis
+    try {
+      const start = Date.now();
+      const restaurants = await this.restaurantsRepository.repository.find({
+        select: ['id', 'status'],
+        take: 10000 // Top 10000 restaurants
+      });
+      for (const restaurant of restaurants) {
+        const cacheKey = `restaurant:${restaurant.id}`;
+        await redis.setEx(cacheKey, 86400, JSON.stringify(restaurant));
+      }
+      logger.log(
+        `Preloaded ${restaurants.length} restaurants into Redis in ${Date.now() - start}ms`
+      );
+    } catch (error) {
+      logger.error('Error preloading restaurants into Redis:', error);
+    }
+  }
+
+  async preloadRestaurants() {
+    try {
+      const start = Date.now();
+      const restaurants = await this.restaurantsRepository.repository.find({
+        select: ['id', 'status'],
+        take: 10000
+      });
+      const batchSize = 1000;
+      for (let i = 0; i < restaurants.length; i += batchSize) {
+        const batch = restaurants.slice(i, i + batchSize);
+        await Promise.all(
+          batch.map(restaurant => {
+            const cacheKey = `restaurant:${restaurant.id}`;
+            return redis.setEx(cacheKey, 86400, JSON.stringify(restaurant));
+          })
+        );
+      }
+      logger.log(
+        `Preloaded ${restaurants.length} restaurants into Redis in ${Date.now() - start}ms`
+      );
+    } catch (error) {
+      logger.error('Error preloading restaurants into Redis:', error);
+    }
+  }
+
+  async clearRedis(): Promise<ApiResponse<null>> {
+    const start = Date.now();
+    try {
+      const keys = await redis.keys('*');
+      if (keys.length > 0) {
+        await redis.del(keys);
+      }
+      logger.log(
+        `Cleared ${keys.length} keys from Redis in ${Date.now() - start}ms`
+      );
+      // Preload lại sau khi clear
+      await this.preloadRestaurants();
+      return createResponse(
+        'OK',
+        null,
+        'Redis cleared and restaurants preloaded successfully'
+      );
+    } catch (error) {
+      logger.error('Error clearing Redis:', error);
+      return createResponse('ServerError', null, 'Error clearing Redis');
+    }
+  }
+
+  async update(
+    id: string,
+    updateRestaurantDto: UpdateRestaurantDto
+  ): Promise<ApiResponse<Restaurant>> {
+    const start = Date.now();
+    try {
+      const { owner_id, promotions, address_id, food_category_ids } =
+        updateRestaurantDto;
+
+      // Lấy restaurant từ cache hoặc DB
+      const cacheKey = `restaurant:${id}`;
+      let restaurant: Restaurant | null = null;
+
+      const fetchStart = Date.now();
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        restaurant = JSON.parse(cached);
+        logger.log(
+          `Fetch restaurant (cache) took ${Date.now() - fetchStart}ms`
+        );
+      } else {
+        restaurant = await this.restaurantsRepository.findById(id);
+        if (restaurant) {
+          await redis.setEx(cacheKey, 7200, JSON.stringify(restaurant));
+          logger.log(`Stored restaurant in Redis: ${cacheKey}`);
+        }
+        logger.log(`Fetch restaurant took ${Date.now() - fetchStart}ms`);
+      }
+
+      if (!restaurant) {
+        return createResponse('NotFound', null, 'Restaurant not found');
+      }
+
+      // Validate owner
+      if (owner_id) {
+        const ownerCacheKey = `user:${owner_id}`;
+        let owner = null;
+        const ownerFetchStart = Date.now();
+        const cachedOwner = await redis.get(ownerCacheKey);
+        if (cachedOwner) {
+          owner = JSON.parse(cachedOwner);
+          logger.log(
+            `Fetch owner (cache) took ${Date.now() - ownerFetchStart}ms`
+          );
+        } else {
+          owner = await this.userRepository.findById(owner_id);
+          if (owner) {
+            await redis.setEx(ownerCacheKey, 7200, JSON.stringify(owner));
+            logger.log(`Stored owner in Redis: ${ownerCacheKey}`);
+          }
+          logger.log(`Fetch owner took ${Date.now() - ownerFetchStart}ms`);
+        }
+        if (!owner) {
+          return createResponse('NotFound', null, 'Owner not found');
+        }
+      }
+
+      // Validate address
+      if (address_id) {
+        const addressCacheKey = `address:${address_id}`;
+        let address = null;
+        const addressFetchStart = Date.now();
+        const cachedAddress = await redis.get(addressCacheKey);
+        if (cachedAddress) {
+          address = JSON.parse(cachedAddress);
+          logger.log(
+            `Fetch address (cache) took ${Date.now() - addressFetchStart}ms`
+          );
+        } else {
+          address = await this.addressRepository.findById(address_id);
+          if (address) {
+            await redis.setEx(addressCacheKey, 7200, JSON.stringify(address));
+            logger.log(`Stored address in Redis: ${addressCacheKey}`);
+          }
+          logger.log(`Fetch address took ${Date.now() - addressFetchStart}ms`);
+        }
+        if (!address) {
+          return createResponse(
+            'NotFound',
+            null,
+            'Address not found in address book'
+          );
+        }
+      }
+
+      // Validate promotions
+      let foundPromotions = [];
+      if (promotions && promotions.length > 0) {
+        const promotionFetchStart = Date.now();
+        foundPromotions = await this.promotionRepository.findByIds(promotions);
+        if (foundPromotions.length !== promotions.length) {
+          return createResponse(
+            'NotFound',
+            null,
+            'One or more promotions not found'
+          );
+        }
+        logger.log(
+          `Fetch promotions took ${Date.now() - promotionFetchStart}ms`
+        );
+      }
+
+      // Validate food categories
+      let specializeIn: FoodCategory[] = [];
+      if (food_category_ids && food_category_ids.length > 0) {
+        const categoryFetchStart = Date.now();
+        specializeIn =
+          await this.foodCategoryRepository.findByIds(food_category_ids);
+        if (specializeIn.length !== food_category_ids.length) {
+          return createResponse(
+            'NotFound',
+            null,
+            'One or more food categories not found'
+          );
+        }
+        logger.log(
+          `Fetch food categories took ${Date.now() - categoryFetchStart}ms`
+        );
+      }
+
+      // Cập nhật restaurant
+      const updateStart = Date.now();
+      const updatedDto: Partial<UpdateRestaurantDto> & {
+        specialize_in?: FoodCategory[];
+      } = {
+        ...updateRestaurantDto,
+        specialize_in: specializeIn.length > 0 ? specializeIn : undefined
+      };
+
+      const updatedRestaurant = await this.restaurantsRepository.update(
+        id,
+        updatedDto
+      );
+      await redis.setEx(cacheKey, 7200, JSON.stringify(updatedRestaurant));
+      logger.log(`Update restaurant took ${Date.now() - updateStart}ms`);
+
+      logger.log(`Update restaurant took ${Date.now() - start}ms`);
+      return createResponse(
+        'OK',
+        updatedRestaurant,
+        'Restaurant updated successfully'
+      );
+    } catch (error) {
+      logger.error('Error updating restaurant:', error);
+      return createResponse('ServerError', null, 'Error updating restaurant');
+    }
+  }
+
+  async toggleAvailability(
+    id: string,
+    toggleDto: ToggleRestaurantAvailabilityDto
+  ): Promise<ApiResponse<Restaurant>> {
+    const start = Date.now();
+    try {
+      // Lấy restaurant từ cache hoặc DB
+      const cacheKey = `restaurant:${id}`;
+      let restaurant: Restaurant | null = null;
+
+      const fetchStart = Date.now();
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        restaurant = JSON.parse(cached);
+        logger.log(
+          `Fetch restaurant (cache) took ${Date.now() - fetchStart}ms`
+        );
+      } else {
+        restaurant = await this.restaurantsRepository.findById(id);
+        if (restaurant) {
+          await redis.setEx(cacheKey, 86400, JSON.stringify(restaurant));
+          logger.log(`Stored restaurant in Redis: ${cacheKey}`);
+        }
+        logger.log(`Fetch restaurant took ${Date.now() - fetchStart}ms`);
+      }
+
+      if (!restaurant) {
+        return createResponse('NotFound', null, 'Restaurant not found');
+      }
+
+      // Toggle is_open
+      const newIsOpen = toggleDto.is_open ?? !restaurant.status.is_open;
+      const updateStart = Date.now();
+      const updateResult = await this.dataSource
+        .createQueryBuilder()
+        .update(Restaurant)
+        .set({
+          status: () => `jsonb_set(status, '{is_open}', :isOpen::jsonb)`
+        })
+        .where('id = :id', { id, isOpen: newIsOpen })
+        .execute();
+
+      if (updateResult.affected === 0) {
+        logger.warn(`Failed to update restaurant ${id}`);
+        return createResponse('NotFound', null, 'Restaurant not found');
+      }
+      logger.log(
+        `Update restaurant availability took ${Date.now() - updateStart}ms`
+      );
+
+      // Cập nhật cache và response
+      restaurant.status.is_open = newIsOpen;
+      await redis.setEx(cacheKey, 86400, JSON.stringify(restaurant));
+
+      logger.log(`Toggle restaurant availability took ${Date.now() - start}ms`);
+      return createResponse(
+        'OK',
+        restaurant,
+        'Restaurant availability toggled successfully'
+      );
+    } catch (error) {
+      logger.error('Error toggling restaurant availability:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while toggling restaurant availability'
+      );
+    }
+  }
 
   async create(
     createRestaurantDto: CreateRestaurantDto
@@ -189,78 +488,6 @@ export class RestaurantsService {
     }
   }
 
-  async update(
-    id: string,
-    updateRestaurantDto: UpdateRestaurantDto
-  ): Promise<ApiResponse<Restaurant>> {
-    try {
-      const { owner_id, promotions, address_id, food_category_ids } =
-        updateRestaurantDto;
-
-      const existingRestaurant = await this.restaurantsRepository.findById(id);
-      if (!existingRestaurant)
-        return createResponse('NotFound', null, 'Restaurant not found');
-
-      if (owner_id) {
-        const owner = await this.userRepository.findById(owner_id);
-        if (!owner) return createResponse('NotFound', null, 'Owner not found');
-      }
-
-      if (address_id) {
-        const addressBookEntry =
-          await this.addressRepository.findById(address_id);
-        if (!addressBookEntry)
-          return createResponse(
-            'NotFound',
-            null,
-            'Address not found in address book'
-          );
-      }
-
-      if (promotions && promotions.length > 0) {
-        const foundPromotions =
-          await this.promotionRepository.findByIds(promotions);
-        if (foundPromotions.length !== promotions.length)
-          return createResponse(
-            'NotFound',
-            null,
-            'One or more promotions not found'
-          );
-      }
-
-      let specializeIn: FoodCategory[] = [];
-      if (food_category_ids && food_category_ids.length > 0) {
-        specializeIn =
-          await this.foodCategoryRepository.findByIds(food_category_ids);
-        if (specializeIn.length !== food_category_ids.length)
-          return createResponse(
-            'NotFound',
-            null,
-            'One or more food categories not found'
-          );
-      }
-
-      const updatedDto: Partial<UpdateRestaurantDto> & {
-        specialize_in?: FoodCategory[];
-      } = {
-        ...updateRestaurantDto,
-        specialize_in: specializeIn.length > 0 ? specializeIn : undefined
-      };
-
-      const updatedRestaurant = await this.restaurantsRepository.update(
-        id,
-        updatedDto
-      );
-      return createResponse(
-        'OK',
-        updatedRestaurant,
-        'Restaurant updated successfully'
-      );
-    } catch (error) {
-      console.error('Error updating restaurant:', error);
-      return createResponse('ServerError', null, 'Error updating restaurant');
-    }
-  }
   // Các phương thức khác giữ nguyên
   async updateEntityAvatar(
     uploadResult: { url: string; public_id: string },

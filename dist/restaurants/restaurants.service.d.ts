@@ -18,6 +18,8 @@ import { FoodCategoriesRepository } from 'src/food_categories/food_categories.re
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionService } from 'src/transactions/transactions.service';
 import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
+import { DataSource } from 'typeorm';
+import { ToggleRestaurantAvailabilityDto } from './dto/restaurant-availability.dto';
 export declare class RestaurantsService {
     private readonly restaurantsRepository;
     private readonly userRepository;
@@ -31,9 +33,14 @@ export declare class RestaurantsService {
     private readonly restaurantsGateway;
     private readonly foodCategoryRepository;
     private readonly fWalletsRepository;
-    constructor(restaurantsRepository: RestaurantsRepository, userRepository: UserRepository, promotionRepository: PromotionsRepository, addressRepository: AddressBookRepository, ordersRepository: OrdersRepository, menuItemRepository: MenuItemsRepository, menuItemsService: MenuItemsService, menuItemVariantsService: MenuItemVariantsService, transactionsService: TransactionService, restaurantsGateway: RestaurantsGateway, foodCategoryRepository: FoodCategoriesRepository, fWalletsRepository: FWalletsRepository);
-    create(createRestaurantDto: CreateRestaurantDto): Promise<ApiResponse<Restaurant>>;
+    private readonly dataSource;
+    constructor(restaurantsRepository: RestaurantsRepository, userRepository: UserRepository, promotionRepository: PromotionsRepository, addressRepository: AddressBookRepository, ordersRepository: OrdersRepository, menuItemRepository: MenuItemsRepository, menuItemsService: MenuItemsService, menuItemVariantsService: MenuItemVariantsService, transactionsService: TransactionService, restaurantsGateway: RestaurantsGateway, foodCategoryRepository: FoodCategoriesRepository, fWalletsRepository: FWalletsRepository, dataSource: DataSource);
+    onModuleInit(): Promise<void>;
+    preloadRestaurants(): Promise<void>;
+    clearRedis(): Promise<ApiResponse<null>>;
     update(id: string, updateRestaurantDto: UpdateRestaurantDto): Promise<ApiResponse<Restaurant>>;
+    toggleAvailability(id: string, toggleDto: ToggleRestaurantAvailabilityDto): Promise<ApiResponse<Restaurant>>;
+    create(createRestaurantDto: CreateRestaurantDto): Promise<ApiResponse<Restaurant>>;
     updateEntityAvatar(uploadResult: {
         url: string;
         public_id: string;

@@ -32,6 +32,9 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Logger } from '@nestjs/common';
 import { DriversService } from 'src/drivers/drivers.service';
 import { createClient } from 'redis';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
 
 const logger = new Logger('OrdersService');
 

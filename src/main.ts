@@ -5,7 +5,7 @@ import { ValidationPipe } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 import { HttpExceptionFilter } from './utils/createResponse';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { join, resolve } from 'path';
+import { resolve } from 'path';
 import { PermissionFilter } from './filters/permission.filter';
 
 dotenv.config();

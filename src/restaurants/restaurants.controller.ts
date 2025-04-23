@@ -16,6 +16,7 @@ import { CreateMenuItemVariantDto } from 'src/menu_item_variants/dto/create-menu
 import { UpdateMenuItemVariantDto } from 'src/menu_item_variants/dto/update-menu_item_variant.dto';
 import { ApiResponse } from 'src/utils/createResponse';
 import { Restaurant } from './entities/restaurant.entity';
+import { ToggleRestaurantAvailabilityDto } from './dto/restaurant-availability.dto';
 
 @Controller('restaurants')
 export class RestaurantsController {
@@ -32,6 +33,11 @@ export class RestaurantsController {
     @Body('promotionId') promotionId: string
   ) {
     return this.restaurantsService.applyPromotion(restaurantId, promotionId);
+  }
+
+  @Post('clear-redis')
+  clearRedis(): Promise<ApiResponse<null>> {
+    return this.restaurantsService.clearRedis();
   }
 
   @Get()
@@ -103,6 +109,14 @@ export class RestaurantsController {
       id, // Pass menuItemId to the service
       updateMenuItemDto // Pass update data to the service
     );
+  }
+
+  @Patch(':id/availability')
+  toggleAvailability(
+    @Param('id') id: string,
+    @Body() toggleDto: ToggleRestaurantAvailabilityDto
+  ): Promise<ApiResponse<Restaurant>> {
+    return this.restaurantsService.toggleAvailability(id, toggleDto);
   }
 
   // Remove a menu item for a specific restaurant
