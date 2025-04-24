@@ -11,7 +11,6 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const restaurants_service_1 = require("./restaurants.service");
 const restaurants_controller_1 = require("./restaurants.controller");
-const restaurants_gateway_1 = require("./restaurants.gateway");
 const restaurant_entity_1 = require("./entities/restaurant.entity");
 const restaurants_repository_1 = require("./restaurants.repository");
 const drivers_module_1 = require("../drivers/drivers.module");
@@ -53,6 +52,11 @@ const driver_progress_stages_repository_1 = require("../driver_progress_stages/d
 const driver_progress_stage_entity_1 = require("../driver_progress_stages/entities/driver_progress_stage.entity");
 const ratings_review_entity_1 = require("../ratings_reviews/entities/ratings_review.entity");
 const ratings_reviews_repository_1 = require("../ratings_reviews/ratings_reviews.repository");
+const restaurants_gateway_1 = require("./restaurants.gateway");
+const socket_io_1 = require("socket.io");
+const redis_service_1 = require("../redis/redis.service");
+const drivers_gateway_1 = require("../drivers/drivers.gateway");
+const driver_progress_stages_service_1 = require("../driver_progress_stages/driver_progress_stages.service");
 let RestaurantsModule = class RestaurantsModule {
 };
 exports.RestaurantsModule = RestaurantsModule;
@@ -91,7 +95,6 @@ exports.RestaurantsModule = RestaurantsModule = __decorate([
             restaurants_service_1.RestaurantsService,
             restaurants_repository_1.RestaurantsRepository,
             ratings_reviews_repository_1.RatingsReviewsRepository,
-            restaurants_gateway_1.RestaurantsGateway,
             address_book_repository_1.AddressBookRepository,
             food_categories_repository_1.FoodCategoriesRepository,
             users_repository_1.UserRepository,
@@ -101,20 +104,30 @@ exports.RestaurantsModule = RestaurantsModule = __decorate([
             driver_stats_records_service_1.DriverStatsService,
             finance_rules_repository_1.FinanceRulesRepository,
             admin_repository_1.AdminRepository,
-            address_book_repository_1.AddressBookRepository,
             orders_repository_1.OrdersRepository,
             jwt_1.JwtService,
+            restaurants_gateway_1.RestaurantsGateway,
+            {
+                provide: 'SOCKET_SERVER',
+                useFactory: () => {
+                    const io = new socket_io_1.Server({
+                        cors: {
+                            origin: '*',
+                            methods: ['GET', 'POST']
+                        }
+                    });
+                    return io;
+                }
+            },
+            redis_service_1.RedisService,
             transactions_service_1.TransactionService,
             fwallets_repository_1.FWalletsRepository,
             transactions_repository_1.TransactionsRepository,
+            drivers_gateway_1.DriversGateway,
+            driver_progress_stages_service_1.DriverProgressStagesService,
             promotions_repository_1.PromotionsRepository
         ],
-        exports: [
-            restaurants_service_1.RestaurantsService,
-            restaurants_repository_1.RestaurantsRepository,
-            restaurants_gateway_1.RestaurantsGateway,
-            address_book_repository_1.AddressBookRepository
-        ]
+        exports: [restaurants_service_1.RestaurantsService, restaurants_repository_1.RestaurantsRepository, address_book_repository_1.AddressBookRepository]
     })
 ], RestaurantsModule);
 //# sourceMappingURL=restaurants.module.js.map

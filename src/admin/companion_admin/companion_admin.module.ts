@@ -1,3 +1,4 @@
+// companion_admin.module.ts
 import { Module } from '@nestjs/common';
 import { CompanionAdminController } from './companion_admin.controller';
 import { AdminModule } from '../admin.module';
@@ -5,6 +6,7 @@ import { RestaurantsModule } from 'src/restaurants/restaurants.module';
 import { CustomersModule } from 'src/customers/customers.module';
 import { DriversModule } from 'src/drivers/drivers.module';
 import { CustomerCaresModule } from 'src/customer_cares/customer_cares.module';
+import { FinanceRulesModule } from 'src/finance_rules/finance_rules.module'; // Thêm
 import { AuthService } from 'src/auth/auth.service';
 import { AdminService } from '../admin.service';
 import { RestaurantsService } from 'src/restaurants/restaurants.service';
@@ -61,6 +63,15 @@ import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.re
 import { BannedAccount } from 'src/banned-account/entities/banned-account.entity';
 import { Notification } from 'src/notifications/entities/notification.entity';
 import { NotificationsRepository } from 'src/notifications/notifications.repository';
+import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
+import { Server } from 'socket.io';
+import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
+import { RedisService } from 'src/redis/redis.service';
+import { FinanceRulesRepository } from 'src/finance_rules/finance_rules.repository';
+import { FinanceRule } from 'src/finance_rules/entities/finance_rule.entity';
+import { OrdersService } from 'src/orders/orders.service';
+import { DriversGateway } from 'src/drivers/drivers.gateway';
+import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
 
 @Module({
   imports: [
@@ -71,6 +82,7 @@ import { NotificationsRepository } from 'src/notifications/notifications.reposit
       CustomerCare,
       FoodCategory,
       MenuItem,
+      FinanceRule,
       MenuItemVariant,
       Order,
       BannedAccount,
@@ -91,25 +103,23 @@ import { NotificationsRepository } from 'src/notifications/notifications.reposit
     RestaurantsModule,
     CustomersModule,
     DriversModule,
-    CustomerCaresModule
+    CustomerCaresModule,
+    FinanceRulesModule // Thêm
   ],
   controllers: [CompanionAdminController],
   providers: [
     {
       provide: 'MAIL_TRANSPORT',
       useFactory: async () => {
-        // Create a nodemailer transporter
         const transporter = nodemailer.createTransport({
-          host: 'sandbox.smtp.mailtrap.io', // Replace with your email service host
-          port: 587, // Use 465 for SSL, 587 for TLS
-          secure: false, // Use true for port 465, false for 587
+          host: 'sandbox.smtp.mailtrap.io',
+          port: 587,
+          secure: false,
           auth: {
-            user: '389c1523b80572', // Replace with your email
-            pass: '9685cd52ea218d' // Replace with your email password or app-specific password
+            user: '389c1523b80572',
+            pass: '9685cd52ea218d'
           }
         });
-
-        // Verify the transporter configuration
         await transporter.verify();
         return transporter;
       }
@@ -125,7 +135,10 @@ import { NotificationsRepository } from 'src/notifications/notifications.reposit
     OnlineSessionsRepository,
     OnlineSessionsService,
     AddressBookService,
+    OrdersService,
     CustomersService,
+    DriversGateway,
+    DriverProgressStagesService,
     RestaurantsRepository,
     CustomersRepository,
     CustomerCaresRepository,
@@ -147,7 +160,23 @@ import { NotificationsRepository } from 'src/notifications/notifications.reposit
     MenuItemsService,
     MenuItemVariantsService,
     AddressBookRepository,
-    DriversRepository
+    DriversRepository,
+    {
+      provide: 'SOCKET_SERVER',
+      useFactory: () => {
+        const io = new Server({
+          cors: {
+            origin: '*',
+            methods: ['GET', 'POST']
+          }
+        });
+        return io;
+      }
+    },
+    RestaurantsGateway,
+    RedisService,
+    FinanceRulesService,
+    FinanceRulesRepository
   ]
 })
 export class CompanionAdminModule {}

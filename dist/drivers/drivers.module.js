@@ -11,14 +11,12 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const drivers_service_1 = require("./drivers.service");
 const drivers_controller_1 = require("./drivers.controller");
-const drivers_gateway_1 = require("./drivers.gateway");
 const driver_entity_1 = require("./entities/driver.entity");
 const drivers_repository_1 = require("./drivers.repository");
 const address_book_repository_1 = require("../address_book/address_book.repository");
 const restaurants_module_1 = require("../restaurants/restaurants.module");
 const orders_module_1 = require("../orders/orders.module");
 const driver_progress_stages_module_1 = require("../driver_progress_stages/driver_progress_stages.module");
-const event_emitter_1 = require("@nestjs/event-emitter");
 const address_book_entity_1 = require("../address_book/entities/address_book.entity");
 const orders_repository_1 = require("../orders/orders.repository");
 const order_entity_1 = require("../orders/entities/order.entity");
@@ -48,6 +46,7 @@ const customer_entity_1 = require("../customers/entities/customer.entity");
 const transactions_repository_1 = require("../transactions/transactions.repository");
 const users_repository_1 = require("../users/users.repository");
 const user_entity_1 = require("../users/entities/user.entity");
+const redis_service_1 = require("../redis/redis.service");
 let DriversModule = class DriversModule {
 };
 exports.DriversModule = DriversModule;
@@ -73,13 +72,12 @@ exports.DriversModule = DriversModule = __decorate([
             ]),
             (0, common_1.forwardRef)(() => restaurants_module_1.RestaurantsModule),
             (0, common_1.forwardRef)(() => orders_module_1.OrdersModule),
-            driver_progress_stages_module_1.DriverProgressStagesModule,
-            event_emitter_1.EventEmitterModule.forRoot()
+            driver_progress_stages_module_1.DriverProgressStagesModule
         ],
         controllers: [drivers_controller_1.DriversController],
         providers: [
+            redis_service_1.RedisService,
             drivers_service_1.DriversService,
-            drivers_gateway_1.DriversGateway,
             orders_repository_1.OrdersRepository,
             fwallets_repository_1.FWalletsRepository,
             transactions_service_1.TransactionService,
@@ -98,7 +96,7 @@ exports.DriversModule = DriversModule = __decorate([
             jwt_1.JwtService,
             driver_stats_records_service_1.DriverStatsService
         ],
-        exports: [drivers_service_1.DriversService, drivers_repository_1.DriversRepository]
+        exports: [drivers_service_1.DriversService, drivers_repository_1.DriversRepository, driver_stats_records_service_1.DriverStatsService]
     })
 ], DriversModule);
 //# sourceMappingURL=drivers.module.js.map

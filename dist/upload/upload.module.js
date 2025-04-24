@@ -37,7 +37,6 @@ const customer_entity_1 = require("../customers/entities/customer.entity");
 const customers_repository_1 = require("../customers/customers.repository");
 const driver_entity_1 = require("../drivers/entities/driver.entity");
 const drivers_repository_1 = require("../drivers/drivers.repository");
-const drivers_gateway_1 = require("../drivers/drivers.gateway");
 const driver_progress_stages_service_1 = require("../driver_progress_stages/driver_progress_stages.service");
 const driver_progress_stages_module_1 = require("../driver_progress_stages/driver_progress_stages.module");
 const menu_item_entity_1 = require("../menu_items/entities/menu_item.entity");
@@ -72,6 +71,13 @@ const users_service_1 = require("../users/users.service");
 const banned_account_entity_1 = require("../banned-account/entities/banned-account.entity");
 const notification_entity_1 = require("../notifications/entities/notification.entity");
 const notifications_repository_1 = require("../notifications/notifications.repository");
+const redis_service_1 = require("../redis/redis.service");
+const restaurants_gateway_1 = require("../restaurants/restaurants.gateway");
+const socket_io_1 = require("socket.io");
+const orders_service_1 = require("../orders/orders.service");
+const cart_items_repository_1 = require("../cart_items/cart_items.repository");
+const cart_item_entity_1 = require("../cart_items/entities/cart_item.entity");
+const drivers_gateway_1 = require("../drivers/drivers.gateway");
 let UploadModule = class UploadModule {
 };
 exports.UploadModule = UploadModule;
@@ -83,6 +89,7 @@ exports.UploadModule = UploadModule = __decorate([
                 promotion_entity_1.Promotion,
                 address_book_entity_1.AddressBook,
                 food_category_entity_1.FoodCategory,
+                cart_item_entity_1.CartItem,
                 restaurant_entity_1.Restaurant,
                 customer_entity_1.Customer,
                 notification_entity_1.Notification,
@@ -112,7 +119,21 @@ exports.UploadModule = UploadModule = __decorate([
         ],
         controllers: [upload_controller_1.UploadController],
         providers: [
+            redis_service_1.RedisService,
             upload_service_1.UploadService,
+            restaurants_gateway_1.RestaurantsGateway,
+            {
+                provide: 'SOCKET_SERVER',
+                useFactory: () => {
+                    const io = new socket_io_1.Server({
+                        cors: {
+                            origin: '*',
+                            methods: ['GET', 'POST']
+                        }
+                    });
+                    return io;
+                }
+            },
             restaurants_service_1.RestaurantsService,
             drivers_service_1.DriversService,
             jwt_1.JwtService,
@@ -127,6 +148,7 @@ exports.UploadModule = UploadModule = __decorate([
             transactions_repository_1.TransactionsRepository,
             online_sessions_service_1.OnlineSessionsService,
             online_session_repository_1.OnlineSessionsRepository,
+            drivers_gateway_1.DriversGateway,
             menu_items_service_1.MenuItemsService,
             customers_service_1.CustomersService,
             users_repository_1.UserRepository,
@@ -138,9 +160,10 @@ exports.UploadModule = UploadModule = __decorate([
             food_categories_repository_1.FoodCategoriesRepository,
             driver_progress_stages_repository_1.DriverProgressStagesRepository,
             restaurants_repository_1.RestaurantsRepository,
+            orders_service_1.OrdersService,
+            cart_items_repository_1.CartItemsRepository,
             customers_repository_1.CustomersRepository,
             drivers_repository_1.DriversRepository,
-            drivers_gateway_1.DriversGateway,
             driver_progress_stages_service_1.DriverProgressStagesService,
             menu_items_repository_1.MenuItemsRepository,
             menu_item_variants_repository_1.MenuItemVariantsRepository,

@@ -15,7 +15,7 @@ import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { CustomersRepository } from 'src/customers/customers.repository';
 import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
 import { MenuItemVariantsRepository } from 'src/menu_item_variants/menu_item_variants.repository';
-import { DataSource, EntityManager, DeepPartial } from 'typeorm';
+import { DataSource, EntityManager, DeepPartial, Repository } from 'typeorm';
 import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
 import { CartItem } from 'src/cart_items/entities/cart_item.entity';
 import { CustomersGateway } from 'src/customers/customers.gateway';
@@ -33,6 +33,8 @@ import { Logger } from '@nestjs/common';
 import { DriversService } from 'src/drivers/drivers.service';
 import { createClient } from 'redis';
 import * as dotenv from 'dotenv';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { RedisService } from 'src/redis/redis.service';
 
 dotenv.config();
 
@@ -46,24 +48,25 @@ redis.connect().catch(err => logger.error('Redis connection error:', err));
 @Injectable()
 export class OrdersService {
   constructor(
-    private readonly ordersRepository: OrdersRepository,
+    @InjectRepository(Order) // Sử dụng Repository<Order> thay vì OrdersRepository
+    private readonly ordersRepository: Repository<Order>,
     private readonly menuItemsRepository: MenuItemsRepository,
     private readonly menuItemVariantsRepository: MenuItemVariantsRepository,
-    private readonly addressRepository: AddressBookRepository,
+    private readonly addressBookRepository: AddressBookRepository,
     private readonly customersRepository: CustomersRepository,
     private readonly driverStatsService: DriverStatsService,
-    private readonly restaurantRepository: RestaurantsRepository,
-    private readonly addressBookRepository: AddressBookRepository,
-    private readonly restaurantsGateway: RestaurantsGateway,
+    private readonly restaurantsRepository: RestaurantsRepository,
+    @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly cartItemsRepository: CartItemsRepository,
     private readonly customersGateway: CustomersGateway,
     @Inject(forwardRef(() => DriversGateway))
     private readonly driversGateway: DriversGateway,
-    private readonly transactionsService: TransactionService,
+    private readonly transactionService: TransactionService,
     private readonly fWalletsRepository: FWalletsRepository,
     private readonly eventEmitter: EventEmitter2,
-    private readonly driverService: DriversService
+    private readonly driverService: DriversService,
+    private readonly redisService: RedisService
   ) {}
 
   async createOrder(createOrderDto: CreateOrderDto): Promise<ApiResponse<any>> {
@@ -109,7 +112,7 @@ export class OrdersService {
             logger.log(`Fetch restaurant (cache) took ${Date.now() - start}ms`);
             return JSON.parse(cached);
           }
-          const result = await this.restaurantRepository.findById(
+          const result = await this.restaurantsRepository.findById(
             createOrderDto.restaurant_id
           );
           if (result) await redis.setEx(cacheKey, 7200, JSON.stringify(result));
@@ -407,7 +410,7 @@ export class OrdersService {
               version: customerWallet!.version || 0
             } as CreateTransactionDto;
 
-            const transactionResponse = await this.transactionsService.create(
+            const transactionResponse = await this.transactionService.create(
               transactionDto,
               transactionalEntityManager
             );
@@ -420,10 +423,11 @@ export class OrdersService {
           }
 
           // Lưu order
-          const orderRepository =
-            transactionalEntityManager.getRepository(Order);
-          const newOrder = orderRepository.create(orderData);
-          const savedOrder = await orderRepository.save(newOrder);
+          const newOrder = this.ordersRepository.create(orderData as any);
+          const savedOrder = await transactionalEntityManager.save(
+            Order,
+            newOrder as any
+          );
 
           // Cập nhật restaurant total_orders
           await transactionalEntityManager
@@ -517,6 +521,80 @@ export class OrdersService {
     }
   }
 
+  async assignDriver(orderId: string, driverId: string) {
+    const lockKey = `lock:order:assign:${orderId}`;
+    const lockAcquired = await this.redisService.setNx(
+      lockKey,
+      driverId,
+      300000
+    ); // TTL 5 phút
+    if (!lockAcquired) {
+      console.log(
+        `[OrdersService] Skipping duplicated assignDriver for order ${orderId}`
+      );
+      return;
+    }
+
+    try {
+      const order = await this.ordersRepository.findOne({
+        where: { id: orderId },
+        relations: ['restaurantAddress', 'customerAddress']
+      });
+
+      if (!order) {
+        throw new Error(`Order ${orderId} not found`);
+      }
+
+      order.driver_id = driverId;
+      order.status = OrderStatus.DISPATCHED;
+      await this.ordersRepository.save(order); // Sử dụng save của Repository<Order>
+
+      this.eventEmitter.emit('order.assignedToDriver', { orderId, driverId });
+      await this.notifyOrderStatus(order);
+    } finally {
+      await this.redisService.del(lockKey);
+    }
+  }
+
+  async notifyOrderStatus(order: Order) {
+    const lockKey = `lock:notify:order:${order.id}`;
+    const lockAcquired = await this.redisService.setNx(
+      lockKey,
+      'notified',
+      60000
+    ); // TTL 1 phút
+    if (!lockAcquired) {
+      console.log(
+        `[OrdersService] Skipping notify due to existing lock: ${order.id}`
+      );
+      return;
+    }
+
+    try {
+      console.log(`Emitted notifyOrderStatus for order ${order.id}`);
+      this.eventEmitter.emit('notifyOrderStatus', {
+        orderId: order.id,
+        status: order.status,
+        customerId: order.customer_id,
+        restaurantId: order.restaurant_id,
+        driverId: order.driver_id
+      });
+
+      if (order.customer_id) {
+        console.log(
+          `Emitted notifyOrderStatus to customer_${order.customer_id}`
+        );
+        this.eventEmitter.emit('notifyOrderStatus', {
+          room: `customer_${order.customer_id}`,
+          orderId: order.id,
+          status: order.status
+        });
+      }
+    } finally {
+      await this.redisService.del(lockKey);
+    }
+  }
+
   private async updateMenuItemPurchaseCount(
     orderItems: any[],
     transactionalEntityManager?: EntityManager
@@ -542,7 +620,7 @@ export class OrdersService {
   }
 
   async notifyRestaurantAndDriver(order: Order): Promise<ApiResponse<any>> {
-    const restaurant = await this.restaurantRepository.findById(
+    const restaurant = await this.restaurantsRepository.findById(
       order.restaurant_id
     );
     if (!restaurant) {
@@ -552,33 +630,6 @@ export class OrdersService {
         `Restaurant ${order.restaurant_id} not found`
       );
     }
-
-    const trackingUpdate = {
-      orderId: order.id,
-      status: order.status,
-      tracking_info: order.tracking_info,
-      updated_at: order.updated_at,
-      customer_id: order.customer_id,
-      driver_id: order.driver_id,
-      restaurant_id: order.restaurant_id,
-      restaurantAddress: order.restaurantAddress,
-      customerAddress: order.customerAddress,
-      order_items: order.order_items,
-      total_amount: order.total_amount,
-      delivery_fee: order.delivery_fee,
-      service_fee: order.service_fee,
-      promotions_applied: order.promotions_applied,
-      restaurant_avatar: restaurant.avatar || null
-    };
-
-    this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
-    this.eventEmitter.emit('newOrderForRestaurant', {
-      restaurant_id: order.restaurant_id,
-      order: trackingUpdate
-    });
-
-    logger.log('Notified restaurant and driver:', trackingUpdate);
-    return createResponse('OK', trackingUpdate, 'Notified successfully');
   }
 
   async update(
@@ -690,7 +741,9 @@ export class OrdersService {
         );
       }
 
-      const order = await this.ordersRepository.findById(orderId);
+      const order = await this.ordersRepository.findOneOrFail({
+        where: { id: orderId }
+      });
       if (!order) {
         logger.log('❌ Order not found:', orderId);
         return createResponse('NotFound', null, 'Order not found');
@@ -787,7 +840,7 @@ export class OrdersService {
 
   async findAll(): Promise<ApiResponse<Order[]>> {
     try {
-      const orders = await this.ordersRepository.findAll();
+      const orders = await this.ordersRepository.find();
       return createResponse('OK', orders, 'Fetched all orders');
     } catch (error) {
       return this.handleError('Error fetching orders:', error);
@@ -831,7 +884,9 @@ export class OrdersService {
     description: string
   ): Promise<ApiResponse<Order>> {
     try {
-      const order = await this.ordersRepository.findById(orderId);
+      const order = await this.ordersRepository.findOneOrFail({
+        where: { id: orderId }
+      });
       if (!order) {
         return createResponse('NotFound', null, 'Order not found');
       }
@@ -846,7 +901,7 @@ export class OrdersService {
           break;
         case 'restaurant':
           const restaurant =
-            await this.restaurantRepository.findById(cancelledById);
+            await this.restaurantsRepository.findById(cancelledById);
           entityExists = !!restaurant;
           break;
         case 'driver':

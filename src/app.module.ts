@@ -1,14 +1,14 @@
-import { Module } from '@nestjs/common';
+// app.module.ts
+import { Module, Global } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-// import { MongooseModule } from '@nestjs/mongoose';
 import { AddressBookModule } from './address_book/address_book.module';
 import { CustomersModule } from './customers/customers.module';
 import { DriversModule } from './drivers/drivers.module';
 import { UploadModule } from './upload/upload.module';
-import { AuthModule } from './auth/auth.module'; // Make sure AuthModule is imported here
+import { AuthModule } from './auth/auth.module';
 import { EmailService } from './mailer/email.service';
-import { MailerCustomModule } from './mailer/mailer.module'; // Import MailerCustomModule (which configures MailerService)
+import { MailerCustomModule } from './mailer/mailer.module';
 import { FwalletsModule } from './fwallets/fwallets.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { FoodCategoriesModule } from './food_categories/food_categories.module';
@@ -27,7 +27,6 @@ import { DriverProgressStagesModule } from './driver_progress_stages/driver_prog
 import { CompanionAdminModule } from './admin/companion_admin/companion_admin.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './users/users.module';
-import { CustomerCareInquiriesModule } from './customer_cares_inquires/customer_cares_inquires.module';
 import { FchatModule } from './FChat/fchat.module';
 import { PenaltiesModule } from './penalties/penalties.module';
 import { OnlineSessionsModule } from './online-sessions/online-sessions.module';
@@ -38,20 +37,72 @@ import { DriverStatsRecordsModule } from './driver_stats_records/driver_stats_re
 import { BannedAccountModule } from './banned-account/banned-account.module';
 import { JwtModule } from '@nestjs/jwt';
 import { NotificationsModule } from './notifications/notifications.module';
+import { RedisService } from './redis/redis.service';
+import { RestaurantsGateway } from './restaurants/restaurants.gateway';
+import { DriversGateway } from './drivers/drivers.gateway';
+import { Server } from 'socket.io';
+import { RestaurantsService } from './restaurants/restaurants.service';
+import { DriversService } from './drivers/drivers.service';
+import { DriversRepository } from './drivers/drivers.repository';
+import { DriverStatsService } from './driver_stats_records/driver_stats_records.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { FinanceRulesService } from './finance_rules/finance_rules.service';
+import { FWalletsRepository } from './fwallets/fwallets.repository';
+import { TransactionService } from './transactions/transactions.service';
+import { DriverProgressStagesService } from './driver_progress_stages/driver_progress_stages.service';
+import { AddressBookRepository } from './address_book/address_book.repository';
+import { FoodCategory } from './food_categories/entities/food_category.entity';
+import { FoodCategoriesRepository } from './food_categories/food_categories.repository';
+import { Driver } from './drivers/entities/driver.entity';
+import { OnlineSession } from './online-sessions/entities/online-session.entity';
+import { OnlineSessionsService } from './online-sessions/online-sessions.service';
+import { OrdersRepository } from './orders/orders.repository';
+import { Order } from './orders/entities/order.entity';
+import { DriverStatsRecord } from './driver_stats_records/entities/driver_stats_record.entity';
+import { DriverProgressStage } from './driver_progress_stages/entities/driver_progress_stage.entity';
+import { RatingsReview } from './ratings_reviews/entities/ratings_review.entity';
+import { FinanceRule } from './finance_rules/entities/finance_rule.entity';
+import { FinanceRulesRepository } from './finance_rules/finance_rules.repository';
+import { FWallet } from './fwallets/entities/fwallet.entity';
+import { Transaction } from './transactions/entities/transaction.entity';
+import { OnlineSessionsRepository } from './online-sessions/online-session.repository';
+import { AddressBook } from './address_book/entities/address_book.entity';
+
+@Global()
 @Module({
   imports: [
     JwtModule.register({
-      secret: process.env.JWT_SECRET,
+      secret: process.env.JWT_SECRET || 'default-secret',
       signOptions: { expiresIn: '30d' },
-      global: true // Đặt global để JwtService dùng được khắp app
+      global: true
     }),
-    // MongooseModule.forRoot(process.env.MONGO_URI), // Your MongoDB URI
+    EventEmitterModule.forRoot({
+      wildcard: false,
+      delimiter: '.',
+      newListener: false,
+      removeListener: false,
+      maxListeners: 10,
+      verboseMemoryLeak: true
+    }),
+    TypeOrmModule.forFeature([
+      FoodCategory,
+      Driver,
+      OnlineSession,
+      Order,
+      DriverStatsRecord,
+      DriverProgressStage,
+      RatingsReview,
+      AddressBook,
+      FinanceRule,
+      FWallet,
+      Transaction
+    ]),
     AddressBookModule,
-    EventEmitterModule.forRoot(),
     CustomersModule,
     DriversModule,
     UploadModule,
-    AuthModule, // Ensure AuthModule is imported
+    FoodCategory,
+    AuthModule,
     MailerCustomModule,
     FwalletsModule,
     TransactionsModule,
@@ -62,28 +113,30 @@ import { NotificationsModule } from './notifications/notifications.module';
     MenuItemVariantsModule,
     CartItemsModule,
     OrdersModule,
-    RatingsReviewsModule, // Import the mailer module here
+    RatingsReviewsModule,
     AdminModule,
     CustomerCaresModule,
     FinanceAdminModule,
     DriverProgressStagesModule,
     CompanionAdminModule,
-    CustomerCareInquiriesModule,
     FchatModule,
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: process.env.NEON_HOST,
-      port: parseInt(process.env.NEON_PORT),
-      username: process.env.NEON_USER,
-      password: process.env.NEON_PASSWORD,
-      database: process.env.NEON_DATABASE,
-      ssl: true,
+      name: 'default',
+      host: process.env.NEON_HOST || 'localhost',
+      port: parseInt(process.env.NEON_PORT || '5432', 10),
+      username: process.env.NEON_USER || 'postgres',
+      password: process.env.NEON_PASSWORD || 'postgres',
+      database: process.env.NEON_DATABASE || 'flashstrom',
+      ssl: {
+        rejectUnauthorized: false // Neon yêu cầu
+      },
+      extra: {
+        sslmode: 'require' // Cần cho Neon
+      },
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: true // Set to false in production
-      // extra: {
-      //   statement_timeout: 5000, // 10 giây cho mỗi truy vấn
-      //   lock_timeout: 3000 // 5 giây cho khóa
-      // }
+      synchronize: false,
+      logging: true
     }),
     UsersModule,
     PenaltiesModule,
@@ -96,6 +149,49 @@ import { NotificationsModule } from './notifications/notifications.module';
     NotificationsModule
   ],
   controllers: [AppController],
-  providers: [AppService, EmailService]
+  providers: [
+    AppService,
+    FoodCategoriesRepository,
+    EmailService,
+    DriversGateway,
+    OnlineSessionsRepository,
+    FinanceRulesRepository,
+    RestaurantsGateway,
+    RedisService,
+    {
+      provide: 'SOCKET_SERVER',
+      useFactory: () => {
+        const io = new Server({
+          cors: {
+            origin: '*',
+            methods: ['GET', 'POST']
+          }
+        });
+        return io;
+      }
+    },
+    RestaurantsService,
+    DriversService,
+    DriversRepository,
+    DriverStatsService,
+    EventEmitter2,
+    FinanceRulesService,
+    FWalletsRepository,
+    OnlineSessionsService,
+    TransactionService,
+    DriverProgressStagesService,
+    AddressBookRepository
+  ]
 })
-export class AppModule {}
+export class AppModule {
+  constructor() {
+    console.log('NEON_HOST:', process.env.NEON_HOST);
+    console.log('NEON_PORT:', process.env.NEON_PORT);
+    console.log('NEON_USER:', process.env.NEON_USER);
+    console.log(
+      'NEON_PASSWORD:',
+      process.env.NEON_PASSWORD ? '***' : 'undefined'
+    );
+    console.log('NEON_DATABASE:', process.env.NEON_DATABASE);
+  }
+}

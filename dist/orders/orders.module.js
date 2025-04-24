@@ -11,7 +11,6 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const orders_service_1 = require("./orders.service");
 const orders_controller_1 = require("./orders.controller");
-const orders_gateway_1 = require("./orders.gateway");
 const order_entity_1 = require("./entities/order.entity");
 const orders_repository_1 = require("./orders.repository");
 const menu_items_repository_1 = require("../menu_items/menu_items.repository");
@@ -24,13 +23,11 @@ const customer_entity_1 = require("../customers/entities/customer.entity");
 const customers_repository_1 = require("../customers/customers.repository");
 const restaurant_entity_1 = require("../restaurants/entities/restaurant.entity");
 const restaurants_repository_1 = require("../restaurants/restaurants.repository");
-const restaurants_gateway_1 = require("../restaurants/restaurants.gateway");
 const food_categories_repository_1 = require("../food_categories/food_categories.repository");
 const food_category_entity_1 = require("../food_categories/entities/food_category.entity");
 const driver_entity_1 = require("../drivers/entities/driver.entity");
 const restaurants_service_1 = require("../restaurants/restaurants.service");
 const drivers_service_1 = require("../drivers/drivers.service");
-const drivers_gateway_1 = require("../drivers/drivers.gateway");
 const user_entity_1 = require("../users/entities/user.entity");
 const users_repository_1 = require("../users/users.repository");
 const promotion_entity_1 = require("../promotions/entities/promotion.entity");
@@ -66,6 +63,11 @@ const ratings_review_entity_1 = require("../ratings_reviews/entities/ratings_rev
 const ratings_reviews_repository_1 = require("../ratings_reviews/ratings_reviews.repository");
 const notifications_repository_1 = require("../notifications/notifications.repository");
 const notification_entity_1 = require("../notifications/entities/notification.entity");
+const redis_service_1 = require("../redis/redis.service");
+const event_emitter_1 = require("@nestjs/event-emitter");
+const drivers_gateway_1 = require("../drivers/drivers.gateway");
+const restaurants_gateway_1 = require("../restaurants/restaurants.gateway");
+const socket_io_1 = require("socket.io");
 let OrdersModule = class OrdersModule {
 };
 exports.OrdersModule = OrdersModule;
@@ -98,10 +100,10 @@ exports.OrdersModule = OrdersModule = __decorate([
         ],
         controllers: [orders_controller_1.OrdersController],
         providers: [
+            redis_service_1.RedisService,
             orders_service_1.OrdersService,
             orders_repository_1.OrdersRepository,
             notifications_repository_1.NotificationsRepository,
-            orders_gateway_1.OrdersGateway,
             menu_items_repository_1.MenuItemsRepository,
             menu_item_variants_repository_1.MenuItemVariantsRepository,
             online_session_repository_1.OnlineSessionsRepository,
@@ -114,11 +116,9 @@ exports.OrdersModule = OrdersModule = __decorate([
             driver_stats_records_service_1.DriverStatsService,
             admin_repository_1.AdminRepository,
             restaurants_repository_1.RestaurantsRepository,
-            restaurants_gateway_1.RestaurantsGateway,
             food_categories_repository_1.FoodCategoriesRepository,
             restaurants_service_1.RestaurantsService,
             drivers_service_1.DriversService,
-            drivers_gateway_1.DriversGateway,
             users_repository_1.UserRepository,
             customers_service_1.CustomersService,
             drivers_repository_1.DriversRepository,
@@ -131,10 +131,25 @@ exports.OrdersModule = OrdersModule = __decorate([
             fwallets_repository_1.FWalletsRepository,
             transactions_service_1.TransactionService,
             customers_gateway_1.CustomersGateway,
+            drivers_gateway_1.DriversGateway,
+            restaurants_gateway_1.RestaurantsGateway,
             transactions_repository_1.TransactionsRepository,
-            jwt_1.JwtService
+            jwt_1.JwtService,
+            event_emitter_1.EventEmitter2,
+            {
+                provide: 'SOCKET_SERVER',
+                useFactory: () => {
+                    const io = new socket_io_1.Server({
+                        cors: {
+                            origin: '*',
+                            methods: ['GET', 'POST']
+                        }
+                    });
+                    return io;
+                }
+            }
         ],
-        exports: [orders_service_1.OrdersService]
+        exports: [orders_service_1.OrdersService, orders_repository_1.OrdersRepository]
     })
 ], OrdersModule);
 //# sourceMappingURL=orders.module.js.map

@@ -14,6 +14,7 @@ const restaurants_module_1 = require("../../restaurants/restaurants.module");
 const customers_module_1 = require("../../customers/customers.module");
 const drivers_module_1 = require("../../drivers/drivers.module");
 const customer_cares_module_1 = require("../../customer_cares/customer_cares.module");
+const finance_rules_module_1 = require("../../finance_rules/finance_rules.module");
 const auth_service_1 = require("../../auth/auth.service");
 const admin_service_1 = require("../admin.service");
 const restaurants_service_1 = require("../../restaurants/restaurants.service");
@@ -70,6 +71,15 @@ const ratings_reviews_repository_1 = require("../../ratings_reviews/ratings_revi
 const banned_account_entity_1 = require("../../banned-account/entities/banned-account.entity");
 const notification_entity_1 = require("../../notifications/entities/notification.entity");
 const notifications_repository_1 = require("../../notifications/notifications.repository");
+const restaurants_gateway_1 = require("../../restaurants/restaurants.gateway");
+const socket_io_1 = require("socket.io");
+const finance_rules_service_1 = require("../../finance_rules/finance_rules.service");
+const redis_service_1 = require("../../redis/redis.service");
+const finance_rules_repository_1 = require("../../finance_rules/finance_rules.repository");
+const finance_rule_entity_1 = require("../../finance_rules/entities/finance_rule.entity");
+const orders_service_1 = require("../../orders/orders.service");
+const drivers_gateway_1 = require("../../drivers/drivers.gateway");
+const driver_progress_stages_service_1 = require("../../driver_progress_stages/driver_progress_stages.service");
 let CompanionAdminModule = class CompanionAdminModule {
 };
 exports.CompanionAdminModule = CompanionAdminModule;
@@ -83,6 +93,7 @@ exports.CompanionAdminModule = CompanionAdminModule = __decorate([
                 customer_care_entity_1.CustomerCare,
                 food_category_entity_1.FoodCategory,
                 menu_item_entity_1.MenuItem,
+                finance_rule_entity_1.FinanceRule,
                 menu_item_variant_entity_1.MenuItemVariant,
                 order_entity_1.Order,
                 banned_account_entity_1.BannedAccount,
@@ -103,7 +114,8 @@ exports.CompanionAdminModule = CompanionAdminModule = __decorate([
             restaurants_module_1.RestaurantsModule,
             customers_module_1.CustomersModule,
             drivers_module_1.DriversModule,
-            customer_cares_module_1.CustomerCaresModule
+            customer_cares_module_1.CustomerCaresModule,
+            finance_rules_module_1.FinanceRulesModule
         ],
         controllers: [companion_admin_controller_1.CompanionAdminController],
         providers: [
@@ -134,7 +146,10 @@ exports.CompanionAdminModule = CompanionAdminModule = __decorate([
             online_session_repository_1.OnlineSessionsRepository,
             online_sessions_service_1.OnlineSessionsService,
             address_book_service_1.AddressBookService,
+            orders_service_1.OrdersService,
             customers_service_1.CustomersService,
+            drivers_gateway_1.DriversGateway,
+            driver_progress_stages_service_1.DriverProgressStagesService,
             restaurants_repository_1.RestaurantsRepository,
             customers_repository_1.CustomersRepository,
             customer_cares_repository_1.CustomerCaresRepository,
@@ -156,7 +171,23 @@ exports.CompanionAdminModule = CompanionAdminModule = __decorate([
             menu_items_service_1.MenuItemsService,
             menu_item_variants_service_1.MenuItemVariantsService,
             address_book_repository_1.AddressBookRepository,
-            drivers_repository_1.DriversRepository
+            drivers_repository_1.DriversRepository,
+            {
+                provide: 'SOCKET_SERVER',
+                useFactory: () => {
+                    const io = new socket_io_1.Server({
+                        cors: {
+                            origin: '*',
+                            methods: ['GET', 'POST']
+                        }
+                    });
+                    return io;
+                }
+            },
+            restaurants_gateway_1.RestaurantsGateway,
+            redis_service_1.RedisService,
+            finance_rules_service_1.FinanceRulesService,
+            finance_rules_repository_1.FinanceRulesRepository
         ]
     })
 ], CompanionAdminModule);

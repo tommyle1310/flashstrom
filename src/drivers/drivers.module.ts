@@ -1,15 +1,14 @@
+// drivers.module.ts
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DriversService } from './drivers.service';
 import { DriversController } from './drivers.controller';
-import { DriversGateway } from './drivers.gateway';
 import { Driver } from './entities/driver.entity';
 import { DriversRepository } from './drivers.repository';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { RestaurantsModule } from '../restaurants/restaurants.module';
 import { OrdersModule } from '../orders/orders.module';
 import { DriverProgressStagesModule } from '../driver_progress_stages/driver_progress_stages.module';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { Order } from 'src/orders/entities/order.entity';
@@ -39,6 +38,7 @@ import { Customer } from 'src/customers/entities/customer.entity';
 import { TransactionsRepository } from 'src/transactions/transactions.repository';
 import { UserRepository } from 'src/users/users.repository';
 import { User } from 'src/users/entities/user.entity';
+import { RedisService } from 'src/redis/redis.service';
 
 @Module({
   imports: [
@@ -61,13 +61,12 @@ import { User } from 'src/users/entities/user.entity';
     ]),
     forwardRef(() => RestaurantsModule),
     forwardRef(() => OrdersModule),
-    DriverProgressStagesModule,
-    EventEmitterModule.forRoot()
+    DriverProgressStagesModule
   ],
   controllers: [DriversController],
   providers: [
+    RedisService,
     DriversService,
-    DriversGateway,
     OrdersRepository,
     FWalletsRepository,
     TransactionService,
@@ -86,6 +85,6 @@ import { User } from 'src/users/entities/user.entity';
     JwtService,
     DriverStatsService
   ],
-  exports: [DriversService, DriversRepository]
+  exports: [DriversService, DriversRepository, DriverStatsService]
 })
 export class DriversModule {}

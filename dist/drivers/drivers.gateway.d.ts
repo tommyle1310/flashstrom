@@ -1,15 +1,13 @@
 import { OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit } from '@nestjs/websockets';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { Server, Socket } from 'socket.io';
+import { Socket } from 'socket.io';
 import { DriversService } from './drivers.service';
-import { UpdateDriverDto } from './dto/update-driver.dto';
 import { RestaurantsService } from 'src/restaurants/restaurants.service';
 import { OrdersService } from 'src/orders/orders.service';
 import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
 import { Order } from 'src/orders/entities/order.entity';
 import { DataSource } from 'typeorm';
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
-import { Driver } from './entities/driver.entity';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { DriversRepository } from './drivers.repository';
 import { JwtService } from '@nestjs/jwt';
@@ -17,12 +15,14 @@ import { DriverStatsService } from 'src/driver_stats_records/driver_stats_record
 import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionService } from 'src/transactions/transactions.service';
+import { RedisService } from 'src/redis/redis.service';
 export declare class DriversGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
+    private socketServer;
     private readonly restaurantsService;
     private readonly driverService;
     private readonly driverRepository;
     private readonly driverStatsService;
-    private eventEmitter;
+    private readonly eventEmitter;
     private readonly ordersService;
     private readonly financeRulesService;
     private readonly fWalletsRepository;
@@ -31,20 +31,24 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
     private readonly dataSource;
     private readonly addressBookRepository;
     private readonly jwtService;
-    server: Server;
+    private readonly redisService;
+    private server;
     private driverSockets;
     private notificationLock;
     private activeConnections;
     private dpsCreationLocks;
-    private requestQueue;
     private processingOrders;
-    constructor(restaurantsService: RestaurantsService, driverService: DriversService, driverRepository: DriversRepository, driverStatsService: DriverStatsService, eventEmitter: EventEmitter2, ordersService: OrdersService, financeRulesService: FinanceRulesService, fWalletsRepository: FWalletsRepository, transactionsService: TransactionService, driverProgressStageService: DriverProgressStagesService, dataSource: DataSource, addressBookRepository: AddressBookRepository, jwtService: JwtService);
+    private processedEvents;
+    private isListenerRegistered;
+    private redisClient;
+    constructor(socketServer: any, restaurantsService: RestaurantsService, driverService: DriversService, driverRepository: DriversRepository, driverStatsService: DriverStatsService, eventEmitter: EventEmitter2, ordersService: OrdersService, financeRulesService: FinanceRulesService, fWalletsRepository: FWalletsRepository, transactionsService: TransactionService, driverProgressStageService: DriverProgressStagesService, dataSource: DataSource, addressBookRepository: AddressBookRepository, jwtService: JwtService, redisService: RedisService);
     afterInit(): void;
+    private registerEventListeners;
+    onModuleDestroy(): Promise<void>;
     private validateToken;
     handleConnection(client: Socket): Promise<void>;
-    private cleanupDriverConnections;
+    cleanupDriverConnections(driverId: string, newSocketId: string): Promise<void>;
     handleDisconnect(client: Socket): void;
-    handleUpdateDriver(updateDriverDto: UpdateDriverDto): Promise<import("../utils/createResponse").ApiResponse<Driver>>;
     handleNewOrder(order: any): Promise<any>;
     notifyPartiesOnce(order: Order): Promise<void>;
     handleDriverProgressUpdate(data: {
@@ -71,7 +75,6 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
         message: any;
     }>;
     private calculateEstimatedTime;
-    private calculateTotalEarns;
     private getStageDetails;
     handleOrderAssignedToDriver(orderAssignment: any): Promise<{
         event: string;

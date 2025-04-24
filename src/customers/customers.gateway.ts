@@ -114,7 +114,6 @@ export class CustomersGateway {
       customerAddress: order.customerAddress,
       driverDetails: order.driverDetails
     };
-    console.log('check tackign udpate', order);
     await this.server
       .to(`customer_${order.customer_id}`)
       .emit('notifyOrderStatus', trackingUpdate); // Đổi thành notifyOrderStatus

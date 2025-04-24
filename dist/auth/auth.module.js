@@ -76,6 +76,15 @@ const driver_stats_records_service_1 = require("../driver_stats_records/driver_s
 const banned_account_entity_1 = require("../banned-account/entities/banned-account.entity");
 const notification_entity_1 = require("../notifications/entities/notification.entity");
 const notifications_repository_1 = require("../notifications/notifications.repository");
+const socket_io_1 = require("socket.io");
+const restaurants_gateway_1 = require("../restaurants/restaurants.gateway");
+const finance_rules_service_1 = require("../finance_rules/finance_rules.service");
+const finance_rule_entity_1 = require("../finance_rules/entities/finance_rule.entity");
+const redis_service_1 = require("../redis/redis.service");
+const finance_rules_repository_1 = require("../finance_rules/finance_rules.repository");
+const orders_service_1 = require("../orders/orders.service");
+const drivers_gateway_1 = require("../drivers/drivers.gateway");
+const driver_progress_stages_service_1 = require("../driver_progress_stages/driver_progress_stages.service");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -97,6 +106,7 @@ exports.AuthModule = AuthModule = __decorate([
                 fwallet_entity_1.FWallet,
                 driver_entity_1.Driver,
                 ratings_review_entity_1.RatingsReview,
+                finance_rule_entity_1.FinanceRule,
                 driver_stats_record_entity_1.DriverStatsRecord,
                 restaurant_entity_1.Restaurant,
                 banned_account_entity_1.BannedAccount,
@@ -125,7 +135,26 @@ exports.AuthModule = AuthModule = __decorate([
             auth_service_1.AuthService,
             email_service_1.EmailService,
             jwt_strategy_1.JwtStrategy,
+            {
+                provide: 'SOCKET_SERVER',
+                useFactory: () => {
+                    const io = new socket_io_1.Server({
+                        cors: {
+                            origin: '*',
+                            methods: ['GET', 'POST']
+                        }
+                    });
+                    return io;
+                }
+            },
+            restaurants_gateway_1.RestaurantsGateway,
+            finance_rules_service_1.FinanceRulesService,
+            redis_service_1.RedisService,
             email_service_1.EmailService,
+            finance_rules_repository_1.FinanceRulesRepository,
+            orders_service_1.OrdersService,
+            drivers_gateway_1.DriversGateway,
+            driver_progress_stages_service_1.DriverProgressStagesService,
             driver_stats_records_service_1.DriverStatsService,
             users_service_1.UsersService,
             driver_progress_stages_repository_1.DriverProgressStagesRepository,

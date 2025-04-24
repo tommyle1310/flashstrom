@@ -12,9 +12,8 @@ import { evaluate } from 'mathjs';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Server, Socket } from 'socket.io';
 import { DriversService } from './drivers.service';
-import { UpdateDriverDto } from './dto/update-driver.dto';
 import { RestaurantsService } from 'src/restaurants/restaurants.service';
-import { forwardRef, Inject } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { OrdersService } from 'src/orders/orders.service';
 import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
 import {
@@ -36,7 +35,10 @@ import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionService } from 'src/transactions/transactions.service';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { FLASHFOOD_FINANCE } from 'src/utils/constants';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { RedisService } from 'src/redis/redis.service';
 
+@Injectable()
 @WebSocketGateway({
   namespace: 'driver',
   cors: {
@@ -44,27 +46,43 @@ import { FLASHFOOD_FINANCE } from 'src/utils/constants';
     methods: ['GET', 'POST'],
     credentials: true
   },
-  transports: ['websocket']
+  transports: ['websocket'],
+  pingTimeout: 180000,
+  pingInterval: 30000,
+  maxHttpBufferSize: 1e6,
+  logger: {
+    error: (msg, context) =>
+      console.error(`[Socket.IO Error] ${context}: ${msg}`),
+    warn: (msg, context) => console.warn(`[Socket.IO Warn] ${context}: ${msg}`),
+    info: (msg, context) => console.info(`[Socket.IO Info] ${context}: ${msg}`),
+    debug: (msg, context) =>
+      console.debug(`[Socket.IO Debug] ${context}: ${msg}`)
+  }
 })
 export class DriversGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {
   @WebSocketServer()
-  server: Server;
+  private server: Server;
   private driverSockets: Map<string, Set<string>> = new Map();
   private notificationLock = new Map<string, boolean>();
   private activeConnections = new Map<string, Socket>();
   private dpsCreationLocks = new Set<string>();
-  private requestQueue: Map<string, Promise<void>> = new Map();
   private processingOrders: Set<string> = new Set();
+  private processedEvents = new Map<string, number>();
+  private isListenerRegistered = false;
+  private redisClient: any;
 
   constructor(
+    @Inject('SOCKET_SERVER') private socketServer: any,
+    @Inject(forwardRef(() => RestaurantsService))
     private readonly restaurantsService: RestaurantsService,
     @Inject(forwardRef(() => DriversService))
     private readonly driverService: DriversService,
     private readonly driverRepository: DriversRepository,
     private readonly driverStatsService: DriverStatsService,
-    private eventEmitter: EventEmitter2,
+    private readonly eventEmitter: EventEmitter2,
+    @Inject(forwardRef(() => OrdersService))
     private readonly ordersService: OrdersService,
     private readonly financeRulesService: FinanceRulesService,
     private readonly fWalletsRepository: FWalletsRepository,
@@ -72,121 +90,367 @@ export class DriversGateway
     private readonly driverProgressStageService: DriverProgressStagesService,
     private readonly dataSource: DataSource,
     private readonly addressBookRepository: AddressBookRepository,
-    private readonly jwtService: JwtService
-  ) {}
+    private readonly jwtService: JwtService,
+    private readonly redisService: RedisService
+  ) {
+    console.log(
+      '[DriversGateway] Constructor called, instance ID:',
+      Math.random()
+    );
+    this.redisClient = this.redisService.getClient();
+  }
 
   afterInit() {
-    console.log('Driver Gateway initialized');
+    console.log('[DriversGateway] Initialized');
+    if (!this.server) {
+      console.error(
+        '[DriversGateway] WebSocket server is null after initialization'
+      );
+      return;
+    }
+    try {
+      const pubClient = this.redisService.getClient();
+      const subClient = pubClient.duplicate();
+      let retryCount = 0;
+      const maxRetries = 3;
+      const connectRedis = async () => {
+        try {
+          if (subClient.isOpen) {
+            console.log(
+              '[DriversGateway] Redis subClient already open, skipping connect'
+            );
+          } else {
+            await subClient.connect();
+            console.log('[DriversGateway] Redis subClient connected');
+          }
+          const redisAdapter = createAdapter(pubClient, subClient);
+          this.server.adapter(redisAdapter);
+          console.log(
+            '[DriversGateway] Socket.IO Redis adapter initialized successfully'
+          );
+        } catch (err) {
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.warn(
+              `[DriversGateway] Retrying Redis connection (${retryCount}/${maxRetries})...`
+            );
+            setTimeout(connectRedis, 2000); // Tăng delay
+          } else {
+            console.error(
+              '[DriversGateway] Failed to initialize Redis adapter after retries:',
+              err.message
+            );
+          }
+        }
+      };
+      connectRedis();
+    } catch (err) {
+      console.error(
+        '[DriversGateway] Error setting up Redis adapter:',
+        err.message
+      );
+    }
+    this.registerEventListeners();
+    this.server.setMaxListeners(300); // Tăng maxListeners
+  }
+
+  private registerEventListeners() {
+    if (this.isListenerRegistered) {
+      console.log(
+        '[DriversGateway] Event listeners already registered, skipping'
+      );
+      return;
+    }
+    this.eventEmitter.removeAllListeners('order.assignedToDriver');
+    this.eventEmitter.on(
+      'order.assignedToDriver',
+      this.handleOrderAssignedToDriver.bind(this)
+    );
+    this.isListenerRegistered = true;
+    console.log(
+      '[DriversGateway] Registered event listener for order.assignedToDriver'
+    );
+  }
+
+  async onModuleDestroy() {
+    this.eventEmitter.removeListener(
+      'order.assignedToDriver',
+      this.handleOrderAssignedToDriver.bind(this)
+    );
+    this.isListenerRegistered = false;
+    if (this.redisClient && this.redisClient.isOpen) {
+      await this.redisClient.quit();
+    }
+    console.log(
+      '[DriversGateway] Removed event listener and closed Redis connection'
+    );
   }
 
   private async validateToken(client: Socket): Promise<any> {
     try {
       const authHeader = client.handshake.headers.auth as string;
       if (!authHeader?.startsWith('Bearer ')) {
-        client.disconnect();
-        return null;
+        throw new WsException('Invalid token');
       }
-
       const token = authHeader.slice(7);
       if (!token) {
-        client.disconnect();
-        return null;
+        throw new WsException('No token provided');
       }
-
       const decoded = await this.jwtService.verify(token, {
         secret: process.env.JWT_SECRET
       });
-
       return decoded;
     } catch (error) {
-      console.error('Token validation error:', error);
-      client.disconnect();
-      return null;
+      console.error('[DriversGateway] Token validation error:', error.message);
+      throw new WsException('Token validation failed');
     }
   }
 
   async handleConnection(client: Socket) {
-    const driverData = await this.validateToken(client);
-    if (!driverData) return;
-
-    const driverId = driverData.id;
-    if (driverId) {
-      this.cleanupDriverConnections(driverId);
-      if (!this.driverSockets.has(driverId)) {
-        this.driverSockets.set(driverId, new Set());
+    try {
+      console.log('⚡️ Client connected to driver namespace:', client.id);
+      const driverData = await this.validateToken(client);
+      if (!driverData) {
+        console.log(
+          '[DriversGateway] Invalid token, disconnecting:',
+          client.id
+        );
+        client.disconnect(true);
+        return;
       }
-      this.driverSockets.get(driverId)?.add(client.id);
-      client.join(`driver_${driverId}`);
-      console.log(`Driver auto-joined driver_${driverId} via token`);
+
+      const driverId = driverData.id;
+      console.log(
+        `[DriversGateway] Driver ${driverId} attempting connection:`,
+        client.id
+      );
+
+      // Lock để tránh nhiều kết nối đồng thời
+      const lockKey = `lock:driver:connect:${driverId}`;
+      let lockAcquired = false;
+      let retryCount = 0;
+      const maxRetries = 10;
+      const retryDelay = 100;
+      const lockTTL = 30000;
+
+      while (!lockAcquired && retryCount < maxRetries) {
+        lockAcquired = await this.redisService.setNx(
+          lockKey,
+          client.id,
+          lockTTL
+        );
+        if (!lockAcquired) {
+          const existingSocketId = await this.redisService.get(lockKey);
+          if (existingSocketId && existingSocketId !== client.id) {
+            const existingSocket = this.activeConnections.get(existingSocketId);
+            if (existingSocket && existingSocket.connected) {
+              console.log(
+                `[DriversGateway] Active connection exists for driver ${driverId} with socket ${existingSocketId}, disconnecting ${client.id}`
+              );
+              client.disconnect(true);
+              return;
+            }
+            await this.redisService.del(lockKey);
+          }
+          retryCount++;
+          console.log(
+            `[DriversGateway] Retrying lock for driver ${driverId} (${retryCount}/${maxRetries})`
+          );
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        }
+      }
+
+      if (!lockAcquired) {
+        console.log(
+          `[DriversGateway] Failed to acquire lock for driver ${driverId}, disconnecting ${client.id}`
+        );
+        client.disconnect(true);
+        return;
+      }
+
+      try {
+        // Kiểm tra số lượng clients trong room
+        const clients = await this.server
+          .in(`driver_${driverId}`)
+          .fetchSockets();
+        if (clients.length > 0) {
+          console.warn(
+            `[DriversGateway] Multiple clients detected in room driver_${driverId}, cleaning up`
+          );
+          await this.cleanupDriverConnections(driverId, client.id);
+        }
+
+        // Join room
+        await client.join(`driver_${driverId}`);
+        console.log(`Driver auto-joined driver_${driverId} via token`);
+
+        // Update socket set
+        this.driverSockets.set(driverId, new Set([client.id]));
+        console.log(
+          `[DriversGateway] Updated socket set for driver ${driverId}:`,
+          this.driverSockets.get(driverId)
+        );
+
+        // Store active connection
+        this.activeConnections.set(client.id, client);
+
+        // Log clients in room
+        const updatedClients = await this.server
+          .in(`driver_${driverId}`)
+          .fetchSockets();
+        console.log(
+          `[DriversGateway] Clients in room driver_${driverId}:`,
+          updatedClients.length
+        );
+
+        // Emit connected event
+        client.emit('connected', { driverId, status: 'connected' });
+      } finally {
+        await this.redisService.del(lockKey);
+      }
+    } catch (error) {
+      console.error(
+        '[DriversGateway] Error handling connection:',
+        error.message
+      );
+      client.disconnect(true);
     }
-    this.activeConnections.set(client.id, client);
   }
 
-  private cleanupDriverConnections(driverId: string) {
-    for (const [id, socket] of this.activeConnections.entries()) {
-      if (socket.handshake.query.driverId === driverId) {
-        socket.disconnect();
-        this.activeConnections.delete(id);
+  async cleanupDriverConnections(driverId: string, newSocketId: string) {
+    console.log(
+      `[DriversGateway] Cleaning up connections for driver ${driverId}`
+    );
+    const socketIds = this.driverSockets.get(driverId) || new Set();
+    const existingSockets = await this.server
+      .in(`driver_${driverId}`)
+      .fetchSockets();
+
+    for (const socket of existingSockets) {
+      if (socket.id !== newSocketId) {
+        const activeSocket = this.activeConnections.get(socket.id);
+        if (activeSocket) {
+          console.log(
+            `[DriversGateway] Disconnecting old socket ${socket.id} for driver ${driverId}`
+          );
+          activeSocket.removeAllListeners();
+          activeSocket.leave(`driver_${driverId}`);
+          activeSocket.disconnect(true);
+          this.activeConnections.delete(socket.id);
+        }
       }
     }
-    this.processingOrders.clear();
-    this.dpsCreationLocks.clear();
-    this.notificationLock.clear();
+
+    for (const socketId of socketIds) {
+      if (socketId !== newSocketId) {
+        this.activeConnections.delete(socketId);
+      }
+    }
+    this.driverSockets.delete(driverId);
+    console.log(`[DriversGateway] Removed socket set for driver ${driverId}`);
+
+    this.notificationLock.delete(`notify_${driverId}`);
+    this.processingOrders.forEach(lock => {
+      if (lock.startsWith(`${driverId}_`)) {
+        this.processingOrders.delete(lock);
+      }
+    });
+    this.dpsCreationLocks.delete(driverId);
   }
 
   handleDisconnect(client: Socket) {
-    console.log(`Driver disconnected: ${client.id}`);
-    const driverId = client.handshake.query.driverId as string;
+    console.log(`[DriversGateway] Driver disconnected: ${client.id}`);
+    const driverId = Array.from(this.driverSockets.keys()).find(key => {
+      const socketSet = this.driverSockets.get(key);
+      return socketSet && socketSet.has(client.id);
+    });
+
     this.activeConnections.delete(client.id);
+
     if (driverId) {
-      this.processingOrders.delete(`${driverId}_*`);
-      this.dpsCreationLocks.delete(driverId);
+      const socketSet = this.driverSockets.get(driverId);
+      if (socketSet) {
+        socketSet.delete(client.id);
+        if (socketSet.size === 0) {
+          this.driverSockets.delete(driverId);
+        }
+      }
+      client.leave(`driver_${driverId}`);
+      client.removeAllListeners();
+      for (const lock of this.processingOrders) {
+        if (lock.startsWith(`${driverId}_`)) {
+          this.processingOrders.delete(lock);
+        }
+      }
     }
   }
 
-  @SubscribeMessage('updateDriver')
-  async handleUpdateDriver(@MessageBody() updateDriverDto: UpdateDriverDto) {
-    const driver = await this.driverService.update(
-      updateDriverDto.id,
-      updateDriverDto
-    );
-    this.server.emit('driverUpdated', driver);
-    return driver;
-  }
+  // Giữ nguyên các phương thức khác
+
+  // Giữ nguyên các phương thức khác
+
+  // @SubscribeMessage('updateDriver')
+  // async handleUpdateDriver(@MessageBody() updateDriverDto: UpdateDriverDto) {
+  //   const driver = await this.driverService.update(
+  //     updateDriverDto.id,
+  //     updateDriverDto
+  //   );
+  //   if (this.server) {
+  //     this.server.emit('driverUpdated', driver);
+  //     console.log('[DriversGateway] Emitted driverUpdated:', driver.id);
+  //   } else {
+  //     console.error(
+  //       '[DriversGateway] WebSocket server is null, cannot emit driverUpdated'
+  //     );
+  //   }
+  //   return driver;
+  // }
 
   @SubscribeMessage('newOrderForDriver')
   async handleNewOrder(@MessageBody() order: any) {
     const driverId = order.driver_id;
-    this.server.to(driverId).emit('incomingOrder', order);
-    console.log('Emitted incomingOrder event to driver:', driverId, order);
+    if (this.server) {
+      this.server.to(driverId).emit('incomingOrder', order);
+      console.log(
+        '[DriversGateway] Emitted incomingOrder to driver:',
+        driverId
+      );
+    } else {
+      console.error(
+        '[DriversGateway] WebSocket server is null, cannot emit incomingOrder'
+      );
+    }
     return order;
   }
 
   public async notifyPartiesOnce(order: Order) {
     const notifyKey = `notify_${order.id}`;
-    if (this.notificationLock.get(notifyKey)) return;
+    const redisLockKey = `lock:notify:${order.id}`;
 
     try {
-      this.notificationLock.set(notifyKey, true);
-      console.log('[DEBUG] notifyPartiesOnce - order.driver:', order.driver);
-      console.log(
-        '[DEBUG] notifyPartiesOnce - order.driver_id:',
-        order.driver_id
-      );
+      const isLocked = await this.redisClient.set(redisLockKey, 'locked', {
+        NX: true,
+        EX: 10
+      });
+      if (!isLocked) {
+        console.log(
+          `[DriversGateway] Notification for order ${order.id} already in progress, skipping`
+        );
+        return;
+      }
 
-      // If order.driver is null but driver_id is present, fetch the driver
+      this.notificationLock.set(notifyKey, true);
+
       let driver = order.driver;
       if (!driver && order.driver_id) {
         console.warn(
-          `[DEBUG] notifyPartiesOnce - order.driver is null, fetching driver with id: ${order.driver_id}`
+          `[DriversGateway] order.driver is null, fetching driver with id: ${order.driver_id}`
         );
         driver = await this.dataSource
           .getRepository(Driver)
           .findOne({ where: { id: order.driver_id } });
         if (!driver) {
-          console.error(
-            `[DEBUG] notifyPartiesOnce - Driver ${order.driver_id} not found`
-          );
+          console.error(`[DriversGateway] Driver ${order.driver_id} not found`);
         }
       }
 
@@ -209,7 +473,7 @@ export class DriversGateway
           created_at: 0,
           updated_at: 0,
           postal_code: 0,
-          location: { lat: 0, lng: 0 }, // Fixed 'lon' to 'lng' for consistency
+          location: { lat: 0, lng: 0 },
           title: ''
         },
         customerAddress: order.customerAddress || {
@@ -221,7 +485,7 @@ export class DriversGateway
           created_at: 0,
           updated_at: 0,
           postal_code: 0,
-          location: { lat: 0, lng: 0 }, // Fixed 'lon' to 'lng'
+          location: { lat: 0, lng: 0 },
           title: ''
         },
         driverDetails: driver
@@ -260,13 +524,20 @@ export class DriversGateway
       };
 
       console.log(
-        '[DEBUG] notifyPartiesOnce - trackingUpdate:',
-        JSON.stringify(trackingUpdate, null, 2)
+        '[DriversGateway] notifyPartiesOnce - trackingUpdate:',
+        trackingUpdate
       );
       this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
-      console.log(`Emitted notifyOrderStatus for order ${order.id}`);
+      console.log(
+        `[DriversGateway] Emitted notifyOrderStatus for order ${order.id}`
+      );
+    } catch (err) {
+      console.error('[DriversGateway] Error in notifyPartiesOnce:', err);
     } finally {
       this.notificationLock.delete(notifyKey);
+      await this.redisClient
+        .del(redisLockKey)
+        .catch(err => console.error('[Redis] Error releasing lock:', err));
     }
   }
 
@@ -650,14 +921,14 @@ export class DriversGateway
                   );
                 }
                 console.log(
-                  'COD transaction from driver to restaurant succeeded:',
+                  '[DriversGateway] COD transaction from driver to restaurant succeeded:',
                   codTransactionResponse.data
                 );
               }
             }
 
             console.log(
-              'check total earns',
+              '[DriversGateway] check total earns',
               dps.total_earns,
               'check driver wallet',
               driverWallet.id
@@ -688,7 +959,7 @@ export class DriversGateway
                 );
               }
               console.log(
-                'Earnings transaction for driver succeeded:',
+                '[DriversGateway] Earnings transaction for driver succeeded:',
                 earningsTransactionResponse.data
               );
 
@@ -708,22 +979,33 @@ export class DriversGateway
           );
 
           if (updateResult.EC === 0 && hasChanges) {
-            await this.server
-              .to(`driver_${dps.driver_id}`)
-              .emit('driverStagesUpdated', updateResult.data);
-            console.log('Emitted driverStagesUpdated:', updateResult.data);
+            if (this.server) {
+              await this.server
+                .to(`driver_${dps.driver_id}`)
+                .emit('driverStagesUpdated', updateResult.data);
+              console.log(
+                '[DriversGateway] Emitted driverStagesUpdated:',
+                updateResult.data
+              );
+            } else {
+              console.error(
+                '[DriversGateway] WebSocket server is null, cannot emit driverStagesUpdated'
+              );
+            }
           } else {
-            console.log('Skipped emitting driverStagesUpdated:', {
-              reason: !hasChanges ? 'No changes detected' : 'Update failed',
-              oldStagesString,
-              newStagesString,
-              oldCurrentState,
-              newCurrentState: updateResult.data.current_state,
-              allStagesCompleted
-            });
+            console.log(
+              '[DriversGateway] Skipped emitting driverStagesUpdated:',
+              {
+                reason: !hasChanges ? 'No changes detected' : 'Update failed',
+                oldStagesString,
+                newStagesString,
+                oldCurrentState,
+                newCurrentState: updateResult.data.current_state,
+                allStagesCompleted
+              }
+            );
           }
 
-          // Reload order with driver relation to ensure driver data is included
           const updatedOrder = await transactionalEntityManager
             .getRepository(Order)
             .findOne({
@@ -738,27 +1020,28 @@ export class DriversGateway
             });
 
           if (!updatedOrder) {
-            console.error(`Order ${targetOrderId} not found after update`);
+            console.error(
+              `[DriversGateway] Order ${targetOrderId} not found after update`
+            );
             return { success: false, message: 'Order not found' };
           }
 
-          // If driver is null but driver_id is present, fetch the driver
           if (!updatedOrder.driver && updatedOrder.driver_id) {
             console.warn(
-              `[DEBUG] handleDriverProgressUpdate - updatedOrder.driver is null, fetching driver with id: ${updatedOrder.driver_id}`
+              `[DriversGateway] updatedOrder.driver is null, fetching driver with id: ${updatedOrder.driver_id}`
             );
             updatedOrder.driver = await transactionalEntityManager
               .getRepository(Driver)
               .findOne({ where: { id: updatedOrder.driver_id } });
             if (!updatedOrder.driver) {
               console.error(
-                `[DEBUG] handleDriverProgressUpdate - Driver ${updatedOrder.driver_id} not found`
+                `[DriversGateway] Driver ${updatedOrder.driver_id} not found`
               );
             }
           }
 
           console.log(
-            '[DEBUG] handleDriverProgressUpdate - updatedOrder.driver:',
+            '[DriversGateway] handleDriverProgressUpdate - updatedOrder.driver:',
             updatedOrder.driver
           );
           await this.notifyPartiesOnce(updatedOrder);
@@ -768,7 +1051,10 @@ export class DriversGateway
       );
       return result;
     } catch (error) {
-      console.error('❌ Error in handleDriverProgressUpdate:', error);
+      console.error(
+        '[DriversGateway] Error in handleDriverProgressUpdate:',
+        error
+      );
       return { success: false, message: 'Internal server error' };
     }
   }
@@ -777,24 +1063,26 @@ export class DriversGateway
   async handleDriverAcceptOrder(
     @MessageBody() data: { driverId: string; orderId: string }
   ) {
-    console.log('[DEBUG] Raw data received:', data);
+    console.log('[DriversGateway] Raw data received:', data);
     const { driverId, orderId } = data;
 
     if (!driverId || !driverId.startsWith('FF_DRI_')) {
-      console.error(`Invalid driverId: ${driverId}`);
+      console.error(`[DriversGateway] Invalid driverId: ${driverId}`);
       return { success: false, message: 'Invalid driverId' };
     }
     if (!orderId || !orderId.startsWith('FF_ORDER_')) {
-      console.error(`Invalid orderId: ${orderId}`);
+      console.error(`[DriversGateway] Invalid orderId: ${orderId}`);
       return { success: false, message: 'Invalid orderId' };
     }
 
     const lockKey = `${driverId}_${orderId}`;
-    console.log(`Driver ${driverId} accepting order ${orderId}`);
+    console.log(
+      `[DriversGateway] Driver ${driverId} accepting order ${orderId}`
+    );
 
     if (this.processingOrders.has(lockKey)) {
       console.log(
-        `Order ${orderId} already being processed by driver ${driverId}`
+        `[DriversGateway] Order ${orderId} already being processed by driver ${driverId}`
       );
       return { success: false, message: 'Order is already being processed' };
     }
@@ -816,7 +1104,10 @@ export class DriversGateway
           this.dataSource.transaction(
             'SERIALIZABLE',
             async transactionalEntityManager => {
-              console.log('[DEBUG] Starting transaction for order:', orderId);
+              console.log(
+                '[DriversGateway] Starting transaction for order:',
+                orderId
+              );
 
               const order = await transactionalEntityManager
                 .getRepository(Order)
@@ -827,7 +1118,7 @@ export class DriversGateway
 
               if (!order) {
                 console.error(
-                  `[DEBUG] Order not found in DB for orderId: ${orderId}`
+                  `[DriversGateway] Order not found in DB for orderId: ${orderId}`
                 );
                 throw new WsException('Order not found');
               }
@@ -874,16 +1165,6 @@ export class DriversGateway
                 })
                 .getOne();
 
-              // let dpsWithRelations: DriverProgressStage | null = null;
-              // if (existingDPS) {
-              //   dpsWithRelations = await transactionalEntityManager
-              //     .getRepository(DriverProgressStage)
-              //     .findOne({
-              //       where: { id: existingDPS.id },
-              //       relations: ['orders']
-              //     });
-              // }
-
               let dps: DriverProgressStage;
               const timestamp = Math.floor(Date.now() / 1000);
 
@@ -894,7 +1175,7 @@ export class DriversGateway
                   : Number(rawDistance);
               if (isNaN(distance)) {
                 console.warn(
-                  `Invalid distance value for order ${orderId}: ${rawDistance}`
+                  `[DriversGateway] Invalid distance value for order ${orderId}: ${rawDistance}`
                 );
                 throw new WsException('Invalid distance value in order');
               }
@@ -905,7 +1186,7 @@ export class DriversGateway
               const latestFinanceRuleResponse =
                 await this.financeRulesService.findOneLatest();
               const { EC, EM, data } = latestFinanceRuleResponse;
-              console.log('check finance rule data:', data);
+              console.log('[DriversGateway] check finance rule data:', data);
 
               if (EC !== 0) throw new WsException(EM);
 
@@ -924,25 +1205,31 @@ export class DriversGateway
                   driver_wage = evaluate(
                     formula.replace('km', distance.toString())
                   );
-                  console.log('Calculated driver wage:', driver_wage);
+                  console.log(
+                    '[DriversGateway] Calculated driver wage:',
+                    driver_wage
+                  );
                 } catch (error) {
-                  console.error('Error evaluating wage formula:', error);
+                  console.error(
+                    '[DriversGateway] Error evaluating wage formula:',
+                    error
+                  );
                   throw new WsException('Invalid wage formula');
                 }
               } else {
                 console.warn(
-                  `Invalid distance range for order ${orderId}: ${distance}`
+                  `[DriversGateway] Invalid distance range for order ${orderId}: ${distance}`
                 );
                 throw new WsException('Invalid distance value');
               }
-              console.log('check driver wage:', driver_wage);
+              console.log('[DriversGateway] check driver wage:', driver_wage);
 
               const totalEarns = driver_wage;
-              console.log('check total earns??', totalEarns);
+              console.log('[DriversGateway] check total earns:', totalEarns);
 
               if (!existingDPS) {
                 console.log(
-                  `No existing DPS found for driver ${driverId}, creating new one`
+                  `[DriversGateway] No existing DPS found for driver ${driverId}, creating new one`
                 );
                 const dpsResponse =
                   await this.driverProgressStageService.create(
@@ -971,14 +1258,14 @@ export class DriversGateway
                   );
                   return { ...stage, details };
                 });
-                console.log('[DEBUG] Saving new DPS');
+                console.log('[DriversGateway] Saving new DPS');
                 await transactionalEntityManager.save(DriverProgressStage, dps);
                 console.log(
-                  `[DEBUG] Created DPS with total_earns=${dps.total_earns}`
+                  `[DriversGateway] Created DPS with total_earns=${dps.total_earns}`
                 );
               } else {
                 console.log(
-                  `Existing DPS found for driver ${driverId}, adding order`
+                  `[DriversGateway] Existing DPS found for driver ${driverId}, adding order`
                 );
                 const dpsResponse =
                   await this.driverProgressStageService.addOrderToExistingDPS(
@@ -1005,7 +1292,7 @@ export class DriversGateway
                     Number(dps.total_earns || 0) + Number(totalEarns);
                 } else {
                   console.log(
-                    `[DEBUG] Order ${orderId} already in DPS, skipping earnings update`
+                    `[DriversGateway] Order ${orderId} already in DPS, skipping earnings update`
                   );
                 }
 
@@ -1019,18 +1306,24 @@ export class DriversGateway
                   );
                   return { ...stage, details };
                 });
-                console.log('[DEBUG] Saving updated DPS');
+                console.log('[DriversGateway] Saving updated DPS');
                 await transactionalEntityManager.save(DriverProgressStage, dps);
                 console.log(
-                  `[DEBUG] Updated DPS with total_earns=${dps.total_earns}`
+                  `[DriversGateway] Updated DPS with total_earns=${dps.total_earns}`
                 );
               }
 
               orderWithRelations.driver_id = driverId;
+              orderWithRelations.driver_wage = driver_wage;
               orderWithRelations.status = OrderStatus.DISPATCHED;
               orderWithRelations.tracking_info = OrderTrackingInfo.DISPATCHED;
               orderWithRelations.updated_at = timestamp;
-              console.log('[DEBUG] Saving order');
+              console.log(
+                '[DriversGateway] Saving order with driver_id:',
+                driverId,
+                'driver_wage:',
+                driver_wage
+              );
               await transactionalEntityManager.save(Order, orderWithRelations);
 
               driverWithRelations.current_orders =
@@ -1040,13 +1333,12 @@ export class DriversGateway
               ) {
                 driverWithRelations.current_orders.push(orderWithRelations);
               }
-              console.log('[DEBUG] Saving driver');
+              console.log('[DriversGateway] Saving driver');
               await transactionalEntityManager.save(
                 Driver,
                 driverWithRelations
               );
 
-              // Reload order with driver relation to ensure driver data is included
               const updatedOrder = await transactionalEntityManager
                 .getRepository(Order)
                 .findOne({
@@ -1065,7 +1357,15 @@ export class DriversGateway
               if (!updatedOrder)
                 throw new WsException('Order not found after update');
 
-              console.log('[DEBUG] Transaction completed');
+              console.log(
+                '[DriversGateway] Transaction completed, updatedOrder:',
+                {
+                  id: updatedOrder.id,
+                  driver_id: updatedOrder.driver_id,
+                  driver_wage: updatedOrder.driver_wage,
+                  status: updatedOrder.status
+                }
+              );
               return { success: true, order: updatedOrder, dps };
             }
           ),
@@ -1079,27 +1379,38 @@ export class DriversGateway
 
         if (result instanceof Error) throw result;
 
-        console.log('[DEBUG] Updating stats');
+        console.log('[DriversGateway] Updating stats');
         await this.driverStatsService.updateStatsForDriver(driverId, 'daily');
 
-        console.log('[DEBUG] Notifying parties');
+        console.log('[DriversGateway] Notifying parties');
         await this.notifyPartiesOnce(result.order);
 
-        console.log('[DEBUG] Emitting stages updated');
+        console.log('[DriversGateway] Emitting stages updated');
         const maxEmitRetries = 3;
         for (let i = 0; i < maxEmitRetries; i++) {
           try {
-            await this.server
-              .to(`driver_${driverId}`)
-              .emit('driverStagesUpdated', result.dps);
-            break;
+            if (this.server) {
+              await this.server
+                .to(`driver_${driverId}`)
+                .emit('driverStagesUpdated', result.dps);
+              console.log(
+                '[DriversGateway] Emitted driverStagesUpdated to driver:',
+                driverId
+              );
+              break;
+            } else {
+              console.error(
+                '[DriversGateway] WebSocket server is null, cannot emit driverStagesUpdated'
+              );
+              break;
+            }
           } catch (emitError) {
             console.warn(
-              `[DEBUG] Emit failed, retry ${i + 1}/${maxEmitRetries}:`,
+              `[DriversGateway] Emit failed, retry ${i + 1}/${maxEmitRetries}:`,
               emitError
             );
             if (i === maxEmitRetries - 1)
-              console.error('[DEBUG] Emit failed after retries');
+              console.error('[DriversGateway] Emit failed after retries');
             await new Promise(resolve => setTimeout(resolve, 100 * (i + 1)));
           }
         }
@@ -1109,29 +1420,28 @@ export class DriversGateway
         if (error.code === '40001' && attempt < maxRetries - 1) {
           attempt++;
           console.log(
-            `Retry attempt ${attempt} for driver ${driverId} due to serialization failure`
+            `[DriversGateway] Retry attempt ${attempt} for driver ${driverId} due to serialization failure`
           );
           await new Promise(resolve => setTimeout(resolve, 100 * attempt));
           continue;
         }
-        console.error('Error in handleDriverAcceptOrder:', error);
+        console.error(
+          '[DriversGateway] Error in handleDriverAcceptOrder:',
+          error
+        );
         return {
           success: false,
           message: error.message || 'Internal server error'
         };
       } finally {
         this.processingOrders.delete(lockKey);
-        console.log(`Processing lock released for ${lockKey}`);
+        console.log(`[DriversGateway] Processing lock released for ${lockKey}`);
       }
     }
   }
 
   private calculateEstimatedTime(distance: number): number {
     return (distance / 30) * 60;
-  }
-
-  private calculateTotalEarns(order: Order): number {
-    return +order.delivery_fee || 0;
   }
 
   private getStageDetails(
@@ -1211,6 +1521,11 @@ export class DriversGateway
         order.data
       );
 
+      const clients = await this.server.in(`driver_${driverId}`).fetchSockets();
+      console.log(
+        `[DriversGateway] Emitting to room driver_${driverId}, clients: ${clients.length}`
+      );
+
       await this.server
         .to(`driver_${driverId}`)
         .emit('incomingOrderForDriver', {
@@ -1223,9 +1538,16 @@ export class DriversGateway
           message: 'Order received successfully'
         });
 
+      console.log(
+        `[DriversGateway] Emitted incomingOrderForDriver to driver ${driverId}`
+      );
+
       return { event: 'orderAssigned', data: { success: true } };
     } catch (error) {
-      console.error('Error handling order.assignedToDriver:', error);
+      console.error(
+        '[DriversGateway] Error handling order.assignedToDriver:',
+        error
+      );
       throw new WsException(
         error instanceof WsException ? error.message : 'Internal server error'
       );
@@ -1235,23 +1557,27 @@ export class DriversGateway
   private prepareDriverNotificationData(order: any) {
     return {
       orderId: order.id,
+      customer_id: order.customer_id,
+      restaurant_id: order.restaurant_id,
+      driver_id: order.driver_id,
       status: order.status,
       tracking_info: order.tracking_info,
       updated_at: order.updated_at,
-      customer_id: order.customer_id,
-      driver_id: order.driver_id,
-      restaurant_id: order.restaurant_id,
-      restaurant_avatar: order.restaurant?.avatar || null,
-      driver_avatar: order.driver?.avatar || null,
-      total_amount: order.total_amount,
-      driver_wage: order.driver_wage,
-      driver_earn: order.driver_wage,
-      order_items: order.order_items,
-      restaurantAddress: this.prepareAddressData(order.restaurantAddress),
-      customerAddress: this.prepareAddressData(order.customerAddress),
-      driverDetails: this.prepareDriverDetails(order.driver),
-      customerFullAddress: this.formatFullAddress(order.customerAddress),
-      restaurantFullAddress: this.formatFullAddress(order.restaurantAddress)
+      restaurantAddress: order.restaurantAddress,
+      customerAddress: order.customerAddress,
+      restaurant: order.restaurant
+        ? { id: order.restaurant.id, name: order.restaurant.name }
+        : null,
+      customer: order.customer
+        ? { id: order.customer.id, name: order.customer.name }
+        : null,
+      driver: order.driver
+        ? {
+            id: order.driver.id,
+            name: order.driver.name,
+            avatar: order.driver.avatar
+          }
+        : null
     };
   }
 

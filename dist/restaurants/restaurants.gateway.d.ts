@@ -1,14 +1,15 @@
-import { OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit, WsResponse } from '@nestjs/websockets';
+import { Socket } from 'socket.io';
 import { RestaurantsService } from './restaurants.service';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { DriversService } from 'src/drivers/drivers.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { WsResponse } from '@nestjs/websockets';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { JwtService } from '@nestjs/jwt';
 import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
 import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
+import { RedisService } from 'src/redis/redis.service';
+import { OrdersService } from 'src/orders/orders.service';
 interface AvailableDriver {
     id: string;
     lat: number;
@@ -19,6 +20,7 @@ interface RestaurantAcceptData {
     orderDetails: string;
 }
 export declare class RestaurantsGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
+    private socketServer;
     private readonly restaurantsService;
     private readonly driverService;
     private eventEmitter;
@@ -26,12 +28,20 @@ export declare class RestaurantsGateway implements OnGatewayConnection, OnGatewa
     private readonly jwtService;
     private readonly driverStatsService;
     private readonly financeRulesService;
-    server: Server;
+    private readonly redisService;
+    private readonly ordersService;
+    private server;
     private notificationLock;
-    constructor(restaurantsService: RestaurantsService, driverService: DriversService, eventEmitter: EventEmitter2, ordersRepository: OrdersRepository, jwtService: JwtService, driverStatsService: DriverStatsService, financeRulesService: FinanceRulesService);
+    private activeConnections;
+    private restaurantSockets;
+    private redisClient;
+    private isListenerRegistered;
+    constructor(socketServer: any, restaurantsService: RestaurantsService, driverService: DriversService, eventEmitter: EventEmitter2, ordersRepository: OrdersRepository, jwtService: JwtService, driverStatsService: DriverStatsService, financeRulesService: FinanceRulesService, redisService: RedisService, ordersService: OrdersService);
     afterInit(): void;
+    onModuleDestroy(): Promise<void>;
     private validateToken;
     handleConnection(client: Socket): Promise<void>;
+    cleanupRestaurantConnections(restaurantId: string, newSocketId: string): Promise<void>;
     handleDisconnect(client: Socket): void;
     handleUpdateRestaurant(updateRestaurantDto: UpdateRestaurantDto): Promise<import("../utils/createResponse").ApiResponse<import("./entities/restaurant.entity").Restaurant>>;
     handleNewOrder(order: any): Promise<{
@@ -39,7 +49,7 @@ export declare class RestaurantsGateway implements OnGatewayConnection, OnGatewa
         data: any;
         message: string;
     }>;
-    handleRestaurantAcceptWithDrivers(data: RestaurantAcceptData): Promise<WsResponse<any>>;
+    handleRestaurantAccept(data: RestaurantAcceptData, client: Socket): Promise<WsResponse<any>>;
     private prepareDriverData;
     private isValidDriverResponse;
     private calculateOrderMetrics;
@@ -60,10 +70,6 @@ export declare class RestaurantsGateway implements OnGatewayConnection, OnGatewa
         };
     }>;
     notifyPartiesOnce(order: any): Promise<void>;
-    handleListenUpdateOrderTracking(order: any): Promise<{
-        event: string;
-        data: any;
-        message: string;
-    }>;
+    handleOrderTrackingUpdate(payload: any): void;
 }
 export {};

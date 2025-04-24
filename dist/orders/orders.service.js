@@ -16,8 +16,6 @@ exports.OrdersService = void 0;
 const common_1 = require("@nestjs/common");
 const order_entity_1 = require("./entities/order.entity");
 const createResponse_1 = require("../utils/createResponse");
-const orders_repository_1 = require("./orders.repository");
-const restaurants_gateway_1 = require("../restaurants/restaurants.gateway");
 const address_book_repository_1 = require("../address_book/address_book.repository");
 const restaurants_repository_1 = require("../restaurants/restaurants.repository");
 const customers_repository_1 = require("../customers/customers.repository");
@@ -40,6 +38,8 @@ const common_2 = require("@nestjs/common");
 const drivers_service_1 = require("../drivers/drivers.service");
 const redis_1 = require("redis");
 const dotenv = require("dotenv");
+const typeorm_2 = require("@nestjs/typeorm");
+const redis_service_1 = require("../redis/redis.service");
 dotenv.config();
 const logger = new common_2.Logger('OrdersService');
 const redis = (0, redis_1.createClient)({
@@ -47,24 +47,23 @@ const redis = (0, redis_1.createClient)({
 });
 redis.connect().catch(err => logger.error('Redis connection error:', err));
 let OrdersService = class OrdersService {
-    constructor(ordersRepository, menuItemsRepository, menuItemVariantsRepository, addressRepository, customersRepository, driverStatsService, restaurantRepository, addressBookRepository, restaurantsGateway, dataSource, cartItemsRepository, customersGateway, driversGateway, transactionsService, fWalletsRepository, eventEmitter, driverService) {
+    constructor(ordersRepository, menuItemsRepository, menuItemVariantsRepository, addressBookRepository, customersRepository, driverStatsService, restaurantsRepository, dataSource, cartItemsRepository, customersGateway, driversGateway, transactionService, fWalletsRepository, eventEmitter, driverService, redisService) {
         this.ordersRepository = ordersRepository;
         this.menuItemsRepository = menuItemsRepository;
         this.menuItemVariantsRepository = menuItemVariantsRepository;
-        this.addressRepository = addressRepository;
+        this.addressBookRepository = addressBookRepository;
         this.customersRepository = customersRepository;
         this.driverStatsService = driverStatsService;
-        this.restaurantRepository = restaurantRepository;
-        this.addressBookRepository = addressBookRepository;
-        this.restaurantsGateway = restaurantsGateway;
+        this.restaurantsRepository = restaurantsRepository;
         this.dataSource = dataSource;
         this.cartItemsRepository = cartItemsRepository;
         this.customersGateway = customersGateway;
         this.driversGateway = driversGateway;
-        this.transactionsService = transactionsService;
+        this.transactionService = transactionService;
         this.fWalletsRepository = fWalletsRepository;
         this.eventEmitter = eventEmitter;
         this.driverService = driverService;
+        this.redisService = redisService;
     }
     async createOrder(createOrderDto) {
         const start = Date.now();
@@ -98,7 +97,7 @@ let OrdersService = class OrdersService {
                         logger.log(`Fetch restaurant (cache) took ${Date.now() - start}ms`);
                         return JSON.parse(cached);
                     }
-                    const result = await this.restaurantRepository.findById(createOrderDto.restaurant_id);
+                    const result = await this.restaurantsRepository.findById(createOrderDto.restaurant_id);
                     if (result)
                         await redis.setEx(cacheKey, 7200, JSON.stringify(result));
                     logger.log(`Fetch restaurant took ${Date.now() - start}ms`);
@@ -321,15 +320,14 @@ let OrdersService = class OrdersService {
                         destination_type: 'FWALLET',
                         version: customerWallet.version || 0
                     };
-                    const transactionResponse = await this.transactionsService.create(transactionDto, transactionalEntityManager);
+                    const transactionResponse = await this.transactionService.create(transactionDto, transactionalEntityManager);
                     logger.log(`Transaction service took ${Date.now() - txServiceStart}ms`);
                     if (transactionResponse.EC !== 0) {
                         return transactionResponse;
                     }
                 }
-                const orderRepository = transactionalEntityManager.getRepository(order_entity_1.Order);
-                const newOrder = orderRepository.create(orderData);
-                const savedOrder = await orderRepository.save(newOrder);
+                const newOrder = this.ordersRepository.create(orderData);
+                const savedOrder = await transactionalEntityManager.save(order_entity_1.Order, newOrder);
                 await transactionalEntityManager
                     .createQueryBuilder()
                     .update(restaurant_entity_1.Restaurant)
@@ -404,6 +402,60 @@ let OrdersService = class OrdersService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error creating order');
         }
     }
+    async assignDriver(orderId, driverId) {
+        const lockKey = `lock:order:assign:${orderId}`;
+        const lockAcquired = await this.redisService.setNx(lockKey, driverId, 300000);
+        if (!lockAcquired) {
+            console.log(`[OrdersService] Skipping duplicated assignDriver for order ${orderId}`);
+            return;
+        }
+        try {
+            const order = await this.ordersRepository.findOne({
+                where: { id: orderId },
+                relations: ['restaurantAddress', 'customerAddress']
+            });
+            if (!order) {
+                throw new Error(`Order ${orderId} not found`);
+            }
+            order.driver_id = driverId;
+            order.status = order_entity_1.OrderStatus.DISPATCHED;
+            await this.ordersRepository.save(order);
+            this.eventEmitter.emit('order.assignedToDriver', { orderId, driverId });
+            await this.notifyOrderStatus(order);
+        }
+        finally {
+            await this.redisService.del(lockKey);
+        }
+    }
+    async notifyOrderStatus(order) {
+        const lockKey = `lock:notify:order:${order.id}`;
+        const lockAcquired = await this.redisService.setNx(lockKey, 'notified', 60000);
+        if (!lockAcquired) {
+            console.log(`[OrdersService] Skipping notify due to existing lock: ${order.id}`);
+            return;
+        }
+        try {
+            console.log(`Emitted notifyOrderStatus for order ${order.id}`);
+            this.eventEmitter.emit('notifyOrderStatus', {
+                orderId: order.id,
+                status: order.status,
+                customerId: order.customer_id,
+                restaurantId: order.restaurant_id,
+                driverId: order.driver_id
+            });
+            if (order.customer_id) {
+                console.log(`Emitted notifyOrderStatus to customer_${order.customer_id}`);
+                this.eventEmitter.emit('notifyOrderStatus', {
+                    room: `customer_${order.customer_id}`,
+                    orderId: order.id,
+                    status: order.status
+                });
+            }
+        }
+        finally {
+            await this.redisService.del(lockKey);
+        }
+    }
     async updateMenuItemPurchaseCount(orderItems, transactionalEntityManager) {
         const manager = transactionalEntityManager || this.dataSource.manager;
         const updates = orderItems.map(item => ({
@@ -424,34 +476,10 @@ let OrdersService = class OrdersService {
         }
     }
     async notifyRestaurantAndDriver(order) {
-        const restaurant = await this.restaurantRepository.findById(order.restaurant_id);
+        const restaurant = await this.restaurantsRepository.findById(order.restaurant_id);
         if (!restaurant) {
             return (0, createResponse_1.createResponse)('NotFound', null, `Restaurant ${order.restaurant_id} not found`);
         }
-        const trackingUpdate = {
-            orderId: order.id,
-            status: order.status,
-            tracking_info: order.tracking_info,
-            updated_at: order.updated_at,
-            customer_id: order.customer_id,
-            driver_id: order.driver_id,
-            restaurant_id: order.restaurant_id,
-            restaurantAddress: order.restaurantAddress,
-            customerAddress: order.customerAddress,
-            order_items: order.order_items,
-            total_amount: order.total_amount,
-            delivery_fee: order.delivery_fee,
-            service_fee: order.service_fee,
-            promotions_applied: order.promotions_applied,
-            restaurant_avatar: restaurant.avatar || null
-        };
-        this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
-        this.eventEmitter.emit('newOrderForRestaurant', {
-            restaurant_id: order.restaurant_id,
-            order: trackingUpdate
-        });
-        logger.log('Notified restaurant and driver:', trackingUpdate);
-        return (0, createResponse_1.createResponse)('OK', trackingUpdate, 'Notified successfully');
     }
     async update(id, updateOrderDto, transactionalEntityManager) {
         try {
@@ -537,7 +565,9 @@ let OrdersService = class OrdersService {
             if (tipAmount < 0) {
                 return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Tip amount cannot be negative');
             }
-            const order = await this.ordersRepository.findById(orderId);
+            const order = await this.ordersRepository.findOneOrFail({
+                where: { id: orderId }
+            });
             if (!order) {
                 logger.log('❌ Order not found:', orderId);
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Order not found');
@@ -594,7 +624,7 @@ let OrdersService = class OrdersService {
     }
     async findAll() {
         try {
-            const orders = await this.ordersRepository.findAll();
+            const orders = await this.ordersRepository.find();
             return (0, createResponse_1.createResponse)('OK', orders, 'Fetched all orders');
         }
         catch (error) {
@@ -627,7 +657,9 @@ let OrdersService = class OrdersService {
     }
     async cancelOrder(orderId, cancelledBy, cancelledById, reason, title, description) {
         try {
-            const order = await this.ordersRepository.findById(orderId);
+            const order = await this.ordersRepository.findOneOrFail({
+                where: { id: orderId }
+            });
             if (!order) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Order not found');
             }
@@ -638,7 +670,7 @@ let OrdersService = class OrdersService {
                     entityExists = !!customer;
                     break;
                 case 'restaurant':
-                    const restaurant = await this.restaurantRepository.findById(cancelledById);
+                    const restaurant = await this.restaurantsRepository.findById(cancelledById);
                     entityExists = !!restaurant;
                     break;
                 case 'driver':
@@ -753,16 +785,16 @@ let OrdersService = class OrdersService {
 exports.OrdersService = OrdersService;
 exports.OrdersService = OrdersService = __decorate([
     (0, common_1.Injectable)(),
-    __param(12, (0, common_1.Inject)((0, common_1.forwardRef)(() => drivers_gateway_1.DriversGateway))),
-    __metadata("design:paramtypes", [orders_repository_1.OrdersRepository,
+    __param(0, (0, typeorm_2.InjectRepository)(order_entity_1.Order)),
+    __param(7, (0, typeorm_2.InjectDataSource)()),
+    __param(10, (0, common_1.Inject)((0, common_1.forwardRef)(() => drivers_gateway_1.DriversGateway))),
+    __metadata("design:paramtypes", [typeorm_1.Repository,
         menu_items_repository_1.MenuItemsRepository,
         menu_item_variants_repository_1.MenuItemVariantsRepository,
         address_book_repository_1.AddressBookRepository,
         customers_repository_1.CustomersRepository,
         driver_stats_records_service_1.DriverStatsService,
         restaurants_repository_1.RestaurantsRepository,
-        address_book_repository_1.AddressBookRepository,
-        restaurants_gateway_1.RestaurantsGateway,
         typeorm_1.DataSource,
         cart_items_repository_1.CartItemsRepository,
         customers_gateway_1.CustomersGateway,
@@ -770,6 +802,7 @@ exports.OrdersService = OrdersService = __decorate([
         transactions_service_1.TransactionService,
         fwallets_repository_1.FWalletsRepository,
         event_emitter_1.EventEmitter2,
-        drivers_service_1.DriversService])
+        drivers_service_1.DriversService,
+        redis_service_1.RedisService])
 ], OrdersService);
 //# sourceMappingURL=orders.service.js.map

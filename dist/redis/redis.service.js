@@ -1,0 +1,88 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.RedisService = void 0;
+const common_1 = require("@nestjs/common");
+const redis_1 = require("redis");
+let RedisService = class RedisService {
+    constructor() {
+        this.isConnecting = false;
+        this.client = (0, redis_1.createClient)({
+            url: process.env.REDIS_URL,
+            socket: {
+                reconnectStrategy: retries => Math.min(retries * 200, 5000),
+                connectTimeout: 15000
+            }
+        });
+        this.client.on('error', err => console.error('[RedisService] Error:', err));
+        this.client.on('ready', () => console.log('[RedisService] Connected to Redis'));
+        this.client.on('end', () => console.log('[RedisService] Disconnected from Redis'));
+    }
+    async connect() {
+        if (this.isConnecting) {
+            console.log('[RedisService] Connection in progress, skipping');
+            return;
+        }
+        if (!this.client.isOpen) {
+            this.isConnecting = true;
+            try {
+                await this.client.connect();
+            }
+            finally {
+                this.isConnecting = false;
+            }
+        }
+    }
+    getClient() {
+        return this.client;
+    }
+    async setNx(key, value, ttl) {
+        try {
+            await this.connect();
+            const result = await this.client.set(key, value, { NX: true, PX: ttl });
+            return result === 'OK';
+        }
+        catch (err) {
+            console.error('[RedisService] setNx error:', err);
+            return false;
+        }
+    }
+    async get(key) {
+        try {
+            await this.connect();
+            return await this.client.get(key);
+        }
+        catch (err) {
+            console.error('[RedisService] get error:', err);
+            return null;
+        }
+    }
+    async del(key) {
+        try {
+            await this.connect();
+            await this.client.del(key);
+        }
+        catch (err) {
+            console.error('[RedisService] del error:', err);
+        }
+    }
+    async quit() {
+        if (this.client.isOpen) {
+            await this.client.quit();
+        }
+    }
+};
+exports.RedisService = RedisService;
+exports.RedisService = RedisService = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [])
+], RedisService);
+//# sourceMappingURL=redis.service.js.map

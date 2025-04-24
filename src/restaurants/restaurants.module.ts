@@ -1,8 +1,8 @@
+// restaurants.module.ts
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RestaurantsService } from './restaurants.service';
 import { RestaurantsController } from './restaurants.controller';
-import { RestaurantsGateway } from './restaurants.gateway';
 import { Restaurant } from './entities/restaurant.entity';
 import { RestaurantsRepository } from './restaurants.repository';
 import { DriversModule } from 'src/drivers/drivers.module';
@@ -44,6 +44,12 @@ import { DriverProgressStagesRepository } from 'src/driver_progress_stages/drive
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
 import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
+import { RestaurantsGateway } from './restaurants.gateway';
+import { Server } from 'socket.io';
+import { RedisService } from 'src/redis/redis.service';
+import { OrdersService } from 'src/orders/orders.service';
+import { DriversGateway } from 'src/drivers/drivers.gateway';
+import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
 
 @Module({
   imports: [
@@ -79,7 +85,6 @@ import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.re
     RestaurantsService,
     RestaurantsRepository,
     RatingsReviewsRepository,
-    RestaurantsGateway,
     AddressBookRepository,
     FoodCategoriesRepository,
     UserRepository,
@@ -89,19 +94,29 @@ import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.re
     DriverStatsService,
     FinanceRulesRepository,
     AdminRepository,
-    AddressBookRepository,
     OrdersRepository,
     JwtService,
+    RestaurantsGateway,
+    {
+      provide: 'SOCKET_SERVER',
+      useFactory: () => {
+        const io = new Server({
+          cors: {
+            origin: '*',
+            methods: ['GET', 'POST']
+          }
+        });
+        return io;
+      }
+    },
+    RedisService,
     TransactionService,
     FWalletsRepository,
     TransactionsRepository,
+    DriversGateway,
+    DriverProgressStagesService,
     PromotionsRepository
   ],
-  exports: [
-    RestaurantsService,
-    RestaurantsRepository,
-    RestaurantsGateway,
-    AddressBookRepository
-  ]
+  exports: [RestaurantsService, RestaurantsRepository, AddressBookRepository]
 })
 export class RestaurantsModule {}

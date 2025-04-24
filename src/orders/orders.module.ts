@@ -1,8 +1,8 @@
+// orders.module.ts
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
-import { OrdersGateway } from './orders.gateway';
 import { Order } from './entities/order.entity';
 import { OrdersRepository } from './orders.repository';
 import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
@@ -15,13 +15,11 @@ import { Customer } from 'src/customers/entities/customer.entity';
 import { CustomersRepository } from 'src/customers/customers.repository';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
-import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 import { Driver } from 'src/drivers/entities/driver.entity';
 import { RestaurantsService } from 'src/restaurants/restaurants.service';
 import { DriversService } from 'src/drivers/drivers.service';
-import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { User } from 'src/users/entities/user.entity';
 import { UserRepository } from 'src/users/users.repository';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
@@ -34,7 +32,7 @@ import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_
 import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
 import { CartItem } from 'src/cart_items/entities/cart_item.entity';
 import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
-import { DriversModule } from 'src/drivers/drivers.module'; // Đảm bảo import
+import { DriversModule } from 'src/drivers/drivers.module';
 import { CustomersGateway } from 'src/customers/customers.gateway';
 import { CustomersService } from 'src/customers/customers.service';
 import { JwtService } from '@nestjs/jwt';
@@ -57,6 +55,11 @@ import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entit
 import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
 import { NotificationsRepository } from 'src/notifications/notifications.repository';
 import { Notification } from 'src/notifications/entities/notification.entity';
+import { RedisService } from 'src/redis/redis.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { DriversGateway } from 'src/drivers/drivers.gateway';
+import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
+import { Server } from 'socket.io';
 
 @Module({
   imports: [
@@ -73,7 +76,7 @@ import { Notification } from 'src/notifications/entities/notification.entity';
       Transaction,
       FoodCategory,
       Notification,
-      Driver, // Cung cấp Repository<Driver>
+      Driver,
       User,
       OnlineSession,
       Admin,
@@ -82,14 +85,14 @@ import { Notification } from 'src/notifications/entities/notification.entity';
       FWallet,
       CartItem
     ]),
-    forwardRef(() => DriversModule) // Tham chiếu đến DriversModule
+    forwardRef(() => DriversModule)
   ],
   controllers: [OrdersController],
   providers: [
+    RedisService,
     OrdersService,
     OrdersRepository,
     NotificationsRepository,
-    OrdersGateway,
     MenuItemsRepository,
     MenuItemVariantsRepository,
     OnlineSessionsRepository,
@@ -102,11 +105,9 @@ import { Notification } from 'src/notifications/entities/notification.entity';
     DriverStatsService,
     AdminRepository,
     RestaurantsRepository,
-    RestaurantsGateway,
     FoodCategoriesRepository,
     RestaurantsService,
     DriversService,
-    DriversGateway,
     UserRepository,
     CustomersService,
     DriversRepository,
@@ -119,9 +120,24 @@ import { Notification } from 'src/notifications/entities/notification.entity';
     FWalletsRepository,
     TransactionService,
     CustomersGateway,
+    DriversGateway,
+    RestaurantsGateway,
     TransactionsRepository,
-    JwtService
+    JwtService,
+    EventEmitter2,
+    {
+      provide: 'SOCKET_SERVER',
+      useFactory: () => {
+        const io = new Server({
+          cors: {
+            origin: '*',
+            methods: ['GET', 'POST']
+          }
+        });
+        return io;
+      }
+    }
   ],
-  exports: [OrdersService]
+  exports: [OrdersService, OrdersRepository]
 })
 export class OrdersModule {}

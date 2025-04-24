@@ -67,6 +67,15 @@ import { DriverStatsService } from 'src/driver_stats_records/driver_stats_record
 import { BannedAccount } from 'src/banned-account/entities/banned-account.entity';
 import { Notification } from 'src/notifications/entities/notification.entity';
 import { NotificationsRepository } from 'src/notifications/notifications.repository';
+import { Server } from 'socket.io';
+import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
+import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
+import { FinanceRule } from 'src/finance_rules/entities/finance_rule.entity';
+import { RedisService } from 'src/redis/redis.service';
+import { FinanceRulesRepository } from 'src/finance_rules/finance_rules.repository';
+import { OrdersService } from 'src/orders/orders.service';
+import { DriversGateway } from 'src/drivers/drivers.gateway';
+import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
 @Module({
   imports: [
     JwtModule.register({
@@ -84,6 +93,7 @@ import { NotificationsRepository } from 'src/notifications/notifications.reposit
       FWallet,
       Driver,
       RatingsReview,
+      FinanceRule,
       DriverStatsRecord,
       Restaurant,
       BannedAccount,
@@ -114,7 +124,27 @@ import { NotificationsRepository } from 'src/notifications/notifications.reposit
     AuthService,
     EmailService,
     JwtStrategy,
+    {
+      provide: 'SOCKET_SERVER',
+      useFactory: () => {
+        const io = new Server({
+          cors: {
+            origin: '*',
+            methods: ['GET', 'POST']
+          }
+        });
+        return io;
+      }
+    },
+    RestaurantsGateway,
+    FinanceRulesService,
+    RedisService,
     EmailService,
+    FinanceRulesRepository,
+    OrdersService,
+    DriversGateway,
+    DriverProgressStagesService,
+
     DriverStatsService,
     UsersService,
     DriverProgressStagesRepository,

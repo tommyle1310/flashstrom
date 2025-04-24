@@ -1,3 +1,4 @@
+// upload.module.ts
 import { Module } from '@nestjs/common';
 import { UploadService } from './upload.service';
 import { UploadController } from './upload.controller';
@@ -28,7 +29,6 @@ import { Customer } from 'src/customers/entities/customer.entity';
 import { CustomersRepository } from 'src/customers/customers.repository';
 import { Driver } from 'src/drivers/entities/driver.entity';
 import { DriversRepository } from 'src/drivers/drivers.repository';
-import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
 import { DriverProgressStagesModule } from 'src/driver_progress_stages/driver_progress_stages.module';
 import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
@@ -63,6 +63,14 @@ import { UsersService } from 'src/users/users.service';
 import { BannedAccount } from 'src/banned-account/entities/banned-account.entity';
 import { Notification } from 'src/notifications/entities/notification.entity';
 import { NotificationsRepository } from 'src/notifications/notifications.repository';
+import { RedisService } from 'src/redis/redis.service';
+import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
+import { Server } from 'socket.io';
+import { OrdersService } from 'src/orders/orders.service';
+import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
+import { CartItem } from 'src/cart_items/entities/cart_item.entity';
+import { DriversGateway } from 'src/drivers/drivers.gateway';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -70,6 +78,7 @@ import { NotificationsRepository } from 'src/notifications/notifications.reposit
       Promotion,
       AddressBook,
       FoodCategory,
+      CartItem,
       Restaurant,
       Customer,
       Notification,
@@ -99,7 +108,21 @@ import { NotificationsRepository } from 'src/notifications/notifications.reposit
   ],
   controllers: [UploadController],
   providers: [
+    RedisService,
     UploadService,
+    RestaurantsGateway,
+    {
+      provide: 'SOCKET_SERVER',
+      useFactory: () => {
+        const io = new Server({
+          cors: {
+            origin: '*',
+            methods: ['GET', 'POST']
+          }
+        });
+        return io;
+      }
+    },
     RestaurantsService,
     DriversService,
     JwtService,
@@ -114,6 +137,7 @@ import { NotificationsRepository } from 'src/notifications/notifications.reposit
     TransactionsRepository,
     OnlineSessionsService,
     OnlineSessionsRepository,
+    DriversGateway,
     MenuItemsService,
     CustomersService,
     UserRepository,
@@ -125,9 +149,10 @@ import { NotificationsRepository } from 'src/notifications/notifications.reposit
     FoodCategoriesRepository,
     DriverProgressStagesRepository,
     RestaurantsRepository,
+    OrdersService,
+    CartItemsRepository,
     CustomersRepository,
     DriversRepository,
-    DriversGateway,
     DriverProgressStagesService,
     MenuItemsRepository,
     MenuItemVariantsRepository,
