@@ -29,7 +29,7 @@ export class FWalletService {
 
       const newWallet = await this.fWalletsRepository.create(createFWalletDto);
       return createResponse('OK', newWallet, 'Wallet created successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating wallet:', error);
       return createResponse('ServerError', null, 'Error creating wallet');
     }
@@ -39,7 +39,7 @@ export class FWalletService {
     try {
       const wallets = await this.fWalletsRepository.findAll();
       return createResponse('OK', wallets, 'Fetched all wallets');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching wallets:', error);
       return createResponse('ServerError', null, 'Error fetching wallets');
     }
@@ -49,7 +49,7 @@ export class FWalletService {
     try {
       const wallets = await this.fWalletsRepository.findBySearchQuery(query);
       return createResponse('OK', wallets, 'Fetched wallets by search query');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching wallets by search query:', error);
       return createResponse(
         'ServerError',
@@ -66,7 +66,7 @@ export class FWalletService {
         return createResponse('NotFound', null, 'Wallet not found');
       }
       return createResponse('OK', wallet, 'Wallet retrieved successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching wallet:', error);
       return createResponse('ServerError', null, 'Error fetching wallet');
     }
@@ -79,7 +79,7 @@ export class FWalletService {
         return createResponse('NotFound', null, 'Wallet not found');
       }
       return createResponse('OK', wallet, 'Wallet retrieved successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching wallet:', error);
       return createResponse('ServerError', null, 'Error fetching wallet');
     }
@@ -100,7 +100,7 @@ export class FWalletService {
         updateFWalletDto
       );
       return createResponse('OK', updatedWallet, 'Wallet updated successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating wallet:', error);
       return createResponse('ServerError', null, 'Error updating wallet');
     }
@@ -113,7 +113,7 @@ export class FWalletService {
         return createResponse('NotFound', null, 'Wallet not found');
       }
       return createResponse('OK', null, 'Wallet deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting wallet:', error);
       return createResponse('ServerError', null, 'Error deleting wallet');
     }
@@ -134,7 +134,7 @@ export class FWalletService {
         transactions,
         'Fetched transaction history successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching transaction history:', error);
       return createResponse(
         'ServerError',

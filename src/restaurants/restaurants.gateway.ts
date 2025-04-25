@@ -116,7 +116,7 @@ export class RestaurantsGateway
           console.log(
             '[RestaurantsGateway] Socket.IO Redis adapter initialized successfully'
           );
-        } catch (err) {
+        } catch (err: any) {
           if (retryCount < maxRetries) {
             retryCount++;
             console.warn(
@@ -132,7 +132,7 @@ export class RestaurantsGateway
         }
       };
       connectRedis();
-    } catch (err) {
+    } catch (err: any) {
       console.error(
         '[RestaurantsGateway] Error setting up Redis adapter:',
         err.message
@@ -197,7 +197,7 @@ export class RestaurantsGateway
         secret: process.env.JWT_SECRET
       });
       return decoded;
-    } catch (error) {
+    } catch (error: any) {
       console.error(
         '[RestaurantsGateway] Token validation error:',
         error.message
@@ -311,7 +311,7 @@ export class RestaurantsGateway
       } finally {
         await this.redisService.del(lockKey);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(
         '[RestaurantsGateway] Error handling connection:',
         error.message
@@ -518,7 +518,7 @@ export class RestaurantsGateway
         orderId
       );
       return { event: 'restaurantAcceptWithAvailableDrivers', data: undefined };
-    } catch (error) {
+    } catch (error: any) {
       console.error(
         '[RestaurantsGateway] Error handling restaurantAccept:',
         error
@@ -585,7 +585,7 @@ export class RestaurantsGateway
         return evaluate(formula.replace('km', distance.toString()));
       }
       return null;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error calculating driver wage:', error);
       return null;
     }
@@ -697,7 +697,7 @@ export class RestaurantsGateway
       });
       await this.notifyPartiesOnce(order);
       return { event: 'orderReadyForPickup', data: order };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in handleRestaurantOrderReady:', error);
       return { event: 'error', data: { message: 'Internal server error' } };
     }

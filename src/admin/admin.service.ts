@@ -68,7 +68,7 @@ export class AdminService {
       } as any);
 
       return createResponse('OK', savedAdmin, 'Admin created successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error creating admin');
     }
@@ -78,7 +78,7 @@ export class AdminService {
     try {
       const admins = await this.adminRepository.findAll();
       return createResponse('OK', admins, 'Admins retrieved successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error fetching admins');
     }
@@ -91,7 +91,7 @@ export class AdminService {
         return createResponse('NotFound', null, 'Admin not found');
       }
       return createResponse('OK', admin, 'Admin retrieved successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error fetching admin');
     }
@@ -104,7 +104,7 @@ export class AdminService {
         return createResponse('NotFound', null, 'Admin not found');
       }
       return createResponse('OK', admin, 'Admin retrieved successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error fetching admin');
     }
@@ -157,7 +157,7 @@ export class AdminService {
       await this.adminRepository.update(id, updateAdminDto);
       const updatedAdmin = await this.adminRepository.findById(id);
       return createResponse('OK', updatedAdmin, 'Admin updated successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error updating admin');
     }
@@ -170,7 +170,7 @@ export class AdminService {
         return createResponse('NotFound', null, 'Admin not found');
       }
       return createResponse('OK', null, 'Admin deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error deleting admin');
     }
@@ -233,7 +233,7 @@ export class AdminService {
         savedBan,
         `${entityType} banned successfully`
       );
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error banning account');
     }
@@ -312,7 +312,7 @@ export class AdminService {
         updatedAdmin,
         'Permissions updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error updating permissions');
     }

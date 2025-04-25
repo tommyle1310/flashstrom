@@ -34,7 +34,7 @@ export class PenaltyRulesService {
       const newRule =
         await this.penaltyRulesRepository.create(createPenaltyRuleDto);
       return createResponse('OK', newRule, 'Penalty rule created successfully');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error creating penalty rule:', error);
     }
   }
@@ -43,7 +43,7 @@ export class PenaltyRulesService {
     try {
       const rules = await this.penaltyRuleEntityRepository.find();
       return createResponse('OK', rules, 'Fetched all penalty rules');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching penalty rules:', error);
     }
   }
@@ -52,7 +52,7 @@ export class PenaltyRulesService {
     try {
       const rule = await this.penaltyRulesRepository.findById(id);
       return this.handleRuleResponse(rule);
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching penalty rule:', error);
     }
   }
@@ -76,7 +76,7 @@ export class PenaltyRulesService {
         updatedRule,
         'Penalty rule updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error updating penalty rule:', error);
     }
   }
@@ -88,7 +88,7 @@ export class PenaltyRulesService {
         return createResponse('NotFound', null, 'Penalty rule not found');
       }
       return createResponse('OK', null, 'Penalty rule deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error deleting penalty rule:', error);
     }
   }

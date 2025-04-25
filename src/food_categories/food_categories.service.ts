@@ -36,7 +36,7 @@ export class FoodCategoriesService {
         newCategory,
         'Food category created successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating food category:', error);
       return createResponse(
         'ServerError',
@@ -50,7 +50,7 @@ export class FoodCategoriesService {
     try {
       const categories = await this.foodCategoriesRepository.findAll();
       return createResponse('OK', categories, 'Fetched all food categories');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching food categories:', error);
       return createResponse(
         'ServerError',
@@ -71,7 +71,7 @@ export class FoodCategoriesService {
         category,
         'Food category retrieved successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching food category:', error);
       return createResponse(
         'ServerError',
@@ -100,7 +100,7 @@ export class FoodCategoriesService {
         updatedCategory,
         'Food category updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating food category:', error);
       return createResponse(
         'ServerError',
@@ -117,7 +117,7 @@ export class FoodCategoriesService {
         return createResponse('NotFound', null, 'Food category not found');
       }
       return createResponse('OK', null, 'Food category deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting food category:', error);
       return createResponse(
         'ServerError',

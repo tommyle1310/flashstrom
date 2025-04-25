@@ -56,7 +56,6 @@ import { FoodCategoriesRepository } from './food_categories/food_categories.repo
 import { Driver } from './drivers/entities/driver.entity';
 import { OnlineSession } from './online-sessions/entities/online-session.entity';
 import { OnlineSessionsService } from './online-sessions/online-sessions.service';
-import { OrdersRepository } from './orders/orders.repository';
 import { Order } from './orders/entities/order.entity';
 import { DriverStatsRecord } from './driver_stats_records/entities/driver_stats_record.entity';
 import { DriverProgressStage } from './driver_progress_stages/entities/driver_progress_stage.entity';

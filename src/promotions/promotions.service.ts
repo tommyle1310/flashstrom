@@ -91,7 +91,7 @@ export class PromotionsService {
         savedPromotion,
         'Promotion created successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error creating promotion');
     }
@@ -105,7 +105,7 @@ export class PromotionsService {
         promotions,
         'Promotions retrieved successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error fetching promotions');
     }
@@ -182,7 +182,7 @@ export class PromotionsService {
         result,
         'Valid promotions with restaurants retrieved successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse(
         'ServerError',
@@ -203,7 +203,7 @@ export class PromotionsService {
         promotion,
         'Promotion retrieved successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error fetching promotion');
     }
@@ -226,7 +226,7 @@ export class PromotionsService {
         updatedPromotion,
         'Promotion updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error updating promotion');
     }
@@ -239,7 +239,7 @@ export class PromotionsService {
         return createResponse('NotFound', null, 'Promotion not found');
       }
       return createResponse('OK', null, 'Promotion deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error deleting promotion');
     }

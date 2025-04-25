@@ -68,7 +68,7 @@ export class CustomersService {
       logger.log(
         `Preloaded ${restaurants.length} restaurants into Redis in ${Date.now() - start}ms`
       );
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error preloading restaurants into Redis:', error);
     }
   }
@@ -98,7 +98,7 @@ export class CustomersService {
       const newCustomer =
         await this.customerRepository.create(createCustomerDto);
       return createResponse('OK', newCustomer, 'Customer created successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating customer:', error);
       return createResponse(
         'ServerError',
@@ -168,7 +168,7 @@ export class CustomersService {
         paginatedRestaurants,
         `Found ${paginatedRestaurants.length} restaurants matching keyword "${keyword}" (total: ${uniqueRestaurants.length})`
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error searching restaurants:', error);
       return createResponse(
         'ServerError',
@@ -182,7 +182,7 @@ export class CustomersService {
     try {
       const customers = await this.customerRepository.findAll();
       return createResponse('OK', customers, 'Fetched all customers');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching customers:', error);
       return createResponse(
         'ServerError',
@@ -221,7 +221,7 @@ export class CustomersService {
         customerWithUserData,
         'Fetched customer and user data successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching customer and user:', error);
       return createResponse(
         'ServerError',
@@ -273,7 +273,7 @@ export class CustomersService {
         updatedCustomer,
         'Customer updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error updating customer:', error);
       return createResponse(
         'ServerError',
@@ -413,7 +413,7 @@ export class CustomersService {
         updatedCustomer,
         'Favorite restaurant toggled successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error toggling favorite restaurant:', error);
       return createResponse(
         'ServerError',
@@ -427,7 +427,7 @@ export class CustomersService {
     try {
       await this.customerRepository.remove(id);
       return createResponse('OK', null, 'Customer deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting customer:', error);
       return createResponse(
         'ServerError',
@@ -463,7 +463,7 @@ export class CustomersService {
         updatedCustomer,
         'Customer avatar updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating customer avatar:', error);
       return createResponse(
         'ServerError',
@@ -537,7 +537,7 @@ export class CustomersService {
         favoriteRestaurants,
         `Fetched ${favoriteRestaurants.length} favorite restaurants successfully`
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching favorite restaurants:', error);
       return createResponse(
         'ServerError',
@@ -650,7 +650,7 @@ export class CustomersService {
         prioritizedRestaurants,
         'Fetched and prioritized restaurants successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching and prioritizing restaurants:', error);
       return createResponse(
         'ServerError',
@@ -818,7 +818,7 @@ export class CustomersService {
         populatedOrders,
         'Fetched orders successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching orders:', error);
       return createResponse(
         'ServerError',
@@ -835,7 +835,7 @@ export class CustomersService {
         return createResponse('NotFound', null, 'Customer not found');
       }
       return createResponse('OK', customer, 'Customer found successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error finding customer:', error);
       return createResponse(
         'ServerError',
@@ -891,7 +891,7 @@ export class CustomersService {
         sortedNotifications,
         `Fetched ${sortedNotifications.length} notifications for customer ${customerId}`
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching notifications for customer:', error);
       return createResponse(
         'ServerError',

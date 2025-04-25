@@ -41,7 +41,7 @@ export class FinanceRulesService {
         newFinanceRule,
         'Finance rule created successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error creating finance rule:', error);
     }
   }
@@ -50,7 +50,7 @@ export class FinanceRulesService {
     try {
       const financeRules = await this.financeRulesRepository.findAll();
       return createResponse('OK', financeRules, 'Fetched all finance rules');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching finance rules:', error);
     }
   }
@@ -59,7 +59,7 @@ export class FinanceRulesService {
     try {
       const financeRule = await this.financeRulesRepository.findById(id);
       return this.handleFinanceRuleResponse(financeRule);
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching finance rule:', error);
     }
   }
@@ -72,7 +72,7 @@ export class FinanceRulesService {
         .getOne();
 
       return this.handleFinanceRuleResponse(latestFinanceRule);
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching latest finance rule:', error);
     }
   }
@@ -96,7 +96,7 @@ export class FinanceRulesService {
         updatedFinanceRule,
         'Finance rule updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error updating finance rule:', error);
     }
   }
@@ -108,7 +108,7 @@ export class FinanceRulesService {
         return createResponse('NotFound', null, 'Finance rule not found');
       }
       return createResponse('OK', null, 'Finance rule deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error deleting finance rule:', error);
     }
   }

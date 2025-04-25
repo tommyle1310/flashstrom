@@ -14,7 +14,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { CustomerCaresRepository } from 'src/customer_cares/customer_cares.repository';
 import { EmailService } from 'src/mailer/email.service';
 import { AdminService } from 'src/admin/admin.service'; // Thêm AdminService
-import { Admin } from 'src/admin/entities/admin.entity'; // Thêm Admin entity
 import { AdminRole, AdminStatus } from 'src/utils/types/admin'; // Thêm AdminRole và AdminStatus
 
 @Injectable()
@@ -35,7 +34,7 @@ export class AuthService {
   async register(userData: any, type: Enum_UserType): Promise<any> {
     console.log('Starting registration process with data:', { userData, type });
 
-    const { email, password, phone, first_name, last_name } = userData;
+    const { email, password, phone } = userData;
     console.log('Extracted credentials:', { email, phone });
 
     if (!this.validateRegistrationInput(email, password)) {
@@ -207,7 +206,12 @@ export class AuthService {
       customer_id: userWithRole.id
     });
     const fwallet = await this.fWalletsRepository.findByUserId(user.id);
-    console.log('cehck custeomr data', userWithRole, 'check address ', userWithRole.address)
+    console.log(
+      'cehck custeomr data',
+      userWithRole,
+      'check address ',
+      userWithRole.address
+    );
     const customerPayload = {
       ...basePayload,
       id: userWithRole.id,

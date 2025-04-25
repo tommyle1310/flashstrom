@@ -38,7 +38,7 @@ export class AddressBookService {
       }
 
       return createResponse('OK', newAddress, 'Address created successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating address:', error);
       return createResponse(
         'ServerError',
@@ -52,7 +52,7 @@ export class AddressBookService {
     try {
       const addresses = await this.addressBookRepository.findAll();
       return createResponse('OK', addresses, 'Addresses fetched successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching addresses:', error);
       return createResponse(
         'ServerError',
@@ -69,7 +69,7 @@ export class AddressBookService {
         return createResponse('NotFound', null, 'Address not found');
       }
       return createResponse('OK', address, 'Address fetched successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching address:', error);
       return createResponse(
         'ServerError',
@@ -96,7 +96,7 @@ export class AddressBookService {
         updatedAddress,
         'Address updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating address:', error);
       return createResponse(
         'ServerError',
@@ -120,7 +120,7 @@ export class AddressBookService {
 
       await this.addressBookRepository.delete(id);
       return createResponse('OK', null, 'Address deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting address:', error);
       return createResponse(
         'ServerError',
@@ -154,7 +154,11 @@ export class AddressBookService {
         addr => addr.id === addressId
       );
       if (existingIndex === -1) {
-        return createResponse('NotFound', null, 'Address not associated with customer');
+        return createResponse(
+          'NotFound',
+          null,
+          'Address not associated with customer'
+        );
       }
 
       // Reset all addresses is_default to false
@@ -165,7 +169,8 @@ export class AddressBookService {
       });
 
       // Toggle is_default for the target address
-      customer.address[existingIndex].is_default = !customer.address[existingIndex].is_default;
+      customer.address[existingIndex].is_default =
+        !customer.address[existingIndex].is_default;
 
       await this.customerRepository.save(customer);
       return createResponse(
@@ -173,7 +178,7 @@ export class AddressBookService {
         customer,
         'Customer default address updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error toggling customer address:', error);
       return createResponse(
         'ServerError',

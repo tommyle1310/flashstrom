@@ -70,7 +70,7 @@ export class DriversService {
       logger.log(
         `Preloaded ${drivers.length} drivers into Redis in ${Date.now() - start}ms`
       );
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error preloading drivers into Redis:', error);
     }
   }
@@ -91,7 +91,7 @@ export class DriversService {
         null,
         'Redis cleared and drivers preloaded successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error clearing Redis:', error);
       return createResponse('ServerError', null, 'Error clearing Redis');
     }
@@ -215,7 +215,7 @@ export class DriversService {
         driver,
         'Driver availability toggled successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error toggling driver availability:', error);
       return createResponse(
         'ServerError',
@@ -240,7 +240,7 @@ export class DriversService {
 
       const newDriver = await this.driversRepository.create(createDriverDto);
       return createResponse('OK', newDriver, 'Driver created successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating driver:', error);
       return createResponse(
         'ServerError',
@@ -254,7 +254,7 @@ export class DriversService {
     try {
       const drivers = await this.driverEntityRepository.find();
       return createResponse('OK', drivers, 'Fetched all drivers');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching drivers:', error);
     }
   }
@@ -266,7 +266,7 @@ export class DriversService {
         return createResponse('NotFound', null, 'Driver not found');
       }
       return createResponse('OK', driver, 'Driver retrieved successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error finding driver:', error);
       return createResponse('ServerError', null, 'Error retrieving driver');
     }
@@ -276,7 +276,7 @@ export class DriversService {
     try {
       const driver = await this.driversRepository.findOne(conditions);
       return this.handleDriverResponse(driver);
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching driver:', error);
     }
   }
@@ -296,7 +296,7 @@ export class DriversService {
         updateDriverDto
       );
       return createResponse('OK', updatedDriver, 'Driver updated successfully');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error updating driver:', error);
     }
   }
@@ -308,7 +308,7 @@ export class DriversService {
         return createResponse('NotFound', null, 'Driver not found');
       }
       return createResponse('OK', null, 'Driver deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error deleting driver:', error);
     }
   }
@@ -326,7 +326,7 @@ export class DriversService {
       driver.avatar = { url: uploadResult.url, key: uploadResult.public_id };
       const savedDriver = await this.driversRepository.save(driver);
       return this.handleDriverResponse(savedDriver);
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error updating driver avatar:', error);
     }
   }
@@ -388,7 +388,7 @@ export class DriversService {
       // Trả về driver (bao gồm current_orders)
       const driverResult = driver ? [driver] : [];
       return createResponse('OK', driverResult, 'Driver selected successfully');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error prioritizing drivers:', error);
     }
   }
@@ -436,7 +436,7 @@ export class DriversService {
         updatedDriver,
         'Driver status updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating driver delivery status:', error);
       return createResponse(
         'ServerError',
@@ -554,7 +554,7 @@ export class DriversService {
         'ms'
       );
       return createResponse('OK', driver, 'Driver updated successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in addOrderToDriver:', error);
       return this.handleError('Error updating driver:', error);
     }
@@ -643,7 +643,7 @@ export class DriversService {
         updatedDriver,
         'Driver vehicle images updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating driver vehicle images:', error);
       return createResponse(
         'ServerError',
@@ -711,7 +711,7 @@ export class DriversService {
         updatedDriver,
         'Driver vehicle updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating driver vehicle:', error);
       return createResponse(
         'ServerError',
@@ -737,7 +737,7 @@ export class DriversService {
         limit
       );
       return createResponse('OK', dps, 'Fetched all dps');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching dps:', error);
     }
   }
@@ -807,7 +807,7 @@ export class DriversService {
         response,
         'Driver ratings and reviews retrieved successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting driver ratings and reviews:', error);
       return createResponse(
         'ServerError',

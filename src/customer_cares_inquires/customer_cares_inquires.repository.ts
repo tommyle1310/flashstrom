@@ -32,7 +32,7 @@ export class CustomerCareInquiriesRepository {
             : 'assigned_customer_care'
         ]
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Repository create error:', error);
       throw error;
     }

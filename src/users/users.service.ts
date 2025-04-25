@@ -35,7 +35,7 @@ export class UsersService {
       });
 
       return createResponse('OK', savedUser, 'User created successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error creating user');
     }
@@ -45,7 +45,7 @@ export class UsersService {
     try {
       const users = await this.userRepository.findAll();
       return createResponse('OK', users, 'Users retrieved successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error fetching users');
     }
@@ -58,7 +58,7 @@ export class UsersService {
         return createResponse('NotFound', null, 'User not found');
       }
       return createResponse('OK', user, 'User retrieved successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error fetching user');
     }
@@ -73,7 +73,7 @@ export class UsersService {
         return createResponse('NotFound', null, 'User not found');
       }
       return createResponse('OK', user, 'User retrieved successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error fetching user');
     }
@@ -92,7 +92,7 @@ export class UsersService {
       await this.userRepository.update(id, updateUserDto);
       const updatedUser = await this.userRepository.findById(id);
       return createResponse('OK', updatedUser, 'User updated successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error updating user');
     }
@@ -105,7 +105,7 @@ export class UsersService {
         return createResponse('NotFound', null, 'User not found');
       }
       return createResponse('OK', null, 'User deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error deleting user');
     }

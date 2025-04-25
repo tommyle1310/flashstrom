@@ -74,7 +74,7 @@ export class FchatGateway
       });
 
       return decoded;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Token validation error:', error);
       client.disconnect();
       return null;
@@ -192,7 +192,7 @@ export class FchatGateway
         dbRoomId: dbRoom.id,
         type: data.type
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in startChat:', error);
       throw new WsException(error.message || 'Failed to start chat');
     }
@@ -265,7 +265,7 @@ export class FchatGateway
       }
 
       return message;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in sendMessage:', error);
       throw new WsException(error.message || 'Failed to send message');
     }
@@ -332,7 +332,7 @@ export class FchatGateway
       client.emit('chatHistory', { roomId: data.roomId, messages });
 
       return { roomId: data.roomId, messages }; // Trả về để xác nhận
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting chat history:', error);
       client.emit('error', {
         message: error.message || 'Failed to get chat history'

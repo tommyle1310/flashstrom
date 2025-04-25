@@ -118,7 +118,8 @@ let AddressBookService = class AddressBookService {
                     addr.is_default = false;
                 }
             });
-            customer.address[existingIndex].is_default = !customer.address[existingIndex].is_default;
+            customer.address[existingIndex].is_default =
+                !customer.address[existingIndex].is_default;
             await this.customerRepository.save(customer);
             return (0, createResponse_1.createResponse)('OK', customer, 'Customer default address updated successfully');
         }

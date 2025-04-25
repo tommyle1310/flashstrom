@@ -16,7 +16,7 @@ export class FAQsService {
         ...createFAQDto
       });
       return createResponse('OK', savedFAQ, 'FAQ created successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error creating FAQ');
     }
@@ -26,7 +26,7 @@ export class FAQsService {
     try {
       const faqs = await this.faqsRepository.findAll();
       return createResponse('OK', faqs, 'FAQs retrieved successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error fetching FAQs');
     }
@@ -36,7 +36,7 @@ export class FAQsService {
     try {
       const faqs = await this.faqsRepository.findActive();
       return createResponse('OK', faqs, 'Active FAQs retrieved successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error fetching active FAQs');
     }
@@ -50,7 +50,7 @@ export class FAQsService {
         faqs,
         `FAQs of type ${type} retrieved successfully`
       );
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse(
         'ServerError',
@@ -67,7 +67,7 @@ export class FAQsService {
         return createResponse('NotFound', null, 'FAQ not found');
       }
       return createResponse('OK', faq, 'FAQ retrieved successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error fetching FAQ');
     }
@@ -85,7 +85,7 @@ export class FAQsService {
       await this.faqsRepository.update(id, updateFAQDto);
       const updatedFAQ = await this.faqsRepository.findById(id);
       return createResponse('OK', updatedFAQ, 'FAQ updated successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error updating FAQ');
     }
@@ -98,7 +98,7 @@ export class FAQsService {
         return createResponse('NotFound', null, 'FAQ not found');
       }
       return createResponse('OK', null, 'FAQ deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse('ServerError', null, 'Error deleting FAQ');
     }

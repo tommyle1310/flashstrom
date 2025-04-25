@@ -38,7 +38,7 @@ export class OnlineSessionsService {
         newSession,
         'Online session created successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error creating online session:', error);
     }
   }
@@ -47,7 +47,7 @@ export class OnlineSessionsService {
     try {
       const sessions = await this.onlineSessionEntityRepository.find();
       return createResponse('OK', sessions, 'Fetched all online sessions');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching online sessions:', error);
     }
   }
@@ -56,7 +56,7 @@ export class OnlineSessionsService {
     try {
       const session = await this.onlineSessionsRepository.findById(id);
       return this.handleSessionResponse(session);
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching online session:', error);
     }
   }
@@ -81,7 +81,7 @@ export class OnlineSessionsService {
         sessions,
         'Fetched online sessions by driver'
       );
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching sessions by driver:', error);
     }
   }
@@ -106,7 +106,7 @@ export class OnlineSessionsService {
         sessions,
         'Fetched online sessions by customer care'
       );
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError(
         'Error fetching sessions by customer care:',
         error
@@ -133,7 +133,7 @@ export class OnlineSessionsService {
         updatedSession,
         'Online session updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error updating online session:', error);
     }
   }
@@ -168,7 +168,7 @@ export class OnlineSessionsService {
         updatedSession,
         'Online session ended successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error ending online session:', error);
     }
   }
@@ -180,7 +180,7 @@ export class OnlineSessionsService {
         return createResponse('NotFound', null, 'Online session not found');
       }
       return createResponse('OK', null, 'Online session deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error deleting online session:', error);
     }
   }

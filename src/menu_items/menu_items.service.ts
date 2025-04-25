@@ -57,8 +57,7 @@ export class MenuItemsService {
     private readonly menuItemRepository: MenuItemsRepository,
     private readonly restaurantRepository: RestaurantsRepository,
     private readonly foodCategoriesRepository: FoodCategoriesRepository,
-    private readonly menuItemVariantsService: MenuItemVariantsService,
-    
+    private readonly menuItemVariantsService: MenuItemVariantsService
   ) {}
 
   async create(
@@ -84,7 +83,7 @@ export class MenuItemsService {
       }
 
       return await this.createNewMenuItem(createMenuItemDto);
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error creating menu item:', error);
     }
   }
@@ -93,7 +92,7 @@ export class MenuItemsService {
     try {
       const menuItems = await this.menuItemRepository.findAll();
       return createResponse('OK', menuItems, 'Fetched all menu items');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching menu items:', error);
     }
   }
@@ -113,137 +112,139 @@ export class MenuItemsService {
     return Math.max(0, Number(discountedPrice.toFixed(2)));
   }
 
-// menu_items.service.ts (chỉ trích đoạn findOne)
-async findOne(id: string): Promise<ApiResponse<any>> {
-  try {
-    console.log('Starting findOne with id:', id);
-    const menuItem = await this.menuItemRepository.findOne({
-      where: { id: Equal(id) },
-      relations: ['variants', 'restaurant'],
-    });
-    console.log('check menu item', JSON.stringify(menuItem, null, 2));
-    if (!menuItem) {
-      return createResponse('NotFound', null, 'Menu Item not found');
-    }
-
-    const restaurant = await this.restaurantRepository.findOne({
-      where: { id: Equal(menuItem.restaurant_id) },
-      relations: ['promotions', 'promotions.food_categories'], // Thêm relations
-    });
-    console.log('check res', JSON.stringify(restaurant, null, 2));
-    if (!restaurant) {
-      return createResponse('NotFound', null, 'Restaurant not found');
-    }
-
-    let itemPriceAfterPromotion: number | null = null;
-    const processedVariants: MenuItemVariantResponse[] = [];
-
-    const now = Math.floor(Date.now() / 1000);
-    const itemCategories = menuItem.category || [];
-    console.log('check item categories', itemCategories);
-
-    const applicablePromotions = restaurant.promotions?.filter((promotion) => {
-      const isActive =
-        promotion.status === 'ACTIVE' &&
-        now >= Number(promotion.start_date) &&
-        now <= Number(promotion.end_date);
-      const hasMatchingCategory = promotion.food_categories?.some((fc) =>
-        itemCategories.includes(fc.id)
-      ) || false;
-      console.log(
-        `check promotion ${promotion.id}: active=${isActive}, hasMatchingCategory=${hasMatchingCategory}`,
-        promotion.food_categories?.map((fc) => fc.id)
-      );
-      return isActive && hasMatchingCategory;
-    }) || [];
-
-    if (applicablePromotions.length > 0) {
-      applicablePromotions.forEach((promotion) => {
-        const discountedPrice = this.calculateDiscountedPrice(
-          Number(menuItem.price),
-          promotion
-        );
-        console.log(
-          `apply promotion ${promotion.id} for item ${menuItem.id}: original=${menuItem.price}, discounted=${discountedPrice}`
-        );
-        if (
-          itemPriceAfterPromotion === null ||
-          discountedPrice < itemPriceAfterPromotion
-        ) {
-          itemPriceAfterPromotion = discountedPrice;
-        }
+  // menu_items.service.ts (chỉ trích đoạn findOne)
+  async findOne(id: string): Promise<ApiResponse<any>> {
+    try {
+      console.log('Starting findOne with id:', id);
+      const menuItem = await this.menuItemRepository.findOne({
+        where: { id: Equal(id) },
+        relations: ['variants', 'restaurant']
       });
-    }
+      console.log('check menu item', JSON.stringify(menuItem, null, 2));
+      if (!menuItem) {
+        return createResponse('NotFound', null, 'Menu Item not found');
+      }
 
-    if (menuItem.variants && menuItem.variants.length > 0) {
-      menuItem.variants.forEach((variant: MenuItemVariant) => {
-        let variantPriceAfterPromotion: number | null = null;
+      const restaurant = await this.restaurantRepository.findOne({
+        where: { id: Equal(menuItem.restaurant_id) },
+        relations: ['promotions', 'promotions.food_categories'] // Thêm relations
+      });
+      console.log('check res', JSON.stringify(restaurant, null, 2));
+      if (!restaurant) {
+        return createResponse('NotFound', null, 'Restaurant not found');
+      }
 
-        if (applicablePromotions.length > 0) {
-          applicablePromotions.forEach((promotion) => {
-            const discountedPrice = this.calculateDiscountedPrice(
-              Number(variant.price),
-              promotion
-            );
-            console.log(
-              `apply promotion ${promotion.id} for variant ${variant.id}: original=${variant.price}, discounted=${discountedPrice}`
-            );
-            if (
-              variantPriceAfterPromotion === null ||
-              discountedPrice < variantPriceAfterPromotion
-            ) {
-              variantPriceAfterPromotion = discountedPrice;
-            }
-          });
-        }
+      let itemPriceAfterPromotion: number | null = null;
+      const processedVariants: MenuItemVariantResponse[] = [];
 
-        processedVariants.push({
-          id: variant.id,
-          menu_id: variant.menu_id,
-          variant: variant.variant,
-          description: variant.description,
-          avatar: variant.avatar,
-          availability: variant.availability,
-          default_restaurant_notes: variant.default_restaurant_notes,
-          price: variant.price,
-          discount_rate: variant.discount_rate,
-          created_at: variant.created_at,
-          updated_at: variant.updated_at,
-          price_after_applied_promotion: variantPriceAfterPromotion,
+      const now = Math.floor(Date.now() / 1000);
+      const itemCategories = menuItem.category || [];
+      console.log('check item categories', itemCategories);
+
+      const applicablePromotions =
+        restaurant.promotions?.filter(promotion => {
+          const isActive =
+            promotion.status === 'ACTIVE' &&
+            now >= Number(promotion.start_date) &&
+            now <= Number(promotion.end_date);
+          const hasMatchingCategory =
+            promotion.food_categories?.some(fc =>
+              itemCategories.includes(fc.id)
+            ) || false;
+          console.log(
+            `check promotion ${promotion.id}: active=${isActive}, hasMatchingCategory=${hasMatchingCategory}`,
+            promotion.food_categories?.map(fc => fc.id)
+          );
+          return isActive && hasMatchingCategory;
+        }) || [];
+
+      if (applicablePromotions.length > 0) {
+        applicablePromotions.forEach(promotion => {
+          const discountedPrice = this.calculateDiscountedPrice(
+            Number(menuItem.price),
+            promotion
+          );
+          console.log(
+            `apply promotion ${promotion.id} for item ${menuItem.id}: original=${menuItem.price}, discounted=${discountedPrice}`
+          );
+          if (
+            itemPriceAfterPromotion === null ||
+            discountedPrice < itemPriceAfterPromotion
+          ) {
+            itemPriceAfterPromotion = discountedPrice;
+          }
         });
-      });
+      }
+
+      if (menuItem.variants && menuItem.variants.length > 0) {
+        menuItem.variants.forEach((variant: MenuItemVariant) => {
+          let variantPriceAfterPromotion: number | null = null;
+
+          if (applicablePromotions.length > 0) {
+            applicablePromotions.forEach(promotion => {
+              const discountedPrice = this.calculateDiscountedPrice(
+                Number(variant.price),
+                promotion
+              );
+              console.log(
+                `apply promotion ${promotion.id} for variant ${variant.id}: original=${variant.price}, discounted=${discountedPrice}`
+              );
+              if (
+                variantPriceAfterPromotion === null ||
+                discountedPrice < variantPriceAfterPromotion
+              ) {
+                variantPriceAfterPromotion = discountedPrice;
+              }
+            });
+          }
+
+          processedVariants.push({
+            id: variant.id,
+            menu_id: variant.menu_id,
+            variant: variant.variant,
+            description: variant.description,
+            avatar: variant.avatar,
+            availability: variant.availability,
+            default_restaurant_notes: variant.default_restaurant_notes,
+            price: variant.price,
+            discount_rate: variant.discount_rate,
+            created_at: variant.created_at,
+            updated_at: variant.updated_at,
+            price_after_applied_promotion: variantPriceAfterPromotion
+          });
+        });
+      }
+
+      const menuItemResponse: MenuItemResponse = {
+        id: menuItem.id,
+        restaurant_id: menuItem.restaurant_id,
+        name: menuItem.name,
+        description: menuItem.description,
+        price: menuItem.price,
+        category: menuItem.category,
+        avatar: menuItem.avatar,
+        availability: menuItem.availability,
+        suggest_notes: menuItem.suggest_notes,
+        discount: menuItem.discount,
+        purchase_count: menuItem.purchase_count,
+        created_at: menuItem.created_at,
+        updated_at: menuItem.updated_at,
+        price_after_applied_promotion: itemPriceAfterPromotion,
+        variants: processedVariants
+      };
+
+      console.log('Returning response for menu item:', menuItemResponse.id);
+      return createResponse(
+        'OK',
+        { menuItem: menuItemResponse, variants: processedVariants },
+        'Fetched menu item successfully'
+      );
+    } catch (error: any) {
+      console.error('Caught error in findOne:', error);
+      return this.handleError('Error fetching menu item:', error);
     }
-
-    const menuItemResponse: MenuItemResponse = {
-      id: menuItem.id,
-      restaurant_id: menuItem.restaurant_id,
-      name: menuItem.name,
-      description: menuItem.description,
-      price: menuItem.price,
-      category: menuItem.category,
-      avatar: menuItem.avatar,
-      availability: menuItem.availability,
-      suggest_notes: menuItem.suggest_notes,
-      discount: menuItem.discount,
-      purchase_count: menuItem.purchase_count,
-      created_at: menuItem.created_at,
-      updated_at: menuItem.updated_at,
-      price_after_applied_promotion: itemPriceAfterPromotion,
-      variants: processedVariants,
-    };
-
-    console.log('Returning response for menu item:', menuItemResponse.id);
-    return createResponse(
-      'OK',
-      { menuItem: menuItemResponse, variants: processedVariants },
-      'Fetched menu item successfully'
-    );
-  } catch (error) {
-    console.error('Caught error in findOne:', error);
-    return this.handleError('Error fetching menu item:', error);
   }
-}
-  
+
   async update(
     id: string,
     updateMenuItemDto: UpdateMenuItemDto
@@ -263,7 +264,7 @@ async findOne(id: string): Promise<ApiResponse<any>> {
         updatedMenuItem,
         'Menu Item updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error updating menu item:', error);
     }
   }
@@ -272,7 +273,7 @@ async findOne(id: string): Promise<ApiResponse<any>> {
     try {
       await this.menuItemRepository.remove(id);
       return createResponse('OK', null, 'Menu Item deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error deleting menu item:', error);
     }
   }
@@ -286,7 +287,7 @@ async findOne(id: string): Promise<ApiResponse<any>> {
         avatar: { url: uploadResult.url, key: uploadResult.public_id }
       });
       return this.handleMenuItemResponse(menuItem);
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error updating menu item avatar:', error);
     }
   }
@@ -322,7 +323,7 @@ async findOne(id: string): Promise<ApiResponse<any>> {
     restaurantId: string
   ): Promise<MenuItem | null> {
     return this.menuItemRepository.findOne({
-      where: { name: Equal(name), restaurant_id: Equal(restaurantId) },
+      where: { name: Equal(name), restaurant_id: Equal(restaurantId) }
     });
   }
 
@@ -459,12 +460,23 @@ async findOne(id: string): Promise<ApiResponse<any>> {
     );
   }
 
-    async findByRestaurantId(restaurantId: string): Promise<ApiResponse<MenuItem[]>> {
-      try {
-        const menuItems = await this.menuItemRepository.findByRestaurantId(restaurantId);
-        return createResponse('OK', menuItems, 'Fetched menu items for restaurant');
-      } catch (error) {
-        return createResponse('ServerError', null, 'An error occurred while fetching menu items');
-      }
+  async findByRestaurantId(
+    restaurantId: string
+  ): Promise<ApiResponse<MenuItem[]>> {
+    try {
+      const menuItems =
+        await this.menuItemRepository.findByRestaurantId(restaurantId);
+      return createResponse(
+        'OK',
+        menuItems,
+        'Fetched menu items for restaurant'
+      );
+    } catch (error: any) {
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while fetching menu items'
+      );
     }
+  }
 }

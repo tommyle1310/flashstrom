@@ -186,6 +186,23 @@ let AuthController = class AuthController {
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred during verification, please try again.');
         }
     }
+    async requestVerifyAccount({ email }) {
+        try {
+            if (!email) {
+                return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'You must provide a valid email and a verification code');
+            }
+            const user = await this.usersService.findByCondition({ email: email });
+            const code = await this.emailService.sendVerificationEmail(email);
+            await this.usersService.update(user.data.id, {
+                verification_code: code
+            });
+            return (0, createResponse_1.createResponse)('OK', null, 'Your account verification request has been sent to your email!');
+        }
+        catch (error) {
+            console.error('Error sending verify email verification:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred during verification, please try again.');
+        }
+    }
     async requestResetPassword({ email }) {
         try {
             if (!email) {
@@ -199,17 +216,39 @@ let AuthController = class AuthController {
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred during password reset request, please try again.');
         }
     }
-    async resetPassword({ token, newPassword }) {
+    async renderChangePasswordSuccess() {
+        return {
+            logoFlashfood: image_urls_1.IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO
+        };
+    }
+    async resetPassword({ token, newPassword }, res) {
         try {
             if (!token || !newPassword) {
-                return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'You must provide a valid token and new password');
+                return res.render('reset-password', {
+                    token,
+                    error: 'You must provide a valid token and new password',
+                    logoFlashfood: image_urls_1.IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO
+                });
             }
             const result = await this.authService.resetPassword(token, newPassword);
-            return result;
+            if (result.EC === 0) {
+                return res.redirect('/auth/change-password-success');
+            }
+            else {
+                return res.render('reset-password', {
+                    token,
+                    error: result.EM || 'Failed to reset password. Please try again.',
+                    logoFlashfood: image_urls_1.IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO
+                });
+            }
         }
         catch (error) {
             console.error('Error during password reset:', error);
-            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred during password reset, please try again.');
+            return res.render('reset-password', {
+                token,
+                error: 'An error occurred during password reset, please try again.',
+                logoFlashfood: image_urls_1.IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO
+            });
         }
     }
     async renderResetPasswordPage(token) {
@@ -347,6 +386,13 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "verifyEmail", null);
 __decorate([
+    (0, common_1.Post)('request-verify-account'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "requestVerifyAccount", null);
+__decorate([
     (0, common_1.Post)('request-reset-password'),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -354,10 +400,18 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "requestResetPassword", null);
 __decorate([
+    (0, common_1.Get)('change-password-success'),
+    (0, common_1.Render)('change-password-success'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "renderChangePasswordSuccess", null);
+__decorate([
     (0, common_1.Post)('reset-password'),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "resetPassword", null);
 __decorate([

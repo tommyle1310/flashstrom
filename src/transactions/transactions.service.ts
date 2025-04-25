@@ -49,7 +49,7 @@ export class TransactionService {
 
         logger.log(`Transaction service took ${Date.now() - start}ms`);
         return result;
-      } catch (error) {
+      } catch (error: any) {
         if (
           error.name === 'OptimisticLockVersionMismatchError' &&
           attempt < maxRetries
@@ -225,7 +225,7 @@ export class TransactionService {
 
         await redis.del(`fwallet:${sourceWallet.user_id}`);
         return;
-      } catch (error) {
+      } catch (error: any) {
         if (
           error.message.includes('version conflict') &&
           attempt < maxRetries
@@ -319,7 +319,7 @@ export class TransactionService {
           JSON.stringify(destinationWallet)
         );
         return;
-      } catch (error) {
+      } catch (error: any) {
         if (
           error.message.includes('version conflict') &&
           attempt < maxRetries
@@ -344,7 +344,7 @@ export class TransactionService {
     try {
       const transactions = await this.transactionsRepository.findAll();
       return createResponse('OK', transactions, 'Fetched all transactions');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching transactions:', error);
     }
   }
@@ -353,7 +353,7 @@ export class TransactionService {
     try {
       const transaction = await this.transactionsRepository.findById(id);
       return this.handleTransactionResponse(transaction);
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching transaction:', error);
     }
   }
@@ -363,7 +363,7 @@ export class TransactionService {
       const transaction =
         await this.transactionsRepository.findByCondition(conditions);
       return this.handleTransactionResponse(transaction);
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching transaction:', error);
     }
   }
@@ -378,7 +378,7 @@ export class TransactionService {
         updateTransactionDto
       );
       return this.handleTransactionResponse(updatedTransaction);
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error updating transaction:', error);
     }
   }
@@ -390,7 +390,7 @@ export class TransactionService {
         return createResponse('NotFound', null, 'Transaction not found');
       }
       return createResponse('OK', null, 'Transaction deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error deleting transaction:', error);
     }
   }

@@ -42,7 +42,7 @@ export class DriverProgressStagesRepository {
           );
           console.log('Created new stage:', savedStage.id);
           return savedStage;
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error creating stage:', error);
           const lastMinuteCheck = await this.findByDriverId(
             createDto.driver_id

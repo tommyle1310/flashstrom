@@ -67,7 +67,7 @@ let MenuItemsService = class MenuItemsService {
             console.log('Starting findOne with id:', id);
             const menuItem = await this.menuItemRepository.findOne({
                 where: { id: (0, typeorm_1.Equal)(id) },
-                relations: ['variants', 'restaurant'],
+                relations: ['variants', 'restaurant']
             });
             console.log('check menu item', JSON.stringify(menuItem, null, 2));
             if (!menuItem) {
@@ -75,7 +75,7 @@ let MenuItemsService = class MenuItemsService {
             }
             const restaurant = await this.restaurantRepository.findOne({
                 where: { id: (0, typeorm_1.Equal)(menuItem.restaurant_id) },
-                relations: ['promotions', 'promotions.food_categories'],
+                relations: ['promotions', 'promotions.food_categories']
             });
             console.log('check res', JSON.stringify(restaurant, null, 2));
             if (!restaurant) {
@@ -86,16 +86,16 @@ let MenuItemsService = class MenuItemsService {
             const now = Math.floor(Date.now() / 1000);
             const itemCategories = menuItem.category || [];
             console.log('check item categories', itemCategories);
-            const applicablePromotions = restaurant.promotions?.filter((promotion) => {
+            const applicablePromotions = restaurant.promotions?.filter(promotion => {
                 const isActive = promotion.status === 'ACTIVE' &&
                     now >= Number(promotion.start_date) &&
                     now <= Number(promotion.end_date);
-                const hasMatchingCategory = promotion.food_categories?.some((fc) => itemCategories.includes(fc.id)) || false;
-                console.log(`check promotion ${promotion.id}: active=${isActive}, hasMatchingCategory=${hasMatchingCategory}`, promotion.food_categories?.map((fc) => fc.id));
+                const hasMatchingCategory = promotion.food_categories?.some(fc => itemCategories.includes(fc.id)) || false;
+                console.log(`check promotion ${promotion.id}: active=${isActive}, hasMatchingCategory=${hasMatchingCategory}`, promotion.food_categories?.map(fc => fc.id));
                 return isActive && hasMatchingCategory;
             }) || [];
             if (applicablePromotions.length > 0) {
-                applicablePromotions.forEach((promotion) => {
+                applicablePromotions.forEach(promotion => {
                     const discountedPrice = this.calculateDiscountedPrice(Number(menuItem.price), promotion);
                     console.log(`apply promotion ${promotion.id} for item ${menuItem.id}: original=${menuItem.price}, discounted=${discountedPrice}`);
                     if (itemPriceAfterPromotion === null ||
@@ -108,7 +108,7 @@ let MenuItemsService = class MenuItemsService {
                 menuItem.variants.forEach((variant) => {
                     let variantPriceAfterPromotion = null;
                     if (applicablePromotions.length > 0) {
-                        applicablePromotions.forEach((promotion) => {
+                        applicablePromotions.forEach(promotion => {
                             const discountedPrice = this.calculateDiscountedPrice(Number(variant.price), promotion);
                             console.log(`apply promotion ${promotion.id} for variant ${variant.id}: original=${variant.price}, discounted=${discountedPrice}`);
                             if (variantPriceAfterPromotion === null ||
@@ -129,7 +129,7 @@ let MenuItemsService = class MenuItemsService {
                         discount_rate: variant.discount_rate,
                         created_at: variant.created_at,
                         updated_at: variant.updated_at,
-                        price_after_applied_promotion: variantPriceAfterPromotion,
+                        price_after_applied_promotion: variantPriceAfterPromotion
                     });
                 });
             }
@@ -148,7 +148,7 @@ let MenuItemsService = class MenuItemsService {
                 created_at: menuItem.created_at,
                 updated_at: menuItem.updated_at,
                 price_after_applied_promotion: itemPriceAfterPromotion,
-                variants: processedVariants,
+                variants: processedVariants
             };
             console.log('Returning response for menu item:', menuItemResponse.id);
             return (0, createResponse_1.createResponse)('OK', { menuItem: menuItemResponse, variants: processedVariants }, 'Fetched menu item successfully');
@@ -207,7 +207,7 @@ let MenuItemsService = class MenuItemsService {
     }
     async findExistingMenuItem(name, restaurantId) {
         return this.menuItemRepository.findOne({
-            where: { name: (0, typeorm_1.Equal)(name), restaurant_id: (0, typeorm_1.Equal)(restaurantId) },
+            where: { name: (0, typeorm_1.Equal)(name), restaurant_id: (0, typeorm_1.Equal)(restaurantId) }
         });
     }
     async handleExistingMenuItem(existingMenuItem, createMenuItemDto) {

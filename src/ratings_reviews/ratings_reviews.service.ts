@@ -97,7 +97,7 @@ export class RatingsReviewsService {
         createRatingsReviewDto
       );
       return createResponse('OK', newReview, 'Review created successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating review:', error);
       return createResponse('ServerError', null, 'Failed to create review');
     }
@@ -107,7 +107,7 @@ export class RatingsReviewsService {
     try {
       const reviews = await this.ratingsReviewsRepository.findAll();
       return createResponse('OK', reviews, 'Reviews fetched successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching reviews:', error);
       return createResponse('ServerError', null, 'Failed to fetch reviews');
     }
@@ -120,7 +120,7 @@ export class RatingsReviewsService {
         return createResponse('NotFound', null, 'Review not found');
       }
       return createResponse('OK', review, 'Review fetched successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching review:', error);
       return createResponse('ServerError', null, 'Failed to fetch review');
     }
@@ -233,7 +233,7 @@ export class RatingsReviewsService {
         updateRatingsReviewDto
       );
       return createResponse('OK', updatedReview, 'Review updated successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating review:', error);
       return createResponse('ServerError', null, 'Failed to update review');
     }
@@ -246,7 +246,7 @@ export class RatingsReviewsService {
         return createResponse('NotFound', null, 'Review not found');
       }
       return createResponse('OK', null, 'Review deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting review:', error);
       return createResponse('ServerError', null, 'Failed to delete review');
     }

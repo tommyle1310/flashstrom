@@ -43,7 +43,7 @@ export class JwtAuthGuard implements CanActivate {
       }
       request.user = payload; // Gán toàn bộ payload vào request.user
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.log('JwtAuthGuard error:', error);
       request.response = createResponse(
         'ServerError',

@@ -183,7 +183,7 @@ export class DriverStatsService {
       }
 
       return createResponse('OK', stats, 'Driver stats retrieved successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching driver stats:', error);
       return createResponse('ServerError', null, 'Error fetching driver stats');
     }

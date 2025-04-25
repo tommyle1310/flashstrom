@@ -1,4 +1,12 @@
-import { Controller, Post, Body, Get, Render, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Render,
+  Query,
+  Res
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { EmailService } from 'src/mailer/email.service';
 import { UsersService } from 'src/users/users.service';
@@ -6,6 +14,7 @@ import { createResponse } from 'src/utils/createResponse';
 import { Enum_UserType } from 'src/types/Payload';
 import { CreateRestaurantSignup } from 'src/restaurants/dto/create-restaurant.dto';
 import { IMAGE_LINKS } from 'src/assets/image_urls';
+import { Response } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -370,8 +379,40 @@ export class AuthController {
       }
       const result = await this.emailService.verifyEmail(email, code); // Verify email with the code
       return result;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error during email verification:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred during verification, please try again.'
+      );
+    }
+  }
+
+  @Post('request-verify-account')
+  async requestVerifyAccount(
+    @Body() { email }: { email: string } // Accept email and verification code
+  ) {
+    try {
+      if (!email) {
+        return createResponse(
+          'InvalidFormatInput',
+          null,
+          'You must provide a valid email and a verification code'
+        );
+      }
+      const user = await this.usersService.findByCondition({ email: email });
+      const code = await this.emailService.sendVerificationEmail(email); // Verify email with the code
+      await this.usersService.update(user.data.id, {
+        verification_code: code
+      });
+      return createResponse(
+        'OK',
+        null,
+        'Your account verification request has been sent to your email!'
+      );
+    } catch (error: any) {
+      console.error('Error sending verify email verification:', error);
       return createResponse(
         'ServerError',
         null,
@@ -393,7 +434,7 @@ export class AuthController {
 
       const result = await this.authService.requestPasswordReset(email);
       return result;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error during password reset request:', error);
       return createResponse(
         'ServerError',
@@ -403,29 +444,46 @@ export class AuthController {
     }
   }
 
-  // New endpoint to reset the password using the token
+  @Get('change-password-success')
+  @Render('change-password-success')
+  async renderChangePasswordSuccess() {
+    return {
+      logoFlashfood: IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO
+    };
+  }
+
   @Post('reset-password')
   async resetPassword(
-    @Body() { token, newPassword }: { token: string; newPassword: string }
+    @Body() { token, newPassword }: { token: string; newPassword: string },
+    @Res() res: Response
   ) {
     try {
       if (!token || !newPassword) {
-        return createResponse(
-          'InvalidFormatInput',
-          null,
-          'You must provide a valid token and new password'
-        );
+        return res.render('reset-password', {
+          token,
+          error: 'You must provide a valid token and new password',
+          logoFlashfood: IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO
+        });
       }
 
       const result = await this.authService.resetPassword(token, newPassword);
-      return result;
-    } catch (error) {
+
+      if (result.EC === 0) {
+        return res.redirect('/auth/change-password-success');
+      } else {
+        return res.render('reset-password', {
+          token,
+          error: result.EM || 'Failed to reset password. Please try again.',
+          logoFlashfood: IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO
+        });
+      }
+    } catch (error: any) {
       console.error('Error during password reset:', error);
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred during password reset, please try again.'
-      );
+      return res.render('reset-password', {
+        token,
+        error: 'An error occurred during password reset, please try again.',
+        logoFlashfood: IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO
+      });
     }
   }
 

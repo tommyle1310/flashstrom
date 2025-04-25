@@ -128,7 +128,7 @@ export class DriversGateway
           console.log(
             '[DriversGateway] Socket.IO Redis adapter initialized successfully'
           );
-        } catch (err) {
+        } catch (err: any) {
           if (retryCount < maxRetries) {
             retryCount++;
             console.warn(
@@ -144,7 +144,7 @@ export class DriversGateway
         }
       };
       connectRedis();
-    } catch (err) {
+    } catch (err: any) {
       console.error(
         '[DriversGateway] Error setting up Redis adapter:',
         err.message
@@ -200,7 +200,7 @@ export class DriversGateway
         secret: process.env.JWT_SECRET
       });
       return decoded;
-    } catch (error) {
+    } catch (error: any) {
       console.error('[DriversGateway] Token validation error:', error.message);
       throw new WsException('Token validation failed');
     }
@@ -308,7 +308,7 @@ export class DriversGateway
       } finally {
         await this.redisService.del(lockKey);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(
         '[DriversGateway] Error handling connection:',
         error.message
@@ -1050,7 +1050,7 @@ export class DriversGateway
         }
       );
       return result;
-    } catch (error) {
+    } catch (error: any) {
       console.error(
         '[DriversGateway] Error in handleDriverProgressUpdate:',
         error
@@ -1209,7 +1209,7 @@ export class DriversGateway
                     '[DriversGateway] Calculated driver wage:',
                     driver_wage
                   );
-                } catch (error) {
+                } catch (error: any) {
                   console.error(
                     '[DriversGateway] Error evaluating wage formula:',
                     error
@@ -1416,7 +1416,7 @@ export class DriversGateway
         }
 
         return result;
-      } catch (error) {
+      } catch (error: any) {
         if (error.code === '40001' && attempt < maxRetries - 1) {
           attempt++;
           console.log(
@@ -1543,7 +1543,7 @@ export class DriversGateway
       );
 
       return { event: 'orderAssigned', data: { success: true } };
-    } catch (error) {
+    } catch (error: any) {
       console.error(
         '[DriversGateway] Error handling order.assignedToDriver:',
         error

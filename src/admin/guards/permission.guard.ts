@@ -87,7 +87,7 @@ export class PermissionGuard implements CanActivate {
 
       request.admin = admin;
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.log('PermissionGuard error:', error);
       request.response = createResponse(
         'ServerError',

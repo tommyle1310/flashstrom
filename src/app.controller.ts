@@ -26,7 +26,7 @@ export class AppController {
       );
       console.log('Email sent successfully');
       return 'Test email sent!';
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending email:', error);
       return 'Failed to send email';
     }

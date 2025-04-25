@@ -41,7 +41,7 @@ export class NotificationsService {
         newNotification,
         'Notification created successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error creating notification:', error);
     }
   }
@@ -50,7 +50,7 @@ export class NotificationsService {
     try {
       const notifications = await this.notificationsRepository.findAll();
       return createResponse('OK', notifications, 'Fetched all notifications');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching notifications:', error);
     }
   }
@@ -59,7 +59,7 @@ export class NotificationsService {
     try {
       const notification = await this.notificationsRepository.findById(id);
       return this.handleNotificationResponse(notification);
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching notification:', error);
     }
   }
@@ -83,7 +83,7 @@ export class NotificationsService {
         updatedNotification,
         'Notification updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error updating notification:', error);
     }
   }
@@ -95,7 +95,7 @@ export class NotificationsService {
         return createResponse('NotFound', null, 'Notification not found');
       }
       return createResponse('OK', null, 'Notification deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error deleting notification:', error);
     }
   }
@@ -171,7 +171,7 @@ export class NotificationsService {
         notifications,
         'Broadcast notifications created successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error broadcasting notifications:', error);
     }
   }

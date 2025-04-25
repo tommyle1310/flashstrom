@@ -152,7 +152,7 @@ export class UploadController {
         updatedEntity,
         'Galleries uploaded successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading galleries:', error);
       return createResponse('ServerError', null, 'Failed to upload galleries');
     }

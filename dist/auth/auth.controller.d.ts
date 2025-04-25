@@ -2,6 +2,7 @@ import { AuthService } from './auth.service';
 import { EmailService } from 'src/mailer/email.service';
 import { UsersService } from 'src/users/users.service';
 import { CreateRestaurantSignup } from 'src/restaurants/dto/create-restaurant.dto';
+import { Response } from 'express';
 export declare class AuthController {
     private readonly authService;
     private readonly emailService;
@@ -90,13 +91,19 @@ export declare class AuthController {
     }): Promise<import("src/utils/createResponse").ApiResponse<any> | {
         message: string;
     }>;
+    requestVerifyAccount({ email }: {
+        email: string;
+    }): Promise<import("src/utils/createResponse").ApiResponse<any>>;
     requestResetPassword({ email }: {
         email: string;
     }): Promise<import("src/utils/createResponse").ApiResponse<any>>;
+    renderChangePasswordSuccess(): Promise<{
+        logoFlashfood: string;
+    }>;
     resetPassword({ token, newPassword }: {
         token: string;
         newPassword: string;
-    }): Promise<import("src/utils/createResponse").ApiResponse<any>>;
+    }, res: Response): Promise<void>;
     renderResetPasswordPage(token: string): Promise<{
         token: string;
         error: string;

@@ -35,8 +35,10 @@ export class UploadService {
         url: result.secure_url, // URL for the uploaded image
         public_id: result.public_id // Public ID for later deletion
       };
-    } catch (error) {
-      throw new Error('Upload failed: ' + error.message);
+    } catch (error: any) {
+      throw new Error(
+        'Upload failed: ' + (error as unknown as { message: any }).message
+      );
     }
   }
 }

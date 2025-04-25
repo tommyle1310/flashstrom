@@ -41,7 +41,7 @@ export class FchatService {
         })
         .getOne();
       return room || null;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error finding room by participants and type:', error);
       return null;
     }
@@ -64,7 +64,7 @@ export class FchatService {
         order: { timestamp: 'ASC' }
       });
       return messages;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error fetching messages for room ${roomId}:`, error);
       return [];
     }
@@ -85,7 +85,7 @@ export class FchatService {
       return room.participants.some(
         participant => participant.userId === userId
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error checking room access:', error);
       return false;
     }
@@ -97,7 +97,7 @@ export class FchatService {
         { id: roomId },
         { lastActivity: new Date() }
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating room activity:', error);
       throw error;
     }
@@ -128,7 +128,7 @@ export class FchatService {
         .where('roomId = :roomId', { roomId })
         .andWhere('NOT (:userId = ANY(readBy))', { userId })
         .execute();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error marking messages as read:', error);
       throw error;
     }

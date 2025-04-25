@@ -47,7 +47,7 @@ export class CustomersGateway {
       });
 
       return decoded;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Token validation error:', error);
       client.disconnect();
       return null;

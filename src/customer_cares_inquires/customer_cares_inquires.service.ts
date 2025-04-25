@@ -12,7 +12,7 @@ export class CustomerCareInquiriesService {
     try {
       const inquiry = await this.repository.create(createDto);
       return createResponse('OK', inquiry, 'Inquiry created successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating inquiry:', error);
       return createResponse('ServerError', null, 'Failed to create inquiry');
     }
@@ -22,7 +22,7 @@ export class CustomerCareInquiriesService {
     try {
       const inquiries = await this.repository.findAll();
       return createResponse('OK', inquiries, 'Inquiries fetched successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching inquiries:', error);
       return createResponse('ServerError', null, 'Failed to fetch inquiries');
     }
@@ -35,7 +35,7 @@ export class CustomerCareInquiriesService {
         return createResponse('NotFound', null, 'Inquiry not found');
       }
       return createResponse('OK', inquiry, 'Inquiry fetched successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching inquiry:', error);
       return createResponse('ServerError', null, 'Failed to fetch inquiry');
     }
@@ -50,7 +50,7 @@ export class CustomerCareInquiriesService {
 
       const updated = await this.repository.update(id, updateDto);
       return createResponse('OK', updated, 'Inquiry updated successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating inquiry:', error);
       return createResponse('ServerError', null, 'Failed to update inquiry');
     }
@@ -63,7 +63,7 @@ export class CustomerCareInquiriesService {
         return createResponse('NotFound', null, 'Inquiry not found');
       }
       return createResponse('OK', null, 'Inquiry deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting inquiry:', error);
       return createResponse('ServerError', null, 'Failed to delete inquiry');
     }

@@ -515,7 +515,7 @@ export class OrdersService {
       logger.log(`Total execution took ${Date.now() - start}ms`);
 
       return result;
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error creating order:', error);
       return createResponse('ServerError', null, 'Error creating order');
     }
@@ -669,7 +669,7 @@ export class OrdersService {
 
       const updatedOrder = await manager.save(Order, updatedData);
       return createResponse('OK', updatedOrder, 'Order updated successfully');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error updating order:', error);
     }
   }
@@ -721,7 +721,7 @@ export class OrdersService {
         updatedOrder,
         'Order status updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error updating order status:', error);
       return createResponse('ServerError', null, 'Error updating order status');
     }
@@ -832,7 +832,7 @@ export class OrdersService {
       );
 
       return createResponse('OK', updatedOrder, 'Driver tipped successfully');
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error tipping driver:', error);
       return createResponse('ServerError', null, 'Error tipping driver');
     }
@@ -842,7 +842,7 @@ export class OrdersService {
     try {
       const orders = await this.ordersRepository.find();
       return createResponse('OK', orders, 'Fetched all orders');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching orders:', error);
     }
   }
@@ -858,7 +858,7 @@ export class OrdersService {
         .getRepository(Order)
         .findOne({ where: { id }, relations });
       return this.handleOrderResponse(order);
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching order:', error);
     }
   }
@@ -870,7 +870,7 @@ export class OrdersService {
         return createResponse('NotFound', null, 'Order not found');
       }
       return createResponse('OK', null, 'Order deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error deleting order:', error);
     }
   }
@@ -951,7 +951,7 @@ export class OrdersService {
 
       await this.notifyRestaurantAndDriver(updatedOrder);
       return createResponse('OK', updatedOrder, 'Order cancelled successfully');
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error cancelling order:', error);
       return createResponse('ServerError', null, 'Error cancelling order');
     }

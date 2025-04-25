@@ -55,7 +55,7 @@ export class CustomerCareService {
         newRecord,
         'Customer care record created successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse(
         'ServerError',
@@ -70,7 +70,7 @@ export class CustomerCareService {
     try {
       const records = await this.repository.findAll();
       return createResponse('OK', records, 'Fetched all customer care records');
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse(
         'ServerError',
@@ -96,7 +96,7 @@ export class CustomerCareService {
         record,
         'Fetched customer care record successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse(
         'ServerError',
@@ -118,7 +118,7 @@ export class CustomerCareService {
         record,
         'Fetched customer care record successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse(
         'ServerError',
@@ -210,7 +210,7 @@ export class CustomerCareService {
         savedRecord,
         'Customer care record updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
       return createResponse(
         'ServerError',
@@ -238,7 +238,7 @@ export class CustomerCareService {
         null,
         'Customer care record deleted successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.log('error', error);
 
       return createResponse(

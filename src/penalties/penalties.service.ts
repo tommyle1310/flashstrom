@@ -77,7 +77,7 @@ export class PenaltiesService {
       const newPenalty =
         await this.penaltiesRepository.create(createPenaltyDto);
       return createResponse('OK', newPenalty, 'Penalty created successfully');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error creating penalty:', error);
     }
   }
@@ -88,7 +88,7 @@ export class PenaltiesService {
         relations: ['penaltied_by', 'rule']
       });
       return createResponse('OK', penalties, 'Fetched all penalties');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching penalties:', error);
     }
   }
@@ -97,7 +97,7 @@ export class PenaltiesService {
     try {
       const penalty = await this.penaltiesRepository.findById(id);
       return this.handlePenaltyResponse(penalty);
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching penalty:', error);
     }
   }
@@ -118,7 +118,7 @@ export class PenaltiesService {
         offset
       );
       return createResponse('OK', penalties, 'Fetched penalties by driver');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching penalties by driver:', error);
     }
   }
@@ -143,7 +143,7 @@ export class PenaltiesService {
         penalties,
         'Fetched penalties by customer care'
       );
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError(
         'Error fetching penalties by customer care:',
         error
@@ -167,7 +167,7 @@ export class PenaltiesService {
         offset
       );
       return createResponse('OK', penalties, 'Fetched penalties by restaurant');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching penalties by restaurant:', error);
     }
   }
@@ -188,7 +188,7 @@ export class PenaltiesService {
         offset
       );
       return createResponse('OK', penalties, 'Fetched penalties by admin');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error fetching penalties by admin:', error);
     }
   }
@@ -212,7 +212,7 @@ export class PenaltiesService {
         updatedPenalty,
         'Penalty updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error updating penalty:', error);
     }
   }
@@ -237,7 +237,7 @@ export class PenaltiesService {
         updatedPenalty,
         'Penalty status updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error updating penalty status:', error);
     }
   }
@@ -249,7 +249,7 @@ export class PenaltiesService {
         return createResponse('NotFound', null, 'Penalty not found');
       }
       return createResponse('OK', null, 'Penalty deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       return this.handleError('Error deleting penalty:', error);
     }
   }

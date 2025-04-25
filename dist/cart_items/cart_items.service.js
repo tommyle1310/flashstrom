@@ -48,7 +48,7 @@ let CartItemsService = class CartItemsService {
             console.log('Starting cart item creation:', { item_id, customer_id });
             const [menuItem, customer] = await Promise.all([
                 this.menuItemsRepository.findById(item_id),
-                this.customersRepository.findById(customer_id),
+                this.customersRepository.findById(customer_id)
             ]);
             if (!menuItem || !customer) {
                 console.log('MenuItem or Customer not found:', { menuItem, customer });
@@ -62,14 +62,14 @@ let CartItemsService = class CartItemsService {
             }
             console.log('Fetched restaurant successfully');
             const existingCartItem = await this.cartItemsRepository.findOne({
-                where: { customer_id: (0, typeorm_1.Equal)(customer_id), item_id: (0, typeorm_1.Equal)(item_id) },
+                where: { customer_id: (0, typeorm_1.Equal)(customer_id), item_id: (0, typeorm_1.Equal)(item_id) }
             });
             console.log('Checked existing cart item:', { existingCartItem });
             if (existingCartItem) {
                 console.log('Updating existing cart item:', existingCartItem.id);
                 const updatedVariants = await Promise.race([
                     this.updateExistingCartItemVariants(existingCartItem, variants || [], restaurant.promotions || [], menuItem),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('updateExistingCartItemVariants timeout')), 5000)),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('updateExistingCartItemVariants timeout')), 5000))
                 ]);
                 console.log('Updated variants:', updatedVariants);
                 const updated = await this.cartItemsRepository.update(existingCartItem.id, {
@@ -77,7 +77,7 @@ let CartItemsService = class CartItemsService {
                     updated_at: Math.floor(Date.now() / 1000),
                     item_id: existingCartItem.item_id,
                     customer_id: existingCartItem.customer_id,
-                    restaurant_id: existingCartItem.restaurant_id,
+                    restaurant_id: existingCartItem.restaurant_id
                 });
                 console.log('Cart item updated:', updated);
                 return (0, createResponse_1.createResponse)('OK', updated, 'Cart item added quantity successfully');
@@ -85,13 +85,13 @@ let CartItemsService = class CartItemsService {
             console.log('Creating new cart item');
             const populatedVariants = await Promise.race([
                 this.populateVariants(variants || [], restaurant.promotions || [], menuItem),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('populateVariants timeout')), 5000)),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('populateVariants timeout')), 5000))
             ]);
             console.log('Populated variants:', populatedVariants);
             const newCartItem = await this.cartItemsRepository.create({
                 ...createCartItemDto,
                 variants: populatedVariants,
-                restaurant_id: menuItem.restaurant_id,
+                restaurant_id: menuItem.restaurant_id
             });
             console.log('Created new cart item:', newCartItem);
             return (0, createResponse_1.createResponse)('OK', newCartItem, 'Cart item created successfully');
@@ -121,7 +121,9 @@ let CartItemsService = class CartItemsService {
             if (!existingCartItem) {
                 return (0, createResponse_1.createResponse)('NotFound', null, `Cart item with ID ${id} not found`);
             }
-            menuItem = menuItem || (await this.menuItemsRepository.findById(existingCartItem.item_id));
+            menuItem =
+                menuItem ||
+                    (await this.menuItemsRepository.findById(existingCartItem.item_id));
             const restaurant = await this.restaurantRepository.findById(existingCartItem.restaurant_id);
             if (!restaurant) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant not found');
@@ -134,7 +136,7 @@ let CartItemsService = class CartItemsService {
                 updated_at: Math.floor(Date.now() / 1000),
                 item_id: existingCartItem.item_id,
                 customer_id: existingCartItem.customer_id,
-                variants: updatedVariants,
+                variants: updatedVariants
             });
             return (0, createResponse_1.createResponse)('OK', updatedCartItem, 'Cart item updated successfully');
         }
@@ -157,11 +159,11 @@ let CartItemsService = class CartItemsService {
                 }
                 const now = Math.floor(Date.now() / 1000);
                 const itemCategories = menuItem.category || [];
-                const applicablePromotions = restaurant.promotions?.filter((promotion) => {
+                const applicablePromotions = restaurant.promotions?.filter(promotion => {
                     const isActive = promotion.status === 'ACTIVE' &&
                         now >= Number(promotion.start_date) &&
                         now <= Number(promotion.end_date);
-                    const hasMatchingCategory = promotion.food_categories?.some((fc) => itemCategories.includes(fc.id)) || false;
+                    const hasMatchingCategory = promotion.food_categories?.some(fc => itemCategories.includes(fc.id)) || false;
                     return isActive && hasMatchingCategory;
                 }) || [];
                 const populatedVariants = await Promise.all(cartItem.variants.map(async (variant) => {
@@ -172,14 +174,15 @@ let CartItemsService = class CartItemsService {
                             variant_name: 'Unknown',
                             variant_price_at_time_of_addition: 0,
                             quantity: variant.quantity,
-                            price_after_applied_promotion: null,
+                            price_after_applied_promotion: null
                         };
                     }
                     let priceAfterPromotion = null;
                     if (applicablePromotions.length > 0) {
-                        applicablePromotions.forEach((promotion) => {
+                        applicablePromotions.forEach(promotion => {
                             const discountedPrice = this.calculateDiscountedPrice(variantDetails.price, promotion);
-                            if (priceAfterPromotion === null || discountedPrice < priceAfterPromotion) {
+                            if (priceAfterPromotion === null ||
+                                discountedPrice < priceAfterPromotion) {
                                 priceAfterPromotion = discountedPrice;
                             }
                         });
@@ -189,14 +192,14 @@ let CartItemsService = class CartItemsService {
                         variant_name: variantDetails.variant,
                         variant_price_at_time_of_addition: variantDetails.price,
                         quantity: variant.quantity,
-                        price_after_applied_promotion: priceAfterPromotion,
+                        price_after_applied_promotion: priceAfterPromotion
                     };
                 }));
                 return {
                     ...cartItem,
                     item: menuItem,
                     variants: populatedVariants,
-                    restaurantDetails: restaurant,
+                    restaurantDetails: restaurant
                 };
             }));
             return (0, createResponse_1.createResponse)('OK', populatedCartItems, 'Cart items fetched successfully');
@@ -216,11 +219,11 @@ let CartItemsService = class CartItemsService {
             const restaurant = await this.restaurantRepository.findById(cartItem.restaurant_id);
             const now = Math.floor(Date.now() / 1000);
             const itemCategories = menuItem.category || [];
-            const applicablePromotions = restaurant.promotions?.filter((promotion) => {
+            const applicablePromotions = restaurant.promotions?.filter(promotion => {
                 const isActive = promotion.status === 'ACTIVE' &&
                     now >= Number(promotion.start_date) &&
                     now <= Number(promotion.end_date);
-                const hasMatchingCategory = promotion.food_categories?.some((fc) => itemCategories.includes(fc.id)) || false;
+                const hasMatchingCategory = promotion.food_categories?.some(fc => itemCategories.includes(fc.id)) || false;
                 return isActive && hasMatchingCategory;
             }) || [];
             const populatedVariants = await Promise.all(cartItem.variants.map(async (variant) => {
@@ -231,14 +234,15 @@ let CartItemsService = class CartItemsService {
                         variant_name: 'Unknown',
                         variant_price_at_time_of_addition: 0,
                         quantity: variant.quantity,
-                        price_after_applied_promotion: null,
+                        price_after_applied_promotion: null
                     };
                 }
                 let priceAfterPromotion = null;
                 if (applicablePromotions.length > 0) {
-                    applicablePromotions.forEach((promotion) => {
+                    applicablePromotions.forEach(promotion => {
                         const discountedPrice = this.calculateDiscountedPrice(variantDetails.price, promotion);
-                        if (priceAfterPromotion === null || discountedPrice < priceAfterPromotion) {
+                        if (priceAfterPromotion === null ||
+                            discountedPrice < priceAfterPromotion) {
                             priceAfterPromotion = discountedPrice;
                         }
                     });
@@ -248,14 +252,14 @@ let CartItemsService = class CartItemsService {
                     variant_name: variantDetails.variant,
                     variant_price_at_time_of_addition: variantDetails.price,
                     quantity: variant.quantity,
-                    price_after_applied_promotion: priceAfterPromotion,
+                    price_after_applied_promotion: priceAfterPromotion
                 };
             }));
             return (0, createResponse_1.createResponse)('OK', {
                 ...cartItem,
                 item: menuItem,
                 variants: populatedVariants,
-                restaurantDetails: restaurant,
+                restaurantDetails: restaurant
             }, 'Fetched cart item successfully');
         }
         catch (error) {
@@ -273,11 +277,11 @@ let CartItemsService = class CartItemsService {
             const restaurant = await this.restaurantRepository.findById(cartItem.restaurant_id);
             const now = Math.floor(Date.now() / 1000);
             const itemCategories = menuItem.category || [];
-            const applicablePromotions = restaurant.promotions?.filter((promotion) => {
+            const applicablePromotions = restaurant.promotions?.filter(promotion => {
                 const isActive = promotion.status === 'ACTIVE' &&
                     now >= Number(promotion.start_date) &&
                     now <= Number(promotion.end_date);
-                const hasMatchingCategory = promotion.food_categories?.some((fc) => itemCategories.includes(fc.id)) || false;
+                const hasMatchingCategory = promotion.food_categories?.some(fc => itemCategories.includes(fc.id)) || false;
                 return isActive && hasMatchingCategory;
             }) || [];
             const populatedVariants = await Promise.all(cartItem.variants.map(async (variant) => {
@@ -288,14 +292,15 @@ let CartItemsService = class CartItemsService {
                         variant_name: 'Unknown',
                         variant_price_at_time_of_addition: 0,
                         quantity: variant.quantity,
-                        price_after_applied_promotion: null,
+                        price_after_applied_promotion: null
                     };
                 }
                 let priceAfterPromotion = null;
                 if (applicablePromotions.length > 0) {
-                    applicablePromotions.forEach((promotion) => {
+                    applicablePromotions.forEach(promotion => {
                         const discountedPrice = this.calculateDiscountedPrice(variantDetails.price, promotion);
-                        if (priceAfterPromotion === null || discountedPrice < priceAfterPromotion) {
+                        if (priceAfterPromotion === null ||
+                            discountedPrice < priceAfterPromotion) {
                             priceAfterPromotion = discountedPrice;
                         }
                     });
@@ -305,14 +310,14 @@ let CartItemsService = class CartItemsService {
                     variant_name: variantDetails.variant,
                     variant_price_at_time_of_addition: variantDetails.price,
                     quantity: variant.quantity,
-                    price_after_applied_promotion: priceAfterPromotion,
+                    price_after_applied_promotion: priceAfterPromotion
                 };
             }));
             return (0, createResponse_1.createResponse)('OK', {
                 ...cartItem,
                 item: menuItem,
                 variants: populatedVariants,
-                restaurantDetails: restaurant,
+                restaurantDetails: restaurant
             }, 'Fetched cart item successfully');
         }
         catch (error) {
@@ -344,18 +349,19 @@ let CartItemsService = class CartItemsService {
             }
             let priceToUse = variantDetails.price;
             if (promotions?.length > 0) {
-                const applicablePromotions = promotions.filter((promotion) => {
+                const applicablePromotions = promotions.filter(promotion => {
                     const isActive = promotion.status === 'ACTIVE' &&
                         now >= Number(promotion.start_date) &&
                         now <= Number(promotion.end_date);
-                    const hasMatchingCategory = promotion.food_categories?.some((fc) => itemCategories.includes(fc.id)) || false;
+                    const hasMatchingCategory = promotion.food_categories?.some(fc => itemCategories.includes(fc.id)) || false;
                     return isActive && hasMatchingCategory;
                 });
                 if (applicablePromotions.length > 0) {
                     let priceAfterPromotion = null;
-                    applicablePromotions.forEach((promotion) => {
+                    applicablePromotions.forEach(promotion => {
                         const discountedPrice = this.calculateDiscountedPrice(variantDetails.price, promotion);
-                        if (priceAfterPromotion === null || discountedPrice < priceAfterPromotion) {
+                        if (priceAfterPromotion === null ||
+                            discountedPrice < priceAfterPromotion) {
                             priceAfterPromotion = discountedPrice;
                         }
                     });
@@ -368,7 +374,7 @@ let CartItemsService = class CartItemsService {
                 variant_id: variant.variant_id,
                 variant_name: variantDetails.variant,
                 variant_price_at_time_of_addition: priceToUse,
-                quantity: variant.quantity,
+                quantity: variant.quantity
             };
         }));
     }
@@ -377,7 +383,7 @@ let CartItemsService = class CartItemsService {
         const now = Math.floor(Date.now() / 1000);
         const itemCategories = menuItem.category || [];
         for (const newVariant of newVariants) {
-            const existingVariantIndex = updatedVariants.findIndex((v) => v.variant_id === newVariant.variant_id);
+            const existingVariantIndex = updatedVariants.findIndex(v => v.variant_id === newVariant.variant_id);
             const variantDetails = await this.menuItemVariantsRepository.findById(newVariant.variant_id);
             if (!variantDetails) {
                 console.warn(`Variant not found: ${newVariant.variant_id}`);
@@ -385,18 +391,19 @@ let CartItemsService = class CartItemsService {
             }
             let priceToUse = variantDetails.price;
             if (promotions?.length > 0) {
-                const applicablePromotions = promotions.filter((promotion) => {
+                const applicablePromotions = promotions.filter(promotion => {
                     const isActive = promotion.status === 'ACTIVE' &&
                         now >= Number(promotion.start_date) &&
                         now <= Number(promotion.end_date);
-                    const hasMatchingCategory = promotion.food_categories?.some((fc) => itemCategories.includes(fc.id)) || false;
+                    const hasMatchingCategory = promotion.food_categories?.some(fc => itemCategories.includes(fc.id)) || false;
                     return isActive && hasMatchingCategory;
                 });
                 if (applicablePromotions.length > 0) {
                     let priceAfterPromotion = null;
-                    applicablePromotions.forEach((promotion) => {
+                    applicablePromotions.forEach(promotion => {
                         const discountedPrice = this.calculateDiscountedPrice(variantDetails.price, promotion);
-                        if (priceAfterPromotion === null || discountedPrice < priceAfterPromotion) {
+                        if (priceAfterPromotion === null ||
+                            discountedPrice < priceAfterPromotion) {
                             priceAfterPromotion = discountedPrice;
                         }
                     });
@@ -414,7 +421,7 @@ let CartItemsService = class CartItemsService {
                     variant_id: newVariant.variant_id,
                     variant_name: variantDetails.variant,
                     variant_price_at_time_of_addition: priceToUse,
-                    quantity: newVariant.quantity,
+                    quantity: newVariant.quantity
                 });
             }
         }

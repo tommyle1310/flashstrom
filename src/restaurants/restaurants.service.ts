@@ -116,7 +116,7 @@ export class RestaurantsService {
       logger.log(
         `Preloaded ${restaurants.length} restaurants into Redis in ${Date.now() - start}ms`
       );
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error preloading restaurants into Redis:', error);
     }
   }
@@ -141,7 +141,7 @@ export class RestaurantsService {
       logger.log(
         `Preloaded ${restaurants.length} restaurants into Redis in ${Date.now() - start}ms`
       );
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error preloading restaurants into Redis:', error);
     }
   }
@@ -163,7 +163,7 @@ export class RestaurantsService {
         null,
         'Redis cleared and restaurants preloaded successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error clearing Redis:', error);
       return createResponse('ServerError', null, 'Error clearing Redis');
     }
@@ -311,7 +311,7 @@ export class RestaurantsService {
         updatedRestaurant,
         'Restaurant updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error updating restaurant:', error);
       return createResponse('ServerError', null, 'Error updating restaurant');
     }
@@ -377,7 +377,7 @@ export class RestaurantsService {
         restaurant,
         'Restaurant availability toggled successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error toggling restaurant availability:', error);
       return createResponse(
         'ServerError',
@@ -482,7 +482,7 @@ export class RestaurantsService {
         savedRestaurant,
         'Restaurant created successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating restaurant:', error);
       return createResponse('ServerError', null, 'Error creating restaurant');
     }
@@ -964,7 +964,7 @@ export class RestaurantsService {
         updatedOrder,
         'Order status updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating order status:', error);
       return createResponse(
         'ServerError',
@@ -982,7 +982,7 @@ export class RestaurantsService {
         restaurants,
         'Restaurants retrieved successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error finding restaurants:', error);
       return createResponse(
         'ServerError',
@@ -1005,7 +1005,7 @@ export class RestaurantsService {
         restaurant, // promotions đã tự động populate
         'Restaurant retrieved successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error finding restaurant:', error);
       return createResponse('ServerError', null, 'Error retrieving restaurant');
     }
@@ -1028,7 +1028,7 @@ export class RestaurantsService {
       }
 
       return createResponse('OK', true, 'Restaurant deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting restaurant:', error);
       return createResponse('ServerError', null, 'Error deleting restaurant');
     }
@@ -1056,7 +1056,7 @@ export class RestaurantsService {
         updatedRestaurant,
         'Restaurant galleries updated successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating restaurant galleries:', error);
       return createResponse('ServerError', null, 'Failed to update galleries');
     }
@@ -1164,7 +1164,7 @@ export class RestaurantsService {
         },
         'Promotion applied successfully'
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error applying promotion:', error);
       return createResponse('ServerError', null, 'Error applying promotion');
     }
