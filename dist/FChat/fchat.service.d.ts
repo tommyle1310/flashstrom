@@ -18,4 +18,10 @@ export declare class FchatService {
     updateRoomActivity(roomId: string): Promise<void>;
     getActiveChats(userId: string): Promise<ChatRoom[]>;
     markMessagesAsRead(roomId: string, userId: string): Promise<void>;
+    getRoomsByUserId(userId: string): Promise<ChatRoom[]>;
+    getLastMessageForRoom(roomId: string): Promise<Message | null>;
+    getRoomsByUserIdWithLastMessage(userId: string): Promise<{
+        room: ChatRoom;
+        lastMessage: Message | null;
+    }[]>;
 }

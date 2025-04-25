@@ -133,4 +133,62 @@ export class FchatService {
       throw error;
     }
   }
+
+  async getRoomsByUserId(userId: string): Promise<ChatRoom[]> {
+    return this.roomRepository
+      .createQueryBuilder('room')
+      .where(`room.participants @> :participant`, {
+        participant: JSON.stringify([{ userId }])
+      })
+      .orderBy('room.lastActivity', 'DESC')
+      .getMany();
+  }
+
+  async getLastMessageForRoom(roomId: string): Promise<Message | null> {
+    return this.messageRepository
+      .createQueryBuilder('message')
+      .where('message.roomId = :roomId', { roomId })
+      .orderBy('message.timestamp', 'DESC')
+      .limit(1)
+      .getOne();
+  }
+
+  async getRoomsByUserIdWithLastMessage(userId: string): Promise<
+    {
+      room: ChatRoom;
+      lastMessage: Message | null;
+    }[]
+  > {
+    const rooms = await this.roomRepository
+      .createQueryBuilder('room')
+      .leftJoinAndSelect('room.messages', 'messages')
+      .where(`room.participants @> :participant`, {
+        participant: JSON.stringify([{ userId }])
+      })
+      .orderBy('room.lastActivity', 'DESC')
+      .getMany();
+
+    // Then get last message for each room in a single query
+    const lastMessages = await this.messageRepository
+      .createQueryBuilder('message')
+      .where('message.roomId IN (:...roomIds)', {
+        roomIds: rooms.map(room => room.id)
+      })
+      .orderBy('message.timestamp', 'DESC')
+      .getMany();
+
+    // Group messages by roomId and get the latest one
+    const lastMessageByRoom = new Map<string, Message>();
+    lastMessages.forEach(message => {
+      if (!lastMessageByRoom.has(message.roomId)) {
+        lastMessageByRoom.set(message.roomId, message);
+      }
+    });
+
+    // Combine rooms with their last messages
+    return rooms.map(room => ({
+      room,
+      lastMessage: lastMessageByRoom.get(room.id) || null
+    }));
+  }
 }

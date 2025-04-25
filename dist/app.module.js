@@ -185,9 +185,12 @@ exports.AppModule = AppModule = __decorate([
                 useFactory: () => {
                     const io = new socket_io_1.Server({
                         cors: {
-                            origin: '*',
-                            methods: ['GET', 'POST']
-                        }
+                            origin: ['http://localhost:3000', 'http://localhost:1310'],
+                            methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+                            credentials: true,
+                            allowedHeaders: ['Authorization', 'auth', 'Content-Type']
+                        },
+                        transports: ['websocket', 'polling']
                     });
                     return io;
                 }

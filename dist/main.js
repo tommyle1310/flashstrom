@@ -47,10 +47,19 @@ async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.useLogger(['debug', 'error', 'log', 'verbose', 'warn']);
     app.enableCors({
-        origin: true,
-        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-        allowedHeaders: 'Content-Type, Accept, Authorization, ngrok-skip-browser-warning, X-Content-Type-Options',
-        credentials: true
+        origin: ['http://localhost:3000', 'http://localhost:1310'],
+        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+        allowedHeaders: [
+            'Content-Type',
+            'Accept',
+            'Authorization',
+            'auth',
+            'ngrok-skip-browser-warning',
+            'X-Content-Type-Options'
+        ],
+        credentials: true,
+        preflightContinue: false,
+        optionsSuccessStatus: 204
     });
     app.use((req, res, next) => {
         if (req.path.startsWith('/auth/reset-password') ||

@@ -164,9 +164,12 @@ import { CustomersGateway } from './customers/customers.gateway';
       useFactory: () => {
         const io = new Server({
           cors: {
-            origin: '*',
-            methods: ['GET', 'POST']
-          }
+            origin: ['http://localhost:3000', 'http://localhost:1310'],
+            methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+            credentials: true,
+            allowedHeaders: ['Authorization', 'auth', 'Content-Type']
+          },
+          transports: ['websocket', 'polling']
         });
         return io;
       }

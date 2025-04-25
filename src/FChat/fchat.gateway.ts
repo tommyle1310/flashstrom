@@ -21,11 +21,12 @@ import { MessageType } from './entities/message.entity';
 @WebSocketGateway({
   namespace: 'chat',
   cors: {
-    origin: ['*', 'localhost:1310'],
-    methods: ['GET', 'POST'],
-    credentials: true
+    origin: ['http://localhost:3000', 'http://localhost:1310'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Authorization', 'auth', 'Content-Type']
   },
-  transports: ['websocket']
+  transports: ['websocket', 'polling']
 })
 export class FchatGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
@@ -338,6 +339,91 @@ export class FchatGateway
         message: error.message || 'Failed to get chat history'
       });
       return { roomId: data.roomId, messages: [] };
+    }
+  }
+
+  @SubscribeMessage('getAllChats')
+  async handleGetAllChats(@ConnectedSocket() client: Socket) {
+    try {
+      const user = client.data.user;
+      if (!user) {
+        throw new WsException('Unauthorized');
+      }
+
+      console.log('User requesting all chats:', user.id);
+
+      // Get all rooms where the user is a participant
+      const userChats = await this.fchatService.getRoomsByUserIdWithLastMessage(
+        user.id
+      );
+
+      const processedChats = userChats.map(({ room, lastMessage }) => {
+        const otherParticipant = room.participants.find(
+          p => p.userId !== user.id
+        );
+
+        const chatInfo = {
+          roomId: room.id,
+          type: room.type,
+          otherParticipant,
+          lastMessage,
+          lastActivity: room.lastActivity,
+          relatedId: room.relatedId
+        };
+
+        // A chat is awaiting if:
+        // 1. There is a last message
+        // 2. The last message is not from the current user
+        // 3. The current user hasn't read the last message
+        // 4. The user has never sent any messages in this chat
+        const isAwaiting =
+          lastMessage &&
+          lastMessage.senderId !== user.id &&
+          !lastMessage.readBy.includes(user.id) &&
+          !room.messages?.some(msg => msg.senderId === user.id); // Check if user has ever sent messages
+
+        return {
+          chatInfo,
+          isAwaiting
+        };
+      });
+
+      // Separate into ongoing and awaiting chats
+      // Ongoing chats are those where the user has participated (sent messages)
+      // or has read all messages
+      const ongoingChats = processedChats
+        .filter(chat => !chat.isAwaiting)
+        .map(chat => chat.chatInfo)
+        .sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime());
+
+      const awaitingChats = processedChats
+        .filter(chat => chat.isAwaiting)
+        .map(chat => chat.chatInfo)
+        .sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime());
+
+      console.log(
+        `Found ${ongoingChats.length} ongoing chats and ${awaitingChats.length} awaiting chats`
+      );
+
+      // Emit the categorized results
+      client.emit('allChats', {
+        ongoing: ongoingChats,
+        awaiting: awaitingChats
+      });
+
+      return {
+        ongoing: ongoingChats,
+        awaiting: awaitingChats
+      };
+    } catch (error: any) {
+      console.error('Error getting all chats:', error);
+      client.emit('error', {
+        message: error.message || 'Failed to get all chats'
+      });
+      return {
+        ongoing: [],
+        awaiting: []
+      };
     }
   }
 

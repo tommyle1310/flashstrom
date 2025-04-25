@@ -4,6 +4,7 @@ import { FchatService } from './fchat.service';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { RoomType } from './entities/chat-room.entity';
 export declare class FchatGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
     private readonly fchatService;
     private readonly jwtService;
@@ -47,6 +48,30 @@ export declare class FchatGateway implements OnGatewayConnection, OnGatewayDisco
     }): Promise<{
         roomId: string;
         messages: import("./entities/message.entity").Message[];
+    }>;
+    handleGetAllChats(client: Socket): Promise<{
+        ongoing: {
+            roomId: string;
+            type: RoomType;
+            otherParticipant: {
+                userId: string;
+                userType: string;
+            };
+            lastMessage: import("./entities/message.entity").Message;
+            lastActivity: Date;
+            relatedId: string;
+        }[];
+        awaiting: {
+            roomId: string;
+            type: RoomType;
+            otherParticipant: {
+                userId: string;
+                userType: string;
+            };
+            lastMessage: import("./entities/message.entity").Message;
+            lastActivity: Date;
+            relatedId: string;
+        }[];
     }>;
     private isValidChatCombination;
     private getChatId;

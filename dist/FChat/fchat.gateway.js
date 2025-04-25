@@ -238,6 +238,62 @@ let FchatGateway = class FchatGateway {
             return { roomId: data.roomId, messages: [] };
         }
     }
+    async handleGetAllChats(client) {
+        try {
+            const user = client.data.user;
+            if (!user) {
+                throw new websockets_1.WsException('Unauthorized');
+            }
+            console.log('User requesting all chats:', user.id);
+            const userChats = await this.fchatService.getRoomsByUserIdWithLastMessage(user.id);
+            const processedChats = userChats.map(({ room, lastMessage }) => {
+                const otherParticipant = room.participants.find(p => p.userId !== user.id);
+                const chatInfo = {
+                    roomId: room.id,
+                    type: room.type,
+                    otherParticipant,
+                    lastMessage,
+                    lastActivity: room.lastActivity,
+                    relatedId: room.relatedId
+                };
+                const isAwaiting = lastMessage &&
+                    lastMessage.senderId !== user.id &&
+                    !lastMessage.readBy.includes(user.id) &&
+                    !room.messages?.some(msg => msg.senderId === user.id);
+                return {
+                    chatInfo,
+                    isAwaiting
+                };
+            });
+            const ongoingChats = processedChats
+                .filter(chat => !chat.isAwaiting)
+                .map(chat => chat.chatInfo)
+                .sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime());
+            const awaitingChats = processedChats
+                .filter(chat => chat.isAwaiting)
+                .map(chat => chat.chatInfo)
+                .sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime());
+            console.log(`Found ${ongoingChats.length} ongoing chats and ${awaitingChats.length} awaiting chats`);
+            client.emit('allChats', {
+                ongoing: ongoingChats,
+                awaiting: awaitingChats
+            });
+            return {
+                ongoing: ongoingChats,
+                awaiting: awaitingChats
+            };
+        }
+        catch (error) {
+            console.error('Error getting all chats:', error);
+            client.emit('error', {
+                message: error.message || 'Failed to get all chats'
+            });
+            return {
+                ongoing: [],
+                awaiting: []
+            };
+        }
+    }
     isValidChatCombination(userType, chatType, recipientType) {
         if (chatType === 'SUPPORT') {
             const validSupportCombinations = {
@@ -347,15 +403,23 @@ __decorate([
     __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
     __metadata("design:returntype", Promise)
 ], FchatGateway.prototype, "handleGetChatHistory", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)('getAllChats'),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket]),
+    __metadata("design:returntype", Promise)
+], FchatGateway.prototype, "handleGetAllChats", null);
 exports.FchatGateway = FchatGateway = __decorate([
     (0, websockets_1.WebSocketGateway)({
         namespace: 'chat',
         cors: {
-            origin: ['*', 'localhost:1310'],
-            methods: ['GET', 'POST'],
-            credentials: true
+            origin: ['http://localhost:3000', 'http://localhost:1310'],
+            methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+            credentials: true,
+            allowedHeaders: ['Authorization', 'auth', 'Content-Type']
         },
-        transports: ['websocket']
+        transports: ['websocket', 'polling']
     }),
     __metadata("design:paramtypes", [fchat_service_1.FchatService,
         jwt_1.JwtService,

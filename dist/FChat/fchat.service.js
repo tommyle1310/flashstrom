@@ -126,6 +126,50 @@ let FchatService = class FchatService {
             throw error;
         }
     }
+    async getRoomsByUserId(userId) {
+        return this.roomRepository
+            .createQueryBuilder('room')
+            .where(`room.participants @> :participant`, {
+            participant: JSON.stringify([{ userId }])
+        })
+            .orderBy('room.lastActivity', 'DESC')
+            .getMany();
+    }
+    async getLastMessageForRoom(roomId) {
+        return this.messageRepository
+            .createQueryBuilder('message')
+            .where('message.roomId = :roomId', { roomId })
+            .orderBy('message.timestamp', 'DESC')
+            .limit(1)
+            .getOne();
+    }
+    async getRoomsByUserIdWithLastMessage(userId) {
+        const rooms = await this.roomRepository
+            .createQueryBuilder('room')
+            .leftJoinAndSelect('room.messages', 'messages')
+            .where(`room.participants @> :participant`, {
+            participant: JSON.stringify([{ userId }])
+        })
+            .orderBy('room.lastActivity', 'DESC')
+            .getMany();
+        const lastMessages = await this.messageRepository
+            .createQueryBuilder('message')
+            .where('message.roomId IN (:...roomIds)', {
+            roomIds: rooms.map(room => room.id)
+        })
+            .orderBy('message.timestamp', 'DESC')
+            .getMany();
+        const lastMessageByRoom = new Map();
+        lastMessages.forEach(message => {
+            if (!lastMessageByRoom.has(message.roomId)) {
+                lastMessageByRoom.set(message.roomId, message);
+            }
+        });
+        return rooms.map(room => ({
+            room,
+            lastMessage: lastMessageByRoom.get(room.id) || null
+        }));
+    }
 };
 exports.FchatService = FchatService;
 exports.FchatService = FchatService = __decorate([
