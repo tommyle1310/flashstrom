@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, FindOptionsWhere, In } from 'typeorm';
 import { Customer } from './entities/customer.entity';
@@ -9,10 +9,12 @@ import { FoodCategory } from 'src/food_categories/entities/food_category.entity'
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { createClient } from 'redis';
 
+const logger = new Logger('OrdersService');
+
 const redis = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
-redis.connect().catch(err => console.error('Redis connection error:', err));
+redis.connect().catch(err => logger.error('Redis connection error:', err));
 
 @Injectable()
 export class CustomersRepository {
@@ -86,8 +88,8 @@ export class CustomersRepository {
   async findById(customerId: string): Promise<Customer | null> {
     return this.dataSource
       .createQueryBuilder(Customer, 'customer')
+      .leftJoinAndSelect('customer.address', 'address')
       .where('customer.id = :customerId', { customerId })
-      .select(['customer.id', 'customer.user_id'])
       .getOne();
   }
   async findByIdWithFavoriterRestaurants(
@@ -101,20 +103,21 @@ export class CustomersRepository {
   }
 
   async findByUserId(userId: string): Promise<Customer> {
-    // const cacheKey = `customer:user:${userId}`;
-    // const cached = await redis.get(cacheKey);
-    // if (cached) {
-    //   return JSON.parse(cached);
-    // }
+    const cacheKey = `customer:user:${userId}`;
+    const cached = await redis.get(cacheKey);
+    console.log('echck cached', cached);
+    if (cached) {
+      return JSON.parse(cached);
+    }
     const customer = await this.customerRepository.findOne({
       where: { user_id: userId },
       relations: ['address']
       // select: ['id', 'user_id']
     });
 
-    // if (customer) {
-    //   await redis.setEx(cacheKey, 3600, JSON.stringify(customer));
-    // }
+    if (customer) {
+      await redis.setEx(cacheKey, 3600, JSON.stringify(customer));
+    }
     return customer;
   }
 

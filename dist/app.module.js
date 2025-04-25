@@ -77,6 +77,7 @@ const fwallet_entity_1 = require("./fwallets/entities/fwallet.entity");
 const transaction_entity_1 = require("./transactions/entities/transaction.entity");
 const online_session_repository_1 = require("./online-sessions/online-session.repository");
 const address_book_entity_1 = require("./address_book/entities/address_book.entity");
+const customers_gateway_1 = require("./customers/customers.gateway");
 let AppModule = class AppModule {
     constructor() {
         console.log('NEON_HOST:', process.env.NEON_HOST);
@@ -174,6 +175,7 @@ exports.AppModule = AppModule = __decorate([
             food_categories_repository_1.FoodCategoriesRepository,
             email_service_1.EmailService,
             drivers_gateway_1.DriversGateway,
+            customers_gateway_1.CustomersGateway,
             online_session_repository_1.OnlineSessionsRepository,
             finance_rules_repository_1.FinanceRulesRepository,
             restaurants_gateway_1.RestaurantsGateway,

@@ -153,6 +153,12 @@ export class AddressBookService {
       const existingIndex = customer.address.findIndex(
         addr => addr.id === addressId
       );
+      console.log(
+        'cehck what here',
+        existingIndex,
+        addressId,
+        customer.address
+      );
       if (existingIndex === -1) {
         return createResponse(
           'NotFound',

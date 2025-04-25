@@ -166,14 +166,21 @@ let OrdersService = class OrdersService {
                 })(),
                 (async () => {
                     const start = Date.now();
-                    const cacheKey = `menu_items:${createOrderDto.restaurant_id}`;
+                    const itemIds = createOrderDto.order_items.map(item => item.item_id);
+                    const cacheKey = `menu_items:${itemIds.sort().join(',')}`;
                     const cached = await redis.get(cacheKey);
                     if (cached) {
                         logger.log(`Fetch menu items (cache) took ${Date.now() - start}ms`);
                         return JSON.parse(cached);
                     }
-                    const items = await this.menuItemsRepository.findByIds(createOrderDto.order_items.map(item => item.item_id));
-                    await redis.setEx(cacheKey, 7200, JSON.stringify(items));
+                    const items = await this.menuItemsRepository.findByIds(itemIds);
+                    if (items.length > 0) {
+                        await redis.setEx(cacheKey, 7200, JSON.stringify(items));
+                        logger.log(`Stored menu items in Redis: ${cacheKey}`);
+                    }
+                    else {
+                        logger.warn(`No menu items found for IDs: ${itemIds.join(',')}`);
+                    }
                     logger.log(`Fetch menu items took ${Date.now() - start}ms`);
                     return items;
                 })(),
@@ -415,7 +422,9 @@ let OrdersService = class OrdersService {
                 EX: 60
             });
             logger.log(`Emitting event ${eventId} with redisResult: ${redisResult}`);
+            console.log('ceẹccejck redsi', redisResult);
             if (redisResult === 'OK') {
+                this.notifyOrderStatus(trackingUpdate);
                 this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
                 this.eventEmitter.emit('newOrderForRestaurant', {
                     restaurant_id: savedOrder.restaurant_id,
@@ -793,8 +802,13 @@ let OrdersService = class OrdersService {
         const variantMap = new Map(variants.map(variant => [variant.id, variant]));
         for (const item of orderItems) {
             if (!menuItemMap.has(item.item_id)) {
-                logger.log(`Item validation failed: Menu item ${item.item_id} not found (${Date.now() - validationStart}ms)`);
-                return (0, createResponse_1.createResponse)('NotFound', null, `Menu item ${item.item_id} not found`);
+                logger.warn(`Menu item ${item.item_id} not in cache, trying direct fetch`);
+                const menuItem = await this.menuItemsRepository.findById(item.item_id);
+                if (!menuItem) {
+                    logger.log(`Item validation failed: Menu item ${item.item_id} not found (${Date.now() - validationStart}ms)`);
+                    return (0, createResponse_1.createResponse)('NotFound', null, `Menu item ${item.item_id} not found`);
+                }
+                menuItemMap.set(item.item_id, menuItem);
             }
             if (item.variant_id && !variantMap.has(item.variant_id)) {
                 logger.log(`Item validation failed: Variant ${item.variant_id} not found (${Date.now() - validationStart}ms)`);

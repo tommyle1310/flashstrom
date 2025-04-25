@@ -66,6 +66,7 @@ import { FWallet } from './fwallets/entities/fwallet.entity';
 import { Transaction } from './transactions/entities/transaction.entity';
 import { OnlineSessionsRepository } from './online-sessions/online-session.repository';
 import { AddressBook } from './address_book/entities/address_book.entity';
+import { CustomersGateway } from './customers/customers.gateway';
 
 @Global()
 @Module({
@@ -153,6 +154,7 @@ import { AddressBook } from './address_book/entities/address_book.entity';
     FoodCategoriesRepository,
     EmailService,
     DriversGateway,
+    CustomersGateway,
     OnlineSessionsRepository,
     FinanceRulesRepository,
     RestaurantsGateway,

@@ -8,8 +8,8 @@ import {
   OrderCancellationReason
 } from './entities/order.entity';
 import { createResponse, ApiResponse } from 'src/utils/createResponse';
-import { OrdersRepository } from './orders.repository';
-import { RestaurantsGateway } from '../restaurants/restaurants.gateway';
+// import { OrdersRepository } from './orders.repository';
+// import { RestaurantsGateway } from '../restaurants/restaurants.gateway';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { CustomersRepository } from 'src/customers/customers.repository';
@@ -157,16 +157,20 @@ export class OrdersService {
         })(),
         (async () => {
           const start = Date.now();
-          const cacheKey = `menu_items:${createOrderDto.restaurant_id}`;
+          const itemIds = createOrderDto.order_items.map(item => item.item_id);
+          const cacheKey = `menu_items:${itemIds.sort().join(',')}`; // Sử dụng danh sách item_id làm key
           const cached = await redis.get(cacheKey);
           if (cached) {
             logger.log(`Fetch menu items (cache) took ${Date.now() - start}ms`);
             return JSON.parse(cached);
           }
-          const items = await this.menuItemsRepository.findByIds(
-            createOrderDto.order_items.map(item => item.item_id)
-          );
-          await redis.setEx(cacheKey, 7200, JSON.stringify(items));
+          const items = await this.menuItemsRepository.findByIds(itemIds);
+          if (items.length > 0) {
+            await redis.setEx(cacheKey, 7200, JSON.stringify(items));
+            logger.log(`Stored menu items in Redis: ${cacheKey}`);
+          } else {
+            logger.warn(`No menu items found for IDs: ${itemIds.join(',')}`);
+          }
           logger.log(`Fetch menu items took ${Date.now() - start}ms`);
           return items;
         })(),
@@ -501,7 +505,9 @@ export class OrdersService {
         EX: 60
       });
       logger.log(`Emitting event ${eventId} with redisResult: ${redisResult}`);
+      console.log('ceẹccejck redsi', redisResult);
       if (redisResult === 'OK') {
+        this.notifyOrderStatus(trackingUpdate as any);
         this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
         this.eventEmitter.emit('newOrderForRestaurant', {
           restaurant_id: savedOrder.restaurant_id,
@@ -1052,14 +1058,21 @@ export class OrdersService {
 
     for (const item of orderItems) {
       if (!menuItemMap.has(item.item_id)) {
-        logger.log(
-          `Item validation failed: Menu item ${item.item_id} not found (${Date.now() - validationStart}ms)`
+        logger.warn(
+          `Menu item ${item.item_id} not in cache, trying direct fetch`
         );
-        return createResponse(
-          'NotFound',
-          null,
-          `Menu item ${item.item_id} not found`
-        );
+        const menuItem = await this.menuItemsRepository.findById(item.item_id);
+        if (!menuItem) {
+          logger.log(
+            `Item validation failed: Menu item ${item.item_id} not found (${Date.now() - validationStart}ms)`
+          );
+          return createResponse(
+            'NotFound',
+            null,
+            `Menu item ${item.item_id} not found`
+          );
+        }
+        menuItemMap.set(item.item_id, menuItem);
       }
 
       if (item.variant_id && !variantMap.has(item.variant_id)) {

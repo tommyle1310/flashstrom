@@ -21,10 +21,11 @@ const address_book_entity_1 = require("../address_book/entities/address_book.ent
 const food_category_entity_1 = require("../food_categories/entities/food_category.entity");
 const restaurant_entity_1 = require("../restaurants/entities/restaurant.entity");
 const redis_1 = require("redis");
+const logger = new common_1.Logger('OrdersService');
 const redis = (0, redis_1.createClient)({
     url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
-redis.connect().catch(err => console.error('Redis connection error:', err));
+redis.connect().catch(err => logger.error('Redis connection error:', err));
 let CustomersRepository = class CustomersRepository {
     constructor(customerRepository, addressRepository, foodCategoryRepository, restaurantRepository, dataSource) {
         this.customerRepository = customerRepository;
@@ -78,8 +79,8 @@ let CustomersRepository = class CustomersRepository {
     async findById(customerId) {
         return this.dataSource
             .createQueryBuilder(customer_entity_1.Customer, 'customer')
+            .leftJoinAndSelect('customer.address', 'address')
             .where('customer.id = :customerId', { customerId })
-            .select(['customer.id', 'customer.user_id'])
             .getOne();
     }
     async findByIdWithFavoriterRestaurants(customerId) {
@@ -90,10 +91,19 @@ let CustomersRepository = class CustomersRepository {
             .getOne();
     }
     async findByUserId(userId) {
+        const cacheKey = `customer:user:${userId}`;
+        const cached = await redis.get(cacheKey);
+        console.log('echck cached', cached);
+        if (cached) {
+            return JSON.parse(cached);
+        }
         const customer = await this.customerRepository.findOne({
             where: { user_id: userId },
             relations: ['address']
         });
+        if (customer) {
+            await redis.setEx(cacheKey, 3600, JSON.stringify(customer));
+        }
         return customer;
     }
     async update(id, updateCustomerDto) {

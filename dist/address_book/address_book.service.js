@@ -110,6 +110,7 @@ let AddressBookService = class AddressBookService {
                 customer.address = [];
             }
             const existingIndex = customer.address.findIndex(addr => addr.id === addressId);
+            console.log('cehck what here', existingIndex, addressId, customer.address);
             if (existingIndex === -1) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Address not associated with customer');
             }
