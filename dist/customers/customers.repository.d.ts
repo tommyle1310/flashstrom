@@ -16,6 +16,7 @@ export declare class CustomersRepository {
     create(createCustomerDto: CreateCustomerDto): Promise<Customer>;
     findAll(): Promise<Customer[]>;
     findById(customerId: string): Promise<Customer | null>;
+    findByIdWithFavoriterRestaurants(customerId: string): Promise<Customer | null>;
     findByUserId(userId: string): Promise<Customer>;
     update(id: string, updateCustomerDto: UpdateCustomerDto): Promise<Customer>;
     remove(id: string): Promise<void>;

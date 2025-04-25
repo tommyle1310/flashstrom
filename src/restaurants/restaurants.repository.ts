@@ -90,7 +90,6 @@ export class RestaurantsRepository {
     });
   }
 
-  // restaurants.repository.ts
   async findById(id: string): Promise<Restaurant> {
     const cacheKey = `restaurant:${id}`;
     const cached = await redis.get(cacheKey);
@@ -99,8 +98,17 @@ export class RestaurantsRepository {
     }
     const restaurant = await this.repository.findOne({
       where: { id },
-      select: ['id', 'owner_id', 'total_orders', 'avatar', 'status']
+      select: [
+        'id',
+        'owner_id',
+        'total_orders',
+        'avatar',
+        'status',
+        'address_id',
+        'address'
+      ]
     });
+    console.log('check res wtf here', restaurant);
     if (restaurant) {
       await redis.setEx(cacheKey, 3600, JSON.stringify(restaurant));
     }

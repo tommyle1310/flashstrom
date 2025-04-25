@@ -356,10 +356,11 @@ let CustomersService = class CustomersService {
     }
     async getFavoriteRestaurants(customerId) {
         try {
-            const customer = await this.customerRepository.findById(customerId);
+            const customer = await this.customerRepository.findByIdWithFavoriterRestaurants(customerId);
             if (!customer) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Customer not found');
             }
+            console.log('cehck what happen', customer.favorite_restaurants, customer);
             const favoriteRestaurantIds = customer.favorite_restaurants.map(r => r.id);
             if (!favoriteRestaurantIds || favoriteRestaurantIds.length === 0) {
                 return (0, createResponse_1.createResponse)('OK', [], 'No favorite restaurants found for this customer');

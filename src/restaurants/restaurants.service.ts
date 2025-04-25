@@ -996,6 +996,7 @@ export class RestaurantsService {
   async findOne(id: string): Promise<ApiResponse<Restaurant>> {
     try {
       const restaurant = await this.restaurantsRepository.findById(id);
+      console.log('what the fack', restaurant);
       if (!restaurant) {
         return createResponse('NotFound', null, 'Restaurant not found');
       }

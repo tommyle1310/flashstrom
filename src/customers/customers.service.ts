@@ -494,10 +494,14 @@ export class CustomersService {
   ): Promise<ApiResponse<Restaurant[]>> {
     try {
       // Lấy thông tin customer dựa trên customerId
-      const customer = await this.customerRepository.findById(customerId);
+      const customer =
+        await this.customerRepository.findByIdWithFavoriterRestaurants(
+          customerId
+        );
       if (!customer) {
         return createResponse('NotFound', null, 'Customer not found');
       }
+      console.log('cehck what happen', customer.favorite_restaurants, customer);
 
       // Lấy danh sách favorite_restaurants từ customer
       const favoriteRestaurantIds = customer.favorite_restaurants.map(

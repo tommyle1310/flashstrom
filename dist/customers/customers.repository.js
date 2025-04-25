@@ -82,19 +82,18 @@ let CustomersRepository = class CustomersRepository {
             .select(['customer.id', 'customer.user_id'])
             .getOne();
     }
+    async findByIdWithFavoriterRestaurants(customerId) {
+        return this.dataSource
+            .createQueryBuilder(customer_entity_1.Customer, 'customer')
+            .leftJoinAndSelect('customer.favorite_restaurants', 'favoriteRestaurants')
+            .where('customer.id = :customerId', { customerId })
+            .getOne();
+    }
     async findByUserId(userId) {
-        const cacheKey = `customer:user:${userId}`;
-        const cached = await redis.get(cacheKey);
-        if (cached) {
-            return JSON.parse(cached);
-        }
         const customer = await this.customerRepository.findOne({
             where: { user_id: userId },
-            select: ['id', 'user_id']
+            relations: ['address']
         });
-        if (customer) {
-            await redis.setEx(cacheKey, 3600, JSON.stringify(customer));
-        }
         return customer;
     }
     async update(id, updateCustomerDto) {

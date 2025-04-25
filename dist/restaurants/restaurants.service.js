@@ -636,6 +636,7 @@ let RestaurantsService = class RestaurantsService {
     async findOne(id) {
         try {
             const restaurant = await this.restaurantsRepository.findById(id);
+            console.log('what the fack', restaurant);
             if (!restaurant) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant not found');
             }
