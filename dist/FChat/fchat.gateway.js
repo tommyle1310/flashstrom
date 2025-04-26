@@ -35,7 +35,12 @@ let FchatGateway = class FchatGateway {
     }
     async validateToken(client) {
         try {
-            const authHeader = client.handshake.headers.auth;
+            let authHeader = client.handshake.headers.auth;
+            console.log('check anything heẻể?? ', client.handshake.auth, client.handshake.headers, client.handshake);
+            if (!authHeader && client.handshake.auth && client.handshake.auth) {
+                authHeader = client.handshake.auth.token;
+            }
+            console.log('check auth', authHeader);
             if (!authHeader?.startsWith('Bearer ')) {
                 client.disconnect();
                 return null;
@@ -60,6 +65,7 @@ let FchatGateway = class FchatGateway {
         const userData = await this.validateToken(client);
         if (!userData)
             return;
+        console.log('check connect');
         client.data.user = userData;
         this.userSockets.set(userData.id, client);
         await client.join(`user_${userData.id}`);
@@ -414,7 +420,7 @@ exports.FchatGateway = FchatGateway = __decorate([
     (0, websockets_1.WebSocketGateway)({
         namespace: 'chat',
         cors: {
-            origin: ['http://localhost:3000', 'http://localhost:1310'],
+            origin: ['*', 'http://localhost:3000', 'http://localhost:1310'],
             methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
             credentials: true,
             allowedHeaders: ['Authorization', 'auth', 'Content-Type']

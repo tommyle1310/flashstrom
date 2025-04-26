@@ -21,7 +21,7 @@ import { MessageType } from './entities/message.entity';
 @WebSocketGateway({
   namespace: 'chat',
   cors: {
-    origin: ['http://localhost:3000', 'http://localhost:1310'],
+    origin: ['*', 'http://localhost:3000', 'http://localhost:1310'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
     allowedHeaders: ['Authorization', 'auth', 'Content-Type']
@@ -58,7 +58,18 @@ export class FchatGateway
 
   private async validateToken(client: Socket): Promise<any> {
     try {
-      const authHeader = client.handshake.headers.auth as string;
+      let authHeader = client.handshake.headers.auth as string;
+      console.log(
+        'check anything heẻể?? ',
+        client.handshake.auth,
+        client.handshake.headers,
+        client.handshake
+      );
+      if (!authHeader && client.handshake.auth && client.handshake.auth) {
+        authHeader = client.handshake.auth.token;
+      }
+
+      console.log('check auth', authHeader);
       if (!authHeader?.startsWith('Bearer ')) {
         client.disconnect();
         return null;
@@ -86,7 +97,7 @@ export class FchatGateway
   async handleConnection(@ConnectedSocket() client: Socket) {
     const userData = await this.validateToken(client);
     if (!userData) return;
-
+    console.log('check connect');
     client.data.user = userData;
     this.userSockets.set(userData.id, client);
     await client.join(`user_${userData.id}`);
