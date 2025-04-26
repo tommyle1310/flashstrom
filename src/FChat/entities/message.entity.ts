@@ -8,6 +8,10 @@ import {
 } from 'typeorm';
 import { Enum_UserType } from 'src/types/Payload';
 import { ChatRoom } from './chat-room.entity'; // Import ChatRoom
+import { Customer } from 'src/customers/entities/customer.entity';
+import { Driver } from 'src/drivers/entities/driver.entity';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
 
 export enum MessageType {
   TEXT = 'TEXT',
@@ -36,6 +40,22 @@ export class Message {
     enum: Enum_UserType
   })
   senderType: Enum_UserType; // Dùng để xác định sender thuộc loại nào
+
+  @ManyToOne(() => Customer, { nullable: true })
+  @JoinColumn({ name: 'senderId' })
+  customerSender: Customer;
+
+  @ManyToOne(() => Driver, { nullable: true })
+  @JoinColumn({ name: 'senderId' })
+  driverSender: Driver;
+
+  @ManyToOne(() => Restaurant, { nullable: true })
+  @JoinColumn({ name: 'senderId' })
+  restaurantSender: Restaurant;
+
+  @ManyToOne(() => CustomerCare, { nullable: true })
+  @JoinColumn({ name: 'senderId' })
+  customerCareSender: CustomerCare;
 
   @Column()
   content: string;

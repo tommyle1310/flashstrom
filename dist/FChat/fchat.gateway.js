@@ -254,11 +254,33 @@ let FchatGateway = class FchatGateway {
             const userChats = await this.fchatService.getRoomsByUserIdWithLastMessage(user.id);
             const processedChats = userChats.map(({ room, lastMessage }) => {
                 const otherParticipant = room.participants.find(p => p.userId !== user.id);
+                let senderDetails = null;
+                if (lastMessage) {
+                    switch (lastMessage.senderType) {
+                        case Payload_1.Enum_UserType.CUSTOMER:
+                            senderDetails = lastMessage.customerSender;
+                            break;
+                        case Payload_1.Enum_UserType.DRIVER:
+                            senderDetails = lastMessage.driverSender;
+                            break;
+                        case Payload_1.Enum_UserType.RESTAURANT_OWNER:
+                            senderDetails = lastMessage.restaurantSender;
+                            break;
+                        case Payload_1.Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
+                            senderDetails = lastMessage.customerCareSender;
+                            break;
+                    }
+                }
                 const chatInfo = {
                     roomId: room.id,
                     type: room.type,
                     otherParticipant,
-                    lastMessage,
+                    lastMessage: lastMessage
+                        ? {
+                            ...lastMessage,
+                            sender: senderDetails
+                        }
+                        : null,
                     lastActivity: room.lastActivity,
                     relatedId: room.relatedId
                 };

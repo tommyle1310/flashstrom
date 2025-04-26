@@ -4,7 +4,9 @@ import { FchatService } from './fchat.service';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Enum_UserType } from 'src/types/Payload';
 import { RoomType } from './entities/chat-room.entity';
+import { MessageType } from './entities/message.entity';
 export declare class FchatGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
     private readonly fchatService;
     private readonly jwtService;
@@ -55,9 +57,28 @@ export declare class FchatGateway implements OnGatewayConnection, OnGatewayDisco
             type: RoomType;
             otherParticipant: {
                 userId: string;
-                userType: string;
+                userType: Enum_UserType;
+                customer?: import("../customers/entities/customer.entity").Customer;
+                driver?: import("../drivers/entities/driver.entity").Driver;
+                restaurant?: import("../restaurants/entities/restaurant.entity").Restaurant;
+                customerCare?: import("../customer_cares/entities/customer_care.entity").CustomerCare;
             };
-            lastMessage: import("./entities/message.entity").Message;
+            lastMessage: {
+                sender: any;
+                id: string;
+                roomId: string;
+                chatRoom: import("./entities/chat-room.entity").ChatRoom;
+                senderId: string;
+                senderType: Enum_UserType;
+                customerSender: import("../customers/entities/customer.entity").Customer;
+                driverSender: import("../drivers/entities/driver.entity").Driver;
+                restaurantSender: import("../restaurants/entities/restaurant.entity").Restaurant;
+                customerCareSender: import("../customer_cares/entities/customer_care.entity").CustomerCare;
+                content: string;
+                messageType: MessageType;
+                timestamp: Date;
+                readBy: string[];
+            };
             lastActivity: Date;
             relatedId: string;
         }[];
@@ -66,9 +87,28 @@ export declare class FchatGateway implements OnGatewayConnection, OnGatewayDisco
             type: RoomType;
             otherParticipant: {
                 userId: string;
-                userType: string;
+                userType: Enum_UserType;
+                customer?: import("../customers/entities/customer.entity").Customer;
+                driver?: import("../drivers/entities/driver.entity").Driver;
+                restaurant?: import("../restaurants/entities/restaurant.entity").Restaurant;
+                customerCare?: import("../customer_cares/entities/customer_care.entity").CustomerCare;
             };
-            lastMessage: import("./entities/message.entity").Message;
+            lastMessage: {
+                sender: any;
+                id: string;
+                roomId: string;
+                chatRoom: import("./entities/chat-room.entity").ChatRoom;
+                senderId: string;
+                senderType: Enum_UserType;
+                customerSender: import("../customers/entities/customer.entity").Customer;
+                driverSender: import("../drivers/entities/driver.entity").Driver;
+                restaurantSender: import("../restaurants/entities/restaurant.entity").Restaurant;
+                customerCareSender: import("../customer_cares/entities/customer_care.entity").CustomerCare;
+                content: string;
+                messageType: MessageType;
+                timestamp: Date;
+                readBy: string[];
+            };
             lastActivity: Date;
             relatedId: string;
         }[];

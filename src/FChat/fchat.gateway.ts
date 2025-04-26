@@ -363,7 +363,6 @@ export class FchatGateway
 
       console.log('User requesting all chats:', user.id);
 
-      // Get all rooms where the user is a participant
       const userChats = await this.fchatService.getRoomsByUserIdWithLastMessage(
         user.id
       );
@@ -373,25 +372,44 @@ export class FchatGateway
           p => p.userId !== user.id
         );
 
+        // Get sender details from the last message
+        let senderDetails = null;
+        if (lastMessage) {
+          switch (lastMessage.senderType) {
+            case Enum_UserType.CUSTOMER:
+              senderDetails = lastMessage.customerSender;
+              break;
+            case Enum_UserType.DRIVER:
+              senderDetails = lastMessage.driverSender;
+              break;
+            case Enum_UserType.RESTAURANT_OWNER:
+              senderDetails = lastMessage.restaurantSender;
+              break;
+            case Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
+              senderDetails = lastMessage.customerCareSender;
+              break;
+          }
+        }
+
         const chatInfo = {
           roomId: room.id,
           type: room.type,
           otherParticipant,
-          lastMessage,
+          lastMessage: lastMessage
+            ? {
+                ...lastMessage,
+                sender: senderDetails
+              }
+            : null,
           lastActivity: room.lastActivity,
           relatedId: room.relatedId
         };
 
-        // A chat is awaiting if:
-        // 1. There is a last message
-        // 2. The last message is not from the current user
-        // 3. The current user hasn't read the last message
-        // 4. The user has never sent any messages in this chat
         const isAwaiting =
           lastMessage &&
           lastMessage.senderId !== user.id &&
           !lastMessage.readBy.includes(user.id) &&
-          !room.messages?.some(msg => msg.senderId === user.id); // Check if user has ever sent messages
+          !room.messages?.some(msg => msg.senderId === user.id);
 
         return {
           chatInfo,
@@ -399,9 +417,6 @@ export class FchatGateway
         };
       });
 
-      // Separate into ongoing and awaiting chats
-      // Ongoing chats are those where the user has participated (sent messages)
-      // or has read all messages
       const ongoingChats = processedChats
         .filter(chat => !chat.isAwaiting)
         .map(chat => chat.chatInfo)
@@ -416,7 +431,6 @@ export class FchatGateway
         `Found ${ongoingChats.length} ongoing chats and ${awaitingChats.length} awaiting chats`
       );
 
-      // Emit the categorized results
       client.emit('allChats', {
         ongoing: ongoingChats,
         awaiting: awaitingChats

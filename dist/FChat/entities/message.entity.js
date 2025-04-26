@@ -13,6 +13,10 @@ exports.Message = exports.MessageType = void 0;
 const typeorm_1 = require("typeorm");
 const Payload_1 = require("../../types/Payload");
 const chat_room_entity_1 = require("./chat-room.entity");
+const customer_entity_1 = require("../../customers/entities/customer.entity");
+const driver_entity_1 = require("../../drivers/entities/driver.entity");
+const restaurant_entity_1 = require("../../restaurants/entities/restaurant.entity");
+const customer_care_entity_1 = require("../../customer_cares/entities/customer_care.entity");
 var MessageType;
 (function (MessageType) {
     MessageType["TEXT"] = "TEXT";
@@ -47,6 +51,26 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], Message.prototype, "senderType", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => customer_entity_1.Customer, { nullable: true }),
+    (0, typeorm_1.JoinColumn)({ name: 'senderId' }),
+    __metadata("design:type", customer_entity_1.Customer)
+], Message.prototype, "customerSender", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => driver_entity_1.Driver, { nullable: true }),
+    (0, typeorm_1.JoinColumn)({ name: 'senderId' }),
+    __metadata("design:type", driver_entity_1.Driver)
+], Message.prototype, "driverSender", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => restaurant_entity_1.Restaurant, { nullable: true }),
+    (0, typeorm_1.JoinColumn)({ name: 'senderId' }),
+    __metadata("design:type", restaurant_entity_1.Restaurant)
+], Message.prototype, "restaurantSender", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => customer_care_entity_1.CustomerCare, { nullable: true }),
+    (0, typeorm_1.JoinColumn)({ name: 'senderId' }),
+    __metadata("design:type", customer_care_entity_1.CustomerCare)
+], Message.prototype, "customerCareSender", void 0);
 __decorate([
     (0, typeorm_1.Column)(),
     __metadata("design:type", String)

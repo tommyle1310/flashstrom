@@ -18,10 +18,19 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const message_entity_1 = require("./entities/message.entity");
 const chat_room_entity_1 = require("./entities/chat-room.entity");
+const Payload_1 = require("../types/Payload");
+const customer_entity_1 = require("../customers/entities/customer.entity");
+const driver_entity_1 = require("../drivers/entities/driver.entity");
+const restaurant_entity_1 = require("../restaurants/entities/restaurant.entity");
+const customer_care_entity_1 = require("../customer_cares/entities/customer_care.entity");
 let FchatService = class FchatService {
-    constructor(messageRepository, roomRepository) {
+    constructor(messageRepository, roomRepository, customerRepository, driverRepository, restaurantRepository, customerCareRepository) {
         this.messageRepository = messageRepository;
         this.roomRepository = roomRepository;
+        this.customerRepository = customerRepository;
+        this.driverRepository = driverRepository;
+        this.restaurantRepository = restaurantRepository;
+        this.customerCareRepository = customerCareRepository;
         this.connections = new Map();
     }
     async addConnection(socketId, user) {
@@ -50,7 +59,33 @@ let FchatService = class FchatService {
         }
     }
     async createMessage(messageData) {
-        const message = this.messageRepository.create(messageData);
+        let senderDetails;
+        switch (messageData.senderType) {
+            case Payload_1.Enum_UserType.CUSTOMER:
+                senderDetails = await this.customerRepository.findOne({
+                    where: { id: messageData.senderId }
+                });
+                break;
+            case Payload_1.Enum_UserType.DRIVER:
+                senderDetails = await this.driverRepository.findOne({
+                    where: { id: messageData.senderId }
+                });
+                break;
+            case Payload_1.Enum_UserType.RESTAURANT_OWNER:
+                senderDetails = await this.restaurantRepository.findOne({
+                    where: { id: messageData.senderId }
+                });
+                break;
+            case Payload_1.Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
+                senderDetails = await this.customerCareRepository.findOne({
+                    where: { id: messageData.senderId }
+                });
+                break;
+        }
+        const message = this.messageRepository.create({
+            ...messageData,
+            [messageData.senderType.toLowerCase() + 'Sender']: senderDetails
+        });
         return this.messageRepository.save(message);
     }
     async createRoom(roomData) {
@@ -59,17 +94,15 @@ let FchatService = class FchatService {
         return this.roomRepository.save(room);
     }
     async getRoomMessages(roomId) {
-        try {
-            const messages = await this.messageRepository.find({
-                where: { roomId },
-                order: { timestamp: 'ASC' }
-            });
-            return messages;
-        }
-        catch (error) {
-            console.error(`Error fetching messages for room ${roomId}:`, error);
-            return [];
-        }
+        return this.messageRepository
+            .createQueryBuilder('message')
+            .leftJoinAndSelect('message.customerSender', 'customerSender')
+            .leftJoinAndSelect('message.driverSender', 'driverSender')
+            .leftJoinAndSelect('message.restaurantSender', 'restaurantSender')
+            .leftJoinAndSelect('message.customerCareSender', 'customerCareSender')
+            .where('message.roomId = :roomId', { roomId })
+            .orderBy('message.timestamp', 'ASC')
+            .getMany();
     }
     async canUserJoinRoom(userId, roomId) {
         try {
@@ -147,6 +180,10 @@ let FchatService = class FchatService {
         const rooms = await this.roomRepository
             .createQueryBuilder('room')
             .leftJoinAndSelect('room.messages', 'messages')
+            .leftJoinAndSelect('messages.customerSender', 'customerSender')
+            .leftJoinAndSelect('messages.driverSender', 'driverSender')
+            .leftJoinAndSelect('messages.restaurantSender', 'restaurantSender')
+            .leftJoinAndSelect('messages.customerCareSender', 'customerCareSender')
             .where(`room.participants @> :participant`, {
             participant: JSON.stringify([{ userId }])
         })
@@ -154,6 +191,10 @@ let FchatService = class FchatService {
             .getMany();
         const lastMessages = await this.messageRepository
             .createQueryBuilder('message')
+            .leftJoinAndSelect('message.customerSender', 'customerSender')
+            .leftJoinAndSelect('message.driverSender', 'driverSender')
+            .leftJoinAndSelect('message.restaurantSender', 'restaurantSender')
+            .leftJoinAndSelect('message.customerCareSender', 'customerCareSender')
             .where('message.roomId IN (:...roomIds)', {
             roomIds: rooms.map(room => room.id)
         })
@@ -176,7 +217,15 @@ exports.FchatService = FchatService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(message_entity_1.Message)),
     __param(1, (0, typeorm_1.InjectRepository)(chat_room_entity_1.ChatRoom)),
+    __param(2, (0, typeorm_1.InjectRepository)(customer_entity_1.Customer)),
+    __param(3, (0, typeorm_1.InjectRepository)(driver_entity_1.Driver)),
+    __param(4, (0, typeorm_1.InjectRepository)(restaurant_entity_1.Restaurant)),
+    __param(5, (0, typeorm_1.InjectRepository)(customer_care_entity_1.CustomerCare)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
+        typeorm_2.Repository,
+        typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository])
 ], FchatService);
 //# sourceMappingURL=fchat.service.js.map

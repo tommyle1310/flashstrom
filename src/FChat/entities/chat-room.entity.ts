@@ -1,6 +1,10 @@
 import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
 import { Message } from './message.entity';
-
+import { Enum_UserType } from 'src/types/Payload';
+import { Customer } from 'src/customers/entities/customer.entity';
+import { Driver } from 'src/drivers/entities/driver.entity';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
 export enum RoomType {
   SUPPORT = 'SUPPORT',
   ORDER = 'ORDER',
@@ -19,10 +23,17 @@ export class ChatRoom {
   })
   type: RoomType;
 
-  @Column('jsonb') // Lưu participants dưới dạng JSON
-  participants: { userId: string; userType: string }[];
+  @Column('jsonb')
+  participants: {
+    userId: string;
+    userType: Enum_UserType;
+    customer?: Customer;
+    driver?: Driver;
+    restaurant?: Restaurant;
+    customerCare?: CustomerCare;
+  }[];
 
-  @Column({ nullable: true }) // Nếu liên kết với order
+  @Column({ nullable: true })
   relatedId: string;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
