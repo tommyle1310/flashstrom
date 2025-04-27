@@ -155,6 +155,15 @@ let PromotionsService = class PromotionsService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error deleting promotion');
         }
     }
+    async updateEntityAvatar(uploadResult, entityId) {
+        const promotion = await this.promotionsRepository.update(entityId, {
+            avatar: { url: uploadResult.url, key: uploadResult.public_id }
+        });
+        if (!promotion) {
+            return (0, createResponse_1.createResponse)('NotFound', null, 'promotion not found');
+        }
+        return (0, createResponse_1.createResponse)('OK', promotion, 'promotion avatar updated successfully');
+    }
 };
 exports.PromotionsService = PromotionsService;
 exports.PromotionsService = PromotionsService = __decorate([

@@ -24,12 +24,14 @@ const Payload_1 = require("../types/Payload");
 const createResponse_1 = require("../utils/createResponse");
 const menu_items_service_1 = require("../menu_items/menu_items.service");
 const admin_service_1 = require("../admin/admin.service");
+const promotions_service_1 = require("../promotions/promotions.service");
 let UploadController = class UploadController {
-    constructor(restaurantService, uploadService, driverService, adminService, customerService, menuItemService) {
+    constructor(restaurantService, uploadService, driverService, adminService, promotionService, customerService, menuItemService) {
         this.restaurantService = restaurantService;
         this.uploadService = uploadService;
         this.driverService = driverService;
         this.adminService = adminService;
+        this.promotionService = promotionService;
         this.customerService = customerService;
         this.menuItemService = menuItemService;
     }
@@ -51,6 +53,9 @@ let UploadController = class UploadController {
             case Payload_1.Enum_AvatarType.ADMIN:
                 updatedEntity = await this.adminService.updateEntityAvatar(uploadResult, entityId);
                 break;
+            case Payload_1.Enum_AvatarType.PROMOMOTION:
+                updatedEntity = await this.promotionService.updateEntityAvatar(uploadResult, entityId);
+                break;
             case Payload_1.Enum_AvatarType.CUSTOMER:
                 updatedEntity = await this.customerService.updateEntityAvatar(uploadResult, entityId);
                 break;
@@ -60,7 +65,7 @@ let UploadController = class UploadController {
             default:
                 return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Invalid user type');
         }
-        return (0, createResponse_1.createResponse)('OK', updatedEntity, 'Avatar uploaded successfully');
+        return updatedEntity;
     }
     async uploadGalleries(files, userType, entityId) {
         if (!files || files.length === 0) {
@@ -146,6 +151,7 @@ exports.UploadController = UploadController = __decorate([
         upload_service_1.UploadService,
         drivers_service_1.DriversService,
         admin_service_1.AdminService,
+        promotions_service_1.PromotionsService,
         customers_service_1.CustomersService,
         menu_items_service_1.MenuItemsService])
 ], UploadController);

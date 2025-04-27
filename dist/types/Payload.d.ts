@@ -26,7 +26,8 @@ export declare enum Enum_AvatarType {
     RESTAURANT_OWNER = "RESTAURANT_OWNER",
     CUSTOMER_CARE_REPRESENTATIVE = "CUSTOMER_CARE_REPRESENTATIVE",
     F_WALLET = "F_WALLET",
-    MENU_ITEM = "MENU_ITEM"
+    MENU_ITEM = "MENU_ITEM",
+    PROMOMOTION = "PROMOTION"
 }
 export declare enum Enum_AppTheme {
     LIGHT = "light",

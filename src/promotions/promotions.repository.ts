@@ -38,7 +38,7 @@ export class PromotionsRepository {
     return this.promotionRepository.findOne({ where: { name } });
   }
 
-  async update(id: string, updateData: UpdatePromotionDto): Promise<void> {
+  async update(id: string, updateData: UpdatePromotionDto): Promise<Promotion> {
     const { food_categories, ...restData } = updateData;
 
     // Cập nhật các field không phải quan hệ
@@ -55,6 +55,8 @@ export class PromotionsRepository {
         await this.promotionRepository.save(promotion); // Save để cập nhật bảng join
       }
     }
+    const updatedPromotion = await this.findById(id);
+    return updatedPromotion;
   }
 
   async delete(id: string): Promise<{ affected?: number }> {

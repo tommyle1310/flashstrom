@@ -17,6 +17,7 @@ import { Enum_AvatarType } from 'src/types/Payload';
 import { createResponse } from 'src/utils/createResponse'; // Import createResponse
 import { MenuItemsService } from 'src/menu_items/menu_items.service';
 import { AdminService } from 'src/admin/admin.service';
+import { PromotionsService } from 'src/promotions/promotions.service';
 
 @Controller('upload')
 export class UploadController {
@@ -26,6 +27,7 @@ export class UploadController {
     private readonly uploadService: UploadService,
     private readonly driverService: DriversService,
     private readonly adminService: AdminService,
+    private readonly promotionService: PromotionsService,
     private readonly customerService: CustomersService,
     private readonly menuItemService: MenuItemsService
   ) {}
@@ -71,6 +73,12 @@ export class UploadController {
           entityId
         );
         break;
+      case Enum_AvatarType.PROMOMOTION:
+        updatedEntity = await this.promotionService.updateEntityAvatar(
+          uploadResult,
+          entityId
+        );
+        break;
       case Enum_AvatarType.CUSTOMER:
         updatedEntity = await this.customerService.updateEntityAvatar(
           uploadResult,
@@ -87,7 +95,7 @@ export class UploadController {
         return createResponse('InvalidFormatInput', null, 'Invalid user type');
     }
 
-    return createResponse('OK', updatedEntity, 'Avatar uploaded successfully');
+    return updatedEntity;
   }
 
   @Post('galleries')

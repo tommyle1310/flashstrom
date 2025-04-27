@@ -244,4 +244,23 @@ export class PromotionsService {
       return createResponse('ServerError', null, 'Error deleting promotion');
     }
   }
+
+  async updateEntityAvatar(
+    uploadResult: { url: string; public_id: string },
+    entityId: string
+  ) {
+    const promotion = await this.promotionsRepository.update(entityId, {
+      avatar: { url: uploadResult.url, key: uploadResult.public_id }
+    });
+
+    if (!promotion) {
+      return createResponse('NotFound', null, 'promotion not found');
+    }
+
+    return createResponse(
+      'OK',
+      promotion,
+      'promotion avatar updated successfully'
+    );
+  }
 }

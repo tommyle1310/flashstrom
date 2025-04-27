@@ -53,6 +53,8 @@ let PromotionsRepository = class PromotionsRepository {
                 await this.promotionRepository.save(promotion);
             }
         }
+        const updatedPromotion = await this.findById(id);
+        return updatedPromotion;
     }
     async delete(id) {
         return this.promotionRepository.delete(id);

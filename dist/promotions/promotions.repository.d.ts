@@ -10,7 +10,7 @@ export declare class PromotionsRepository {
     }): Promise<Promotion[]>;
     findById(id: string): Promise<Promotion | null>;
     findByName(name: string): Promise<Promotion | null>;
-    update(id: string, updateData: UpdatePromotionDto): Promise<void>;
+    update(id: string, updateData: UpdatePromotionDto): Promise<Promotion>;
     delete(id: string): Promise<{
         affected?: number;
     }>;

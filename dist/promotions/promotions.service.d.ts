@@ -14,4 +14,8 @@ export declare class PromotionsService {
     findOne(id: string): Promise<ApiResponse<Promotion>>;
     update(id: string, updatePromotionDto: UpdatePromotionDto): Promise<ApiResponse<Promotion>>;
     remove(id: string): Promise<ApiResponse<null>>;
+    updateEntityAvatar(uploadResult: {
+        url: string;
+        public_id: string;
+    }, entityId: string): Promise<ApiResponse<any>>;
 }

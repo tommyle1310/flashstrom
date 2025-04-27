@@ -22,6 +22,7 @@ var Enum_AvatarType;
     Enum_AvatarType["CUSTOMER_CARE_REPRESENTATIVE"] = "CUSTOMER_CARE_REPRESENTATIVE";
     Enum_AvatarType["F_WALLET"] = "F_WALLET";
     Enum_AvatarType["MENU_ITEM"] = "MENU_ITEM";
+    Enum_AvatarType["PROMOMOTION"] = "PROMOTION";
 })(Enum_AvatarType || (exports.Enum_AvatarType = Enum_AvatarType = {}));
 var Enum_AppTheme;
 (function (Enum_AppTheme) {
