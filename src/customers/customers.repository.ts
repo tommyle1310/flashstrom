@@ -89,6 +89,7 @@ export class CustomersRepository {
     return this.dataSource
       .createQueryBuilder(Customer, 'customer')
       .leftJoinAndSelect('customer.address', 'address')
+      .leftJoinAndSelect('customer.preferred_category', 'preferred_category') // Added to load preferred_category
       .where('customer.id = :customerId', { customerId })
       .getOne();
   }

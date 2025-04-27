@@ -80,6 +80,7 @@ let CustomersRepository = class CustomersRepository {
         return this.dataSource
             .createQueryBuilder(customer_entity_1.Customer, 'customer')
             .leftJoinAndSelect('customer.address', 'address')
+            .leftJoinAndSelect('customer.preferred_category', 'preferred_category')
             .where('customer.id = :customerId', { customerId })
             .getOne();
     }

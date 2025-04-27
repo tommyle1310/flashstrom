@@ -102,7 +102,7 @@ let OrdersService = class OrdersService {
         const start = Date.now();
         try {
             const fetchStart = Date.now();
-            const [customer, restaurant, customerAddress, restaurantAddress, menuItems, variants, promotion, cartItems] = await Promise.all([
+            const [customer, restaurant, customerAddress, restaurantAddress, menuItems, variants, promotion] = await Promise.all([
                 (async () => {
                     const start = Date.now();
                     const cacheKey = `customer:${createOrderDto.customer_id}`;
@@ -363,11 +363,15 @@ let OrdersService = class OrdersService {
                     const transactionResponse = await this.transactionService.create(transactionDto, transactionalEntityManager);
                     logger.log(`Transaction service took ${Date.now() - txServiceStart}ms`);
                     if (transactionResponse.EC !== 0) {
+                        logger.error(`Transaction failed: ${JSON.stringify(transactionResponse)}`);
                         return transactionResponse;
                     }
                 }
+                logger.log('Saving order...');
                 const newOrder = this.ordersRepository.create(orderData);
                 const savedOrder = await transactionalEntityManager.save(order_entity_1.Order, newOrder);
+                logger.log(`Order saved with id: ${savedOrder.id}`);
+                logger.log('Updating restaurant total_orders...');
                 await transactionalEntityManager
                     .createQueryBuilder()
                     .update(restaurant_entity_1.Restaurant)
@@ -377,25 +381,51 @@ let OrdersService = class OrdersService {
                 })
                     .where('id = :id', { id: createOrderDto.restaurant_id })
                     .execute();
+                logger.log('Restaurant total_orders updated');
+                logger.log(`Checking cart items for customer_id: ${createOrderDto.customer_id}`);
+                const existingCartItems = await transactionalEntityManager
+                    .getRepository(cart_item_entity_1.CartItem)
+                    .createQueryBuilder('cartItem')
+                    .where('cartItem.customer_id = :customerId', {
+                    customerId: createOrderDto.customer_id
+                })
+                    .andWhere('cartItem.deleted_at IS NULL')
+                    .getMany();
+                logger.log(`Found ${existingCartItems.length} cart items for customer ${createOrderDto.customer_id}`);
+                if (existingCartItems.length > 0) {
+                    logger.log(`Deleting cart items for customer_id: ${createOrderDto.customer_id}`);
+                    const deleteResult = await transactionalEntityManager
+                        .createQueryBuilder()
+                        .update(cart_item_entity_1.CartItem)
+                        .set({ deleted_at: Math.floor(Date.now() / 1000) })
+                        .where('customer_id = :customerId', {
+                        customerId: createOrderDto.customer_id
+                    })
+                        .andWhere('deleted_at IS NULL')
+                        .execute();
+                    logger.log(`Deleted ${deleteResult.affected} cart items for customer ${createOrderDto.customer_id}`);
+                    if (deleteResult.affected === 0) {
+                        logger.warn(`No cart items were deleted for customer ${createOrderDto.customer_id}`);
+                    }
+                    else {
+                        const cacheKey = `cart_items:${createOrderDto.customer_id}`;
+                        await this.redisService.del(cacheKey);
+                        logger.log(`Cleared Redis cache: ${cacheKey}`);
+                    }
+                }
+                else {
+                    logger.log(`No cart items found to delete for customer ${createOrderDto.customer_id}`);
+                }
+                logger.log('Transaction completed successfully');
                 return (0, createResponse_1.createResponse)('OK', savedOrder, 'Order created in transaction');
             });
             logger.log(`Transaction took ${Date.now() - txStart}ms`);
             if (result.EC !== 0) {
+                logger.error(`Transaction result: ${JSON.stringify(result)}`);
                 return result;
             }
             const savedOrder = result.data;
-            if (cartItems.length > 0) {
-                this.dataSource
-                    .createQueryBuilder()
-                    .update(cart_item_entity_1.CartItem)
-                    .set({ deleted_at: Math.floor(Date.now() / 1000) })
-                    .where('customer_id = :customerId', {
-                    customerId: createOrderDto.customer_id
-                })
-                    .execute()
-                    .then(() => redis.del(`cart_items:${createOrderDto.customer_id}`))
-                    .catch(err => logger.error('Error deleting cart items:', err));
-            }
+            logger.log('Updating menu item purchase count...');
             this.updateMenuItemPurchaseCount(createOrderDto.order_items).catch(err => logger.error('Error updating menu item purchase count:', err));
             const emitStart = Date.now();
             const eventId = `${savedOrder.id}-${Date.now()}`;
@@ -407,8 +437,8 @@ let OrdersService = class OrdersService {
                 customer_id: savedOrder.customer_id,
                 driver_id: savedOrder.driver_id,
                 restaurant_id: savedOrder.restaurant_id,
-                restaurantAddress: savedOrder.restaurantAddress,
-                customerAddress: savedOrder.customerAddress,
+                restaurantAddress: restaurantAddress,
+                customerAddress: customerAddress,
                 order_items: createOrderDto.order_items,
                 total_amount: savedOrder.total_amount,
                 delivery_fee: savedOrder.delivery_fee,

@@ -8,7 +8,8 @@ import {
   BeforeInsert,
   ManyToOne,
   JoinColumn,
-  Index
+  Index,
+  DeleteDateColumn
 } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -53,7 +54,7 @@ export class CartItem {
   @Column()
   updated_at: number;
 
-  @Column({ nullable: true })
+  @DeleteDateColumn({ nullable: true })
   deleted_at: number;
 
   @BeforeInsert()
