@@ -33,12 +33,15 @@ export declare class FchatGateway implements OnGatewayConnection, OnGatewayDisco
         content: string;
         type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'ORDER_INFO';
     }): Promise<{
-        from: any;
-        content: string;
-        type: "TEXT" | "IMAGE" | "VIDEO" | "ORDER_INFO";
-        timestamp: Date;
+        id: string;
         roomId: string;
-        messageId: string;
+        senderId: string;
+        senderType: Enum_UserType;
+        content: string;
+        messageType: MessageType;
+        timestamp: string;
+        readBy: string[];
+        senderDetails: any;
     }>;
     private isValidChatId;
     handleGetChatHistoryEvent(data: {
@@ -55,64 +58,42 @@ export declare class FchatGateway implements OnGatewayConnection, OnGatewayDisco
         ongoing: {
             roomId: string;
             type: RoomType;
-            otherParticipant: {
-                userId: string;
-                userType: Enum_UserType;
-                customer?: import("../customers/entities/customer.entity").Customer;
-                driver?: import("../drivers/entities/driver.entity").Driver;
-                restaurant?: import("../restaurants/entities/restaurant.entity").Restaurant;
-                customerCare?: import("../customer_cares/entities/customer_care.entity").CustomerCare;
-            };
+            otherParticipant: any;
             lastMessage: {
-                sender: any;
                 id: string;
                 roomId: string;
-                chatRoom: import("./entities/chat-room.entity").ChatRoom;
                 senderId: string;
                 senderType: Enum_UserType;
-                customerSender: import("../customers/entities/customer.entity").Customer;
-                driverSender: import("../drivers/entities/driver.entity").Driver;
-                restaurantSender: import("../restaurants/entities/restaurant.entity").Restaurant;
-                customerCareSender: import("../customer_cares/entities/customer_care.entity").CustomerCare;
                 content: string;
                 messageType: MessageType;
-                timestamp: Date;
+                timestamp: string;
                 readBy: string[];
+                sender: any;
             };
-            lastActivity: Date;
+            lastActivity: string;
             relatedId: string;
         }[];
         awaiting: {
             roomId: string;
             type: RoomType;
-            otherParticipant: {
-                userId: string;
-                userType: Enum_UserType;
-                customer?: import("../customers/entities/customer.entity").Customer;
-                driver?: import("../drivers/entities/driver.entity").Driver;
-                restaurant?: import("../restaurants/entities/restaurant.entity").Restaurant;
-                customerCare?: import("../customer_cares/entities/customer_care.entity").CustomerCare;
-            };
+            otherParticipant: any;
             lastMessage: {
-                sender: any;
                 id: string;
                 roomId: string;
-                chatRoom: import("./entities/chat-room.entity").ChatRoom;
                 senderId: string;
                 senderType: Enum_UserType;
-                customerSender: import("../customers/entities/customer.entity").Customer;
-                driverSender: import("../drivers/entities/driver.entity").Driver;
-                restaurantSender: import("../restaurants/entities/restaurant.entity").Restaurant;
-                customerCareSender: import("../customer_cares/entities/customer_care.entity").CustomerCare;
                 content: string;
                 messageType: MessageType;
-                timestamp: Date;
+                timestamp: string;
                 readBy: string[];
+                sender: any;
             };
-            lastActivity: Date;
+            lastActivity: string;
             relatedId: string;
         }[];
     }>;
+    private formatContact;
+    private formatPhone;
     private isValidChatCombination;
     private getChatId;
     private getSocketRoomIdFromDbRoom;

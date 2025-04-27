@@ -175,13 +175,96 @@ let FchatGateway = class FchatGateway {
                 timestamp: new Date()
             });
             await this.fchatService.updateRoomActivity(data.roomId);
+            const formatContact = (contacts) => {
+                if (!contacts || contacts.length === 0)
+                    return '';
+                const defaultContact = contacts.find(c => c.is_default);
+                return defaultContact ? defaultContact.phone : contacts[0].phone;
+            };
+            const formatPhone = (phones) => {
+                if (!phones || phones.length === 0)
+                    return '';
+                const defaultPhone = phones.find(p => p.is_default);
+                return defaultPhone ? defaultPhone.number : phones[0].number;
+            };
+            let senderDetails = null;
+            switch (dbMessage.senderType) {
+                case 'CUSTOMER':
+                    if (dbMessage.customerSender) {
+                        senderDetails = {
+                            id: dbMessage.customerSender.id,
+                            first_name: dbMessage.customerSender.first_name || '',
+                            last_name: dbMessage.customerSender.last_name || '',
+                            avatar: dbMessage.customerSender.avatar
+                                ? {
+                                    key: dbMessage.customerSender.avatar,
+                                    url: dbMessage.customerSender.avatar
+                                }
+                                : null,
+                            phone: dbMessage.customerSender.phone || ''
+                        };
+                    }
+                    break;
+                case 'DRIVER':
+                    if (dbMessage.driverSender) {
+                        senderDetails = {
+                            id: dbMessage.driverSender.id,
+                            first_name: dbMessage.driverSender.first_name || '',
+                            last_name: dbMessage.driverSender.last_name || '',
+                            avatar: dbMessage.driverSender.avatar
+                                ? {
+                                    key: dbMessage.driverSender.avatar,
+                                    url: dbMessage.driverSender.avatar
+                                }
+                                : null,
+                            contact_email: formatContact(dbMessage.driverSender.contact_email),
+                            contact_phone: formatContact(dbMessage.driverSender.contact_phone)
+                        };
+                    }
+                    break;
+                case 'RESTAURANT_OWNER':
+                    if (dbMessage.restaurantSender) {
+                        senderDetails = {
+                            id: dbMessage.restaurantSender.id,
+                            restaurant_name: dbMessage.restaurantSender.restaurant_name || '',
+                            avatar: dbMessage.restaurantSender.avatar
+                                ? {
+                                    key: dbMessage.restaurantSender.avatar,
+                                    url: dbMessage.restaurantSender.avatar
+                                }
+                                : null,
+                            contact_email: formatContact(dbMessage.restaurantSender.contact_email),
+                            contact_phone: formatContact(dbMessage.restaurantSender.contact_phone)
+                        };
+                    }
+                    break;
+                case 'CUSTOMER_CARE_REPRESENTATIVE':
+                    if (dbMessage.customerCareSender) {
+                        senderDetails = {
+                            id: dbMessage.customerCareSender.id,
+                            first_name: dbMessage.customerCareSender.first_name || '',
+                            last_name: dbMessage.customerCareSender.last_name || '',
+                            avatar: dbMessage.customerCareSender.avatar
+                                ? {
+                                    key: dbMessage.customerCareSender.avatar,
+                                    url: dbMessage.customerCareSender.avatar
+                                }
+                                : null,
+                            contact_phone: formatPhone(dbMessage.customerCareSender.contact_phone)
+                        };
+                    }
+                    break;
+            }
             const message = {
-                from: user.id,
-                content: data.content,
-                type: data.type,
-                timestamp: new Date(),
-                roomId: data.roomId,
-                messageId: dbMessage.id
+                id: dbMessage.id,
+                roomId: dbMessage.roomId,
+                senderId: dbMessage.senderId,
+                senderType: dbMessage.senderType,
+                content: dbMessage.content,
+                messageType: dbMessage.messageType,
+                timestamp: dbMessage.timestamp.toISOString(),
+                readBy: dbMessage.readBy,
+                senderDetails
             };
             const participants = dbRoom.participants.map(p => p.userId);
             for (const participantId of participants) {
@@ -252,42 +335,103 @@ let FchatGateway = class FchatGateway {
             }
             console.log('User requesting all chats:', user.id);
             const userChats = await this.fchatService.getRoomsByUserIdWithLastMessage(user.id);
-            const processedChats = userChats.map(({ room, lastMessage }) => {
+            const processedChats = userChats.map(({ room, lastMessage, otherParticipantDetails, userMessageCount }) => {
                 const otherParticipant = room.participants.find(p => p.userId !== user.id);
                 let senderDetails = null;
                 if (lastMessage) {
                     switch (lastMessage.senderType) {
                         case Payload_1.Enum_UserType.CUSTOMER:
-                            senderDetails = lastMessage.customerSender;
+                            senderDetails = lastMessage.customerSender
+                                ? {
+                                    id: lastMessage.customerSender.id,
+                                    first_name: lastMessage.customerSender.first_name || '',
+                                    last_name: lastMessage.customerSender.last_name || '',
+                                    avatar: lastMessage.customerSender.avatar
+                                        ? {
+                                            key: lastMessage.customerSender.avatar,
+                                            url: lastMessage.customerSender.avatar
+                                        }
+                                        : null,
+                                    phone: lastMessage.customerSender.phone || ''
+                                }
+                                : null;
                             break;
                         case Payload_1.Enum_UserType.DRIVER:
-                            senderDetails = lastMessage.driverSender;
+                            senderDetails = lastMessage.driverSender
+                                ? {
+                                    id: lastMessage.driverSender.id,
+                                    first_name: lastMessage.driverSender.first_name || '',
+                                    last_name: lastMessage.driverSender.last_name || '',
+                                    avatar: lastMessage.driverSender.avatar
+                                        ? {
+                                            key: lastMessage.driverSender.avatar,
+                                            url: lastMessage.driverSender.avatar
+                                        }
+                                        : null,
+                                    contact_email: this.formatContact(lastMessage.driverSender.contact_email),
+                                    contact_phone: this.formatContact(lastMessage.driverSender.contact_phone)
+                                }
+                                : null;
                             break;
                         case Payload_1.Enum_UserType.RESTAURANT_OWNER:
-                            senderDetails = lastMessage.restaurantSender;
+                            senderDetails = lastMessage.restaurantSender
+                                ? {
+                                    id: lastMessage.restaurantSender.id,
+                                    restaurant_name: lastMessage.restaurantSender.restaurant_name || '',
+                                    avatar: lastMessage.restaurantSender.avatar
+                                        ? {
+                                            key: lastMessage.restaurantSender.avatar,
+                                            url: lastMessage.restaurantSender.avatar
+                                        }
+                                        : null,
+                                    contact_email: this.formatContact(lastMessage.restaurantSender.contact_email),
+                                    contact_phone: this.formatContact(lastMessage.restaurantSender.contact_phone)
+                                }
+                                : null;
                             break;
                         case Payload_1.Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
-                            senderDetails = lastMessage.customerCareSender;
+                            senderDetails = lastMessage.customerCareSender
+                                ? {
+                                    id: lastMessage.customerCareSender.id,
+                                    first_name: lastMessage.customerCareSender.first_name || '',
+                                    last_name: lastMessage.customerCareSender.last_name || '',
+                                    avatar: lastMessage.customerCareSender.avatar
+                                        ? {
+                                            key: lastMessage.customerCareSender.avatar,
+                                            url: lastMessage.customerCareSender.avatar
+                                        }
+                                        : null,
+                                    contact_phone: this.formatPhone(lastMessage.customerCareSender.contact_phone)
+                                }
+                                : null;
                             break;
                     }
                 }
                 const chatInfo = {
                     roomId: room.id,
                     type: room.type,
-                    otherParticipant,
+                    otherParticipant: {
+                        userId: otherParticipant?.userId,
+                        userType: otherParticipant?.userType,
+                        ...otherParticipantDetails
+                    },
                     lastMessage: lastMessage
                         ? {
-                            ...lastMessage,
+                            id: lastMessage.id,
+                            roomId: lastMessage.roomId,
+                            senderId: lastMessage.senderId,
+                            senderType: lastMessage.senderType,
+                            content: lastMessage.content,
+                            messageType: lastMessage.messageType,
+                            timestamp: lastMessage.timestamp.toISOString(),
+                            readBy: lastMessage.readBy,
                             sender: senderDetails
                         }
                         : null,
-                    lastActivity: room.lastActivity,
+                    lastActivity: room.lastActivity.toISOString(),
                     relatedId: room.relatedId
                 };
-                const isAwaiting = lastMessage &&
-                    lastMessage.senderId !== user.id &&
-                    !lastMessage.readBy.includes(user.id) &&
-                    !room.messages?.some(msg => msg.senderId === user.id);
+                const isAwaiting = userMessageCount === 0;
                 return {
                     chatInfo,
                     isAwaiting
@@ -296,11 +440,13 @@ let FchatGateway = class FchatGateway {
             const ongoingChats = processedChats
                 .filter(chat => !chat.isAwaiting)
                 .map(chat => chat.chatInfo)
-                .sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime());
+                .sort((a, b) => new Date(b.lastActivity).getTime() -
+                new Date(a.lastActivity).getTime());
             const awaitingChats = processedChats
                 .filter(chat => chat.isAwaiting)
                 .map(chat => chat.chatInfo)
-                .sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime());
+                .sort((a, b) => new Date(b.lastActivity).getTime() -
+                new Date(a.lastActivity).getTime());
             console.log(`Found ${ongoingChats.length} ongoing chats and ${awaitingChats.length} awaiting chats`);
             client.emit('allChats', {
                 ongoing: ongoingChats,
@@ -321,6 +467,18 @@ let FchatGateway = class FchatGateway {
                 awaiting: []
             };
         }
+    }
+    formatContact(contacts) {
+        if (!contacts || contacts.length === 0)
+            return '';
+        const defaultContact = contacts.find(c => c.is_default);
+        return defaultContact ? defaultContact.phone : contacts[0].phone;
+    }
+    formatPhone(phones) {
+        if (!phones || phones.length === 0)
+            return '';
+        const defaultPhone = phones.find(p => p.is_default);
+        return defaultPhone ? defaultPhone.number : phones[0].number;
     }
     isValidChatCombination(userType, chatType, recipientType) {
         if (chatType === 'SUPPORT') {

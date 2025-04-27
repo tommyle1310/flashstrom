@@ -61,37 +61,225 @@ export class FchatService {
   }
 
   async createMessage(messageData: Partial<Message>): Promise<Message> {
-    // Get sender details based on senderType
+    // Get sender details based on senderType with only necessary fields
     let senderDetails;
     switch (messageData.senderType) {
       case Enum_UserType.CUSTOMER:
-        senderDetails = await this.customerRepository.findOne({
-          where: { id: messageData.senderId }
-        });
+        senderDetails = await this.customerRepository
+          .createQueryBuilder('customer')
+          .select([
+            'customer.id',
+            'customer.first_name',
+            'customer.last_name',
+            'customer.avatar',
+            'customer.phone'
+          ])
+          .where('customer.id = :id', { id: messageData.senderId })
+          .getOne();
+        if (senderDetails) {
+          senderDetails.first_name = senderDetails.first_name || '';
+          senderDetails.last_name = senderDetails.last_name || '';
+          senderDetails.avatar = senderDetails.avatar || null;
+          senderDetails.phone = senderDetails.phone || '';
+        }
         break;
       case Enum_UserType.DRIVER:
-        senderDetails = await this.driverRepository.findOne({
-          where: { id: messageData.senderId }
-        });
+        senderDetails = await this.driverRepository
+          .createQueryBuilder('driver')
+          .select([
+            'driver.id',
+            'driver.first_name',
+            'driver.last_name',
+            'driver.avatar',
+            'driver.contact_email',
+            'driver.contact_phone'
+          ])
+          .where('driver.id = :id', { id: messageData.senderId })
+          .getOne();
+        if (senderDetails) {
+          senderDetails.first_name = senderDetails.first_name || '';
+          senderDetails.last_name = senderDetails.last_name || '';
+          senderDetails.avatar = senderDetails.avatar || null;
+          senderDetails.contact_email = senderDetails.contact_email || [];
+          senderDetails.contact_phone = senderDetails.contact_phone || [];
+        }
         break;
       case Enum_UserType.RESTAURANT_OWNER:
-        senderDetails = await this.restaurantRepository.findOne({
-          where: { id: messageData.senderId }
-        });
+        senderDetails = await this.restaurantRepository
+          .createQueryBuilder('restaurant')
+          .select([
+            'restaurant.id',
+            'restaurant.restaurant_name',
+            'restaurant.avatar',
+            'restaurant.contact_email',
+            'restaurant.contact_phone'
+          ])
+          .where('restaurant.id = :id', { id: messageData.senderId })
+          .getOne();
+        if (senderDetails) {
+          senderDetails.restaurant_name = senderDetails.restaurant_name || '';
+          senderDetails.avatar = senderDetails.avatar || null;
+          senderDetails.contact_email = senderDetails.contact_email || [];
+          senderDetails.contact_phone = senderDetails.contact_phone || [];
+        }
         break;
       case Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
-        senderDetails = await this.customerCareRepository.findOne({
-          where: { id: messageData.senderId }
-        });
+        senderDetails = await this.customerCareRepository
+          .createQueryBuilder('customerCare')
+          .select([
+            'customerCare.id',
+            'customerCare.first_name',
+            'customerCare.last_name',
+            'customerCare.avatar',
+            'customerCare.contact_phone'
+          ])
+          .where('customerCare.id = :id', { id: messageData.senderId })
+          .getOne();
+        if (senderDetails) {
+          senderDetails.first_name = senderDetails.first_name || '';
+          senderDetails.last_name = senderDetails.last_name || '';
+          senderDetails.avatar = senderDetails.avatar || null;
+          senderDetails.contact_phone = senderDetails.contact_phone || [];
+        }
         break;
+      default:
+        throw new Error(`Invalid senderType: ${messageData.senderType}`);
     }
 
+    if (!senderDetails) {
+      throw new Error(`Sender not found for ID: ${messageData.senderId}`);
+    }
+
+    // Create the message entity
     const message = this.messageRepository.create({
       ...messageData,
       [messageData.senderType.toLowerCase() + 'Sender']: senderDetails
     });
 
-    return this.messageRepository.save(message);
+    // Save the message
+    const savedMessage = await this.messageRepository.save(message);
+
+    // Log the generated SQL for debugging
+    const query = this.messageRepository
+      .createQueryBuilder('message')
+      .select([
+        'message.id',
+        'message.roomId',
+        'message.senderId',
+        'message.senderType',
+        'message.content',
+        'message.messageType',
+        'message.timestamp',
+        'message.readBy'
+      ])
+      .leftJoin(
+        'message.customerSender',
+        'customerSender',
+        'message.senderType = :customerType',
+        { customerType: Enum_UserType.CUSTOMER }
+      )
+      .leftJoin(
+        'message.driverSender',
+        'driverSender',
+        'message.senderType = :driverType',
+        { driverType: Enum_UserType.DRIVER }
+      )
+      .leftJoin(
+        'message.restaurantSender',
+        'restaurantSender',
+        'message.senderType = :restaurantType',
+        { restaurantType: Enum_UserType.RESTAURANT_OWNER }
+      )
+      .leftJoin(
+        'message.customerCareSender',
+        'customerCareSender',
+        'message.senderType = :customerCareType',
+        { customerCareType: Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE }
+      )
+      .addSelect([
+        'customerSender.id',
+        'customerSender.first_name',
+        'customerSender.last_name',
+        'customerSender.avatar',
+        'customerSender.phone'
+      ])
+      .addSelect([
+        'driverSender.id',
+        'driverSender.first_name',
+        'driverSender.last_name',
+        'driverSender.avatar',
+        'driverSender.contact_email',
+        'driverSender.contact_phone'
+      ])
+      .addSelect([
+        'restaurantSender.id',
+        'restaurantSender.restaurant_name',
+        'restaurantSender.avatar',
+        'restaurantSender.contact_email',
+        'restaurantSender.contact_phone'
+      ])
+      .addSelect([
+        'customerCareSender.id',
+        'customerCareSender.first_name',
+        'customerCareSender.last_name',
+        'customerCareSender.avatar',
+        'customerCareSender.contact_phone'
+      ])
+      .where('message.id = :id', { id: savedMessage.id });
+    console.log('Generated SQL:', await query.getSql());
+
+    // Fetch the saved message with only necessary sender fields
+    const messageWithRelations = await query.getOne();
+
+    if (!messageWithRelations) {
+      throw new Error('Failed to fetch message with relations');
+    }
+
+    // Apply fallbacks to sender fields
+    if (messageWithRelations.customerSender) {
+      messageWithRelations.customerSender.first_name =
+        messageWithRelations.customerSender.first_name || '';
+      messageWithRelations.customerSender.last_name =
+        messageWithRelations.customerSender.last_name || '';
+      messageWithRelations.customerSender.avatar =
+        messageWithRelations.customerSender.avatar || null;
+      messageWithRelations.customerSender.phone =
+        messageWithRelations.customerSender.phone || '';
+    }
+    if (messageWithRelations.driverSender) {
+      messageWithRelations.driverSender.first_name =
+        messageWithRelations.driverSender.first_name || '';
+      messageWithRelations.driverSender.last_name =
+        messageWithRelations.driverSender.last_name || '';
+      messageWithRelations.driverSender.avatar =
+        messageWithRelations.driverSender.avatar || null;
+      messageWithRelations.driverSender.contact_email =
+        messageWithRelations.driverSender.contact_email || [];
+      messageWithRelations.driverSender.contact_phone =
+        messageWithRelations.driverSender.contact_phone || [];
+    }
+    if (messageWithRelations.restaurantSender) {
+      messageWithRelations.restaurantSender.restaurant_name =
+        messageWithRelations.restaurantSender.restaurant_name || '';
+      messageWithRelations.restaurantSender.avatar =
+        messageWithRelations.restaurantSender.avatar || null;
+      messageWithRelations.restaurantSender.contact_email =
+        messageWithRelations.restaurantSender.contact_email || [];
+      messageWithRelations.restaurantSender.contact_phone =
+        messageWithRelations.restaurantSender.contact_phone || [];
+    }
+    if (messageWithRelations.customerCareSender) {
+      messageWithRelations.customerCareSender.first_name =
+        messageWithRelations.customerCareSender.first_name || '';
+      messageWithRelations.customerCareSender.last_name =
+        messageWithRelations.customerCareSender.last_name || '';
+      messageWithRelations.customerCareSender.avatar =
+        messageWithRelations.customerCareSender.avatar || null;
+      messageWithRelations.customerCareSender.contact_phone =
+        messageWithRelations.customerCareSender.contact_phone || [];
+    }
+
+    return messageWithRelations;
   }
 
   async createRoom(roomData: Partial<ChatRoom>): Promise<ChatRoom> {
@@ -99,16 +287,126 @@ export class FchatService {
     const room = this.roomRepository.create(roomData);
     return this.roomRepository.save(room);
   }
+
   async getRoomMessages(roomId: string): Promise<Message[]> {
-    return this.messageRepository
+    const messages = await this.messageRepository
       .createQueryBuilder('message')
-      .leftJoinAndSelect('message.customerSender', 'customerSender')
-      .leftJoinAndSelect('message.driverSender', 'driverSender')
-      .leftJoinAndSelect('message.restaurantSender', 'restaurantSender')
-      .leftJoinAndSelect('message.customerCareSender', 'customerCareSender')
+      .select([
+        'message.id',
+        'message.roomId',
+        'message.senderId',
+        'message.senderType',
+        'message.content',
+        'message.messageType',
+        'message.timestamp',
+        'message.readBy'
+      ])
+      .leftJoin(
+        'message.customerSender',
+        'customerSender',
+        'message.senderType = :customerType',
+        {
+          customerType: Enum_UserType.CUSTOMER
+        }
+      )
+      .leftJoin(
+        'message.driverSender',
+        'driverSender',
+        'message.senderType = :driverType',
+        {
+          driverType: Enum_UserType.DRIVER
+        }
+      )
+      .leftJoin(
+        'message.restaurantSender',
+        'restaurantSender',
+        'message.senderType = :restaurantType',
+        {
+          restaurantType: Enum_UserType.RESTAURANT_OWNER
+        }
+      )
+      .leftJoin(
+        'message.customerCareSender',
+        'customerCareSender',
+        'message.senderType = :customerCareType',
+        {
+          customerCareType: Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE
+        }
+      )
+      .addSelect([
+        'customerSender.id',
+        'customerSender.first_name',
+        'customerSender.last_name',
+        'customerSender.avatar',
+        'customerSender.phone'
+      ])
+      .addSelect([
+        'driverSender.id',
+        'driverSender.first_name',
+        'driverSender.last_name',
+        'driverSender.avatar',
+        'driverSender.contact_email',
+        'driverSender.contact_phone'
+      ])
+      .addSelect([
+        'restaurantSender.id',
+        'restaurantSender.restaurant_name',
+        'restaurantSender.avatar',
+        'restaurantSender.contact_email',
+        'restaurantSender.contact_phone'
+      ])
+      .addSelect([
+        'customerCareSender.id',
+        'customerCareSender.first_name',
+        'customerCareSender.last_name',
+        'customerCareSender.avatar',
+        'customerCareSender.contact_phone'
+      ])
       .where('message.roomId = :roomId', { roomId })
       .orderBy('message.timestamp', 'ASC')
       .getMany();
+
+    // Apply fallbacks to sender fields for all messages
+    return messages.map(message => {
+      if (message.customerSender) {
+        message.customerSender.first_name =
+          message.customerSender.first_name || '';
+        message.customerSender.last_name =
+          message.customerSender.last_name || '';
+        message.customerSender.avatar = message.customerSender.avatar || null;
+        message.customerSender.phone = message.customerSender.phone || '';
+      }
+      if (message.driverSender) {
+        message.driverSender.first_name = message.driverSender.first_name || '';
+        message.driverSender.last_name = message.driverSender.last_name || '';
+        message.driverSender.avatar = message.driverSender.avatar || null;
+        message.driverSender.contact_email =
+          message.driverSender.contact_email || [];
+        message.driverSender.contact_phone =
+          message.driverSender.contact_phone || [];
+      }
+      if (message.restaurantSender) {
+        message.restaurantSender.restaurant_name =
+          message.restaurantSender.restaurant_name || '';
+        message.restaurantSender.avatar =
+          message.restaurantSender.avatar || null;
+        message.restaurantSender.contact_email =
+          message.restaurantSender.contact_email || [];
+        message.restaurantSender.contact_phone =
+          message.restaurantSender.contact_phone || [];
+      }
+      if (message.customerCareSender) {
+        message.customerCareSender.first_name =
+          message.customerCareSender.first_name || '';
+        message.customerCareSender.last_name =
+          message.customerCareSender.last_name || '';
+        message.customerCareSender.avatar =
+          message.customerCareSender.avatar || null;
+        message.customerCareSender.contact_phone =
+          message.customerCareSender.contact_phone || [];
+      }
+      return message;
+    });
   }
 
   async canUserJoinRoom(userId: string, roomId: string): Promise<boolean> {
@@ -117,12 +415,9 @@ export class FchatService {
         where: { id: roomId },
         relations: ['participants']
       });
-
       if (!room) {
         return false;
       }
-
-      // Check if user is a participant in the room
       return room.participants.some(
         participant => participant.userId === userId
       );
@@ -186,59 +481,403 @@ export class FchatService {
   }
 
   async getLastMessageForRoom(roomId: string): Promise<Message | null> {
-    return this.messageRepository
+    const message = await this.messageRepository
       .createQueryBuilder('message')
+      .select([
+        'message.id',
+        'message.roomId',
+        'message.senderId',
+        'message.senderType',
+        'message.content',
+        'message.messageType',
+        'message.timestamp',
+        'message.readBy'
+      ])
+      .leftJoin(
+        'message.customerSender',
+        'customerSender',
+        'message.senderType = :customerType',
+        {
+          customerType: Enum_UserType.CUSTOMER
+        }
+      )
+      .leftJoin(
+        'message.driverSender',
+        'driverSender',
+        'message.senderType = :driverType',
+        {
+          driverType: Enum_UserType.DRIVER
+        }
+      )
+      .leftJoin(
+        'message.restaurantSender',
+        'restaurantSender',
+        'message.senderType = :restaurantType',
+        {
+          restaurantType: Enum_UserType.RESTAURANT_OWNER
+        }
+      )
+      .leftJoin(
+        'message.customerCareSender',
+        'customerCareSender',
+        'message.senderType = :customerCareType',
+        {
+          customerCareType: Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE
+        }
+      )
+      .addSelect([
+        'customerSender.id',
+        'customerSender.first_name',
+        'customerSender.last_name',
+        'customerSender.avatar',
+        'customerSender.phone'
+      ])
+      .addSelect([
+        'driverSender.id',
+        'driverSender.first_name',
+        'driverSender.last_name',
+        'driverSender.avatar',
+        'driverSender.contact_email',
+        'driverSender.contact_phone'
+      ])
+      .addSelect([
+        'restaurantSender.id',
+        'restaurantSender.restaurant_name',
+        'restaurantSender.avatar',
+        'restaurantSender.contact_email',
+        'restaurantSender.contact_phone'
+      ])
+      .addSelect([
+        'customerCareSender.id',
+        'customerCareSender.first_name',
+        'customerCareSender.last_name',
+        'customerCareSender.avatar',
+        'customerCareSender.contact_phone'
+      ])
       .where('message.roomId = :roomId', { roomId })
       .orderBy('message.timestamp', 'DESC')
       .limit(1)
       .getOne();
+
+    if (!message) {
+      return null;
+    }
+
+    // Apply fallbacks to sender fields
+    if (message.customerSender) {
+      message.customerSender.first_name =
+        message.customerSender.first_name || '';
+      message.customerSender.last_name = message.customerSender.last_name || '';
+      message.customerSender.avatar = message.customerSender.avatar || null;
+      message.customerSender.phone = message.customerSender.phone || '';
+    }
+    if (message.driverSender) {
+      message.driverSender.first_name = message.driverSender.first_name || '';
+      message.driverSender.last_name = message.driverSender.last_name || '';
+      message.driverSender.avatar = message.driverSender.avatar || null;
+      message.driverSender.contact_email =
+        message.driverSender.contact_email || [];
+      message.driverSender.contact_phone =
+        message.driverSender.contact_phone || [];
+    }
+    if (message.restaurantSender) {
+      message.restaurantSender.restaurant_name =
+        message.restaurantSender.restaurant_name || '';
+      message.restaurantSender.avatar = message.restaurantSender.avatar || null;
+      message.restaurantSender.contact_email =
+        message.restaurantSender.contact_email || [];
+      message.restaurantSender.contact_phone =
+        message.restaurantSender.contact_phone || [];
+    }
+    if (message.customerCareSender) {
+      message.customerCareSender.first_name =
+        message.customerCareSender.first_name || '';
+      message.customerCareSender.last_name =
+        message.customerCareSender.last_name || '';
+      message.customerCareSender.avatar =
+        message.customerCareSender.avatar || null;
+      message.customerCareSender.contact_phone =
+        message.customerCareSender.contact_phone || [];
+    }
+
+    return message;
   }
 
   async getRoomsByUserIdWithLastMessage(userId: string): Promise<
     {
       room: ChatRoom;
       lastMessage: Message | null;
+      otherParticipantDetails: any | null;
+      userMessageCount: number;
     }[]
   > {
-    // Get rooms with all necessary relations
+    // Fetch rooms
     const rooms = await this.roomRepository
       .createQueryBuilder('room')
-      .leftJoinAndSelect('room.messages', 'messages')
-      .leftJoinAndSelect('messages.customerSender', 'customerSender')
-      .leftJoinAndSelect('messages.driverSender', 'driverSender')
-      .leftJoinAndSelect('messages.restaurantSender', 'restaurantSender')
-      .leftJoinAndSelect('messages.customerCareSender', 'customerCareSender')
       .where(`room.participants @> :participant`, {
         participant: JSON.stringify([{ userId }])
       })
       .orderBy('room.lastActivity', 'DESC')
       .getMany();
 
-    // Get last message for each room with all relations
+    // Fetch last messages
     const lastMessages = await this.messageRepository
       .createQueryBuilder('message')
-      .leftJoinAndSelect('message.customerSender', 'customerSender')
-      .leftJoinAndSelect('message.driverSender', 'driverSender')
-      .leftJoinAndSelect('message.restaurantSender', 'restaurantSender')
-      .leftJoinAndSelect('message.customerCareSender', 'customerCareSender')
+      .select([
+        'message.id',
+        'message.roomId',
+        'message.senderId',
+        'message.senderType',
+        'message.content',
+        'message.messageType',
+        'message.timestamp',
+        'message.readBy'
+      ])
+      .leftJoin(
+        'message.customerSender',
+        'customerSender',
+        'message.senderType = :customerType',
+        { customerType: Enum_UserType.CUSTOMER }
+      )
+      .leftJoin(
+        'message.driverSender',
+        'driverSender',
+        'message.senderType = :driverType',
+        { driverType: Enum_UserType.DRIVER }
+      )
+      .leftJoin(
+        'message.restaurantSender',
+        'restaurantSender',
+        'message.senderType = :restaurantType',
+        { restaurantType: Enum_UserType.RESTAURANT_OWNER }
+      )
+      .leftJoin(
+        'message.customerCareSender',
+        'customerCareSender',
+        'message.senderType = :customerCareType',
+        { customerCareType: Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE }
+      )
+      .addSelect([
+        'customerSender.id',
+        'customerSender.first_name',
+        'customerSender.last_name',
+        'customerSender.avatar',
+        'customerSender.phone'
+      ])
+      .addSelect([
+        'driverSender.id',
+        'driverSender.first_name',
+        'driverSender.last_name',
+        'driverSender.avatar',
+        'driverSender.contact_email',
+        'driverSender.contact_phone'
+      ])
+      .addSelect([
+        'restaurantSender.id',
+        'restaurantSender.restaurant_name',
+        'restaurantSender.avatar',
+        'restaurantSender.contact_email',
+        'restaurantSender.contact_phone'
+      ])
+      .addSelect([
+        'customerCareSender.id',
+        'customerCareSender.first_name',
+        'customerCareSender.last_name',
+        'customerCareSender.avatar',
+        'customerCareSender.contact_phone'
+      ])
       .where('message.roomId IN (:...roomIds)', {
         roomIds: rooms.map(room => room.id)
       })
       .orderBy('message.timestamp', 'DESC')
       .getMany();
 
-    // Group messages by roomId and get the latest one
+    // Fetch message counts for the user in each room
+    const messageCounts = await this.messageRepository
+      .createQueryBuilder('message')
+      .select('message.roomId', 'roomId')
+      .addSelect('COUNT(*)', 'count')
+      .where('message.senderId = :userId', { userId })
+      .andWhere('message.roomId IN (:...roomIds)', {
+        roomIds: rooms.map(room => room.id)
+      })
+      .groupBy('message.roomId')
+      .getRawMany();
+
+    // Map message counts by room
+    const messageCountByRoom = new Map<string, number>();
+    messageCounts.forEach(({ roomId, count }) => {
+      messageCountByRoom.set(roomId, parseInt(count, 10));
+    });
+
+    // Map last messages by room
     const lastMessageByRoom = new Map<string, Message>();
     lastMessages.forEach(message => {
       if (!lastMessageByRoom.has(message.roomId)) {
+        // Apply fallbacks to sender fields
+        if (message.customerSender) {
+          message.customerSender.first_name =
+            message.customerSender.first_name || '';
+          message.customerSender.last_name =
+            message.customerSender.last_name || '';
+          message.customerSender.avatar = message.customerSender.avatar || null;
+          message.customerSender.phone = message.customerSender.phone || '';
+        }
+        if (message.driverSender) {
+          message.driverSender.first_name =
+            message.driverSender.first_name || '';
+          message.driverSender.last_name = message.driverSender.last_name || '';
+          message.driverSender.avatar = message.driverSender.avatar || null;
+          message.driverSender.contact_email =
+            message.driverSender.contact_email || [];
+          message.driverSender.contact_phone =
+            message.driverSender.contact_phone || [];
+        }
+        if (message.restaurantSender) {
+          message.restaurantSender.restaurant_name =
+            message.restaurantSender.restaurant_name || '';
+          message.restaurantSender.avatar =
+            message.restaurantSender.avatar || null;
+          message.restaurantSender.contact_email =
+            message.restaurantSender.contact_email || [];
+          message.restaurantSender.contact_phone =
+            message.restaurantSender.contact_phone || [];
+        }
+        if (message.customerCareSender) {
+          message.customerCareSender.first_name =
+            message.customerCareSender.first_name || '';
+          message.customerCareSender.last_name =
+            message.customerCareSender.last_name || '';
+          message.customerCareSender.avatar =
+            message.customerCareSender.avatar || null;
+          message.customerCareSender.contact_phone =
+            message.customerCareSender.contact_phone || [];
+        }
         lastMessageByRoom.set(message.roomId, message);
       }
     });
 
-    // Combine rooms with their last messages
+    // Fetch other participant details
+    const otherParticipants = await Promise.all(
+      rooms.map(async room => {
+        const otherParticipant = room.participants.find(
+          p => p.userId !== userId
+        );
+        if (!otherParticipant) return null;
+
+        let participantDetails = null;
+        switch (otherParticipant.userType) {
+          case Enum_UserType.CUSTOMER:
+            participantDetails = await this.customerRepository
+              .createQueryBuilder('customer')
+              .select([
+                'customer.id',
+                'customer.first_name',
+                'customer.last_name',
+                'customer.avatar',
+                'customer.phone'
+              ])
+              .where('customer.id = :id', { id: otherParticipant.userId })
+              .getOne();
+            break;
+          case Enum_UserType.DRIVER:
+            participantDetails = await this.driverRepository
+              .createQueryBuilder('driver')
+              .select([
+                'driver.id',
+                'driver.first_name',
+                'driver.last_name',
+                'driver.avatar',
+                'driver.contact_email',
+                'driver.contact_phone'
+              ])
+              .where('driver.id = :id', { id: otherParticipant.userId })
+              .getOne();
+            break;
+          case Enum_UserType.RESTAURANT_OWNER:
+            participantDetails = await this.restaurantRepository
+              .createQueryBuilder('restaurant')
+              .select([
+                'restaurant.id',
+                'restaurant.restaurant_name',
+                'restaurant.avatar',
+                'restaurant.contact_email',
+                'restaurant.contact_phone'
+              ])
+              .where('restaurant.id = :id', { id: otherParticipant.userId })
+              .getOne();
+            break;
+          case Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
+            participantDetails = await this.customerCareRepository
+              .createQueryBuilder('customerCare')
+              .select([
+                'customerCare.id',
+                'customerCare.first_name',
+                'customerCare.last_name',
+                'customerCare.avatar',
+                'customerCare.contact_phone'
+              ])
+              .where('customerCare.id = :id', { id: otherParticipant.userId })
+              .getOne();
+            break;
+        }
+
+        // Apply fallbacks to participant details
+        if (participantDetails) {
+          if (otherParticipant.userType === Enum_UserType.CUSTOMER) {
+            participantDetails.first_name = participantDetails.first_name || '';
+            participantDetails.last_name = participantDetails.last_name || '';
+            participantDetails.avatar = participantDetails.avatar || null;
+            participantDetails.phone = participantDetails.phone || '';
+          } else if (otherParticipant.userType === Enum_UserType.DRIVER) {
+            participantDetails.first_name = participantDetails.first_name || '';
+            participantDetails.last_name = participantDetails.last_name || '';
+            participantDetails.avatar = participantDetails.avatar || null;
+            participantDetails.contact_email =
+              participantDetails.contact_email || [];
+            participantDetails.contact_phone =
+              participantDetails.contact_phone || [];
+          } else if (
+            otherParticipant.userType === Enum_UserType.RESTAURANT_OWNER
+          ) {
+            participantDetails.restaurant_name =
+              participantDetails.restaurant_name || '';
+            participantDetails.avatar = participantDetails.avatar || null;
+            participantDetails.contact_email =
+              participantDetails.contact_email || [];
+            participantDetails.contact_phone =
+              participantDetails.contact_phone || [];
+          } else if (
+            otherParticipant.userType ===
+            Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE
+          ) {
+            participantDetails.first_name = participantDetails.first_name || '';
+            participantDetails.last_name = participantDetails.last_name || '';
+            participantDetails.avatar = participantDetails.avatar || null;
+            participantDetails.contact_phone =
+              participantDetails.contact_phone || [];
+          }
+        }
+
+        return { roomId: room.id, participantDetails };
+      })
+    );
+
+    const participantDetailsByRoom = new Map<string, any>();
+    otherParticipants.forEach(participant => {
+      if (participant) {
+        participantDetailsByRoom.set(
+          participant.roomId,
+          participant.participantDetails
+        );
+      }
+    });
+
     return rooms.map(room => ({
       room,
-      lastMessage: lastMessageByRoom.get(room.id) || null
+      lastMessage: lastMessageByRoom.get(room.id) || null,
+      otherParticipantDetails: participantDetailsByRoom.get(room.id) || null,
+      userMessageCount: messageCountByRoom.get(room.id) || 0
     }));
   }
 }

@@ -31,5 +31,7 @@ export declare class FchatService {
     getRoomsByUserIdWithLastMessage(userId: string): Promise<{
         room: ChatRoom;
         lastMessage: Message | null;
+        otherParticipantDetails: any | null;
+        userMessageCount: number;
     }[]>;
 }

@@ -35,6 +35,9 @@ export class Customer {
   @Column()
   last_name: string;
 
+  @Column({ nullable: true })
+  phone: string;
+
   @Column('jsonb', { nullable: true })
   avatar: {
     url: string;

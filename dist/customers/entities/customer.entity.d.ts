@@ -10,6 +10,7 @@ export declare class Customer {
     user: User;
     first_name: string;
     last_name: string;
+    phone: string;
     avatar: {
         url: string;
         key: string;
