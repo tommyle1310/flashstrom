@@ -18,13 +18,15 @@ export interface AddressPopulate {
         lng?: number;
     };
 }
+import { RedisService } from 'src/redis/redis.service';
 export declare class CustomersService {
     private readonly restaurantRepository;
     private readonly userRepository;
     private readonly dataSource;
     private readonly customerRepository;
     private readonly notificationsRepository;
-    constructor(restaurantRepository: RestaurantsRepository, userRepository: UserRepository, dataSource: DataSource, customerRepository: CustomersRepository, notificationsRepository: NotificationsRepository);
+    private readonly redisService;
+    constructor(restaurantRepository: RestaurantsRepository, userRepository: UserRepository, dataSource: DataSource, customerRepository: CustomersRepository, notificationsRepository: NotificationsRepository, redisService: RedisService);
     onModuleInit(): Promise<void>;
     create(createCustomerDto: CreateCustomerDto): Promise<ApiResponse<Customer>>;
     searchRestaurantsByKeyword(keyword: string, page?: number, limit?: number): Promise<ApiResponse<Restaurant[]>>;
@@ -41,7 +43,7 @@ export declare class CustomersService {
     getFavoriteRestaurants(customerId: string): Promise<ApiResponse<Restaurant[]>>;
     calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number;
     getAllRestaurants(customerId: string): Promise<any>;
-    getAllOrders(customerId: string): Promise<any>;
+    getAllOrders(customerId: string): Promise<ApiResponse<any>>;
     findOne(conditions: Partial<Customer>): Promise<ApiResponse<Customer>>;
     getNotifications(customerId: string): Promise<ApiResponse<any>>;
 }

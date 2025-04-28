@@ -30,6 +30,7 @@ export interface AddressPopulate {
 }
 import { createClient } from 'redis';
 import * as dotenv from 'dotenv';
+import { RedisService } from 'src/redis/redis.service';
 
 dotenv.config();
 
@@ -46,7 +47,8 @@ export class CustomersService {
     private readonly userRepository: UserRepository,
     private readonly dataSource: DataSource,
     private readonly customerRepository: CustomersRepository,
-    private readonly notificationsRepository: NotificationsRepository
+    private readonly notificationsRepository: NotificationsRepository,
+    private readonly redisService: RedisService // Thêm RedisService
   ) {}
 
   async onModuleInit() {
@@ -237,18 +239,22 @@ export class CustomersService {
   ): Promise<ApiResponse<Customer>> {
     const start = Date.now();
     try {
-      // Lấy customer từ cache hoặc DB
       const cacheKey = `customer:${id}`;
+      const restaurantsCacheKey = `restaurants:customer:${id}`; // Key cache của getAllRestaurants
       let customer: Customer | null = null;
 
-      const cached = await redis.get(cacheKey);
+      const cached = await this.redisService.get(cacheKey);
       if (cached) {
         customer = JSON.parse(cached);
         logger.log(`Fetch customer (cache) took ${Date.now() - start}ms`);
       } else {
         customer = await this.customerRepository.findById(id);
         if (customer) {
-          await redis.setEx(cacheKey, 7200, JSON.stringify(customer));
+          await this.redisService.setNx(
+            cacheKey,
+            JSON.stringify(customer),
+            7200 * 1000
+          );
           logger.log(`Stored customer in Redis: ${cacheKey}`);
         }
         logger.log(`Fetch customer took ${Date.now() - start}ms`);
@@ -258,13 +264,16 @@ export class CustomersService {
         return createResponse('NotFound', null, 'Customer not found');
       }
 
-      // Cập nhật các trường từ DTO
       Object.assign(customer, updateCustomerDto);
 
-      // Lưu customer
       const saveStart = Date.now();
       const updatedCustomer = await this.customerRepository.save(customer);
-      await redis.setEx(cacheKey, 7200, JSON.stringify(updatedCustomer));
+      await this.redisService.setNx(
+        cacheKey,
+        JSON.stringify(updatedCustomer),
+        7200 * 1000
+      );
+      await this.redisService.del(restaurantsCacheKey); // Xóa cache của getAllRestaurants
       logger.log(`Save customer took ${Date.now() - saveStart}ms`);
 
       logger.log(`Update customer took ${Date.now() - start}ms`);
@@ -572,53 +581,73 @@ export class CustomersService {
   }
 
   async getAllRestaurants(customerId: string): Promise<any> {
-    try {
-      // Fetch customer data to get preferences and restaurant history
-      const customer = await this.customerRepository.findById(customerId);
+    const cacheKey = `restaurants:customer:${customerId}`;
+    const ttl = 3600; // Cache 1 giờ (3600 giây)
+    const start = Date.now();
 
+    try {
+      // 1. Kiểm tra cache
+      const cacheStart = Date.now();
+      const cachedData = await this.redisService.get(cacheKey);
+      if (cachedData) {
+        logger.log(
+          `Fetched restaurants from cache in ${Date.now() - cacheStart}ms`
+        );
+        logger.log(`Total time (cache): ${Date.now() - start}ms`);
+        return createResponse(
+          'OK',
+          JSON.parse(cachedData),
+          'Fetched and prioritized restaurants from cache successfully'
+        );
+      }
+      logger.log(
+        `Cache miss, fetching from DB (took ${Date.now() - cacheStart}ms)`
+      );
+
+      // 2. Truy vấn customer
+      const customerStart = Date.now();
+      const customer = await this.customerRepository.findById(customerId);
       if (!customer) {
+        logger.log(`Customer fetch took ${Date.now() - customerStart}ms`);
         return createResponse('NotFound', null, 'Customer not found');
       }
+      logger.log(`Customer fetch took ${Date.now() - customerStart}ms`);
 
       const {
         preferred_category,
         restaurant_history,
-        address: customerAddress // customerAddress should be populated now
+        address: customerAddress
       } = customer;
 
-      // Make sure the customer address is treated as an array of AddressPopulate objects
       const customerAddressArray = customerAddress as AddressPopulate[];
 
-      // Fetch all restaurants
+      // 3. Lấy tất cả nhà hàng
+      const restaurantsStart = Date.now();
       const restaurants = await this.restaurantRepository.findAll();
+      logger.log(`Restaurants fetch took ${Date.now() - restaurantsStart}ms`);
 
-      // Prioritize restaurants based on the preferred categories, restaurant history, and distance
+      // 4. Tính toán và ưu tiên nhà hàng
+      const prioritizationStart = Date.now();
       const prioritizedRestaurants = restaurants
         .map(restaurant => {
-          // Type assertion to treat customerAddress as an array of objects and each with a location
-          const customerLocation = (customerAddressArray &&
-            customerAddressArray[0]?.location) as
+          const customerLocation = customerAddressArray?.[0]?.location as
             | AddressPopulate['location']
             | undefined;
 
-          // Ensure restaurant.address is treated as an AddressPopulate object
           const restaurantAddress = restaurant.address as
             | AddressPopulate
             | undefined;
 
-          // If either location is missing, return the restaurant with a priority score of 0
           if (!customerLocation || !restaurantAddress?.location) {
-            return { ...restaurant, priorityScore: 0 }; // Default score if no address or location
+            return { ...restaurant, priorityScore: 0 };
           }
 
           const restaurantLocation = restaurantAddress.location;
 
-          // Check if the restaurant matches the customer's preferred category
           const isPreferred = restaurant.specialize_in.some(category =>
             preferred_category.includes(category as unknown as FoodCategory)
           );
 
-          // Find how many times the customer has visited this restaurant, default to 0 if restaurant_history is null
           const visitHistory = restaurant_history
             ? restaurant_history.find(
                 history => history.restaurant_id === restaurant.id
@@ -626,7 +655,6 @@ export class CustomersService {
             : null;
           const visitCount = visitHistory ? visitHistory.count : 0;
 
-          // Calculate distance between customer and restaurant (in km)
           const distance = this.calculateDistance(
             customerLocation.lat,
             customerLocation.lng,
@@ -634,28 +662,42 @@ export class CustomersService {
             restaurantLocation.lng
           );
 
-          // Adjust how much distance impacts the score
-          const distanceWeight = 1 / (distance + 1); // The closer, the higher the weight
+          const distanceWeight = 1 / (distance + 1);
 
-          // Create a prioritization score (higher is better)
           const priorityScore =
-            (isPreferred ? 1 : 0) * 3 + visitCount * 2 + distanceWeight * 5; // Add distance weighting here
+            (isPreferred ? 1 : 0) * 3 + visitCount * 2 + distanceWeight * 5;
 
           return {
             ...restaurant,
-            priorityScore // Add the score to the restaurant object
+            priorityScore
           };
         })
-        .sort((a, b) => b.priorityScore - a.priorityScore); // Sort by the priority score in descending order
+        .sort((a, b) => b.priorityScore - a.priorityScore);
+      logger.log(`Prioritization took ${Date.now() - prioritizationStart}ms`);
 
-      // Return sorted list of restaurants (still includes all restaurants, just sorted)
+      // 5. Lưu kết quả vào cache
+      const cacheSaveStart = Date.now();
+      const cacheSaved = await this.redisService.setNx(
+        cacheKey,
+        JSON.stringify(prioritizedRestaurants),
+        ttl * 1000 // TTL tính bằng milliseconds
+      );
+      if (cacheSaved) {
+        logger.log(
+          `Stored restaurants in cache: ${cacheKey} (took ${Date.now() - cacheSaveStart}ms)`
+        );
+      } else {
+        logger.warn(`Failed to store restaurants in cache: ${cacheKey}`);
+      }
+
+      logger.log(`Total DB fetch and processing took ${Date.now() - start}ms`);
       return createResponse(
         'OK',
         prioritizedRestaurants,
         'Fetched and prioritized restaurants successfully'
       );
     } catch (error: any) {
-      console.error('Error fetching and prioritizing restaurants:', error);
+      logger.error(`Error fetching restaurants: ${error.message}`, error.stack);
       return createResponse(
         'ServerError',
         null,
@@ -663,25 +705,41 @@ export class CustomersService {
       );
     }
   }
-  async getAllOrders(customerId: string): Promise<any> {
-    try {
-      // Fetch customer data để kiểm tra tồn tại
-      const customer = await this.customerRepository.findById(customerId);
 
+  async getAllOrders(customerId: string): Promise<ApiResponse<any>> {
+    const cacheKey = `orders:customer:${customerId}`;
+    const ttl = 300; // Cache 5 phút (300 giây)
+    const start = Date.now();
+
+    try {
+      // 1. Kiểm tra cache
+      const cacheStart = Date.now();
+      const cachedData = await this.redisService.get(cacheKey);
+      if (cachedData) {
+        logger.log(`Fetched orders from cache in ${Date.now() - cacheStart}ms`);
+        logger.log(`Total time (cache): ${Date.now() - start}ms`);
+        return createResponse(
+          'OK',
+          JSON.parse(cachedData),
+          'Fetched orders from cache successfully'
+        );
+      }
+      logger.log(`Cache miss for ${cacheKey}`);
+
+      // 2. Kiểm tra customer
+      const customerStart = Date.now();
+      const customer = await this.customerRepository.findById(customerId);
       if (!customer) {
+        logger.log(`Customer fetch took ${Date.now() - customerStart}ms`);
         return createResponse('NotFound', null, 'Customer not found');
       }
+      logger.log(`Customer fetch took ${Date.now() - customerStart}ms`);
 
-      // Fetch orders của customer với các quan hệ cần thiết bằng DataSource
+      // 3. Lấy orders với các trường tối ưu
+      const ordersStart = Date.now();
       const orders = await this.dataSource.getRepository(Order).find({
-        where: { customer_id: customerId }, // Lọc theo customerId
-        relations: [
-          'restaurant', // Populate restaurant
-          'customer', // Populate customer (nếu cần)
-          'driver', // Populate driver (tuỳ chọn)
-          'customerAddress', // Populate customer_location từ AddressBook
-          'restaurantAddress' // Populate restaurant_location từ AddressBook
-        ],
+        where: { customer_id: customerId },
+        relations: ['restaurant', 'customerAddress', 'restaurantAddress'],
         select: {
           id: true,
           customer_id: true,
@@ -702,7 +760,6 @@ export class CustomersService {
           order_time: true,
           delivery_time: true,
           tracking_info: true,
-          // Add cancellation fields
           cancelled_by: true,
           cancelled_by_id: true,
           cancellation_reason: true,
@@ -713,117 +770,130 @@ export class CustomersService {
             id: true,
             restaurant_name: true,
             address_id: true,
-            avatar: {
-              url: true,
-              key: true
-            }
+            avatar: { url: true, key: true }
           }
         }
       });
+      logger.log(`Orders fetch took ${Date.now() - ordersStart}ms`);
 
       if (!orders || orders.length === 0) {
-        return createResponse('OK', [], 'No orders found for this customer');
+        const response = createResponse(
+          'OK',
+          [],
+          'No orders found for this customer'
+        );
+        await this.redisService.setNx(cacheKey, JSON.stringify([]), ttl * 1000);
+        logger.log(`Stored empty orders in cache: ${cacheKey}`);
+        return response;
       }
 
-      // Lấy specialize_in từ restaurant_specializations và join với food_categories
+      // 4. Lấy specializations
+      const specializationsStart = Date.now();
       const restaurantIds = orders.map(order => order.restaurant_id);
       const specializations = await this.dataSource
         .createQueryBuilder()
         .select('rs.restaurant_id', 'restaurant_id')
-        .addSelect('array_agg(fc.name)', 'specializations') // Gom nhóm các danh mục món ăn
+        .addSelect('array_agg(fc.name)', 'specializations')
         .from('restaurant_specializations', 'rs')
-        .leftJoin('food_categories', 'fc', 'fc.id = rs.food_category_id') // Join với food_categories
+        .leftJoin('food_categories', 'fc', 'fc.id = rs.food_category_id')
         .where('rs.restaurant_id IN (:...restaurantIds)', { restaurantIds })
         .groupBy('rs.restaurant_id')
         .getRawMany();
-
-      // Map specializations vào orders
       const specializationMap = new Map(
         specializations.map(spec => [spec.restaurant_id, spec.specializations])
       );
-
-      // Populate thông tin MenuItem và specializations cho từng order
-      const populatedOrders = await Promise.all(
-        orders.map(async order => {
-          const populatedOrderItems = await Promise.all(
-            order.order_items.map(async item => {
-              // Tìm MenuItem theo item_id
-              const menuItem = await this.dataSource
-                .getRepository(MenuItem)
-                .findOne({
-                  where: { id: item.item_id },
-                  relations: ['restaurant', 'variants'], // Populate restaurant và variants
-                  select: {
-                    id: true,
-                    name: true,
-                    price: true,
-                    avatar: {
-                      url: true,
-                      key: true
-                    },
-                    restaurant: {
-                      id: true,
-                      restaurant_name: true,
-                      address_id: true,
-                      avatar: {
-                        url: true,
-                        key: true
-                      }
-                    }
-                  }
-                });
-
-              return {
-                ...item,
-                menu_item: menuItem || null // Nếu không tìm thấy MenuItem, trả về null
-              };
-            })
-          );
-
-          // Gắn specializations vào restaurant của order
-          const restaurantSpecializations =
-            specializationMap.get(order.restaurant_id) || [];
-
-          // Create base order object
-          const baseOrder = {
-            ...order,
-            order_items: populatedOrderItems,
-            customer_address: order.customerAddress,
-            restaurant_address: order.restaurantAddress,
-            restaurant: {
-              ...order.restaurant,
-              specialize_in: restaurantSpecializations
-            }
-          };
-
-          // Only add cancellation fields if the order is cancelled
-          if (
-            order.status === 'CANCELLED' ||
-            order.tracking_info === 'CANCELLED'
-          ) {
-            return {
-              ...baseOrder,
-              cancelled_by: order.cancelled_by,
-              cancelled_by_id: order.cancelled_by_id,
-              cancellation_reason: order.cancellation_reason,
-              cancellation_title: order.cancellation_title,
-              cancellation_description: order.cancellation_description,
-              cancelled_at: order.cancelled_at
-            };
-          }
-
-          return baseOrder;
-        })
+      logger.log(
+        `Specializations fetch took ${Date.now() - specializationsStart}ms`
       );
 
-      // Trả về danh sách orders đã được populate
+      // 5. Batch query MenuItem
+      const menuItemsStart = Date.now();
+      const allItemIds = orders.flatMap(order =>
+        order.order_items.map(item => item.item_id)
+      );
+      const menuItems = await this.dataSource.getRepository(MenuItem).find({
+        where: { id: In(allItemIds) },
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          avatar: { url: true, key: true },
+          restaurant: {
+            id: true,
+            restaurant_name: true,
+            address_id: true,
+            avatar: { url: true, key: true }
+          }
+        },
+        relations: ['restaurant']
+      });
+      const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
+      logger.log(`MenuItems fetch took ${Date.now() - menuItemsStart}ms`);
+
+      // 6. Populate orders
+      const processingStart = Date.now();
+      const populatedOrders = orders.map(order => {
+        const populatedOrderItems = order.order_items.map(item => ({
+          ...item,
+          menu_item: menuItemMap.get(item.item_id) || null
+        }));
+
+        const restaurantSpecializations =
+          specializationMap.get(order.restaurant_id) || [];
+
+        const baseOrder = {
+          ...order,
+          order_items: populatedOrderItems,
+          customer_address: order.customerAddress,
+          restaurant_address: order.restaurantAddress,
+          restaurant: {
+            ...order.restaurant,
+            specialize_in: restaurantSpecializations
+          }
+        };
+
+        if (
+          order.status === 'CANCELLED' ||
+          order.tracking_info === 'CANCELLED'
+        ) {
+          return {
+            ...baseOrder,
+            cancelled_by: order.cancelled_by,
+            cancelled_by_id: order.cancelled_by_id,
+            cancellation_reason: order.cancellation_reason,
+            cancellation_title: order.cancellation_title,
+            cancellation_description: order.cancellation_description,
+            cancelled_at: order.cancelled_at
+          };
+        }
+
+        return baseOrder;
+      });
+      logger.log(`Orders processing took ${Date.now() - processingStart}ms`);
+
+      // 7. Lưu vào cache
+      const cacheSaveStart = Date.now();
+      const cacheSaved = await this.redisService.setNx(
+        cacheKey,
+        JSON.stringify(populatedOrders),
+        ttl * 1000
+      );
+      if (cacheSaved) {
+        logger.log(
+          `Stored orders in cache: ${cacheKey} (took ${Date.now() - cacheSaveStart}ms)`
+        );
+      } else {
+        logger.warn(`Failed to store orders in cache: ${cacheKey}`);
+      }
+
+      logger.log(`Total DB fetch and processing took ${Date.now() - start}ms`);
       return createResponse(
         'OK',
         populatedOrders,
         'Fetched orders successfully'
       );
     } catch (error: any) {
-      console.error('Error fetching orders:', error);
+      logger.error(`Error fetching orders: ${error.message}`, error.stack);
       return createResponse(
         'ServerError',
         null,

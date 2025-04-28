@@ -29,6 +29,7 @@ import { PromotionsRepository } from 'src/promotions/promotions.repository';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { Notification } from 'src/notifications/entities/notification.entity';
 import { NotificationsRepository } from 'src/notifications/notifications.repository';
+import { RedisService } from 'src/redis/redis.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -53,6 +54,7 @@ import { NotificationsRepository } from 'src/notifications/notifications.reposit
     AddressBookService,
     CustomersGateway,
     UserRepository,
+    RedisService,
     AddressBookRepository,
     NotificationsRepository,
     FoodCategoriesRepository,

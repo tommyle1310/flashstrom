@@ -13,6 +13,7 @@ const food_categories_service_1 = require("./food_categories.service");
 const food_categories_controller_1 = require("./food_categories.controller");
 const food_category_entity_1 = require("./entities/food_category.entity");
 const food_categories_repository_1 = require("./food_categories.repository");
+const redis_service_1 = require("../redis/redis.service");
 let FoodCategoriesModule = class FoodCategoriesModule {
 };
 exports.FoodCategoriesModule = FoodCategoriesModule;
@@ -20,7 +21,7 @@ exports.FoodCategoriesModule = FoodCategoriesModule = __decorate([
     (0, common_1.Module)({
         imports: [typeorm_1.TypeOrmModule.forFeature([food_category_entity_1.FoodCategory])],
         controllers: [food_categories_controller_1.FoodCategoriesController],
-        providers: [food_categories_service_1.FoodCategoriesService, food_categories_repository_1.FoodCategoriesRepository],
+        providers: [food_categories_service_1.FoodCategoriesService, food_categories_repository_1.FoodCategoriesRepository, redis_service_1.RedisService],
         exports: [food_categories_service_1.FoodCategoriesService]
     })
 ], FoodCategoriesModule);

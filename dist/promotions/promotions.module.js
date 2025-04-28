@@ -15,6 +15,7 @@ const promotion_entity_1 = require("./entities/promotion.entity");
 const promotions_repository_1 = require("./promotions.repository");
 const food_category_entity_1 = require("../food_categories/entities/food_category.entity");
 const food_categories_repository_1 = require("../food_categories/food_categories.repository");
+const redis_service_1 = require("../redis/redis.service");
 let PromotionsModule = class PromotionsModule {
 };
 exports.PromotionsModule = PromotionsModule;
@@ -25,7 +26,8 @@ exports.PromotionsModule = PromotionsModule = __decorate([
         providers: [
             promotions_service_1.PromotionsService,
             promotions_repository_1.PromotionsRepository,
-            food_categories_repository_1.FoodCategoriesRepository
+            food_categories_repository_1.FoodCategoriesRepository,
+            redis_service_1.RedisService
         ],
         exports: [promotions_service_1.PromotionsService, promotions_repository_1.PromotionsRepository]
     })

@@ -1,50 +1,26 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
 import { UpdatePromotionDto } from './dto/update-promotion.dto';
 import { Promotion } from './entities/promotion.entity';
-import { createResponse } from 'src/utils/createResponse';
-import { ApiResponse } from 'src/utils/createResponse';
+import { createResponse, ApiResponse } from 'src/utils/createResponse';
 import { v4 as uuidv4 } from 'uuid';
 import { PromotionsRepository } from './promotions.repository';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
+import { RedisService } from 'src/redis/redis.service'; // Giả định bạn có RedisService
 
-interface SimplifiedRestaurant {
-  id: string;
-  restaurant_name: string;
-  avatar: { url: string; key: string } | null;
-  ratings: { average_rating: number; review_count: number } | null;
-  // Các field khác là optional
-  owner_id?: string;
-  owner_name?: string;
-  address_id?: string;
-  description?: string | null;
-  contact_email?: { title: string; is_default: boolean; email: string }[];
-  contact_phone?: { title: string; number: string; is_default: boolean }[];
-  images_gallery?: { url: string; key: string }[] | null;
-  status?: {
-    is_open: boolean;
-    is_active: boolean;
-    is_accepted_orders: boolean;
-  };
-  opening_hours?: {
-    mon: { from: number; to: number };
-    tue: { from: number; to: number };
-    wed: { from: number; to: number };
-    thu: { from: number; to: number };
-    fri: { from: number; to: number };
-    sat: { from: number; to: number };
-    sun: { from: number; to: number };
-  };
-  created_at?: number;
-  updated_at?: number;
-  total_orders?: number;
-}
+const logger = new Logger('PromotionsService');
 
 @Injectable()
 export class PromotionsService {
+  private readonly allPromotionsCacheKey = 'promotions:all';
+  private readonly validPromotionsCacheKey =
+    'promotions:valid_with_restaurants';
+  private readonly cacheTtl = 300; // 5 phút (300 giây)
+
   constructor(
     private readonly promotionsRepository: PromotionsRepository,
-    private readonly foodCategoriesRepository: FoodCategoriesRepository
+    private readonly foodCategoriesRepository: FoodCategoriesRepository,
+    private readonly redisService: RedisService // Inject RedisService
   ) {}
 
   async create(
@@ -61,7 +37,7 @@ export class PromotionsService {
           'Promotion with this name already exists'
         );
       }
-      console.log('createPromotionDto.food_categories', createPromotionDto);
+
       const existingFoodCategories = await Promise.all(
         createPromotionDto.food_categories.map(async foodCategory => {
           return await this.foodCategoriesRepository.findById(foodCategory.id);
@@ -86,33 +62,96 @@ export class PromotionsService {
         food_categories: existingFoodCategories
       });
 
+      // Xóa cache
+      await this.redisService.del(this.allPromotionsCacheKey);
+      await this.redisService.del(this.validPromotionsCacheKey);
+      logger.log(
+        `Cleared cache: ${this.allPromotionsCacheKey}, ${this.validPromotionsCacheKey}`
+      );
+
       return createResponse(
         'OK',
         savedPromotion,
         'Promotion created successfully'
       );
     } catch (error: any) {
-      console.log('error', error);
+      logger.error(`Error creating promotion: ${error.message}`, error.stack);
       return createResponse('ServerError', null, 'Error creating promotion');
     }
   }
 
   async findAll(): Promise<ApiResponse<Promotion[]>> {
+    const start = Date.now();
     try {
+      // Kiểm tra cache
+      const cachedData = await this.redisService.get(
+        this.allPromotionsCacheKey
+      );
+      if (cachedData) {
+        logger.log(`Fetched promotions from cache in ${Date.now() - start}ms`);
+        return createResponse(
+          'OK',
+          JSON.parse(cachedData),
+          'Promotions retrieved from cache'
+        );
+      }
+      logger.log(`Cache miss for ${this.allPromotionsCacheKey}`);
+
+      // Truy vấn database
+      const dbStart = Date.now();
       const promotions = await this.promotionsRepository.findAll();
+      logger.log(`Database fetch took ${Date.now() - dbStart}ms`);
+
+      // Lưu vào cache
+      const cacheStart = Date.now();
+      const cacheSaved = await this.redisService.setNx(
+        this.allPromotionsCacheKey,
+        JSON.stringify(promotions),
+        this.cacheTtl * 1000
+      );
+      if (cacheSaved) {
+        logger.log(
+          `Stored promotions in cache: ${this.allPromotionsCacheKey} (took ${Date.now() - cacheStart}ms)`
+        );
+      } else {
+        logger.warn(
+          `Failed to store promotions in cache: ${this.allPromotionsCacheKey}`
+        );
+      }
+
+      logger.log(`Total time: ${Date.now() - start}ms`);
       return createResponse(
         'OK',
         promotions,
         'Promotions retrieved successfully'
       );
     } catch (error: any) {
-      console.log('error', error);
+      logger.error(`Error fetching promotions: ${error.message}`, error.stack);
       return createResponse('ServerError', null, 'Error fetching promotions');
     }
   }
 
   async findValidWithRestaurants(): Promise<ApiResponse<Promotion[]>> {
+    const start = Date.now();
     try {
+      // Kiểm tra cache
+      const cachedData = await this.redisService.get(
+        this.validPromotionsCacheKey
+      );
+      if (cachedData) {
+        logger.log(
+          `Fetched valid promotions from cache in ${Date.now() - start}ms`
+        );
+        return createResponse(
+          'OK',
+          JSON.parse(cachedData),
+          'Valid promotions with restaurants retrieved from cache'
+        );
+      }
+      logger.log(`Cache miss for ${this.validPromotionsCacheKey}`);
+
+      // Truy vấn database
+      const dbStart = Date.now();
       const currentTimestamp = Math.floor(Date.now() / 1000);
 
       const queryBuilder = this.promotionsRepository.promotionRepository
@@ -123,6 +162,7 @@ export class PromotionsService {
           'rp.promotion_id = promotion.id'
         )
         .leftJoin('restaurants', 'r', 'r.id = rp.restaurant_id')
+        .leftJoin('address_books', 'ab', 'ab.id = r.address_id')
         .select([
           'promotion.id',
           'promotion.name',
@@ -139,9 +179,16 @@ export class PromotionsService {
           'promotion.created_at',
           'promotion.updated_at',
           'r.id AS restaurant_id',
-          'r.restaurant_name AS restaurant_name', // Thêm restaurant_name
-          'r.avatar AS restaurant_avatar', // Thêm avatar
-          'r.ratings AS restaurant_ratings' // Thêm ratings
+          'r.restaurant_name AS restaurant_name',
+          'r.avatar AS restaurant_avatar',
+          'r.ratings AS restaurant_ratings',
+          'ab.id AS address_id',
+          'ab.street AS address_street',
+          'ab.city AS address_city',
+          'ab.nationality AS address_nationality',
+          'ab.postal_code AS address_postal_code',
+          'ab.location AS address_location',
+          'ab.title AS address_title'
         ])
         .where('promotion.start_date <= :currentTimestamp', {
           currentTimestamp
@@ -151,6 +198,25 @@ export class PromotionsService {
         });
 
       const { entities, raw } = await queryBuilder.getRawAndEntities();
+      logger.log(`Database fetch took ${Date.now() - dbStart}ms`);
+
+      // Xử lý dữ liệu
+      const processingStart = Date.now();
+      interface SimplifiedRestaurant {
+        id: string;
+        restaurant_name: string;
+        avatar: { url: string; key: string };
+        ratings: { average_rating: number; review_count: number };
+        address: {
+          id: string;
+          street: string;
+          city: string;
+          nationality: string;
+          postal_code: number;
+          location: { lng: number; lat: number };
+          title: string;
+        };
+      }
 
       const promotionMap = new Map<
         string,
@@ -167,7 +233,16 @@ export class PromotionsService {
             id: row.restaurant_id,
             restaurant_name: row.restaurant_name,
             avatar: row.restaurant_avatar,
-            ratings: row.restaurant_ratings
+            ratings: row.restaurant_ratings,
+            address: {
+              id: row.address_id,
+              street: row.address_street,
+              city: row.address_city,
+              nationality: row.address_nationality,
+              postal_code: row.address_postal_code,
+              location: row.address_location,
+              title: row.address_title
+            }
           });
         }
       });
@@ -176,14 +251,36 @@ export class PromotionsService {
         ...promo,
         restaurants: promo.restaurants.slice(0, 5)
       }));
+      logger.log(`Data processing took ${Date.now() - processingStart}ms`);
 
+      // Lưu vào cache
+      const cacheStart = Date.now();
+      const cacheSaved = await this.redisService.setNx(
+        this.validPromotionsCacheKey,
+        JSON.stringify(result),
+        this.cacheTtl * 1000
+      );
+      if (cacheSaved) {
+        logger.log(
+          `Stored valid promotions in cache: ${this.validPromotionsCacheKey} (took ${Date.now() - cacheStart}ms)`
+        );
+      } else {
+        logger.warn(
+          `Failed to store valid promotions in cache: ${this.validPromotionsCacheKey}`
+        );
+      }
+
+      logger.log(`Total time: ${Date.now() - start}ms`);
       return createResponse(
         'OK',
         result,
         'Valid promotions with restaurants retrieved successfully'
       );
     } catch (error: any) {
-      console.log('error', error);
+      logger.error(
+        `Error fetching valid promotions: ${error.message}`,
+        error.stack
+      );
       return createResponse(
         'ServerError',
         null,
@@ -204,7 +301,7 @@ export class PromotionsService {
         'Promotion retrieved successfully'
       );
     } catch (error: any) {
-      console.log('error', error);
+      logger.error(`Error fetching promotion: ${error.message}`, error.stack);
       return createResponse('ServerError', null, 'Error fetching promotion');
     }
   }
@@ -221,13 +318,21 @@ export class PromotionsService {
 
       await this.promotionsRepository.update(id, updatePromotionDto);
       const updatedPromotion = await this.promotionsRepository.findById(id);
+
+      // Xóa cache
+      await this.redisService.del(this.allPromotionsCacheKey);
+      await this.redisService.del(this.validPromotionsCacheKey);
+      logger.log(
+        `Cleared cache: ${this.allPromotionsCacheKey}, ${this.validPromotionsCacheKey}`
+      );
+
       return createResponse(
         'OK',
         updatedPromotion,
         'Promotion updated successfully'
       );
     } catch (error: any) {
-      console.log('error', error);
+      logger.error(`Error updating promotion: ${error.message}`, error.stack);
       return createResponse('ServerError', null, 'Error updating promotion');
     }
   }
@@ -238,9 +343,17 @@ export class PromotionsService {
       if (result.affected === 0) {
         return createResponse('NotFound', null, 'Promotion not found');
       }
+
+      // Xóa cache
+      await this.redisService.del(this.allPromotionsCacheKey);
+      await this.redisService.del(this.validPromotionsCacheKey);
+      logger.log(
+        `Cleared cache: ${this.allPromotionsCacheKey}, ${this.validPromotionsCacheKey}`
+      );
+
       return createResponse('OK', null, 'Promotion deleted successfully');
     } catch (error: any) {
-      console.log('error', error);
+      logger.error(`Error deleting promotion: ${error.message}`, error.stack);
       return createResponse('ServerError', null, 'Error deleting promotion');
     }
   }
@@ -249,18 +362,37 @@ export class PromotionsService {
     uploadResult: { url: string; public_id: string },
     entityId: string
   ) {
-    const promotion = await this.promotionsRepository.update(entityId, {
-      avatar: { url: uploadResult.url, key: uploadResult.public_id }
-    });
+    try {
+      const promotion = await this.promotionsRepository.update(entityId, {
+        avatar: { url: uploadResult.url, key: uploadResult.public_id }
+      });
 
-    if (!promotion) {
-      return createResponse('NotFound', null, 'promotion not found');
+      if (!promotion) {
+        return createResponse('NotFound', null, 'Promotion not found');
+      }
+
+      // Xóa cache
+      await this.redisService.del(this.allPromotionsCacheKey);
+      await this.redisService.del(this.validPromotionsCacheKey);
+      logger.log(
+        `Cleared cache: ${this.allPromotionsCacheKey}, ${this.validPromotionsCacheKey}`
+      );
+
+      return createResponse(
+        'OK',
+        promotion,
+        'Promotion avatar updated successfully'
+      );
+    } catch (error: any) {
+      logger.error(
+        `Error updating promotion avatar: ${error.message}`,
+        error.stack
+      );
+      return createResponse(
+        'ServerError',
+        null,
+        'Error updating promotion avatar'
+      );
     }
-
-    return createResponse(
-      'OK',
-      promotion,
-      'promotion avatar updated successfully'
-    );
   }
 }

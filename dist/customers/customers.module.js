@@ -36,6 +36,7 @@ const promotions_repository_1 = require("../promotions/promotions.repository");
 const promotion_entity_1 = require("../promotions/entities/promotion.entity");
 const notification_entity_1 = require("../notifications/entities/notification.entity");
 const notifications_repository_1 = require("../notifications/notifications.repository");
+const redis_service_1 = require("../redis/redis.service");
 let CustomersModule = class CustomersModule {
 };
 exports.CustomersModule = CustomersModule;
@@ -64,6 +65,7 @@ exports.CustomersModule = CustomersModule = __decorate([
             address_book_service_1.AddressBookService,
             customers_gateway_1.CustomersGateway,
             users_repository_1.UserRepository,
+            redis_service_1.RedisService,
             address_book_repository_1.AddressBookRepository,
             notifications_repository_1.NotificationsRepository,
             food_categories_repository_1.FoodCategoriesRepository,

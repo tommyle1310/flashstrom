@@ -56,6 +56,7 @@ const order_entity_1 = require("../orders/entities/order.entity");
 const notifications_repository_1 = require("../notifications/notifications.repository");
 const redis_1 = require("redis");
 const dotenv = __importStar(require("dotenv"));
+const redis_service_1 = require("../redis/redis.service");
 dotenv.config();
 const redis = (0, redis_1.createClient)({
     url: process.env.REDIS_URL || 'redis://localhost:6379'
@@ -63,12 +64,13 @@ const redis = (0, redis_1.createClient)({
 redis.connect().catch(err => logger.error('Redis connection error:', err));
 const logger = new common_1.Logger('CustomersService');
 let CustomersService = class CustomersService {
-    constructor(restaurantRepository, userRepository, dataSource, customerRepository, notificationsRepository) {
+    constructor(restaurantRepository, userRepository, dataSource, customerRepository, notificationsRepository, redisService) {
         this.restaurantRepository = restaurantRepository;
         this.userRepository = userRepository;
         this.dataSource = dataSource;
         this.customerRepository = customerRepository;
         this.notificationsRepository = notificationsRepository;
+        this.redisService = redisService;
     }
     async onModuleInit() {
         try {
@@ -187,8 +189,9 @@ let CustomersService = class CustomersService {
         const start = Date.now();
         try {
             const cacheKey = `customer:${id}`;
+            const restaurantsCacheKey = `restaurants:customer:${id}`;
             let customer = null;
-            const cached = await redis.get(cacheKey);
+            const cached = await this.redisService.get(cacheKey);
             if (cached) {
                 customer = JSON.parse(cached);
                 logger.log(`Fetch customer (cache) took ${Date.now() - start}ms`);
@@ -196,7 +199,7 @@ let CustomersService = class CustomersService {
             else {
                 customer = await this.customerRepository.findById(id);
                 if (customer) {
-                    await redis.setEx(cacheKey, 7200, JSON.stringify(customer));
+                    await this.redisService.setNx(cacheKey, JSON.stringify(customer), 7200 * 1000);
                     logger.log(`Stored customer in Redis: ${cacheKey}`);
                 }
                 logger.log(`Fetch customer took ${Date.now() - start}ms`);
@@ -207,7 +210,8 @@ let CustomersService = class CustomersService {
             Object.assign(customer, updateCustomerDto);
             const saveStart = Date.now();
             const updatedCustomer = await this.customerRepository.save(customer);
-            await redis.setEx(cacheKey, 7200, JSON.stringify(updatedCustomer));
+            await this.redisService.setNx(cacheKey, JSON.stringify(updatedCustomer), 7200 * 1000);
+            await this.redisService.del(restaurantsCacheKey);
             logger.log(`Save customer took ${Date.now() - saveStart}ms`);
             logger.log(`Update customer took ${Date.now() - start}ms`);
             return (0, createResponse_1.createResponse)('OK', updatedCustomer, 'Customer updated successfully');
@@ -401,18 +405,34 @@ let CustomersService = class CustomersService {
         return R * c;
     }
     async getAllRestaurants(customerId) {
+        const cacheKey = `restaurants:customer:${customerId}`;
+        const ttl = 3600;
+        const start = Date.now();
         try {
+            const cacheStart = Date.now();
+            const cachedData = await this.redisService.get(cacheKey);
+            if (cachedData) {
+                logger.log(`Fetched restaurants from cache in ${Date.now() - cacheStart}ms`);
+                logger.log(`Total time (cache): ${Date.now() - start}ms`);
+                return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedData), 'Fetched and prioritized restaurants from cache successfully');
+            }
+            logger.log(`Cache miss, fetching from DB (took ${Date.now() - cacheStart}ms)`);
+            const customerStart = Date.now();
             const customer = await this.customerRepository.findById(customerId);
             if (!customer) {
+                logger.log(`Customer fetch took ${Date.now() - customerStart}ms`);
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Customer not found');
             }
+            logger.log(`Customer fetch took ${Date.now() - customerStart}ms`);
             const { preferred_category, restaurant_history, address: customerAddress } = customer;
             const customerAddressArray = customerAddress;
+            const restaurantsStart = Date.now();
             const restaurants = await this.restaurantRepository.findAll();
+            logger.log(`Restaurants fetch took ${Date.now() - restaurantsStart}ms`);
+            const prioritizationStart = Date.now();
             const prioritizedRestaurants = restaurants
                 .map(restaurant => {
-                const customerLocation = (customerAddressArray &&
-                    customerAddressArray[0]?.location);
+                const customerLocation = customerAddressArray?.[0]?.location;
                 const restaurantAddress = restaurant.address;
                 if (!customerLocation || !restaurantAddress?.location) {
                     return { ...restaurant, priorityScore: 0 };
@@ -432,28 +452,47 @@ let CustomersService = class CustomersService {
                 };
             })
                 .sort((a, b) => b.priorityScore - a.priorityScore);
+            logger.log(`Prioritization took ${Date.now() - prioritizationStart}ms`);
+            const cacheSaveStart = Date.now();
+            const cacheSaved = await this.redisService.setNx(cacheKey, JSON.stringify(prioritizedRestaurants), ttl * 1000);
+            if (cacheSaved) {
+                logger.log(`Stored restaurants in cache: ${cacheKey} (took ${Date.now() - cacheSaveStart}ms)`);
+            }
+            else {
+                logger.warn(`Failed to store restaurants in cache: ${cacheKey}`);
+            }
+            logger.log(`Total DB fetch and processing took ${Date.now() - start}ms`);
             return (0, createResponse_1.createResponse)('OK', prioritizedRestaurants, 'Fetched and prioritized restaurants successfully');
         }
         catch (error) {
-            console.error('Error fetching and prioritizing restaurants:', error);
+            logger.error(`Error fetching restaurants: ${error.message}`, error.stack);
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching and prioritizing restaurants');
         }
     }
     async getAllOrders(customerId) {
+        const cacheKey = `orders:customer:${customerId}`;
+        const ttl = 300;
+        const start = Date.now();
         try {
+            const cacheStart = Date.now();
+            const cachedData = await this.redisService.get(cacheKey);
+            if (cachedData) {
+                logger.log(`Fetched orders from cache in ${Date.now() - cacheStart}ms`);
+                logger.log(`Total time (cache): ${Date.now() - start}ms`);
+                return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedData), 'Fetched orders from cache successfully');
+            }
+            logger.log(`Cache miss for ${cacheKey}`);
+            const customerStart = Date.now();
             const customer = await this.customerRepository.findById(customerId);
             if (!customer) {
+                logger.log(`Customer fetch took ${Date.now() - customerStart}ms`);
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Customer not found');
             }
+            logger.log(`Customer fetch took ${Date.now() - customerStart}ms`);
+            const ordersStart = Date.now();
             const orders = await this.dataSource.getRepository(order_entity_1.Order).find({
                 where: { customer_id: customerId },
-                relations: [
-                    'restaurant',
-                    'customer',
-                    'driver',
-                    'customerAddress',
-                    'restaurantAddress'
-                ],
+                relations: ['restaurant', 'customerAddress', 'restaurantAddress'],
                 select: {
                     id: true,
                     customer_id: true,
@@ -484,16 +523,18 @@ let CustomersService = class CustomersService {
                         id: true,
                         restaurant_name: true,
                         address_id: true,
-                        avatar: {
-                            url: true,
-                            key: true
-                        }
+                        avatar: { url: true, key: true }
                     }
                 }
             });
+            logger.log(`Orders fetch took ${Date.now() - ordersStart}ms`);
             if (!orders || orders.length === 0) {
-                return (0, createResponse_1.createResponse)('OK', [], 'No orders found for this customer');
+                const response = (0, createResponse_1.createResponse)('OK', [], 'No orders found for this customer');
+                await this.redisService.setNx(cacheKey, JSON.stringify([]), ttl * 1000);
+                logger.log(`Stored empty orders in cache: ${cacheKey}`);
+                return response;
             }
+            const specializationsStart = Date.now();
             const restaurantIds = orders.map(order => order.restaurant_id);
             const specializations = await this.dataSource
                 .createQueryBuilder()
@@ -505,36 +546,32 @@ let CustomersService = class CustomersService {
                 .groupBy('rs.restaurant_id')
                 .getRawMany();
             const specializationMap = new Map(specializations.map(spec => [spec.restaurant_id, spec.specializations]));
-            const populatedOrders = await Promise.all(orders.map(async (order) => {
-                const populatedOrderItems = await Promise.all(order.order_items.map(async (item) => {
-                    const menuItem = await this.dataSource
-                        .getRepository(menu_item_entity_1.MenuItem)
-                        .findOne({
-                        where: { id: item.item_id },
-                        relations: ['restaurant', 'variants'],
-                        select: {
-                            id: true,
-                            name: true,
-                            price: true,
-                            avatar: {
-                                url: true,
-                                key: true
-                            },
-                            restaurant: {
-                                id: true,
-                                restaurant_name: true,
-                                address_id: true,
-                                avatar: {
-                                    url: true,
-                                    key: true
-                                }
-                            }
-                        }
-                    });
-                    return {
-                        ...item,
-                        menu_item: menuItem || null
-                    };
+            logger.log(`Specializations fetch took ${Date.now() - specializationsStart}ms`);
+            const menuItemsStart = Date.now();
+            const allItemIds = orders.flatMap(order => order.order_items.map(item => item.item_id));
+            const menuItems = await this.dataSource.getRepository(menu_item_entity_1.MenuItem).find({
+                where: { id: (0, typeorm_1.In)(allItemIds) },
+                select: {
+                    id: true,
+                    name: true,
+                    price: true,
+                    avatar: { url: true, key: true },
+                    restaurant: {
+                        id: true,
+                        restaurant_name: true,
+                        address_id: true,
+                        avatar: { url: true, key: true }
+                    }
+                },
+                relations: ['restaurant']
+            });
+            const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
+            logger.log(`MenuItems fetch took ${Date.now() - menuItemsStart}ms`);
+            const processingStart = Date.now();
+            const populatedOrders = orders.map(order => {
+                const populatedOrderItems = order.order_items.map(item => ({
+                    ...item,
+                    menu_item: menuItemMap.get(item.item_id) || null
                 }));
                 const restaurantSpecializations = specializationMap.get(order.restaurant_id) || [];
                 const baseOrder = {
@@ -560,11 +597,21 @@ let CustomersService = class CustomersService {
                     };
                 }
                 return baseOrder;
-            }));
+            });
+            logger.log(`Orders processing took ${Date.now() - processingStart}ms`);
+            const cacheSaveStart = Date.now();
+            const cacheSaved = await this.redisService.setNx(cacheKey, JSON.stringify(populatedOrders), ttl * 1000);
+            if (cacheSaved) {
+                logger.log(`Stored orders in cache: ${cacheKey} (took ${Date.now() - cacheSaveStart}ms)`);
+            }
+            else {
+                logger.warn(`Failed to store orders in cache: ${cacheKey}`);
+            }
+            logger.log(`Total DB fetch and processing took ${Date.now() - start}ms`);
             return (0, createResponse_1.createResponse)('OK', populatedOrders, 'Fetched orders successfully');
         }
         catch (error) {
-            console.error('Error fetching orders:', error);
+            logger.error(`Error fetching orders: ${error.message}`, error.stack);
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching orders');
         }
     }
@@ -619,6 +666,7 @@ exports.CustomersService = CustomersService = __decorate([
         users_repository_1.UserRepository,
         typeorm_1.DataSource,
         customers_repository_1.CustomersRepository,
-        notifications_repository_1.NotificationsRepository])
+        notifications_repository_1.NotificationsRepository,
+        redis_service_1.RedisService])
 ], CustomersService);
 //# sourceMappingURL=customers.service.js.map

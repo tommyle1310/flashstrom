@@ -15,10 +15,16 @@ const createResponse_1 = require("../utils/createResponse");
 const uuid_1 = require("uuid");
 const promotions_repository_1 = require("./promotions.repository");
 const food_categories_repository_1 = require("../food_categories/food_categories.repository");
+const redis_service_1 = require("../redis/redis.service");
+const logger = new common_1.Logger('PromotionsService');
 let PromotionsService = class PromotionsService {
-    constructor(promotionsRepository, foodCategoriesRepository) {
+    constructor(promotionsRepository, foodCategoriesRepository, redisService) {
         this.promotionsRepository = promotionsRepository;
         this.foodCategoriesRepository = foodCategoriesRepository;
+        this.redisService = redisService;
+        this.allPromotionsCacheKey = 'promotions:all';
+        this.validPromotionsCacheKey = 'promotions:valid_with_restaurants';
+        this.cacheTtl = 300;
     }
     async create(createPromotionDto) {
         try {
@@ -26,7 +32,6 @@ let PromotionsService = class PromotionsService {
             if (existingPromotion) {
                 return (0, createResponse_1.createResponse)('DuplicatedRecord', null, 'Promotion with this name already exists');
             }
-            console.log('createPromotionDto.food_categories', createPromotionDto);
             const existingFoodCategories = await Promise.all(createPromotionDto.food_categories.map(async (foodCategory) => {
                 return await this.foodCategoriesRepository.findById(foodCategory.id);
             }));
@@ -39,30 +44,60 @@ let PromotionsService = class PromotionsService {
                 id: `FF_PROMO_${(0, uuid_1.v4)()}`,
                 food_categories: existingFoodCategories
             });
+            await this.redisService.del(this.allPromotionsCacheKey);
+            await this.redisService.del(this.validPromotionsCacheKey);
+            logger.log(`Cleared cache: ${this.allPromotionsCacheKey}, ${this.validPromotionsCacheKey}`);
             return (0, createResponse_1.createResponse)('OK', savedPromotion, 'Promotion created successfully');
         }
         catch (error) {
-            console.log('error', error);
+            logger.error(`Error creating promotion: ${error.message}`, error.stack);
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error creating promotion');
         }
     }
     async findAll() {
+        const start = Date.now();
         try {
+            const cachedData = await this.redisService.get(this.allPromotionsCacheKey);
+            if (cachedData) {
+                logger.log(`Fetched promotions from cache in ${Date.now() - start}ms`);
+                return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedData), 'Promotions retrieved from cache');
+            }
+            logger.log(`Cache miss for ${this.allPromotionsCacheKey}`);
+            const dbStart = Date.now();
             const promotions = await this.promotionsRepository.findAll();
+            logger.log(`Database fetch took ${Date.now() - dbStart}ms`);
+            const cacheStart = Date.now();
+            const cacheSaved = await this.redisService.setNx(this.allPromotionsCacheKey, JSON.stringify(promotions), this.cacheTtl * 1000);
+            if (cacheSaved) {
+                logger.log(`Stored promotions in cache: ${this.allPromotionsCacheKey} (took ${Date.now() - cacheStart}ms)`);
+            }
+            else {
+                logger.warn(`Failed to store promotions in cache: ${this.allPromotionsCacheKey}`);
+            }
+            logger.log(`Total time: ${Date.now() - start}ms`);
             return (0, createResponse_1.createResponse)('OK', promotions, 'Promotions retrieved successfully');
         }
         catch (error) {
-            console.log('error', error);
+            logger.error(`Error fetching promotions: ${error.message}`, error.stack);
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching promotions');
         }
     }
     async findValidWithRestaurants() {
+        const start = Date.now();
         try {
+            const cachedData = await this.redisService.get(this.validPromotionsCacheKey);
+            if (cachedData) {
+                logger.log(`Fetched valid promotions from cache in ${Date.now() - start}ms`);
+                return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedData), 'Valid promotions with restaurants retrieved from cache');
+            }
+            logger.log(`Cache miss for ${this.validPromotionsCacheKey}`);
+            const dbStart = Date.now();
             const currentTimestamp = Math.floor(Date.now() / 1000);
             const queryBuilder = this.promotionsRepository.promotionRepository
                 .createQueryBuilder('promotion')
                 .leftJoin('restaurant_promotions', 'rp', 'rp.promotion_id = promotion.id')
                 .leftJoin('restaurants', 'r', 'r.id = rp.restaurant_id')
+                .leftJoin('address_books', 'ab', 'ab.id = r.address_id')
                 .select([
                 'promotion.id',
                 'promotion.name',
@@ -81,7 +116,14 @@ let PromotionsService = class PromotionsService {
                 'r.id AS restaurant_id',
                 'r.restaurant_name AS restaurant_name',
                 'r.avatar AS restaurant_avatar',
-                'r.ratings AS restaurant_ratings'
+                'r.ratings AS restaurant_ratings',
+                'ab.id AS address_id',
+                'ab.street AS address_street',
+                'ab.city AS address_city',
+                'ab.nationality AS address_nationality',
+                'ab.postal_code AS address_postal_code',
+                'ab.location AS address_location',
+                'ab.title AS address_title'
             ])
                 .where('promotion.start_date <= :currentTimestamp', {
                 currentTimestamp
@@ -90,6 +132,8 @@ let PromotionsService = class PromotionsService {
                 currentTimestamp
             });
             const { entities, raw } = await queryBuilder.getRawAndEntities();
+            logger.log(`Database fetch took ${Date.now() - dbStart}ms`);
+            const processingStart = Date.now();
             const promotionMap = new Map();
             entities.forEach(promo => promotionMap.set(promo.id, { ...promo, restaurants: [] }));
             raw.forEach(row => {
@@ -99,7 +143,16 @@ let PromotionsService = class PromotionsService {
                         id: row.restaurant_id,
                         restaurant_name: row.restaurant_name,
                         avatar: row.restaurant_avatar,
-                        ratings: row.restaurant_ratings
+                        ratings: row.restaurant_ratings,
+                        address: {
+                            id: row.address_id,
+                            street: row.address_street,
+                            city: row.address_city,
+                            nationality: row.address_nationality,
+                            postal_code: row.address_postal_code,
+                            location: row.address_location,
+                            title: row.address_title
+                        }
                     });
                 }
             });
@@ -107,10 +160,20 @@ let PromotionsService = class PromotionsService {
                 ...promo,
                 restaurants: promo.restaurants.slice(0, 5)
             }));
+            logger.log(`Data processing took ${Date.now() - processingStart}ms`);
+            const cacheStart = Date.now();
+            const cacheSaved = await this.redisService.setNx(this.validPromotionsCacheKey, JSON.stringify(result), this.cacheTtl * 1000);
+            if (cacheSaved) {
+                logger.log(`Stored valid promotions in cache: ${this.validPromotionsCacheKey} (took ${Date.now() - cacheStart}ms)`);
+            }
+            else {
+                logger.warn(`Failed to store valid promotions in cache: ${this.validPromotionsCacheKey}`);
+            }
+            logger.log(`Total time: ${Date.now() - start}ms`);
             return (0, createResponse_1.createResponse)('OK', result, 'Valid promotions with restaurants retrieved successfully');
         }
         catch (error) {
-            console.log('error', error);
+            logger.error(`Error fetching valid promotions: ${error.message}`, error.stack);
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching valid promotions with restaurants');
         }
     }
@@ -123,7 +186,7 @@ let PromotionsService = class PromotionsService {
             return (0, createResponse_1.createResponse)('OK', promotion, 'Promotion retrieved successfully');
         }
         catch (error) {
-            console.log('error', error);
+            logger.error(`Error fetching promotion: ${error.message}`, error.stack);
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching promotion');
         }
     }
@@ -135,10 +198,13 @@ let PromotionsService = class PromotionsService {
             }
             await this.promotionsRepository.update(id, updatePromotionDto);
             const updatedPromotion = await this.promotionsRepository.findById(id);
+            await this.redisService.del(this.allPromotionsCacheKey);
+            await this.redisService.del(this.validPromotionsCacheKey);
+            logger.log(`Cleared cache: ${this.allPromotionsCacheKey}, ${this.validPromotionsCacheKey}`);
             return (0, createResponse_1.createResponse)('OK', updatedPromotion, 'Promotion updated successfully');
         }
         catch (error) {
-            console.log('error', error);
+            logger.error(`Error updating promotion: ${error.message}`, error.stack);
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error updating promotion');
         }
     }
@@ -148,27 +214,40 @@ let PromotionsService = class PromotionsService {
             if (result.affected === 0) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Promotion not found');
             }
+            await this.redisService.del(this.allPromotionsCacheKey);
+            await this.redisService.del(this.validPromotionsCacheKey);
+            logger.log(`Cleared cache: ${this.allPromotionsCacheKey}, ${this.validPromotionsCacheKey}`);
             return (0, createResponse_1.createResponse)('OK', null, 'Promotion deleted successfully');
         }
         catch (error) {
-            console.log('error', error);
+            logger.error(`Error deleting promotion: ${error.message}`, error.stack);
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error deleting promotion');
         }
     }
     async updateEntityAvatar(uploadResult, entityId) {
-        const promotion = await this.promotionsRepository.update(entityId, {
-            avatar: { url: uploadResult.url, key: uploadResult.public_id }
-        });
-        if (!promotion) {
-            return (0, createResponse_1.createResponse)('NotFound', null, 'promotion not found');
+        try {
+            const promotion = await this.promotionsRepository.update(entityId, {
+                avatar: { url: uploadResult.url, key: uploadResult.public_id }
+            });
+            if (!promotion) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Promotion not found');
+            }
+            await this.redisService.del(this.allPromotionsCacheKey);
+            await this.redisService.del(this.validPromotionsCacheKey);
+            logger.log(`Cleared cache: ${this.allPromotionsCacheKey}, ${this.validPromotionsCacheKey}`);
+            return (0, createResponse_1.createResponse)('OK', promotion, 'Promotion avatar updated successfully');
         }
-        return (0, createResponse_1.createResponse)('OK', promotion, 'promotion avatar updated successfully');
+        catch (error) {
+            logger.error(`Error updating promotion avatar: ${error.message}`, error.stack);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error updating promotion avatar');
+        }
     }
 };
 exports.PromotionsService = PromotionsService;
 exports.PromotionsService = PromotionsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [promotions_repository_1.PromotionsRepository,
-        food_categories_repository_1.FoodCategoriesRepository])
+        food_categories_repository_1.FoodCategoriesRepository,
+        redis_service_1.RedisService])
 ], PromotionsService);
 //# sourceMappingURL=promotions.service.js.map

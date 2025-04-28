@@ -4,10 +4,15 @@ import { Promotion } from './entities/promotion.entity';
 import { ApiResponse } from 'src/utils/createResponse';
 import { PromotionsRepository } from './promotions.repository';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
+import { RedisService } from 'src/redis/redis.service';
 export declare class PromotionsService {
     private readonly promotionsRepository;
     private readonly foodCategoriesRepository;
-    constructor(promotionsRepository: PromotionsRepository, foodCategoriesRepository: FoodCategoriesRepository);
+    private readonly redisService;
+    private readonly allPromotionsCacheKey;
+    private readonly validPromotionsCacheKey;
+    private readonly cacheTtl;
+    constructor(promotionsRepository: PromotionsRepository, foodCategoriesRepository: FoodCategoriesRepository, redisService: RedisService);
     create(createPromotionDto: CreatePromotionDto): Promise<ApiResponse<Promotion>>;
     findAll(): Promise<ApiResponse<Promotion[]>>;
     findValidWithRestaurants(): Promise<ApiResponse<Promotion[]>>;

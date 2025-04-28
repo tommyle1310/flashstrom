@@ -22,7 +22,7 @@ export declare class CustomersController {
         message: string;
     };
     getFavoriteRestaurants(customerId: string): Promise<ApiResponse<import("../restaurants/entities/restaurant.entity").Restaurant[]>>;
-    getAllOrders(id: string): Promise<any>;
+    getAllOrders(id: string): Promise<ApiResponse<any>>;
     findAllCartItemByCustomerId(customerId: string): Promise<any>;
     getNotifications(customerId: string): Promise<ApiResponse<any>>;
     findCustomerById(id: string): Promise<ApiResponse<any>>;
