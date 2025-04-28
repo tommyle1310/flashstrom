@@ -67,6 +67,8 @@ import { Transaction } from './transactions/entities/transaction.entity';
 import { OnlineSessionsRepository } from './online-sessions/online-session.repository';
 import { AddressBook } from './address_book/entities/address_book.entity';
 import { CustomersGateway } from './customers/customers.gateway';
+import { CustomerCareInquiriesModule } from './customer_cares_inquires/customer_cares_inquires.module';
+import { CustomerCareInquiry } from './customer_cares_inquires/entities/customer_care_inquiry.entity';
 
 @Global()
 @Module({
@@ -88,6 +90,7 @@ import { CustomersGateway } from './customers/customers.gateway';
       FoodCategory,
       Driver,
       OnlineSession,
+      CustomerCareInquiry,
       Order,
       DriverStatsRecord,
       DriverProgressStage,
@@ -118,6 +121,7 @@ import { CustomersGateway } from './customers/customers.gateway';
     CustomerCaresModule,
     FinanceAdminModule,
     DriverProgressStagesModule,
+    CustomerCareInquiriesModule,
     CompanionAdminModule,
     FchatModule,
     TypeOrmModule.forRoot({

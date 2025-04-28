@@ -67,7 +67,7 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'],
+        enum: ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'ESCALATE'],
         default: 'OPEN'
     }),
     __metadata("design:type", String)

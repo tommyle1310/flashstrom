@@ -47,10 +47,10 @@ export class CustomerCareInquiry {
 
   @Column({
     type: 'enum',
-    enum: ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'],
+    enum: ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'ESCALATE'],
     default: 'OPEN'
   })
-  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'ESCALATE';
 
   @Column({
     type: 'enum',

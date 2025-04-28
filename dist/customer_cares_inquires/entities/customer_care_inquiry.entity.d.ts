@@ -11,7 +11,7 @@ export declare class CustomerCareInquiry {
     assignee_type: 'ADMIN' | 'CUSTOMER_CARE';
     subject: string;
     description: string;
-    status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+    status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'ESCALATE';
     priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
     order: Order;
     resolution_notes: string;

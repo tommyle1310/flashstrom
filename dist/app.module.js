@@ -78,6 +78,8 @@ const transaction_entity_1 = require("./transactions/entities/transaction.entity
 const online_session_repository_1 = require("./online-sessions/online-session.repository");
 const address_book_entity_1 = require("./address_book/entities/address_book.entity");
 const customers_gateway_1 = require("./customers/customers.gateway");
+const customer_cares_inquires_module_1 = require("./customer_cares_inquires/customer_cares_inquires.module");
+const customer_care_inquiry_entity_1 = require("./customer_cares_inquires/entities/customer_care_inquiry.entity");
 let AppModule = class AppModule {
     constructor() {
         console.log('NEON_HOST:', process.env.NEON_HOST);
@@ -109,6 +111,7 @@ exports.AppModule = AppModule = __decorate([
                 food_category_entity_1.FoodCategory,
                 driver_entity_1.Driver,
                 online_session_entity_1.OnlineSession,
+                customer_care_inquiry_entity_1.CustomerCareInquiry,
                 order_entity_1.Order,
                 driver_stats_record_entity_1.DriverStatsRecord,
                 driver_progress_stage_entity_1.DriverProgressStage,
@@ -139,6 +142,7 @@ exports.AppModule = AppModule = __decorate([
             customer_cares_module_1.CustomerCaresModule,
             finance_admin_module_1.FinanceAdminModule,
             driver_progress_stages_module_1.DriverProgressStagesModule,
+            customer_cares_inquires_module_1.CustomerCareInquiriesModule,
             companion_admin_module_1.CompanionAdminModule,
             fchat_module_1.FchatModule,
             typeorm_1.TypeOrmModule.forRoot({

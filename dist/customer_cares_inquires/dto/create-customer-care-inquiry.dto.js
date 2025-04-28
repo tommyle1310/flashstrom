@@ -30,7 +30,7 @@ __decorate([
     __metadata("design:type", String)
 ], CreateCustomerCareInquiryDto.prototype, "description", void 0);
 __decorate([
-    (0, class_validator_1.IsEnum)(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']),
+    (0, class_validator_1.IsEnum)(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'ESCALATE']),
     __metadata("design:type", String)
 ], CreateCustomerCareInquiryDto.prototype, "status", void 0);
 __decorate([
