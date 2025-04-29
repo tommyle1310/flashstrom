@@ -170,14 +170,7 @@ let CustomerCareService = class CustomerCareService {
                         avatar: inquiry.customer.avatar
                     }
                     : null,
-                order: inquiry.order
-                    ? {
-                        id: inquiry.order.id,
-                        total_amount: inquiry.order.total_amount,
-                        status: inquiry.order.status,
-                        order_time: inquiry.order.order_time
-                    }
-                    : null
+                order: inquiry.order ? inquiry.order : null
             }));
             logger.log(`Inquiries processing took ${Date.now() - processingStart}ms`);
             const cacheSaveStart = Date.now();
@@ -222,41 +215,70 @@ let CustomerCareService = class CustomerCareService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching the customer care record');
         }
     }
-    async update(id, updateCustomerCareDto) {
-        const { contact_phone, contact_email, first_name, last_name } = updateCustomerCareDto;
-        const updatedRecord = await this.repository.findById(id);
-        if (!updatedRecord) {
-            return (0, createResponse_1.createResponse)('NotFound', null, 'Customer care record not found');
-        }
-        if (contact_phone && contact_phone.length > 0) {
-            for (const newPhone of contact_phone) {
-                const existingPhoneIndex = updatedRecord.contact_phone.findIndex(phone => phone.number === newPhone.number);
-                if (existingPhoneIndex !== -1) {
-                    updatedRecord.contact_phone[existingPhoneIndex] = newPhone;
-                }
-                else {
-                    updatedRecord.contact_phone.push(newPhone);
-                }
+    async update(inquiryId, updateData) {
+        const ttl = 300;
+        try {
+            const inquiry = await this.inquiryRepository.findById(inquiryId);
+            if (!inquiry) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Inquiry not found');
             }
-        }
-        if (contact_email && contact_email.length > 0) {
-            for (const newEmail of contact_email) {
-                const existingEmailIndex = updatedRecord.contact_email.findIndex(email => email.email === newEmail.email);
-                if (existingEmailIndex !== -1) {
-                    updatedRecord.contact_email[existingEmailIndex] = newEmail;
+            const updatedInquiry = await this.inquiryRepository.update(inquiryId, updateData);
+            const refreshedInquiry = await this.dataSource
+                .getRepository(customer_care_inquiry_entity_1.CustomerCareInquiry)
+                .findOne({
+                where: { id: inquiryId },
+                relations: ['customer', 'order'],
+                select: {
+                    id: true,
+                    customer_id: true,
+                    assignee_type: true,
+                    subject: true,
+                    description: true,
+                    status: true,
+                    priority: true,
+                    resolution_notes: true,
+                    created_at: true,
+                    updated_at: true,
+                    resolved_at: true,
+                    customer: {
+                        id: true,
+                        first_name: true,
+                        last_name: true,
+                        avatar: true
+                    },
+                    order: true
                 }
-                else {
-                    updatedRecord.contact_email.push(newEmail);
-                }
+            });
+            const cacheKey = `inquiries:customer_care:${inquiry.assigned_customer_care.id}`;
+            const cachedData = await this.redisService.get(cacheKey);
+            const inquiries = cachedData ? JSON.parse(cachedData) : [];
+            const inquiryIndex = inquiries.findIndex((i) => i.id === inquiryId);
+            const populatedInquiry = {
+                ...refreshedInquiry,
+                customer: refreshedInquiry.customer
+                    ? {
+                        id: refreshedInquiry.customer.id,
+                        first_name: refreshedInquiry.customer.first_name,
+                        last_name: refreshedInquiry.customer.last_name,
+                        avatar: refreshedInquiry.customer.avatar
+                    }
+                    : null,
+                order: refreshedInquiry.order ? refreshedInquiry.order : null
+            };
+            if (inquiryIndex !== -1) {
+                inquiries[inquiryIndex] = populatedInquiry;
             }
+            else {
+                inquiries.push(populatedInquiry);
+            }
+            await this.redisService.setNx(cacheKey, JSON.stringify(inquiries), ttl * 1000);
+            logger.log(`Updated cache for ${cacheKey}`);
+            return (0, createResponse_1.createResponse)('OK', updatedInquiry, 'Inquiry updated successfully');
         }
-        const finalUpdatedRecord = await this.repository.update(id, {
-            contact_phone: updatedRecord.contact_phone,
-            contact_email: updatedRecord.contact_email,
-            first_name,
-            last_name
-        });
-        return (0, createResponse_1.createResponse)('OK', finalUpdatedRecord, 'Customer care record updated successfully');
+        catch (error) {
+            logger.error(`Error updating inquiry: ${error.message}`, error.stack);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while updating the inquiry');
+        }
     }
     async setAvailability(id) {
         try {

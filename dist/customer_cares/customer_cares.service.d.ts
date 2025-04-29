@@ -1,10 +1,10 @@
 import { CreateCustomerCareDto } from './dto/create-customer_cares.dto';
-import { UpdateCustomerCareDto } from './dto/update-customer_cares.dto';
 import { ApiResponse } from 'src/utils/createResponse';
 import { CustomerCaresRepository } from './customer_cares.repository';
 import { CustomerCareInquiriesRepository } from 'src/customer_cares_inquires/customer_cares_inquires.repository';
 import { RedisService } from 'src/redis/redis.service';
 import { DataSource } from 'typeorm';
+import { CustomerCareInquiry } from 'src/customer_cares_inquires/entities/customer_care_inquiry.entity';
 export declare class CustomerCareService {
     private readonly repository;
     private readonly inquiryRepository;
@@ -16,7 +16,7 @@ export declare class CustomerCareService {
     findAllInquiriesByCCId(id: string, forceRefresh?: boolean): Promise<ApiResponse<any>>;
     findCustomerCareById(id: string): Promise<any>;
     findOne(conditions: object): Promise<any>;
-    update(id: string, updateCustomerCareDto: UpdateCustomerCareDto): Promise<any>;
+    update(inquiryId: string, updateData: Partial<CustomerCareInquiry>): Promise<ApiResponse<any>>;
     setAvailability(id: string): Promise<any>;
     remove(id: string): Promise<any>;
     updateEntityAvatar(uploadResult: {

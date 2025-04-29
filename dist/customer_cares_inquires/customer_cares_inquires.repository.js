@@ -127,6 +127,7 @@ let CustomerCareInquiriesRepository = class CustomerCareInquiriesRepository {
             where: { id },
             relations: [
                 'customer',
+                'order',
                 inquiry.assignee_type === 'ADMIN'
                     ? 'assigned_admin'
                     : 'assigned_customer_care'

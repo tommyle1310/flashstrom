@@ -10,7 +10,7 @@ export declare class CustomerCareController {
     findAllInquiriesByCCId(ccId: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findCustomerCareById(id: string): Promise<any>;
     findOne(field: string, value: string): Promise<any>;
-    update(id: string, updateCustomerCareDto: UpdateCustomerCareDto): Promise<any>;
+    update(id: string, updateCustomerCareDto: UpdateCustomerCareDto): Promise<import("../utils/createResponse").ApiResponse<any>>;
     setAvailability(id: string): Promise<any>;
     remove(id: string): Promise<any>;
 }

@@ -1,7 +1,6 @@
 // customer-care.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { CreateCustomerCareDto } from './dto/create-customer_cares.dto';
-import { UpdateCustomerCareDto } from './dto/update-customer_cares.dto';
 import { ApiResponse, createResponse } from 'src/utils/createResponse';
 import { CustomerCaresRepository } from './customer_cares.repository';
 import { CustomerCareInquiriesRepository } from 'src/customer_cares_inquires/customer_cares_inquires.repository';
@@ -201,14 +200,7 @@ export class CustomerCareService {
               avatar: inquiry.customer.avatar // Đảm bảo include avatar
             }
           : null,
-        order: inquiry.order
-          ? {
-              id: inquiry.order.id,
-              total_amount: inquiry.order.total_amount,
-              status: inquiry.order.status,
-              order_time: inquiry.order.order_time
-            }
-          : null
+        order: inquiry.order ? inquiry.order : null
       }));
       logger.log(`Inquiries processing took ${Date.now() - processingStart}ms`);
 
@@ -293,62 +285,102 @@ export class CustomerCareService {
 
   // Update a customer care record by ID
   async update(
-    id: string,
-    updateCustomerCareDto: UpdateCustomerCareDto
-  ): Promise<any> {
-    const { contact_phone, contact_email, first_name, last_name } =
-      updateCustomerCareDto;
-
-    // Retrieve the current customer care data before making changes
-    const updatedRecord = await this.repository.findById(id);
-
-    if (!updatedRecord) {
-      return createResponse('NotFound', null, 'Customer care record not found');
-    }
-
-    // Check and update contact_phone array
-    if (contact_phone && contact_phone.length > 0) {
-      for (const newPhone of contact_phone) {
-        const existingPhoneIndex = updatedRecord.contact_phone.findIndex(
-          phone => phone.number === newPhone.number
-        );
-
-        if (existingPhoneIndex !== -1) {
-          updatedRecord.contact_phone[existingPhoneIndex] = newPhone;
-        } else {
-          updatedRecord.contact_phone.push(newPhone);
-        }
+    inquiryId: string,
+    updateData: Partial<CustomerCareInquiry>
+  ): Promise<ApiResponse<any>> {
+    const ttl = 300; // Match TTL from findAllInquiriesByCCId
+    try {
+      // Fetch the inquiry to get the assigned_customer_care ID
+      const inquiry = await this.inquiryRepository.findById(inquiryId);
+      if (!inquiry) {
+        return createResponse('NotFound', null, 'Inquiry not found');
       }
-    }
 
-    // Check and update contact_email array
-    if (contact_email && contact_email.length > 0) {
-      for (const newEmail of contact_email) {
-        const existingEmailIndex = updatedRecord.contact_email.findIndex(
-          email => email.email === newEmail.email
-        );
+      // Update the inquiry in the database
+      const updatedInquiry = await this.inquiryRepository.update(
+        inquiryId,
+        updateData
+      );
 
-        if (existingEmailIndex !== -1) {
-          updatedRecord.contact_email[existingEmailIndex] = newEmail;
-        } else {
-          updatedRecord.contact_email.push(newEmail);
-        }
+      // Fetch the updated inquiry with relations to match findAllInquiriesByCCId format
+      const refreshedInquiry = await this.dataSource
+        .getRepository(CustomerCareInquiry)
+        .findOne({
+          where: { id: inquiryId },
+          relations: ['customer', 'order'],
+          select: {
+            id: true,
+            customer_id: true,
+            assignee_type: true,
+            subject: true,
+            description: true,
+            status: true,
+            priority: true,
+            resolution_notes: true,
+            created_at: true,
+            updated_at: true,
+            resolved_at: true,
+            customer: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              avatar: true
+            },
+            order: true
+          }
+        });
+
+      // Get the cache key
+      const cacheKey = `inquiries:customer_care:${inquiry.assigned_customer_care.id}`;
+
+      // Fetch current cached data
+      const cachedData = await this.redisService.get(cacheKey);
+      const inquiries = cachedData ? JSON.parse(cachedData) : [];
+
+      // Update or append the inquiry in the cached data
+      const inquiryIndex = inquiries.findIndex((i: any) => i.id === inquiryId);
+      const populatedInquiry = {
+        ...refreshedInquiry,
+        customer: refreshedInquiry.customer
+          ? {
+              id: refreshedInquiry.customer.id,
+              first_name: refreshedInquiry.customer.first_name,
+              last_name: refreshedInquiry.customer.last_name,
+              avatar: refreshedInquiry.customer.avatar
+            }
+          : null,
+        order: refreshedInquiry.order ? refreshedInquiry.order : null
+      };
+
+      if (inquiryIndex !== -1) {
+        // Update existing inquiry in cache
+        inquiries[inquiryIndex] = populatedInquiry;
+      } else {
+        // Append new inquiry (if it wasn’t in the cache before)
+        inquiries.push(populatedInquiry);
       }
+
+      // Save updated inquiries back to cache
+      await this.redisService.setNx(
+        cacheKey,
+        JSON.stringify(inquiries),
+        ttl * 1000
+      );
+      logger.log(`Updated cache for ${cacheKey}`);
+
+      return createResponse(
+        'OK',
+        updatedInquiry,
+        'Inquiry updated successfully'
+      );
+    } catch (error: any) {
+      logger.error(`Error updating inquiry: ${error.message}`, error.stack);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while updating the inquiry'
+      );
     }
-
-    // Update basic fields
-    const finalUpdatedRecord = await this.repository.update(id, {
-      contact_phone: updatedRecord.contact_phone,
-      contact_email: updatedRecord.contact_email,
-      first_name,
-      last_name
-    });
-
-    return createResponse(
-      'OK',
-      finalUpdatedRecord,
-      'Customer care record updated successfully'
-    );
   }
 
   // Toggle availability (if applicable for customer care)
