@@ -50,6 +50,7 @@ __decorate([
 ], CreateCustomerCareInquiryDto.prototype, "assignee_type", void 0);
 __decorate([
     (0, class_validator_1.IsEnum)(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateCustomerCareInquiryDto.prototype, "priority", void 0);
 __decorate([

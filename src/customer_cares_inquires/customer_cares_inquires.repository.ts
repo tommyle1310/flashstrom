@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CustomerCareInquiry } from './entities/customer_care_inquiry.entity';
 import { CreateCustomerCareInquiryDto } from './dto/create-customer-care-inquiry.dto';
 import { UpdateCustomerCareInquiryDto } from './dto/update-customer-care-inquiry.dto';
+import { calculateInquiryPriority } from 'src/utils/rules/inquiries';
 
 @Injectable()
 export class CustomerCareInquiriesRepository {
@@ -16,11 +17,30 @@ export class CustomerCareInquiriesRepository {
     createDto: CreateCustomerCareInquiryDto
   ): Promise<CustomerCareInquiry> {
     try {
+      // Tính priority tự động
+      const priority = await calculateInquiryPriority(
+        createDto,
+        this.repository
+      );
+
+      // Map DTO và priority vào entity
+      const inquiryData = {
+        ...createDto,
+        priority,
+        assigned_admin_id:
+          createDto.assignee_type === 'ADMIN' ? createDto.assigned_to : null,
+        assigned_customer_care_id:
+          createDto.assignee_type === 'CUSTOMER_CARE'
+            ? createDto.assigned_to
+            : null
+      };
+
       // Create the basic inquiry
-      const inquiry = this.repository.create(createDto);
+      const inquiry: CustomerCareInquiry = this.repository.create(inquiryData);
 
       // Save without loading relations first
-      const savedInquiry = await this.repository.save(inquiry);
+      const savedInquiry: CustomerCareInquiry =
+        await this.repository.save(inquiry);
 
       // Load the complete inquiry with appropriate relations
       return await this.repository.findOne({

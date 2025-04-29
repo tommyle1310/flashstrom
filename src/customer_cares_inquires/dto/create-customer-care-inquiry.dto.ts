@@ -26,7 +26,8 @@ export class CreateCustomerCareInquiryDto {
   assignee_type?: 'ADMIN' | 'CUSTOMER_CARE' = 'CUSTOMER_CARE';
 
   @IsEnum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  @IsOptional()
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
   @IsString()
   @IsOptional()

@@ -17,13 +17,23 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("typeorm");
 const typeorm_2 = require("@nestjs/typeorm");
 const customer_care_inquiry_entity_1 = require("./entities/customer_care_inquiry.entity");
+const inquiries_1 = require("../utils/rules/inquiries");
 let CustomerCareInquiriesRepository = class CustomerCareInquiriesRepository {
     constructor(repository) {
         this.repository = repository;
     }
     async create(createDto) {
         try {
-            const inquiry = this.repository.create(createDto);
+            const priority = await (0, inquiries_1.calculateInquiryPriority)(createDto, this.repository);
+            const inquiryData = {
+                ...createDto,
+                priority,
+                assigned_admin_id: createDto.assignee_type === 'ADMIN' ? createDto.assigned_to : null,
+                assigned_customer_care_id: createDto.assignee_type === 'CUSTOMER_CARE'
+                    ? createDto.assigned_to
+                    : null
+            };
+            const inquiry = this.repository.create(inquiryData);
             const savedInquiry = await this.repository.save(inquiry);
             return await this.repository.findOne({
                 where: { id: savedInquiry.id },
