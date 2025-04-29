@@ -173,12 +173,7 @@ export class CustomerCareService {
               last_name: true,
               avatar: true // Đảm bảo lấy avatar
             },
-            order: {
-              id: true,
-              total_amount: true,
-              status: true,
-              order_time: true
-            }
+            order: true
           }
         });
       logger.log(`Inquiries fetch took ${Date.now() - inquiriesStart}ms`);

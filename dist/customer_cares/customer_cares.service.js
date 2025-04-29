@@ -149,12 +149,7 @@ let CustomerCareService = class CustomerCareService {
                         last_name: true,
                         avatar: true
                     },
-                    order: {
-                        id: true,
-                        total_amount: true,
-                        status: true,
-                        order_time: true
-                    }
+                    order: true
                 }
             });
             logger.log(`Inquiries fetch took ${Date.now() - inquiriesStart}ms`);

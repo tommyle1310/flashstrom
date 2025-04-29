@@ -57,6 +57,7 @@ let CustomerCareInquiriesRepository = class CustomerCareInquiriesRepository {
                 assigned_customer_care: createDto.assignee_type === 'CUSTOMER_CARE' && assignedCustomerCareId
                     ? { id: assignedCustomerCareId }
                     : null,
+                order: createDto.order_id ? { id: createDto.order_id } : null,
                 escalation_history: createDto.escalation_history || [],
                 rejection_history: createDto.rejection_history || [],
                 transfer_history: createDto.transfer_history || [],
@@ -66,9 +67,10 @@ let CustomerCareInquiriesRepository = class CustomerCareInquiriesRepository {
                 first_response_at: null,
                 last_response_at: null
             };
+            console.log('Final inquiryData before create:', JSON.stringify(inquiryData, null, 2));
             const inquiry = this.repository.create(inquiryData);
             const savedInquiry = await this.repository.save(inquiry);
-            console.log(`Saved inquiry with ID: ${savedInquiry.id}`);
+            console.log('Saved inquiry:', JSON.stringify(savedInquiry, null, 2));
             const result = await this.repository.findOne({
                 where: { id: savedInquiry.id },
                 relations: [
@@ -78,6 +80,9 @@ let CustomerCareInquiriesRepository = class CustomerCareInquiriesRepository {
                     'order'
                 ]
             });
+            if (!result) {
+                throw new Error('Failed to load saved inquiry');
+            }
             return result;
         }
         catch (error) {

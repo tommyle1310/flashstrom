@@ -83,18 +83,20 @@ export class CustomerCareInquiriesRepository {
           createDto.assignee_type === 'CUSTOMER_CARE' && assignedCustomerCareId
             ? { id: assignedCustomerCareId }
             : null,
-        // Initialize history arrays if not provided
+        order: createDto.order_id ? { id: createDto.order_id } : null, // Gán quan hệ order
         escalation_history: createDto.escalation_history || [],
         rejection_history: createDto.rejection_history || [],
         transfer_history: createDto.transfer_history || [],
-        // Initialize counters
         escalation_count: 0,
         rejection_count: 0,
         transfer_count: 0,
-        // Initialize timestamps
         first_response_at: null,
         last_response_at: null
       };
+      console.log(
+        'Final inquiryData before create:',
+        JSON.stringify(inquiryData, null, 2)
+      );
 
       // Create the basic inquiry
       const inquiry: CustomerCareInquiry = this.repository.create(inquiryData);
@@ -102,7 +104,7 @@ export class CustomerCareInquiriesRepository {
       // Save without loading relations first
       const savedInquiry: CustomerCareInquiry =
         await this.repository.save(inquiry);
-      console.log(`Saved inquiry with ID: ${savedInquiry.id}`);
+      console.log('Saved inquiry:', JSON.stringify(savedInquiry, null, 2));
 
       // Load the complete inquiry with appropriate relations
       const result = await this.repository.findOne({
@@ -114,6 +116,10 @@ export class CustomerCareInquiriesRepository {
           'order'
         ]
       });
+
+      if (!result) {
+        throw new Error('Failed to load saved inquiry');
+      }
 
       return result;
     } catch (error) {
