@@ -39,6 +39,21 @@ let CustomerCareInquiriesController = class CustomerCareInquiriesController {
     remove(id) {
         return this.service.remove(id);
     }
+    escalateInquiry(id, data) {
+        return this.service.escalateInquiry(id, data.customerCareId, data.reason, data.escalatedTo, data.escalatedToId);
+    }
+    rejectInquiry(id, data) {
+        return this.service.rejectInquiry(id, data.customerCareId, data.reason);
+    }
+    transferInquiry(id, data) {
+        return this.service.transferInquiry(id, data.fromCustomerCareId, data.toCustomerCareId, data.reason);
+    }
+    recordResponse(id) {
+        return this.service.recordResponse(id);
+    }
+    resolveInquiry(id, data) {
+        return this.service.resolveInquiry(id, data.resolutionType, data.resolutionNotes);
+    }
 };
 exports.CustomerCareInquiriesController = CustomerCareInquiriesController;
 __decorate([
@@ -83,6 +98,45 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], CustomerCareInquiriesController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Post)(':id/escalate'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], CustomerCareInquiriesController.prototype, "escalateInquiry", null);
+__decorate([
+    (0, common_1.Post)(':id/reject'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], CustomerCareInquiriesController.prototype, "rejectInquiry", null);
+__decorate([
+    (0, common_1.Post)(':id/transfer'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], CustomerCareInquiriesController.prototype, "transferInquiry", null);
+__decorate([
+    (0, common_1.Post)(':id/record-response'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], CustomerCareInquiriesController.prototype, "recordResponse", null);
+__decorate([
+    (0, common_1.Post)(':id/resolve'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], CustomerCareInquiriesController.prototype, "resolveInquiry", null);
 exports.CustomerCareInquiriesController = CustomerCareInquiriesController = __decorate([
     (0, common_1.Controller)('customer-care-inquiries'),
     __metadata("design:paramtypes", [customer_cares_inquires_service_1.CustomerCareInquiriesService])

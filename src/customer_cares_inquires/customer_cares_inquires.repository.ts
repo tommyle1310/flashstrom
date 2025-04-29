@@ -82,7 +82,18 @@ export class CustomerCareInquiriesRepository {
         assigned_customer_care:
           createDto.assignee_type === 'CUSTOMER_CARE' && assignedCustomerCareId
             ? { id: assignedCustomerCareId }
-            : null
+            : null,
+        // Initialize history arrays if not provided
+        escalation_history: createDto.escalation_history || [],
+        rejection_history: createDto.rejection_history || [],
+        transfer_history: createDto.transfer_history || [],
+        // Initialize counters
+        escalation_count: 0,
+        rejection_count: 0,
+        transfer_count: 0,
+        // Initialize timestamps
+        first_response_at: null,
+        last_response_at: null
       };
 
       // Create the basic inquiry
@@ -98,19 +109,15 @@ export class CustomerCareInquiriesRepository {
         where: { id: savedInquiry.id },
         relations: [
           'customer',
-          createDto.assignee_type === 'ADMIN'
-            ? 'assigned_admin'
-            : 'assigned_customer_care'
+          'assigned_admin',
+          'assigned_customer_care',
+          'order'
         ]
       });
 
-      if (!result) {
-        throw new Error('Failed to load saved inquiry');
-      }
-
       return result;
-    } catch (error: any) {
-      console.error('Repository create error:', error);
+    } catch (error) {
+      console.error('Error in create method:', error);
       throw error;
     }
   }
@@ -218,5 +225,178 @@ export class CustomerCareInquiriesRepository {
   async remove(id: string): Promise<boolean> {
     const result = await this.repository.delete(id);
     return result.affected > 0;
+  }
+
+  /**
+   * Escalate an inquiry to another agent or admin
+   */
+  async escalateInquiry(
+    id: string,
+    customerCareId: string,
+    reason: string,
+    escalatedTo: 'ADMIN' | 'CUSTOMER_CARE',
+    escalatedToId: string
+  ): Promise<CustomerCareInquiry> {
+    const inquiry = await this.findById(id);
+    if (!inquiry) {
+      throw new Error(`Inquiry with ID ${id} not found`);
+    }
+
+    // Create escalation record
+    const escalationRecord = {
+      customer_care_id: customerCareId,
+      reason,
+      timestamp: Math.floor(Date.now() / 1000),
+      escalated_to: escalatedTo,
+      escalated_to_id: escalatedToId
+    };
+
+    // Update inquiry
+    await this.repository.save({
+      ...inquiry,
+      status: 'ESCALATE',
+      escalation_history: [
+        ...(inquiry.escalation_history || []),
+        escalationRecord
+      ],
+      escalation_count: (inquiry.escalation_count || 0) + 1,
+      assignee_type: escalatedTo,
+      assigned_admin_id: escalatedTo === 'ADMIN' ? escalatedToId : null,
+      assigned_customer_care:
+        escalatedTo === 'CUSTOMER_CARE' ? { id: escalatedToId } : null
+    });
+
+    return this.findById(id);
+  }
+
+  /**
+   * Reject an inquiry
+   */
+  async rejectInquiry(
+    id: string,
+    customerCareId: string,
+    reason: string
+  ): Promise<CustomerCareInquiry> {
+    const inquiry = await this.findById(id);
+    if (!inquiry) {
+      throw new Error(`Inquiry with ID ${id} not found`);
+    }
+
+    // Create rejection record
+    const rejectionRecord = {
+      customer_care_id: customerCareId,
+      reason,
+      timestamp: Math.floor(Date.now() / 1000)
+    };
+
+    // Update inquiry
+    await this.repository.save({
+      ...inquiry,
+      rejection_history: [
+        ...(inquiry.rejection_history || []),
+        rejectionRecord
+      ],
+      rejection_count: (inquiry.rejection_count || 0) + 1
+    });
+
+    return this.findById(id);
+  }
+
+  /**
+   * Transfer an inquiry to another customer care agent
+   */
+  async transferInquiry(
+    id: string,
+    fromCustomerCareId: string,
+    toCustomerCareId: string,
+    reason: string
+  ): Promise<CustomerCareInquiry> {
+    const inquiry = await this.findById(id);
+    if (!inquiry) {
+      throw new Error(`Inquiry with ID ${id} not found`);
+    }
+
+    // Create transfer record
+    const transferRecord = {
+      from_customer_care_id: fromCustomerCareId,
+      to_customer_care_id: toCustomerCareId,
+      reason,
+      timestamp: Math.floor(Date.now() / 1000)
+    };
+
+    // Update inquiry
+    await this.repository.save({
+      ...inquiry,
+      transfer_history: [...(inquiry.transfer_history || []), transferRecord],
+      transfer_count: (inquiry.transfer_count || 0) + 1,
+      assigned_customer_care: { id: toCustomerCareId }
+    });
+
+    return this.findById(id);
+  }
+
+  /**
+   * Record a response to an inquiry
+   */
+  async recordResponse(id: string): Promise<CustomerCareInquiry> {
+    const inquiry = await this.findById(id);
+    if (!inquiry) {
+      throw new Error(`Inquiry with ID ${id} not found`);
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+
+    // Calculate response time if this is the first response
+    let responseTime = inquiry.response_time || 0;
+    if (!inquiry.first_response_at) {
+      responseTime = now - inquiry.created_at;
+    }
+
+    // Update inquiry
+    await this.repository.save({
+      ...inquiry,
+      first_response_at: inquiry.first_response_at || now,
+      last_response_at: now,
+      response_time: responseTime
+    });
+
+    return this.findById(id);
+  }
+
+  /**
+   * Mark an inquiry as resolved
+   */
+  async resolveInquiry(
+    id: string,
+    resolutionType:
+      | 'REFUND'
+      | 'REPLACEMENT'
+      | 'INVESTIGATING'
+      | 'ACCOUNT_FIX'
+      | 'TECHNICAL_SUPPORT'
+      | 'OTHER',
+    resolutionNotes?: string
+  ): Promise<CustomerCareInquiry> {
+    const inquiry = await this.findById(id);
+    if (!inquiry) {
+      throw new Error(`Inquiry with ID ${id} not found`);
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+
+    // Calculate resolution time
+    const resolutionTime = now - inquiry.created_at;
+
+    // Update inquiry
+    await this.repository.save({
+      ...inquiry,
+      status: 'RESOLVED',
+      resolution_type: resolutionType,
+      resolution_notes: resolutionNotes || inquiry.resolution_notes,
+      resolved_at: now,
+      resolution_time: resolutionTime
+    });
+
+    return this.findById(id);
   }
 }

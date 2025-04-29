@@ -47,6 +47,28 @@ export class CustomerCareInquiry {
 
   @Column({
     type: 'enum',
+    enum: [
+      'ACCOUNT',
+      'PAYMENT',
+      'PRODUCT',
+      'DELIVERY',
+      'REFUND',
+      'TECHNICAL',
+      'OTHER'
+    ],
+    default: 'OTHER'
+  })
+  issue_type:
+    | 'ACCOUNT'
+    | 'PAYMENT'
+    | 'PRODUCT'
+    | 'DELIVERY'
+    | 'REFUND'
+    | 'TECHNICAL'
+    | 'OTHER';
+
+  @Column({
+    type: 'enum',
     enum: ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'ESCALATE'],
     default: 'OPEN'
   })
@@ -58,6 +80,65 @@ export class CustomerCareInquiry {
     default: 'MEDIUM'
   })
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+  @Column({
+    type: 'enum',
+    enum: [
+      'REFUND',
+      'REPLACEMENT',
+      'INVESTIGATING',
+      'ACCOUNT_FIX',
+      'TECHNICAL_SUPPORT',
+      'OTHER'
+    ],
+    nullable: true
+  })
+  resolution_type:
+    | 'REFUND'
+    | 'REPLACEMENT'
+    | 'INVESTIGATING'
+    | 'ACCOUNT_FIX'
+    | 'TECHNICAL_SUPPORT'
+    | 'OTHER';
+
+  @Column({ type: 'json', nullable: true })
+  escalation_history: Array<{
+    customer_care_id: string;
+    reason: string;
+    timestamp: number;
+    escalated_to: 'ADMIN' | 'CUSTOMER_CARE';
+    escalated_to_id: string;
+  }>;
+
+  @Column({ type: 'json', nullable: true })
+  rejection_history: Array<{
+    customer_care_id: string;
+    reason: string;
+    timestamp: number;
+  }>;
+
+  @Column({ type: 'json', nullable: true })
+  transfer_history: Array<{
+    from_customer_care_id: string;
+    to_customer_care_id: string;
+    reason: string;
+    timestamp: number;
+  }>;
+
+  @Column({ type: 'int', default: 0 })
+  escalation_count: number;
+
+  @Column({ type: 'int', default: 0 })
+  rejection_count: number;
+
+  @Column({ type: 'int', default: 0 })
+  transfer_count: number;
+
+  @Column({ type: 'int', default: 0 })
+  response_time: number; // in seconds
+
+  @Column({ type: 'int', default: 0 })
+  resolution_time: number; // in seconds
 
   @ManyToOne(() => Order, { nullable: true })
   @JoinColumn({ name: 'order_id' })
@@ -74,6 +155,12 @@ export class CustomerCareInquiry {
 
   @Column({ nullable: true })
   resolved_at: number;
+
+  @Column({ nullable: true })
+  first_response_at: number;
+
+  @Column({ nullable: true })
+  last_response_at: number;
 
   @BeforeInsert()
   generateId() {

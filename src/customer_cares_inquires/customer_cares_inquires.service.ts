@@ -81,4 +81,109 @@ export class CustomerCareInquiriesService {
       return createResponse('ServerError', null, 'Failed to delete inquiry');
     }
   }
+
+  /**
+   * Escalate an inquiry to another agent or admin
+   */
+  async escalateInquiry(
+    id: string,
+    customerCareId: string,
+    reason: string,
+    escalatedTo: 'ADMIN' | 'CUSTOMER_CARE',
+    escalatedToId: string
+  ) {
+    try {
+      const inquiry = await this.repository.escalateInquiry(
+        id,
+        customerCareId,
+        reason,
+        escalatedTo,
+        escalatedToId
+      );
+      return createResponse('OK', inquiry, 'Inquiry escalated successfully');
+    } catch (error: any) {
+      console.error('Error escalating inquiry:', error);
+      return createResponse('ServerError', null, 'Failed to escalate inquiry');
+    }
+  }
+
+  /**
+   * Reject an inquiry
+   */
+  async rejectInquiry(id: string, customerCareId: string, reason: string) {
+    try {
+      const inquiry = await this.repository.rejectInquiry(
+        id,
+        customerCareId,
+        reason
+      );
+      return createResponse('OK', inquiry, 'Inquiry rejected successfully');
+    } catch (error: any) {
+      console.error('Error rejecting inquiry:', error);
+      return createResponse('ServerError', null, 'Failed to reject inquiry');
+    }
+  }
+
+  /**
+   * Transfer an inquiry to another customer care agent
+   */
+  async transferInquiry(
+    id: string,
+    fromCustomerCareId: string,
+    toCustomerCareId: string,
+    reason: string
+  ) {
+    try {
+      const inquiry = await this.repository.transferInquiry(
+        id,
+        fromCustomerCareId,
+        toCustomerCareId,
+        reason
+      );
+      return createResponse('OK', inquiry, 'Inquiry transferred successfully');
+    } catch (error: any) {
+      console.error('Error transferring inquiry:', error);
+      return createResponse('ServerError', null, 'Failed to transfer inquiry');
+    }
+  }
+
+  /**
+   * Record a response to an inquiry
+   */
+  async recordResponse(id: string) {
+    try {
+      const inquiry = await this.repository.recordResponse(id);
+      return createResponse('OK', inquiry, 'Response recorded successfully');
+    } catch (error: any) {
+      console.error('Error recording response:', error);
+      return createResponse('ServerError', null, 'Failed to record response');
+    }
+  }
+
+  /**
+   * Mark an inquiry as resolved
+   */
+  async resolveInquiry(
+    id: string,
+    resolutionType:
+      | 'REFUND'
+      | 'REPLACEMENT'
+      | 'INVESTIGATING'
+      | 'ACCOUNT_FIX'
+      | 'TECHNICAL_SUPPORT'
+      | 'OTHER',
+    resolutionNotes?: string
+  ) {
+    try {
+      const inquiry = await this.repository.resolveInquiry(
+        id,
+        resolutionType,
+        resolutionNotes
+      );
+      return createResponse('OK', inquiry, 'Inquiry resolved successfully');
+    } catch (error: any) {
+      console.error('Error resolving inquiry:', error);
+      return createResponse('ServerError', null, 'Failed to resolve inquiry');
+    }
+  }
 }

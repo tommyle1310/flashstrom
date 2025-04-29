@@ -67,6 +67,22 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
+        enum: [
+            'ACCOUNT',
+            'PAYMENT',
+            'PRODUCT',
+            'DELIVERY',
+            'REFUND',
+            'TECHNICAL',
+            'OTHER'
+        ],
+        default: 'OTHER'
+    }),
+    __metadata("design:type", String)
+], CustomerCareInquiry.prototype, "issue_type", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: 'enum',
         enum: ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'ESCALATE'],
         default: 'OPEN'
     }),
@@ -80,6 +96,53 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], CustomerCareInquiry.prototype, "priority", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: 'enum',
+        enum: [
+            'REFUND',
+            'REPLACEMENT',
+            'INVESTIGATING',
+            'ACCOUNT_FIX',
+            'TECHNICAL_SUPPORT',
+            'OTHER'
+        ],
+        nullable: true
+    }),
+    __metadata("design:type", String)
+], CustomerCareInquiry.prototype, "resolution_type", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'json', nullable: true }),
+    __metadata("design:type", Array)
+], CustomerCareInquiry.prototype, "escalation_history", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'json', nullable: true }),
+    __metadata("design:type", Array)
+], CustomerCareInquiry.prototype, "rejection_history", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'json', nullable: true }),
+    __metadata("design:type", Array)
+], CustomerCareInquiry.prototype, "transfer_history", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 0 }),
+    __metadata("design:type", Number)
+], CustomerCareInquiry.prototype, "escalation_count", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 0 }),
+    __metadata("design:type", Number)
+], CustomerCareInquiry.prototype, "rejection_count", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 0 }),
+    __metadata("design:type", Number)
+], CustomerCareInquiry.prototype, "transfer_count", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 0 }),
+    __metadata("design:type", Number)
+], CustomerCareInquiry.prototype, "response_time", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 0 }),
+    __metadata("design:type", Number)
+], CustomerCareInquiry.prototype, "resolution_time", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => order_entity_1.Order, { nullable: true }),
     (0, typeorm_1.JoinColumn)({ name: 'order_id' }),
@@ -101,6 +164,14 @@ __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", Number)
 ], CustomerCareInquiry.prototype, "resolved_at", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Number)
+], CustomerCareInquiry.prototype, "first_response_at", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Number)
+], CustomerCareInquiry.prototype, "last_response_at", void 0);
 __decorate([
     (0, typeorm_1.BeforeInsert)(),
     __metadata("design:type", Function),

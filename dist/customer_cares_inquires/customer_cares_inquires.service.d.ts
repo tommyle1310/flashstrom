@@ -10,4 +10,9 @@ export declare class CustomerCareInquiriesService {
     findAllInquiriesByCCId(id: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
     update(id: string, updateDto: UpdateCustomerCareInquiryDto): Promise<import("src/utils/createResponse").ApiResponse<any>>;
     remove(id: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
+    escalateInquiry(id: string, customerCareId: string, reason: string, escalatedTo: 'ADMIN' | 'CUSTOMER_CARE', escalatedToId: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
+    rejectInquiry(id: string, customerCareId: string, reason: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
+    transferInquiry(id: string, fromCustomerCareId: string, toCustomerCareId: string, reason: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
+    recordResponse(id: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
+    resolveInquiry(id: string, resolutionType: 'REFUND' | 'REPLACEMENT' | 'INVESTIGATING' | 'ACCOUNT_FIX' | 'TECHNICAL_SUPPORT' | 'OTHER', resolutionNotes?: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
 }

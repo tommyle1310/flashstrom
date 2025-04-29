@@ -46,4 +46,77 @@ export class CustomerCareInquiriesController {
   remove(@Param('id') id: string) {
     return this.service.remove(id);
   }
+
+  @Post(':id/escalate')
+  escalateInquiry(
+    @Param('id') id: string,
+    @Body()
+    data: {
+      customerCareId: string;
+      reason: string;
+      escalatedTo: 'ADMIN' | 'CUSTOMER_CARE';
+      escalatedToId: string;
+    }
+  ) {
+    return this.service.escalateInquiry(
+      id,
+      data.customerCareId,
+      data.reason,
+      data.escalatedTo,
+      data.escalatedToId
+    );
+  }
+
+  @Post(':id/reject')
+  rejectInquiry(
+    @Param('id') id: string,
+    @Body() data: { customerCareId: string; reason: string }
+  ) {
+    return this.service.rejectInquiry(id, data.customerCareId, data.reason);
+  }
+
+  @Post(':id/transfer')
+  transferInquiry(
+    @Param('id') id: string,
+    @Body()
+    data: {
+      fromCustomerCareId: string;
+      toCustomerCareId: string;
+      reason: string;
+    }
+  ) {
+    return this.service.transferInquiry(
+      id,
+      data.fromCustomerCareId,
+      data.toCustomerCareId,
+      data.reason
+    );
+  }
+
+  @Post(':id/record-response')
+  recordResponse(@Param('id') id: string) {
+    return this.service.recordResponse(id);
+  }
+
+  @Post(':id/resolve')
+  resolveInquiry(
+    @Param('id') id: string,
+    @Body()
+    data: {
+      resolutionType:
+        | 'REFUND'
+        | 'REPLACEMENT'
+        | 'INVESTIGATING'
+        | 'ACCOUNT_FIX'
+        | 'TECHNICAL_SUPPORT'
+        | 'OTHER';
+      resolutionNotes?: string;
+    }
+  ) {
+    return this.service.resolveInquiry(
+      id,
+      data.resolutionType,
+      data.resolutionNotes
+    );
+  }
 }

@@ -28,7 +28,20 @@ __decorate([
 ], UpdateCustomerCareInquiryDto.prototype, "description", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']),
+    (0, class_validator_1.IsEnum)([
+        'ACCOUNT',
+        'PAYMENT',
+        'PRODUCT',
+        'DELIVERY',
+        'REFUND',
+        'TECHNICAL',
+        'OTHER'
+    ]),
+    __metadata("design:type", String)
+], UpdateCustomerCareInquiryDto.prototype, "issue_type", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'ESCALATE']),
     __metadata("design:type", String)
 ], UpdateCustomerCareInquiryDto.prototype, "status", void 0);
 __decorate([
@@ -41,6 +54,18 @@ __decorate([
     (0, class_validator_1.IsEnum)(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
     __metadata("design:type", String)
 ], UpdateCustomerCareInquiryDto.prototype, "priority", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)([
+        'REFUND',
+        'REPLACEMENT',
+        'INVESTIGATING',
+        'ACCOUNT_FIX',
+        'TECHNICAL_SUPPORT',
+        'OTHER'
+    ]),
+    __metadata("design:type", String)
+], UpdateCustomerCareInquiryDto.prototype, "resolution_type", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsNumber)(),
@@ -56,4 +81,54 @@ __decorate([
     (0, class_validator_1.IsEnum)(['ADMIN', 'CUSTOMER_CARE']),
     __metadata("design:type", String)
 ], UpdateCustomerCareInquiryDto.prototype, "assignee_type", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    __metadata("design:type", Array)
+], UpdateCustomerCareInquiryDto.prototype, "escalation_history", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    __metadata("design:type", Array)
+], UpdateCustomerCareInquiryDto.prototype, "rejection_history", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    __metadata("design:type", Array)
+], UpdateCustomerCareInquiryDto.prototype, "transfer_history", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], UpdateCustomerCareInquiryDto.prototype, "escalation_count", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], UpdateCustomerCareInquiryDto.prototype, "rejection_count", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], UpdateCustomerCareInquiryDto.prototype, "transfer_count", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], UpdateCustomerCareInquiryDto.prototype, "response_time", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], UpdateCustomerCareInquiryDto.prototype, "resolution_time", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], UpdateCustomerCareInquiryDto.prototype, "first_response_at", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], UpdateCustomerCareInquiryDto.prototype, "last_response_at", void 0);
 //# sourceMappingURL=update-customer-care-inquiry.dto.js.map

@@ -15,4 +15,9 @@ export declare class CustomerCareInquiriesRepository {
     findAll(): Promise<CustomerCareInquiry[]>;
     findAllInquiriesByCCId(customerCareId: string): Promise<CustomerCareInquiry[]>;
     remove(id: string): Promise<boolean>;
+    escalateInquiry(id: string, customerCareId: string, reason: string, escalatedTo: 'ADMIN' | 'CUSTOMER_CARE', escalatedToId: string): Promise<CustomerCareInquiry>;
+    rejectInquiry(id: string, customerCareId: string, reason: string): Promise<CustomerCareInquiry>;
+    transferInquiry(id: string, fromCustomerCareId: string, toCustomerCareId: string, reason: string): Promise<CustomerCareInquiry>;
+    recordResponse(id: string): Promise<CustomerCareInquiry>;
+    resolveInquiry(id: string, resolutionType: 'REFUND' | 'REPLACEMENT' | 'INVESTIGATING' | 'ACCOUNT_FIX' | 'TECHNICAL_SUPPORT' | 'OTHER', resolutionNotes?: string): Promise<CustomerCareInquiry>;
 }

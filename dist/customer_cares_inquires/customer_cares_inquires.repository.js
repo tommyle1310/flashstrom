@@ -56,7 +56,15 @@ let CustomerCareInquiriesRepository = class CustomerCareInquiriesRepository {
                 assigned_admin_id: createDto.assignee_type === 'ADMIN' ? createDto.assigned_to : null,
                 assigned_customer_care: createDto.assignee_type === 'CUSTOMER_CARE' && assignedCustomerCareId
                     ? { id: assignedCustomerCareId }
-                    : null
+                    : null,
+                escalation_history: createDto.escalation_history || [],
+                rejection_history: createDto.rejection_history || [],
+                transfer_history: createDto.transfer_history || [],
+                escalation_count: 0,
+                rejection_count: 0,
+                transfer_count: 0,
+                first_response_at: null,
+                last_response_at: null
             };
             const inquiry = this.repository.create(inquiryData);
             const savedInquiry = await this.repository.save(inquiry);
@@ -65,18 +73,15 @@ let CustomerCareInquiriesRepository = class CustomerCareInquiriesRepository {
                 where: { id: savedInquiry.id },
                 relations: [
                     'customer',
-                    createDto.assignee_type === 'ADMIN'
-                        ? 'assigned_admin'
-                        : 'assigned_customer_care'
+                    'assigned_admin',
+                    'assigned_customer_care',
+                    'order'
                 ]
             });
-            if (!result) {
-                throw new Error('Failed to load saved inquiry');
-            }
             return result;
         }
         catch (error) {
-            console.error('Repository create error:', error);
+            console.error('Error in create method:', error);
             throw error;
         }
     }
@@ -151,6 +156,106 @@ let CustomerCareInquiriesRepository = class CustomerCareInquiriesRepository {
     async remove(id) {
         const result = await this.repository.delete(id);
         return result.affected > 0;
+    }
+    async escalateInquiry(id, customerCareId, reason, escalatedTo, escalatedToId) {
+        const inquiry = await this.findById(id);
+        if (!inquiry) {
+            throw new Error(`Inquiry with ID ${id} not found`);
+        }
+        const escalationRecord = {
+            customer_care_id: customerCareId,
+            reason,
+            timestamp: Math.floor(Date.now() / 1000),
+            escalated_to: escalatedTo,
+            escalated_to_id: escalatedToId
+        };
+        await this.repository.save({
+            ...inquiry,
+            status: 'ESCALATE',
+            escalation_history: [
+                ...(inquiry.escalation_history || []),
+                escalationRecord
+            ],
+            escalation_count: (inquiry.escalation_count || 0) + 1,
+            assignee_type: escalatedTo,
+            assigned_admin_id: escalatedTo === 'ADMIN' ? escalatedToId : null,
+            assigned_customer_care: escalatedTo === 'CUSTOMER_CARE' ? { id: escalatedToId } : null
+        });
+        return this.findById(id);
+    }
+    async rejectInquiry(id, customerCareId, reason) {
+        const inquiry = await this.findById(id);
+        if (!inquiry) {
+            throw new Error(`Inquiry with ID ${id} not found`);
+        }
+        const rejectionRecord = {
+            customer_care_id: customerCareId,
+            reason,
+            timestamp: Math.floor(Date.now() / 1000)
+        };
+        await this.repository.save({
+            ...inquiry,
+            rejection_history: [
+                ...(inquiry.rejection_history || []),
+                rejectionRecord
+            ],
+            rejection_count: (inquiry.rejection_count || 0) + 1
+        });
+        return this.findById(id);
+    }
+    async transferInquiry(id, fromCustomerCareId, toCustomerCareId, reason) {
+        const inquiry = await this.findById(id);
+        if (!inquiry) {
+            throw new Error(`Inquiry with ID ${id} not found`);
+        }
+        const transferRecord = {
+            from_customer_care_id: fromCustomerCareId,
+            to_customer_care_id: toCustomerCareId,
+            reason,
+            timestamp: Math.floor(Date.now() / 1000)
+        };
+        await this.repository.save({
+            ...inquiry,
+            transfer_history: [...(inquiry.transfer_history || []), transferRecord],
+            transfer_count: (inquiry.transfer_count || 0) + 1,
+            assigned_customer_care: { id: toCustomerCareId }
+        });
+        return this.findById(id);
+    }
+    async recordResponse(id) {
+        const inquiry = await this.findById(id);
+        if (!inquiry) {
+            throw new Error(`Inquiry with ID ${id} not found`);
+        }
+        const now = Math.floor(Date.now() / 1000);
+        let responseTime = inquiry.response_time || 0;
+        if (!inquiry.first_response_at) {
+            responseTime = now - inquiry.created_at;
+        }
+        await this.repository.save({
+            ...inquiry,
+            first_response_at: inquiry.first_response_at || now,
+            last_response_at: now,
+            response_time: responseTime
+        });
+        return this.findById(id);
+    }
+    async resolveInquiry(id, resolutionType, resolutionNotes) {
+        const inquiry = await this.findById(id);
+        if (!inquiry) {
+            throw new Error(`Inquiry with ID ${id} not found`);
+        }
+        const now = Math.floor(Date.now() / 1000);
+        const resolutionTime = now - inquiry.created_at;
+        await this.repository.save({
+            ...inquiry,
+            status: 'RESOLVED',
+            resolution_type: resolutionType,
+            resolution_notes: resolutionNotes || inquiry.resolution_notes,
+            resolved_at: now,
+            resolution_time: resolutionTime
+        });
+        return this.findById(id);
     }
 };
 exports.CustomerCareInquiriesRepository = CustomerCareInquiriesRepository;

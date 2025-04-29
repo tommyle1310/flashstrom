@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsArray } from 'class-validator';
 
 export class CreateCustomerCareInquiryDto {
   @IsString()
@@ -9,6 +9,25 @@ export class CreateCustomerCareInquiryDto {
 
   @IsString()
   description: string;
+
+  @IsEnum([
+    'ACCOUNT',
+    'PAYMENT',
+    'PRODUCT',
+    'DELIVERY',
+    'REFUND',
+    'TECHNICAL',
+    'OTHER'
+  ])
+  @IsOptional()
+  issue_type?:
+    | 'ACCOUNT'
+    | 'PAYMENT'
+    | 'PRODUCT'
+    | 'DELIVERY'
+    | 'REFUND'
+    | 'TECHNICAL'
+    | 'OTHER' = 'OTHER';
 
   @IsEnum(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'ESCALATE'])
   status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'ESCALATE';
@@ -29,7 +48,51 @@ export class CreateCustomerCareInquiryDto {
   @IsOptional()
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
+  @IsEnum([
+    'REFUND',
+    'REPLACEMENT',
+    'INVESTIGATING',
+    'ACCOUNT_FIX',
+    'TECHNICAL_SUPPORT',
+    'OTHER'
+  ])
+  @IsOptional()
+  resolution_type?:
+    | 'REFUND'
+    | 'REPLACEMENT'
+    | 'INVESTIGATING'
+    | 'ACCOUNT_FIX'
+    | 'TECHNICAL_SUPPORT'
+    | 'OTHER';
+
   @IsString()
   @IsOptional()
   resolution_notes?: string;
+
+  @IsArray()
+  @IsOptional()
+  escalation_history?: Array<{
+    customer_care_id: string;
+    reason: string;
+    timestamp: number;
+    escalated_to: 'ADMIN' | 'CUSTOMER_CARE';
+    escalated_to_id: string;
+  }>;
+
+  @IsArray()
+  @IsOptional()
+  rejection_history?: Array<{
+    customer_care_id: string;
+    reason: string;
+    timestamp: number;
+  }>;
+
+  @IsArray()
+  @IsOptional()
+  transfer_history?: Array<{
+    from_customer_care_id: string;
+    to_customer_care_id: string;
+    reason: string;
+    timestamp: number;
+  }>;
 }

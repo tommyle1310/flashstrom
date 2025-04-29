@@ -13,6 +13,7 @@ exports.CreateCustomerCareInquiryDto = void 0;
 const class_validator_1 = require("class-validator");
 class CreateCustomerCareInquiryDto {
     constructor() {
+        this.issue_type = 'OTHER';
         this.assignee_type = 'CUSTOMER_CARE';
     }
 }
@@ -29,6 +30,19 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateCustomerCareInquiryDto.prototype, "description", void 0);
+__decorate([
+    (0, class_validator_1.IsEnum)([
+        'ACCOUNT',
+        'PAYMENT',
+        'PRODUCT',
+        'DELIVERY',
+        'REFUND',
+        'TECHNICAL',
+        'OTHER'
+    ]),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateCustomerCareInquiryDto.prototype, "issue_type", void 0);
 __decorate([
     (0, class_validator_1.IsEnum)(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'ESCALATE']),
     __metadata("design:type", String)
@@ -54,8 +68,35 @@ __decorate([
     __metadata("design:type", String)
 ], CreateCustomerCareInquiryDto.prototype, "priority", void 0);
 __decorate([
+    (0, class_validator_1.IsEnum)([
+        'REFUND',
+        'REPLACEMENT',
+        'INVESTIGATING',
+        'ACCOUNT_FIX',
+        'TECHNICAL_SUPPORT',
+        'OTHER'
+    ]),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateCustomerCareInquiryDto.prototype, "resolution_type", void 0);
+__decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateCustomerCareInquiryDto.prototype, "resolution_notes", void 0);
+__decorate([
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Array)
+], CreateCustomerCareInquiryDto.prototype, "escalation_history", void 0);
+__decorate([
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Array)
+], CreateCustomerCareInquiryDto.prototype, "rejection_history", void 0);
+__decorate([
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Array)
+], CreateCustomerCareInquiryDto.prototype, "transfer_history", void 0);
 //# sourceMappingURL=create-customer-care-inquiry.dto.js.map
