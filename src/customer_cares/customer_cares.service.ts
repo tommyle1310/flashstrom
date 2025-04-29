@@ -100,12 +100,21 @@ export class CustomerCareService {
     }
   }
 
-  async findAllInquiriesByCCId(id: string): Promise<ApiResponse<any>> {
+  async findAllInquiriesByCCId(
+    id: string,
+    forceRefresh = false
+  ): Promise<ApiResponse<any>> {
     const cacheKey = `inquiries:customer_care:${id}`;
     const ttl = 300; // Cache 5 minutes (300 seconds)
     const start = Date.now();
 
     try {
+      // Nếu forceRefresh = true, xóa cache trước
+      if (forceRefresh) {
+        await this.redisService.del(cacheKey);
+        logger.log(`Forced cache refresh for ${cacheKey}`);
+      }
+
       // 1. Check cache
       const cacheStart = Date.now();
       const cachedData = await this.redisService.get(cacheKey);
@@ -139,7 +148,7 @@ export class CustomerCareService {
         `Customer care fetch took ${Date.now() - customerCareStart}ms`
       );
 
-      // 3. Fetch inquiries with optimized fields
+      // 3. Fetch inquiries với fields tối ưu
       const inquiriesStart = Date.now();
       const inquiries = await this.dataSource
         .getRepository(CustomerCareInquiry)
@@ -161,7 +170,8 @@ export class CustomerCareService {
             customer: {
               id: true,
               first_name: true,
-              last_name: true
+              last_name: true,
+              avatar: true // Đảm bảo lấy avatar
             },
             order: {
               id: true,
@@ -192,7 +202,8 @@ export class CustomerCareService {
           ? {
               id: inquiry.customer.id,
               first_name: inquiry.customer.first_name,
-              last_name: inquiry.customer.last_name
+              last_name: inquiry.customer.last_name,
+              avatar: inquiry.customer.avatar // Đảm bảo include avatar
             }
           : null,
         order: inquiry.order
@@ -424,5 +435,23 @@ export class CustomerCareService {
       record,
       'Customer care avatar updated successfully'
     );
+  }
+
+  async resetInquiriesCache(): Promise<ApiResponse<any>> {
+    try {
+      // Xóa các key liên quan đến inquiries
+      await this.redisService.deleteByPattern('inquiries:customer_care:*');
+      return createResponse('OK', null, 'Inquiries cache reset successfully');
+    } catch (error: any) {
+      logger.error(
+        `Error resetting inquiries cache: ${error.message}`,
+        error.stack
+      );
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while resetting inquiries cache'
+      );
+    }
   }
 }

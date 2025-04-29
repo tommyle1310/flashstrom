@@ -21,6 +21,9 @@ let CustomerCareController = class CustomerCareController {
     constructor(customerCareService) {
         this.customerCareService = customerCareService;
     }
+    resetInquiriesCache() {
+        return this.customerCareService.resetInquiriesCache();
+    }
     create(createCustomerCareDto) {
         return this.customerCareService.create(createCustomerCareDto);
     }
@@ -47,6 +50,12 @@ let CustomerCareController = class CustomerCareController {
     }
 };
 exports.CustomerCareController = CustomerCareController;
+__decorate([
+    (0, common_1.Post)('reset-inquiries-cache'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], CustomerCareController.prototype, "resetInquiriesCache", null);
 __decorate([
     (0, common_1.Post)(),
     __param(0, (0, common_1.Body)()),

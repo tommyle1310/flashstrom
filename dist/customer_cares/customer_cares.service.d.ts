@@ -13,7 +13,7 @@ export declare class CustomerCareService {
     constructor(repository: CustomerCaresRepository, inquiryRepository: CustomerCareInquiriesRepository, redisService: RedisService, dataSource: DataSource);
     create(createCustomerCareDto: CreateCustomerCareDto): Promise<any>;
     findAll(): Promise<any>;
-    findAllInquiriesByCCId(id: string): Promise<ApiResponse<any>>;
+    findAllInquiriesByCCId(id: string, forceRefresh?: boolean): Promise<ApiResponse<any>>;
     findCustomerCareById(id: string): Promise<any>;
     findOne(conditions: object): Promise<any>;
     update(id: string, updateCustomerCareDto: UpdateCustomerCareDto): Promise<any>;
@@ -23,4 +23,5 @@ export declare class CustomerCareService {
         url: string;
         public_id: string;
     }, entityId: string): Promise<ApiResponse<any>>;
+    resetInquiriesCache(): Promise<ApiResponse<any>>;
 }

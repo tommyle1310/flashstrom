@@ -15,6 +15,11 @@ import { UpdateCustomerCareDto } from './dto/update-customer_cares.dto'; // Corr
 export class CustomerCareController {
   constructor(private readonly customerCareService: CustomerCareService) {} // Corrected service to CustomerCareService
 
+  @Post('reset-inquiries-cache')
+  resetInquiriesCache() {
+    return this.customerCareService.resetInquiriesCache(); // Corrected service method to use customerCareService
+  }
+
   @Post()
   create(@Body() createCustomerCareDto: CreateCustomerCareDto) {
     return this.customerCareService.create(createCustomerCareDto); // Corrected service method to use customerCareService

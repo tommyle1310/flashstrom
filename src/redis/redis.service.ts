@@ -1,3 +1,4 @@
+// redis.service.ts
 import { Injectable } from '@nestjs/common';
 import { createClient } from 'redis';
 
@@ -69,6 +70,35 @@ export class RedisService {
       await this.client.del(key);
     } catch (err) {
       console.error('[RedisService] del error:', err);
+    }
+  }
+
+  // Thêm phương thức để reset toàn bộ cache
+  async flushAll(): Promise<void> {
+    try {
+      await this.connect();
+      await this.client.flushAll();
+      console.log('[RedisService] Flushed all Redis cache');
+    } catch (err) {
+      console.error('[RedisService] flushAll error:', err);
+    }
+  }
+
+  // Thêm phương thức để xóa các key theo pattern
+  async deleteByPattern(pattern: string): Promise<void> {
+    try {
+      await this.connect();
+      const keys = await this.client.keys(pattern);
+      if (keys.length > 0) {
+        await this.client.del(keys);
+        console.log(
+          `[RedisService] Deleted ${keys.length} keys matching pattern: ${pattern}`
+        );
+      } else {
+        console.log(`[RedisService] No keys found for pattern: ${pattern}`);
+      }
+    } catch (err) {
+      console.error('[RedisService] deleteByPattern error:', err);
     }
   }
 

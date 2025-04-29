@@ -74,6 +74,32 @@ let RedisService = class RedisService {
             console.error('[RedisService] del error:', err);
         }
     }
+    async flushAll() {
+        try {
+            await this.connect();
+            await this.client.flushAll();
+            console.log('[RedisService] Flushed all Redis cache');
+        }
+        catch (err) {
+            console.error('[RedisService] flushAll error:', err);
+        }
+    }
+    async deleteByPattern(pattern) {
+        try {
+            await this.connect();
+            const keys = await this.client.keys(pattern);
+            if (keys.length > 0) {
+                await this.client.del(keys);
+                console.log(`[RedisService] Deleted ${keys.length} keys matching pattern: ${pattern}`);
+            }
+            else {
+                console.log(`[RedisService] No keys found for pattern: ${pattern}`);
+            }
+        }
+        catch (err) {
+            console.error('[RedisService] deleteByPattern error:', err);
+        }
+    }
     async quit() {
         if (this.client.isOpen) {
             await this.client.quit();

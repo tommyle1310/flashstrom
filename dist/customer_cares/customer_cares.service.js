@@ -101,11 +101,15 @@ let CustomerCareService = class CustomerCareService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching customer care records');
         }
     }
-    async findAllInquiriesByCCId(id) {
+    async findAllInquiriesByCCId(id, forceRefresh = false) {
         const cacheKey = `inquiries:customer_care:${id}`;
         const ttl = 300;
         const start = Date.now();
         try {
+            if (forceRefresh) {
+                await this.redisService.del(cacheKey);
+                logger.log(`Forced cache refresh for ${cacheKey}`);
+            }
             const cacheStart = Date.now();
             const cachedData = await this.redisService.get(cacheKey);
             if (cachedData) {
@@ -142,7 +146,8 @@ let CustomerCareService = class CustomerCareService {
                     customer: {
                         id: true,
                         first_name: true,
-                        last_name: true
+                        last_name: true,
+                        avatar: true
                     },
                     order: {
                         id: true,
@@ -166,7 +171,8 @@ let CustomerCareService = class CustomerCareService {
                     ? {
                         id: inquiry.customer.id,
                         first_name: inquiry.customer.first_name,
-                        last_name: inquiry.customer.last_name
+                        last_name: inquiry.customer.last_name,
+                        avatar: inquiry.customer.avatar
                     }
                     : null,
                 order: inquiry.order
@@ -293,6 +299,16 @@ let CustomerCareService = class CustomerCareService {
             return (0, createResponse_1.createResponse)('NotFound', null, 'Customer care record not found');
         }
         return (0, createResponse_1.createResponse)('OK', record, 'Customer care avatar updated successfully');
+    }
+    async resetInquiriesCache() {
+        try {
+            await this.redisService.deleteByPattern('inquiries:customer_care:*');
+            return (0, createResponse_1.createResponse)('OK', null, 'Inquiries cache reset successfully');
+        }
+        catch (error) {
+            logger.error(`Error resetting inquiries cache: ${error.message}`, error.stack);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while resetting inquiries cache');
+        }
     }
 };
 exports.CustomerCareService = CustomerCareService;

@@ -4,6 +4,7 @@ import { UpdateCustomerCareDto } from './dto/update-customer_cares.dto';
 export declare class CustomerCareController {
     private readonly customerCareService;
     constructor(customerCareService: CustomerCareService);
+    resetInquiriesCache(): Promise<import("../utils/createResponse").ApiResponse<any>>;
     create(createCustomerCareDto: CreateCustomerCareDto): Promise<any>;
     findAll(): Promise<any>;
     findAllInquiriesByCCId(ccId: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
