@@ -1,10 +1,43 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
@@ -13,9 +46,24 @@ exports.CustomerCareService = void 0;
 const common_1 = require("@nestjs/common");
 const createResponse_1 = require("../utils/createResponse");
 const customer_cares_repository_1 = require("./customer_cares.repository");
+const customer_cares_inquires_repository_1 = require("../customer_cares_inquires/customer_cares_inquires.repository");
+const redis_1 = require("redis");
+const dotenv = __importStar(require("dotenv"));
+const redis_service_1 = require("../redis/redis.service");
+const typeorm_1 = require("typeorm");
+const customer_care_inquiry_entity_1 = require("../customer_cares_inquires/entities/customer_care_inquiry.entity");
+dotenv.config();
+const redis = (0, redis_1.createClient)({
+    url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redis.connect().catch(err => logger.error('Redis connection error:', err));
+const logger = new common_1.Logger('CustomersService');
 let CustomerCareService = class CustomerCareService {
-    constructor(repository) {
+    constructor(repository, inquiryRepository, redisService, dataSource) {
         this.repository = repository;
+        this.inquiryRepository = inquiryRepository;
+        this.redisService = redisService;
+        this.dataSource = dataSource;
     }
     async create(createCustomerCareDto) {
         const { user_id, first_name, last_name, contact_email, contact_phone, created_at, updated_at, avatar, last_login } = createCustomerCareDto;
@@ -51,6 +99,100 @@ let CustomerCareService = class CustomerCareService {
         catch (error) {
             console.log('error', error);
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching customer care records');
+        }
+    }
+    async findAllInquiriesByCCId(id) {
+        const cacheKey = `inquiries:customer_care:${id}`;
+        const ttl = 300;
+        const start = Date.now();
+        try {
+            const cacheStart = Date.now();
+            const cachedData = await this.redisService.get(cacheKey);
+            if (cachedData) {
+                logger.log(`Fetched inquiries from cache in ${Date.now() - cacheStart}ms`);
+                logger.log(`Total time (cache): ${Date.now() - start}ms`);
+                return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedData), 'Fetched inquiries from cache successfully');
+            }
+            logger.log(`Cache miss for ${cacheKey}`);
+            const customerCareStart = Date.now();
+            const customerCare = await this.repository.findById(id);
+            if (!customerCare) {
+                logger.log(`Customer care fetch took ${Date.now() - customerCareStart}ms`);
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Customer care record not found');
+            }
+            logger.log(`Customer care fetch took ${Date.now() - customerCareStart}ms`);
+            const inquiriesStart = Date.now();
+            const inquiries = await this.dataSource
+                .getRepository(customer_care_inquiry_entity_1.CustomerCareInquiry)
+                .find({
+                where: { assigned_customer_care: { id } },
+                relations: ['customer', 'order'],
+                select: {
+                    id: true,
+                    customer_id: true,
+                    assignee_type: true,
+                    subject: true,
+                    description: true,
+                    status: true,
+                    priority: true,
+                    resolution_notes: true,
+                    created_at: true,
+                    updated_at: true,
+                    resolved_at: true,
+                    customer: {
+                        id: true,
+                        first_name: true,
+                        last_name: true
+                    },
+                    order: {
+                        id: true,
+                        total_amount: true,
+                        status: true,
+                        order_time: true
+                    }
+                }
+            });
+            logger.log(`Inquiries fetch took ${Date.now() - inquiriesStart}ms`);
+            if (!inquiries || inquiries.length === 0) {
+                const response = (0, createResponse_1.createResponse)('OK', [], 'No inquiries found for this customer care');
+                await this.redisService.setNx(cacheKey, JSON.stringify([]), ttl * 1000);
+                logger.log(`Stored empty inquiries in cache: ${cacheKey}`);
+                return response;
+            }
+            const processingStart = Date.now();
+            const populatedInquiries = inquiries.map(inquiry => ({
+                ...inquiry,
+                customer: inquiry.customer
+                    ? {
+                        id: inquiry.customer.id,
+                        first_name: inquiry.customer.first_name,
+                        last_name: inquiry.customer.last_name
+                    }
+                    : null,
+                order: inquiry.order
+                    ? {
+                        id: inquiry.order.id,
+                        total_amount: inquiry.order.total_amount,
+                        status: inquiry.order.status,
+                        order_time: inquiry.order.order_time
+                    }
+                    : null
+            }));
+            logger.log(`Inquiries processing took ${Date.now() - processingStart}ms`);
+            const cacheSaveStart = Date.now();
+            const cacheSaved = await this.redisService.setNx(cacheKey, JSON.stringify(populatedInquiries), ttl * 1000);
+            if (cacheSaved) {
+                logger.log(`Stored inquiries in cache: ${cacheKey} (took ${Date.now() - cacheSaveStart}ms)`);
+            }
+            else {
+                logger.warn(`Failed to store inquiries in cache: ${cacheKey}`);
+            }
+            logger.log(`Total DB fetch and processing took ${Date.now() - start}ms`);
+            return (0, createResponse_1.createResponse)('OK', populatedInquiries, 'Fetched inquiries successfully');
+        }
+        catch (error) {
+            logger.error(`Error fetching inquiries: ${error.message}`, error.stack);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching inquiries');
         }
     }
     async findCustomerCareById(id) {
@@ -156,6 +298,9 @@ let CustomerCareService = class CustomerCareService {
 exports.CustomerCareService = CustomerCareService;
 exports.CustomerCareService = CustomerCareService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [customer_cares_repository_1.CustomerCaresRepository])
+    __metadata("design:paramtypes", [customer_cares_repository_1.CustomerCaresRepository,
+        customer_cares_inquires_repository_1.CustomerCareInquiriesRepository,
+        redis_service_1.RedisService,
+        typeorm_1.DataSource])
 ], CustomerCareService);
 //# sourceMappingURL=customer_cares.service.js.map

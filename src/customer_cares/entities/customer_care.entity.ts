@@ -73,6 +73,12 @@ export class CustomerCare {
   @Column({ default: false })
   is_assigned: boolean;
 
+  @Column({ default: 0 }) // Điểm tích lũy cho lương/bonus
+  active_point: number;
+
+  @Column({ default: 0 }) // Số inquiry đang xử lý
+  active_workload: number;
+
   @ManyToMany(() => Admin, admin => admin.assigned_customer_care)
   admins: Admin[];
 
@@ -82,5 +88,7 @@ export class CustomerCare {
     const now = Math.floor(Date.now() / 1000);
     this.created_at = now;
     this.updated_at = now;
+    this.active_point = 0;
+    this.active_workload = 0;
   }
 }

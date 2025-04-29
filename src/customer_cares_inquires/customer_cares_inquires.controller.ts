@@ -25,6 +25,10 @@ export class CustomerCareInquiriesController {
     return this.service.findAll();
   }
 
+  @Get('customer-care/:ccId')
+  findAllInquiriesByCCId(@Param('ccId') ccId: string) {
+    return this.service.findAllInquiriesByCCId(ccId);
+  }
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.service.findById(id);

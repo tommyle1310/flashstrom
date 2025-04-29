@@ -113,6 +113,8 @@ const finance_rule_entity_1 = require("../../finance_rules/entities/finance_rule
 const orders_service_1 = require("../../orders/orders.service");
 const drivers_gateway_1 = require("../../drivers/drivers.gateway");
 const driver_progress_stages_service_1 = require("../../driver_progress_stages/driver_progress_stages.service");
+const customer_care_inquiry_entity_1 = require("../../customer_cares_inquires/entities/customer_care_inquiry.entity");
+const customer_cares_inquires_repository_1 = require("../../customer_cares_inquires/customer_cares_inquires.repository");
 let CompanionAdminModule = class CompanionAdminModule {
 };
 exports.CompanionAdminModule = CompanionAdminModule;
@@ -125,6 +127,7 @@ exports.CompanionAdminModule = CompanionAdminModule = __decorate([
                 customer_entity_1.Customer,
                 customer_care_entity_1.CustomerCare,
                 food_category_entity_1.FoodCategory,
+                customer_care_inquiry_entity_1.CustomerCareInquiry,
                 menu_item_entity_1.MenuItem,
                 finance_rule_entity_1.FinanceRule,
                 menu_item_variant_entity_1.MenuItemVariant,
@@ -169,6 +172,7 @@ exports.CompanionAdminModule = CompanionAdminModule = __decorate([
                 }
             },
             auth_service_1.AuthService,
+            customer_cares_inquires_repository_1.CustomerCareInquiriesRepository,
             admin_service_1.AdminService,
             restaurants_service_1.RestaurantsService,
             customer_cares_service_1.CustomerCareService,

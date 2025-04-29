@@ -25,6 +25,10 @@ export class CustomerCareController {
     return this.customerCareService.findAll(); // Corrected service method to use customerCareService
   }
 
+  @Get('inquiries/:ccId')
+  findAllInquiriesByCCId(@Param('ccId') ccId: string) {
+    return this.customerCareService.findAllInquiriesByCCId(ccId);
+  }
   @Get(':id')
   findCustomerCareById(@Param('id') id: string) {
     return this.customerCareService.findCustomerCareById(id); // Corrected service method to use customerCareService

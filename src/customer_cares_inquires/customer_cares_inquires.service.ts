@@ -41,6 +41,19 @@ export class CustomerCareInquiriesService {
     }
   }
 
+  async findAllInquiriesByCCId(id: string) {
+    try {
+      const inquiry = await this.repository.findAllInquiriesByCCId(id);
+      if (!inquiry) {
+        return createResponse('NotFound', null, 'Inquiry not found');
+      }
+      return createResponse('OK', inquiry, 'Inquiry fetched successfully');
+    } catch (error: any) {
+      console.error('Error fetching inquiry:', error);
+      return createResponse('ServerError', null, 'Failed to fetch inquiry');
+    }
+  }
+
   async update(id: string, updateDto: UpdateCustomerCareInquiryDto) {
     try {
       const inquiry = await this.repository.findById(id);

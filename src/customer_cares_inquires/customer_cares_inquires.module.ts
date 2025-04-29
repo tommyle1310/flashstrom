@@ -4,9 +4,13 @@ import { CustomerCareInquiriesService } from './customer_cares_inquires.service'
 import { CustomerCareInquiriesController } from './customer_cares_inquires.controller';
 import { CustomerCareInquiry } from './entities/customer_care_inquiry.entity';
 import { CustomerCareInquiriesRepository } from './customer_cares_inquires.repository';
+import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
+import { Order } from 'src/orders/entities/order.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CustomerCareInquiry])],
+  imports: [
+    TypeOrmModule.forFeature([CustomerCareInquiry, CustomerCare, Order])
+  ],
   controllers: [CustomerCareInquiriesController],
   providers: [CustomerCareInquiriesService, CustomerCareInquiriesRepository],
   exports: [CustomerCareInquiriesService, CustomerCareInquiriesRepository]

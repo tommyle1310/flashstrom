@@ -21,6 +21,8 @@ let CustomerCare = class CustomerCare {
         const now = Math.floor(Date.now() / 1000);
         this.created_at = now;
         this.updated_at = now;
+        this.active_point = 0;
+        this.active_workload = 0;
     }
 };
 exports.CustomerCare = CustomerCare;
@@ -81,6 +83,14 @@ __decorate([
     (0, typeorm_1.Column)({ default: false }),
     __metadata("design:type", Boolean)
 ], CustomerCare.prototype, "is_assigned", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: 0 }),
+    __metadata("design:type", Number)
+], CustomerCare.prototype, "active_point", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: 0 }),
+    __metadata("design:type", Number)
+], CustomerCare.prototype, "active_workload", void 0);
 __decorate([
     (0, typeorm_1.ManyToMany)(() => admin_entity_1.Admin, admin => admin.assigned_customer_care),
     __metadata("design:type", Array)

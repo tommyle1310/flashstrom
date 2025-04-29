@@ -72,6 +72,8 @@ import { FinanceRule } from 'src/finance_rules/entities/finance_rule.entity';
 import { OrdersService } from 'src/orders/orders.service';
 import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
+import { CustomerCareInquiry } from 'src/customer_cares_inquires/entities/customer_care_inquiry.entity';
+import { CustomerCareInquiriesRepository } from 'src/customer_cares_inquires/customer_cares_inquires.repository';
 
 @Module({
   imports: [
@@ -81,6 +83,8 @@ import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_p
       Customer,
       CustomerCare,
       FoodCategory,
+      CustomerCareInquiry,
+
       MenuItem,
       FinanceRule,
       MenuItemVariant,
@@ -125,6 +129,7 @@ import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_p
       }
     },
     AuthService,
+    CustomerCareInquiriesRepository,
     AdminService,
     RestaurantsService,
     CustomerCareService,

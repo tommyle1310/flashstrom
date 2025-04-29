@@ -13,14 +13,33 @@ const customer_cares_service_1 = require("./customer_cares.service");
 const customer_cares_controller_1 = require("./customer_cares.controller");
 const customer_care_entity_1 = require("./entities/customer_care.entity");
 const customer_cares_repository_1 = require("./customer_cares.repository");
+const customer_cares_inquires_repository_1 = require("../customer_cares_inquires/customer_cares_inquires.repository");
+const customer_care_inquiry_entity_1 = require("../customer_cares_inquires/entities/customer_care_inquiry.entity");
+const order_entity_1 = require("../orders/entities/order.entity");
+const orders_repository_1 = require("../orders/orders.repository");
+const promotion_entity_1 = require("../promotions/entities/promotion.entity");
+const redis_service_1 = require("../redis/redis.service");
 let CustomerCaresModule = class CustomerCaresModule {
 };
 exports.CustomerCaresModule = CustomerCaresModule;
 exports.CustomerCaresModule = CustomerCaresModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([customer_care_entity_1.CustomerCare])],
+        imports: [
+            typeorm_1.TypeOrmModule.forFeature([
+                customer_care_entity_1.CustomerCare,
+                customer_care_inquiry_entity_1.CustomerCareInquiry,
+                order_entity_1.Order,
+                promotion_entity_1.Promotion
+            ])
+        ],
         controllers: [customer_cares_controller_1.CustomerCareController],
-        providers: [customer_cares_service_1.CustomerCareService, customer_cares_repository_1.CustomerCaresRepository],
+        providers: [
+            redis_service_1.RedisService,
+            customer_cares_service_1.CustomerCareService,
+            customer_cares_repository_1.CustomerCaresRepository,
+            orders_repository_1.OrdersRepository,
+            customer_cares_inquires_repository_1.CustomerCareInquiriesRepository
+        ],
         exports: [customer_cares_service_1.CustomerCareService, customer_cares_repository_1.CustomerCaresRepository]
     })
 ], CustomerCaresModule);

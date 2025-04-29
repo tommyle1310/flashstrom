@@ -7,6 +7,7 @@ export declare class CustomerCareInquiriesService {
     create(createDto: CreateCustomerCareInquiryDto): Promise<import("src/utils/createResponse").ApiResponse<any>>;
     findAll(): Promise<import("src/utils/createResponse").ApiResponse<any>>;
     findById(id: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
+    findAllInquiriesByCCId(id: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
     update(id: string, updateDto: UpdateCustomerCareInquiryDto): Promise<import("src/utils/createResponse").ApiResponse<any>>;
     remove(id: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
 }

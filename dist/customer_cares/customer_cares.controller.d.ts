@@ -6,6 +6,7 @@ export declare class CustomerCareController {
     constructor(customerCareService: CustomerCareService);
     create(createCustomerCareDto: CreateCustomerCareDto): Promise<any>;
     findAll(): Promise<any>;
+    findAllInquiriesByCCId(ccId: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findCustomerCareById(id: string): Promise<any>;
     findOne(field: string, value: string): Promise<any>;
     update(id: string, updateCustomerCareDto: UpdateCustomerCareDto): Promise<any>;

@@ -50,6 +50,19 @@ let CustomerCareInquiriesService = class CustomerCareInquiriesService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to fetch inquiry');
         }
     }
+    async findAllInquiriesByCCId(id) {
+        try {
+            const inquiry = await this.repository.findAllInquiriesByCCId(id);
+            if (!inquiry) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Inquiry not found');
+            }
+            return (0, createResponse_1.createResponse)('OK', inquiry, 'Inquiry fetched successfully');
+        }
+        catch (error) {
+            console.error('Error fetching inquiry:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to fetch inquiry');
+        }
+    }
     async update(id, updateDto) {
         try {
             const inquiry = await this.repository.findById(id);

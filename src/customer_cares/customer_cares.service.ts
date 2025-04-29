@@ -1,13 +1,33 @@
 // customer-care.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CreateCustomerCareDto } from './dto/create-customer_cares.dto';
 import { UpdateCustomerCareDto } from './dto/update-customer_cares.dto';
-import { createResponse } from 'src/utils/createResponse';
+import { ApiResponse, createResponse } from 'src/utils/createResponse';
 import { CustomerCaresRepository } from './customer_cares.repository';
+import { CustomerCareInquiriesRepository } from 'src/customer_cares_inquires/customer_cares_inquires.repository';
+import { createClient } from 'redis';
+import * as dotenv from 'dotenv';
+import { RedisService } from 'src/redis/redis.service';
+import { DataSource } from 'typeorm';
+import { CustomerCareInquiry } from 'src/customer_cares_inquires/entities/customer_care_inquiry.entity';
+
+dotenv.config();
+
+const redis = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redis.connect().catch(err => logger.error('Redis connection error:', err));
+
+const logger = new Logger('CustomersService');
 
 @Injectable()
 export class CustomerCareService {
-  constructor(private readonly repository: CustomerCaresRepository) {}
+  constructor(
+    private readonly repository: CustomerCaresRepository,
+    private readonly inquiryRepository: CustomerCareInquiriesRepository,
+    private readonly redisService: RedisService,
+    private readonly dataSource: DataSource
+  ) {}
 
   // Create a new customer care record
   async create(createCustomerCareDto: CreateCustomerCareDto): Promise<any> {
@@ -76,6 +96,143 @@ export class CustomerCareService {
         'ServerError',
         null,
         'An error occurred while fetching customer care records'
+      );
+    }
+  }
+
+  async findAllInquiriesByCCId(id: string): Promise<ApiResponse<any>> {
+    const cacheKey = `inquiries:customer_care:${id}`;
+    const ttl = 300; // Cache 5 minutes (300 seconds)
+    const start = Date.now();
+
+    try {
+      // 1. Check cache
+      const cacheStart = Date.now();
+      const cachedData = await this.redisService.get(cacheKey);
+      if (cachedData) {
+        logger.log(
+          `Fetched inquiries from cache in ${Date.now() - cacheStart}ms`
+        );
+        logger.log(`Total time (cache): ${Date.now() - start}ms`);
+        return createResponse(
+          'OK',
+          JSON.parse(cachedData),
+          'Fetched inquiries from cache successfully'
+        );
+      }
+      logger.log(`Cache miss for ${cacheKey}`);
+
+      // 2. Check customer care record
+      const customerCareStart = Date.now();
+      const customerCare = await this.repository.findById(id);
+      if (!customerCare) {
+        logger.log(
+          `Customer care fetch took ${Date.now() - customerCareStart}ms`
+        );
+        return createResponse(
+          'NotFound',
+          null,
+          'Customer care record not found'
+        );
+      }
+      logger.log(
+        `Customer care fetch took ${Date.now() - customerCareStart}ms`
+      );
+
+      // 3. Fetch inquiries with optimized fields
+      const inquiriesStart = Date.now();
+      const inquiries = await this.dataSource
+        .getRepository(CustomerCareInquiry)
+        .find({
+          where: { assigned_customer_care: { id } },
+          relations: ['customer', 'order'],
+          select: {
+            id: true,
+            customer_id: true,
+            assignee_type: true,
+            subject: true,
+            description: true,
+            status: true,
+            priority: true,
+            resolution_notes: true,
+            created_at: true,
+            updated_at: true,
+            resolved_at: true,
+            customer: {
+              id: true,
+              first_name: true,
+              last_name: true
+            },
+            order: {
+              id: true,
+              total_amount: true,
+              status: true,
+              order_time: true
+            }
+          }
+        });
+      logger.log(`Inquiries fetch took ${Date.now() - inquiriesStart}ms`);
+
+      if (!inquiries || inquiries.length === 0) {
+        const response = createResponse(
+          'OK',
+          [],
+          'No inquiries found for this customer care'
+        );
+        await this.redisService.setNx(cacheKey, JSON.stringify([]), ttl * 1000);
+        logger.log(`Stored empty inquiries in cache: ${cacheKey}`);
+        return response;
+      }
+
+      // 4. Populate inquiries
+      const processingStart = Date.now();
+      const populatedInquiries = inquiries.map(inquiry => ({
+        ...inquiry,
+        customer: inquiry.customer
+          ? {
+              id: inquiry.customer.id,
+              first_name: inquiry.customer.first_name,
+              last_name: inquiry.customer.last_name
+            }
+          : null,
+        order: inquiry.order
+          ? {
+              id: inquiry.order.id,
+              total_amount: inquiry.order.total_amount,
+              status: inquiry.order.status,
+              order_time: inquiry.order.order_time
+            }
+          : null
+      }));
+      logger.log(`Inquiries processing took ${Date.now() - processingStart}ms`);
+
+      // 5. Save to cache
+      const cacheSaveStart = Date.now();
+      const cacheSaved = await this.redisService.setNx(
+        cacheKey,
+        JSON.stringify(populatedInquiries),
+        ttl * 1000
+      );
+      if (cacheSaved) {
+        logger.log(
+          `Stored inquiries in cache: ${cacheKey} (took ${Date.now() - cacheSaveStart}ms)`
+        );
+      } else {
+        logger.warn(`Failed to store inquiries in cache: ${cacheKey}`);
+      }
+
+      logger.log(`Total DB fetch and processing took ${Date.now() - start}ms`);
+      return createResponse(
+        'OK',
+        populatedInquiries,
+        'Fetched inquiries successfully'
+      );
+    } catch (error: any) {
+      logger.error(`Error fetching inquiries: ${error.message}`, error.stack);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while fetching inquiries'
       );
     }
   }

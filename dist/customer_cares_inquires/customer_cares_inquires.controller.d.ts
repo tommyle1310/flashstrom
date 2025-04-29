@@ -6,6 +6,7 @@ export declare class CustomerCareInquiriesController {
     constructor(service: CustomerCareInquiriesService);
     create(createDto: CreateCustomerCareInquiryDto): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findAll(): Promise<import("../utils/createResponse").ApiResponse<any>>;
+    findAllInquiriesByCCId(ccId: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findOne(id: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
     update(id: string, updateDto: UpdateCustomerCareInquiryDto): Promise<import("../utils/createResponse").ApiResponse<any>>;
     remove(id: string): Promise<import("../utils/createResponse").ApiResponse<any>>;

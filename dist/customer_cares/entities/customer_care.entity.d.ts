@@ -26,6 +26,8 @@ export declare class CustomerCare {
     };
     available_for_work: boolean;
     is_assigned: boolean;
+    active_point: number;
+    active_workload: number;
     admins: Admin[];
     generateId(): void;
 }
