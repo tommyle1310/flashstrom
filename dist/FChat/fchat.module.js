@@ -21,6 +21,7 @@ const customer_entity_1 = require("../customers/entities/customer.entity");
 const driver_entity_1 = require("../drivers/entities/driver.entity");
 const restaurant_entity_1 = require("../restaurants/entities/restaurant.entity");
 const customer_care_entity_1 = require("../customer_cares/entities/customer_care.entity");
+const redis_service_1 = require("../redis/redis.service");
 let FchatModule = class FchatModule {
 };
 exports.FchatModule = FchatModule;
@@ -42,6 +43,7 @@ exports.FchatModule = FchatModule = __decorate([
             fchat_service_1.FchatService,
             jwt_1.JwtService,
             users_service_1.UsersService,
+            redis_service_1.RedisService,
             users_repository_1.UserRepository
         ],
         exports: [fchat_service_1.FchatService]

@@ -16,7 +16,7 @@ let RedisService = class RedisService {
     constructor() {
         this.isConnecting = false;
         this.client = (0, redis_1.createClient)({
-            url: process.env.REDIS_URL,
+            url: process.env.REDIS_URL || 'redis://localhost:6379',
             socket: {
                 reconnectStrategy: retries => Math.min(retries * 200, 5000),
                 connectTimeout: 15000
@@ -36,6 +36,10 @@ let RedisService = class RedisService {
             try {
                 await this.client.connect();
             }
+            catch (err) {
+                console.error('[RedisService] Connection error:', err);
+                throw new Error(`Failed to connect to Redis: ${err.message}`);
+            }
             finally {
                 this.isConnecting = false;
             }
@@ -43,6 +47,18 @@ let RedisService = class RedisService {
     }
     getClient() {
         return this.client;
+    }
+    async set(key, value, ttl) {
+        try {
+            await this.connect();
+            const options = ttl ? { PX: ttl } : {};
+            const result = await this.client.set(key, value, options);
+            return result === 'OK';
+        }
+        catch (err) {
+            console.error('[RedisService] set error:', err);
+            return false;
+        }
     }
     async setNx(key, value, ttl) {
         try {

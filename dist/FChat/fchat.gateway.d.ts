@@ -5,17 +5,18 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Enum_UserType } from 'src/types/Payload';
-import { RoomType } from './entities/chat-room.entity';
 import { MessageType } from './entities/message.entity';
+import { RedisService } from 'src/redis/redis.service';
 export declare class FchatGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
     private readonly fchatService;
     private readonly jwtService;
     private readonly usersService;
     private eventEmitter;
+    private readonly redisService;
     server: Server;
     private userSockets;
     private activeChats;
-    constructor(fchatService: FchatService, jwtService: JwtService, usersService: UsersService, eventEmitter: EventEmitter2);
+    constructor(fchatService: FchatService, jwtService: JwtService, usersService: UsersService, eventEmitter: EventEmitter2, redisService: RedisService);
     afterInit(): void;
     private validateToken;
     handleConnection(client: Socket): Promise<void>;
@@ -25,7 +26,7 @@ export declare class FchatGateway implements OnGatewayConnection, OnGatewayDisco
         orderId?: string;
     }): Promise<{
         chatId: string;
-        dbRoomId: string;
+        dbRoomId: any;
         type: "SUPPORT" | "ORDER";
     }>;
     handleMessage(client: Socket, data: {
@@ -52,45 +53,11 @@ export declare class FchatGateway implements OnGatewayConnection, OnGatewayDisco
         roomId: string;
     }): Promise<{
         roomId: string;
-        messages: import("./entities/message.entity").Message[];
+        messages: any;
     }>;
     handleGetAllChats(client: Socket): Promise<{
-        ongoing: {
-            roomId: string;
-            type: RoomType;
-            otherParticipant: any;
-            lastMessage: {
-                id: string;
-                roomId: string;
-                senderId: string;
-                senderType: Enum_UserType;
-                content: string;
-                messageType: MessageType;
-                timestamp: string;
-                readBy: string[];
-                sender: any;
-            };
-            lastActivity: string;
-            relatedId: string;
-        }[];
-        awaiting: {
-            roomId: string;
-            type: RoomType;
-            otherParticipant: any;
-            lastMessage: {
-                id: string;
-                roomId: string;
-                senderId: string;
-                senderType: Enum_UserType;
-                content: string;
-                messageType: MessageType;
-                timestamp: string;
-                readBy: string[];
-                sender: any;
-            };
-            lastActivity: string;
-            relatedId: string;
-        }[];
+        ongoing: any;
+        awaiting: any;
     }>;
     private formatContact;
     private formatPhone;

@@ -21,12 +21,14 @@ const users_service_1 = require("../users/users.service");
 const event_emitter_1 = require("@nestjs/event-emitter");
 const Payload_1 = require("../types/Payload");
 const chat_room_entity_1 = require("./entities/chat-room.entity");
+const redis_service_1 = require("../redis/redis.service");
 let FchatGateway = class FchatGateway {
-    constructor(fchatService, jwtService, usersService, eventEmitter) {
+    constructor(fchatService, jwtService, usersService, eventEmitter, redisService) {
         this.fchatService = fchatService;
         this.jwtService = jwtService;
         this.usersService = usersService;
         this.eventEmitter = eventEmitter;
+        this.redisService = redisService;
         this.userSockets = new Map();
         this.activeChats = new Map();
     }
@@ -103,6 +105,34 @@ let FchatGateway = class FchatGateway {
                 return;
             }
             const socketRoomId = this.getChatId(userData.id, data.withUserId, data.type);
+            const cacheKey = `active_chat:${socketRoomId}`;
+            const cachedRoom = await this.redisService.get(cacheKey);
+            if (cachedRoom) {
+                console.log(`Fetched room ${socketRoomId} from Redis cache`);
+                const roomData = JSON.parse(cachedRoom);
+                await client.join(socketRoomId);
+                const recipientSocket = this.userSockets.get(data.withUserId);
+                if (recipientSocket) {
+                    await recipientSocket.join(socketRoomId);
+                    recipientSocket.emit('chatStarted', {
+                        chatId: socketRoomId,
+                        withUser: userData.id,
+                        type: data.type,
+                        dbRoomId: roomData.dbRoomId
+                    });
+                }
+                client.emit('chatStarted', {
+                    chatId: socketRoomId,
+                    withUser: data.withUserId,
+                    type: data.type,
+                    dbRoomId: roomData.dbRoomId
+                });
+                return {
+                    chatId: socketRoomId,
+                    dbRoomId: roomData.dbRoomId,
+                    type: data.type
+                };
+            }
             const dbRoom = await this.fchatService.createRoom({
                 type: data.type === 'SUPPORT' ? chat_room_entity_1.RoomType.SUPPORT : chat_room_entity_1.RoomType.ORDER,
                 participants: [
@@ -113,12 +143,14 @@ let FchatGateway = class FchatGateway {
                 createdAt: new Date(),
                 lastActivity: new Date()
             });
-            this.activeChats.set(socketRoomId, {
+            const roomData = {
                 participants: [userData.id, data.withUserId],
                 type: data.type,
                 orderId: data.orderId,
                 dbRoomId: dbRoom.id
-            });
+            };
+            await this.redisService.setNx(cacheKey, JSON.stringify(roomData), 86400 * 1000);
+            this.activeChats.set(socketRoomId, roomData);
             await client.join(socketRoomId);
             console.log(`Sender ${userData.id} joined room ${socketRoomId}`);
             const recipientSocket = this.userSockets.get(data.withUserId);
@@ -175,6 +207,15 @@ let FchatGateway = class FchatGateway {
                 timestamp: new Date()
             });
             await this.fchatService.updateRoomActivity(data.roomId);
+            const chatHistoryKey = `chat_history:${data.roomId}`;
+            const cachedMessages = await this.redisService.get(chatHistoryKey);
+            const messages = cachedMessages ? JSON.parse(cachedMessages) : [];
+            messages.push(dbMessage);
+            await this.redisService.set(chatHistoryKey, JSON.stringify(messages), 3600 * 1000);
+            for (const participant of dbRoom.participants) {
+                const userChatsKey = `user_chats:${participant.userId}`;
+                await this.redisService.del(userChatsKey);
+            }
             const formatContact = (contacts) => {
                 if (!contacts || contacts.length === 0)
                     return '';
@@ -298,7 +339,15 @@ let FchatGateway = class FchatGateway {
             if (!user) {
                 throw new websockets_1.WsException('Unauthorized');
             }
-            console.log('User requesting chat history:', user.id, 'for room:', data.roomId);
+            const cacheKey = `chat_history:${data.roomId}`;
+            const ttl = 3600;
+            const cachedMessages = await this.redisService.get(cacheKey);
+            if (cachedMessages) {
+                console.log(`Fetched chat history for room ${data.roomId} from Redis`);
+                const messages = JSON.parse(cachedMessages);
+                client.emit('chatHistory', { roomId: data.roomId, messages });
+                return { roomId: data.roomId, messages };
+            }
             const dbRoom = await this.fchatService.getRoomById(data.roomId);
             if (!dbRoom) {
                 console.error(`Chat room not found for roomId: ${data.roomId}`);
@@ -310,12 +359,8 @@ let FchatGateway = class FchatGateway {
                 throw new websockets_1.WsException('Unauthorized to access this chat history');
             }
             const messages = await this.fchatService.getRoomMessages(data.roomId);
-            if (!messages || messages.length === 0) {
-                console.log(`No messages found for room ${data.roomId}`);
-            }
-            else {
-                console.log(`Retrieved ${messages.length} messages for room ${data.roomId}`);
-            }
+            console.log(`Retrieved ${messages.length} messages for room ${data.roomId}`);
+            await this.redisService.setNx(cacheKey, JSON.stringify(messages), ttl * 1000);
             client.emit('chatHistory', { roomId: data.roomId, messages });
             return { roomId: data.roomId, messages };
         }
@@ -332,6 +377,15 @@ let FchatGateway = class FchatGateway {
             const user = client.data.user;
             if (!user) {
                 throw new websockets_1.WsException('Unauthorized');
+            }
+            const cacheKey = `user_chats:${user.id}`;
+            const ttl = 300;
+            const cachedChats = await this.redisService.get(cacheKey);
+            if (cachedChats) {
+                console.log(`Fetched all chats for user ${user.id} from Redis`);
+                const { ongoing, awaiting } = JSON.parse(cachedChats);
+                client.emit('allChats', { ongoing, awaiting });
+                return { ongoing, awaiting };
             }
             console.log('User requesting all chats:', user.id);
             const userChats = await this.fchatService.getRoomsByUserIdWithLastMessage(user.id);
@@ -448,6 +502,7 @@ let FchatGateway = class FchatGateway {
                 .sort((a, b) => new Date(b.lastActivity).getTime() -
                 new Date(a.lastActivity).getTime());
             console.log(`Found ${ongoingChats.length} ongoing chats and ${awaitingChats.length} awaiting chats`);
+            await this.redisService.setNx(cacheKey, JSON.stringify({ ongoing: ongoingChats, awaiting: awaitingChats }), ttl * 1000);
             client.emit('allChats', {
                 ongoing: ongoingChats,
                 awaiting: awaitingChats
@@ -519,9 +574,11 @@ let FchatGateway = class FchatGateway {
         return `chat_${participants.join('_')}_${dbRoom.type}`;
     }
     handleDisconnect(client) {
+        const userId = client.data.user?.id;
         console.log('❌ Client disconnected from chat namespace:', client.id);
         this.userSockets.delete(client.data.user?.id);
         this.fchatService.removeConnection(client.id);
+        this.redisService.del(`user:${userId}`);
     }
     getUserType(userId) {
         if (!userId) {
@@ -610,6 +667,7 @@ exports.FchatGateway = FchatGateway = __decorate([
     __metadata("design:paramtypes", [fchat_service_1.FchatService,
         jwt_1.JwtService,
         users_service_1.UsersService,
-        event_emitter_1.EventEmitter2])
+        event_emitter_1.EventEmitter2,
+        redis_service_1.RedisService])
 ], FchatGateway);
 //# sourceMappingURL=fchat.gateway.js.map

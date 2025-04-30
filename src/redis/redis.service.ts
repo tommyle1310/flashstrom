@@ -9,7 +9,7 @@ export class RedisService {
 
   constructor() {
     this.client = createClient({
-      url: process.env.REDIS_URL,
+      url: process.env.REDIS_URL || 'redis://localhost:6379', // Thêm giá trị mặc định
       socket: {
         reconnectStrategy: retries => Math.min(retries * 200, 5000),
         connectTimeout: 15000
@@ -33,6 +33,9 @@ export class RedisService {
       this.isConnecting = true;
       try {
         await this.client.connect();
+      } catch (err: any) {
+        console.error('[RedisService] Connection error:', err);
+        throw new Error(`Failed to connect to Redis: ${err.message}`);
       } finally {
         this.isConnecting = false;
       }
@@ -41,6 +44,18 @@ export class RedisService {
 
   getClient() {
     return this.client;
+  }
+
+  async set(key: string, value: string, ttl?: number): Promise<boolean> {
+    try {
+      await this.connect();
+      const options = ttl ? { PX: ttl } : {};
+      const result = await this.client.set(key, value, options);
+      return result === 'OK';
+    } catch (err) {
+      console.error('[RedisService] set error:', err);
+      return false;
+    }
   }
 
   async setNx(key: string, value: string, ttl: number): Promise<boolean> {
@@ -73,7 +88,6 @@ export class RedisService {
     }
   }
 
-  // Thêm phương thức để reset toàn bộ cache
   async flushAll(): Promise<void> {
     try {
       await this.connect();
@@ -84,7 +98,6 @@ export class RedisService {
     }
   }
 
-  // Thêm phương thức để xóa các key theo pattern
   async deleteByPattern(pattern: string): Promise<void> {
     try {
       await this.connect();

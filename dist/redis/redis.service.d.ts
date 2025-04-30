@@ -4,6 +4,7 @@ export declare class RedisService {
     constructor();
     connect(): Promise<void>;
     getClient(): any;
+    set(key: string, value: string, ttl?: number): Promise<boolean>;
     setNx(key: string, value: string, ttl: number): Promise<boolean>;
     get(key: string): Promise<string | null>;
     del(key: string): Promise<void>;
