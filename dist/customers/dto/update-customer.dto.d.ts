@@ -14,6 +14,7 @@ declare class RestaurantHistory {
 declare const UpdateCustomerDto_base: import("@nestjs/mapped-types").MappedType<Partial<CreateCustomerDto>>;
 export declare class UpdateCustomerDto extends UpdateCustomerDto_base {
     id?: string;
+    last_login?: number;
     user_id?: string;
     first_name?: string;
     last_name?: string;

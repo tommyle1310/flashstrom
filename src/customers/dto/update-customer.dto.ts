@@ -39,6 +39,10 @@ export class UpdateCustomerDto extends PartialType(CreateCustomerDto) {
   id?: string;
 
   @IsOptional()
+  @IsNumber()
+  last_login?: number;
+
+  @IsOptional()
   @IsString()
   user_id?: string;
 

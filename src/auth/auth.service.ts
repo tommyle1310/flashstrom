@@ -212,6 +212,9 @@ export class AuthService {
       'check address ',
       userWithRole.address
     );
+    await this.customersRepository.update(userWithRole.id, {
+      last_login: Math.floor(Date.now() / 1000)
+    });
     const customerPayload = {
       ...basePayload,
       id: userWithRole.id,

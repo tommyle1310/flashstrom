@@ -29,6 +29,7 @@ export declare class Customer {
     }[];
     created_at: number;
     updated_at: number;
+    last_login: number;
     orders: Order[];
     generateId(): void;
 }

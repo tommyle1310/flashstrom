@@ -148,17 +148,48 @@ let CustomersService = class CustomersService {
         }
     }
     async findAll() {
+        const cacheKey = 'customers:all';
+        const ttl = 300;
+        const start = Date.now();
         try {
+            const cacheStart = Date.now();
+            const cachedData = await this.redisService.get(cacheKey);
+            if (cachedData) {
+                logger.log(`Fetched customers from cache in ${Date.now() - cacheStart}ms`);
+                logger.log(`Total time (cache): ${Date.now() - start}ms`);
+                return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedData), 'Fetched customers from cache successfully');
+            }
+            logger.log(`Cache miss for ${cacheKey}`);
             const customers = await this.customerRepository.findAll();
+            const cacheSaveStart = Date.now();
+            const cacheSaved = await this.redisService.setNx(cacheKey, JSON.stringify(customers), ttl * 1000);
+            if (cacheSaved) {
+                logger.log(`Stored customers in cache: ${cacheKey} (took ${Date.now() - cacheSaveStart}ms)`);
+            }
+            else {
+                logger.warn(`Failed to store customers in cache: ${cacheKey}`);
+            }
+            logger.log(`Total DB fetch and processing took ${Date.now() - start}ms`);
             return (0, createResponse_1.createResponse)('OK', customers, 'Fetched all customers');
         }
         catch (error) {
-            console.error('Error fetching customers:', error);
+            logger.error('Error fetching customers:', error);
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching customers');
         }
     }
     async findCustomerById(id) {
+        const cacheKey = `customer:${id}`;
+        const ttl = 300;
+        const start = Date.now();
         try {
+            const cacheStart = Date.now();
+            const cachedData = await this.redisService.get(cacheKey);
+            if (cachedData) {
+                logger.log(`Fetched customer from cache in ${Date.now() - cacheStart}ms`);
+                logger.log(`Total time (cache): ${Date.now() - start}ms`);
+                return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedData), 'Fetched customer from cache successfully');
+            }
+            logger.log(`Cache miss for ${cacheKey}`);
             const customer = await this.customerRepository.findById(id);
             if (!customer) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Customer not found');
@@ -178,10 +209,19 @@ let CustomersService = class CustomersService {
                     is_verified: user.is_verified
                 }
             };
+            const cacheSaveStart = Date.now();
+            const cacheSaved = await this.redisService.setNx(cacheKey, JSON.stringify(customerWithUserData), ttl * 1000);
+            if (cacheSaved) {
+                logger.log(`Stored customer in cache: ${cacheKey} (took ${Date.now() - cacheSaveStart}ms)`);
+            }
+            else {
+                logger.warn(`Failed to store customer in cache: ${cacheKey}`);
+            }
+            logger.log(`Total DB fetch and processing took ${Date.now() - start}ms`);
             return (0, createResponse_1.createResponse)('OK', customerWithUserData, 'Fetched customer and user data successfully');
         }
         catch (error) {
-            console.error('Error fetching customer and user:', error);
+            logger.error('Error fetching customer and user:', error);
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching the customer and user data');
         }
     }

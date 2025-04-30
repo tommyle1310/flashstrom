@@ -73,7 +73,19 @@ let CustomersRepository = class CustomersRepository {
     }
     async findAll() {
         return await this.customerRepository.find({
-            select: ['id', 'user_id']
+            select: {
+                id: true,
+                user_id: true,
+                first_name: true,
+                last_name: true,
+                avatar: true,
+                last_login: true,
+                user: {
+                    email: true
+                }
+            },
+            relations: ['user'],
+            loadEagerRelations: true
         });
     }
     async findById(customerId) {

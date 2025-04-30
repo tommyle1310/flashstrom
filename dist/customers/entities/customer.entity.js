@@ -124,6 +124,10 @@ __decorate([
     __metadata("design:type", Number)
 ], Customer.prototype, "updated_at", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ name: 'last_login' }),
+    __metadata("design:type", Number)
+], Customer.prototype, "last_login", void 0);
+__decorate([
     (0, typeorm_1.OneToMany)(() => order_entity_1.Order, order => order.customer),
     __metadata("design:type", Array)
 ], Customer.prototype, "orders", void 0);

@@ -108,6 +108,8 @@ export class Customer {
 
   @Column({ name: 'updated_at' })
   updated_at: number;
+  @Column({ name: 'last_login' })
+  last_login: number;
 
   @OneToMany(() => Order, order => order.customer)
   orders: Order[]; // Quan hệ ngược với Order

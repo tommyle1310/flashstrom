@@ -190,6 +190,9 @@ let AuthService = class AuthService {
         });
         const fwallet = await this.fWalletsRepository.findByUserId(user.id);
         console.log('cehck custeomr data', userWithRole, 'check address ', userWithRole.address);
+        await this.customersRepository.update(userWithRole.id, {
+            last_login: Math.floor(Date.now() / 1000)
+        });
         const customerPayload = {
             ...basePayload,
             id: userWithRole.id,
