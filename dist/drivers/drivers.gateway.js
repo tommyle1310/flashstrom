@@ -1076,13 +1076,7 @@ let DriversGateway = class DriversGateway {
             const driverId = orderAssignment.driverListenerId;
             if (!driverId)
                 throw new websockets_1.WsException('Driver ID is required');
-            const order = await this.ordersService.findOne(orderAssignment.id, null, [
-                'restaurant',
-                'driver',
-                'customer',
-                'restaurantAddress',
-                'customerAddress'
-            ]);
+            const order = await this.ordersService.findOne(orderAssignment.id);
             if (!order?.data)
                 throw new websockets_1.WsException('Order not found');
             const driverNotificationData = this.prepareDriverNotificationData(order.data);

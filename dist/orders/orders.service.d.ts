@@ -44,7 +44,7 @@ export declare class OrdersService {
     updateOrderStatus(orderId: string, status: OrderStatus, transactionalEntityManager?: EntityManager): Promise<ApiResponse<Order>>;
     tipToDriver(orderId: string, tipAmount: number): Promise<ApiResponse<Order>>;
     findAll(): Promise<ApiResponse<Order[]>>;
-    findOne(id: string, transactionalEntityManager?: EntityManager, relations?: string[]): Promise<ApiResponse<Order>>;
+    findOne(id: string): Promise<ApiResponse<Order>>;
     remove(id: string): Promise<ApiResponse<null>>;
     cancelOrder(orderId: string, cancelledBy: 'customer' | 'restaurant' | 'driver', cancelledById: string, reason: OrderCancellationReason, title: string, description: string): Promise<ApiResponse<Order>>;
     private canOrderBeCancelled;

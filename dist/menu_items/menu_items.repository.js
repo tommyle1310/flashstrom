@@ -24,7 +24,7 @@ let MenuItemsRepository = class MenuItemsRepository {
     async findByIds(ids) {
         return this.menuItemRepository.find({
             where: { id: (0, typeorm_2.In)(ids) },
-            select: ['id', 'price', 'restaurant_id']
+            select: ['id', 'price', 'restaurant_id', 'avatar', 'name', 'variants']
         });
     }
     async create(data) {

@@ -5,6 +5,7 @@ import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { Customer } from 'src/customers/entities/customer.entity';
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
+import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 export declare enum OrderTrackingInfo {
     ORDER_PLACED = "ORDER_PLACED",
     ORDER_RECEIVED = "ORDER_RECEIVED",
@@ -71,6 +72,7 @@ export declare class Order {
         quantity: number;
         price_at_time_of_order: number;
     }>;
+    menu_items?: MenuItem[];
     customer_note: string;
     restaurant_note: string;
     order_time: number;

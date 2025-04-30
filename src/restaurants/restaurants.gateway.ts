@@ -452,12 +452,7 @@ export class RestaurantsGateway
 
     try {
       // Lấy chi tiết order
-      const order = await this.ordersService.findOne(orderId, null, [
-        'restaurant',
-        'customer',
-        'restaurantAddress',
-        'customerAddress'
-      ]);
+      const order = await this.ordersService.findOne(orderId);
       if (!order?.data) {
         throw new WsException(`Order ${orderId} not found`);
       }

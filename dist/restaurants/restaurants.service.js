@@ -412,165 +412,175 @@ let RestaurantsService = class RestaurantsService {
         return roundedPrice;
     }
     async getMenuItemsForRestaurant(restaurantId) {
-        const restaurant = await this.restaurantsRepository.findById(restaurantId);
-        if (!restaurant) {
-            return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant not found');
-        }
-        console.log('Restaurant found:', restaurant.id);
-        console.log('Restaurant promotions:', restaurant.promotions ? restaurant.promotions.length : 0);
-        if (restaurant.promotions && restaurant.promotions.length > 0) {
-            restaurant.promotions.forEach((promo, index) => {
-                console.log(`Promotion ${index + 1}:`, {
-                    id: promo.id,
-                    name: promo.name,
-                    status: promo.status,
-                    discount_type: promo.discount_type,
-                    discount_value: promo.discount_value,
-                    start_date: new Date(Number(promo.start_date) * 1000).toISOString(),
-                    end_date: new Date(Number(promo.end_date) * 1000).toISOString(),
-                    current_time: new Date().toISOString(),
-                    food_categories: promo.food_categories?.map(fc => fc.id)
-                });
-            });
-        }
-        const menuItemsResult = await this.menuItemsService.findByRestaurantId(restaurantId);
-        const menuItems = menuItemsResult.data;
-        console.log('Menu items count:', menuItems.length);
-        if (!restaurant.promotions || restaurant.promotions.length === 0) {
-            console.log('No promotions found for restaurant, returning normal menu items');
-            return (0, createResponse_1.createResponse)('OK', menuItems, 'Fetched menu items for the restaurant');
-        }
-        const processedMenuItems = menuItems.map((item) => {
-            console.log(`\n--- Processing menu item: ${item.id} - ${item.name} ---`);
-            console.log(`Original price: ${item.price}`);
-            let currentItemPrice = Number(item.price);
-            const processedVariants = [];
-            const itemCategories = item.category || [];
-            console.log('Item categories:', itemCategories);
-            const applicablePromotions = restaurant.promotions.filter(promotion => {
-                const now = Math.floor(Date.now() / 1000);
-                const isActive = promotion.status === 'ACTIVE' &&
-                    now >= Number(promotion.start_date) &&
-                    now <= Number(promotion.end_date);
-                const hasMatchingCategory = promotion.food_categories?.some(fc => itemCategories.includes(fc.id)) || false;
-                console.log(`Checking promotion ${promotion.id}:`, {
-                    status: promotion.status,
-                    isTimeValid: `${now} between ${promotion.start_date}-${promotion.end_date}: ${isActive}`,
-                    hasMatchingCategory: hasMatchingCategory,
-                    foodCategories: promotion.food_categories?.map(fc => fc.id),
-                    isApplicable: isActive && hasMatchingCategory
-                });
-                return isActive && hasMatchingCategory;
-            });
-            console.log(`Found ${applicablePromotions.length} applicable promotions for item ${item.id}`);
-            let isPromotionApplied = false;
-            if (applicablePromotions.length > 0) {
-                const sortedPromotions = [...applicablePromotions].sort((a, b) => {
-                    if (a.discount_type === 'PERCENTAGE' &&
-                        b.discount_type !== 'PERCENTAGE')
-                        return -1;
-                    if (a.discount_type !== 'PERCENTAGE' &&
-                        b.discount_type === 'PERCENTAGE')
-                        return 1;
-                    return 0;
-                });
-                sortedPromotions.forEach(promotion => {
-                    console.log(`\nApplying promotion ${promotion.id} to item ${item.id}:`);
-                    console.log(`- Current price: ${currentItemPrice}`);
-                    console.log(`- Discount type: ${promotion.discount_type}`);
-                    console.log(`- Discount value: ${promotion.discount_value}`);
-                    console.log(`- Minimum order value: ${promotion.minimum_order_value || 'none'}`);
-                    const discountedPrice = this.calculateDiscountedPrice(currentItemPrice, promotion);
-                    console.log(`- Calculated discounted price: ${discountedPrice}`);
-                    if (discountedPrice !== null) {
-                        console.log(`- Applied promotion: new price ${discountedPrice} (was: ${currentItemPrice})`);
-                        currentItemPrice = discountedPrice;
-                        isPromotionApplied = true;
-                    }
+        const start = Date.now();
+        const cacheKey = `menu_items:${restaurantId}`;
+        try {
+            const cachedMenuItems = await redis.get(cacheKey);
+            if (cachedMenuItems) {
+                logger.log(`Cache hit for menu items of restaurant ${restaurantId}`);
+                return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedMenuItems), 'Fetched menu items for the restaurant (from cache)');
+            }
+            logger.log(`Cache miss for menu items of restaurant ${restaurantId}`);
+            const restaurant = await this.restaurantsRepository.findById(restaurantId);
+            if (!restaurant) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant not found');
+            }
+            logger.log('Restaurant found:', restaurant.id);
+            logger.log('Restaurant promotions:', restaurant.promotions ? restaurant.promotions.length : 0);
+            if (restaurant.promotions && restaurant.promotions.length > 0) {
+                restaurant.promotions.forEach((promo, index) => {
+                    logger.log(`Promotion ${index + 1}:`, {
+                        id: promo.id,
+                        name: promo.name,
+                        status: promo.status,
+                        discount_type: promo.discount_type,
+                        discount_value: promo.discount_value,
+                        start_date: new Date(Number(promo.start_date) * 1000).toISOString(),
+                        end_date: new Date(Number(promo.end_date) * 1000).toISOString(),
+                        current_time: new Date().toISOString(),
+                        food_categories: promo.food_categories?.map(fc => fc.id)
+                    });
                 });
             }
-            console.log(`Final price after all promotions for item ${item.id}: ${currentItemPrice}`);
-            if (item.variants && item.variants.length > 0) {
-                console.log(`\nProcessing ${item.variants.length} variants for item ${item.id}`);
-                item.variants.forEach((variant) => {
-                    console.log(`\n--- Processing variant: ${variant.id} - ${variant.variant} ---`);
-                    console.log(`Original price: ${variant.price}`);
-                    let currentVariantPrice = Number(variant.price);
-                    let isVariantPromotionApplied = false;
-                    if (applicablePromotions.length > 0) {
-                        const sortedPromotions = [...applicablePromotions].sort((a, b) => {
-                            if (a.discount_type === 'PERCENTAGE' &&
-                                b.discount_type !== 'PERCENTAGE')
-                                return -1;
-                            if (a.discount_type !== 'PERCENTAGE' &&
-                                b.discount_type === 'PERCENTAGE')
-                                return 1;
-                            return 0;
-                        });
-                        sortedPromotions.forEach(promotion => {
-                            console.log(`\nApplying promotion ${promotion.id} to variant ${variant.id}:`);
-                            console.log(`- Current price: ${currentVariantPrice}`);
-                            console.log(`- Discount type: ${promotion.discount_type}`);
-                            console.log(`- Discount value: ${promotion.discount_value}`);
-                            const discountedPrice = this.calculateDiscountedPrice(currentVariantPrice, promotion);
-                            console.log(`- Calculated discounted price: ${discountedPrice}`);
-                            if (discountedPrice !== null) {
-                                console.log(`- Applied promotion: new price ${discountedPrice} (was: ${currentVariantPrice})`);
-                                currentVariantPrice = discountedPrice;
-                                isVariantPromotionApplied = true;
-                            }
-                        });
-                    }
-                    console.log(`Final price after all promotions for variant ${variant.id}: ${currentVariantPrice}`);
-                    const variantResponse = {
-                        id: variant.id,
-                        menu_id: variant.menu_id,
-                        variant: variant.variant,
-                        description: variant.description,
-                        avatar: variant.avatar,
-                        availability: variant.availability,
-                        default_restaurant_notes: variant.default_restaurant_notes,
-                        price: variant.price,
-                        discount_rate: variant.discount_rate,
-                        created_at: variant.created_at,
-                        updated_at: variant.updated_at
-                    };
-                    if (isVariantPromotionApplied) {
-                        variantResponse.price_after_applied_promotion =
-                            currentVariantPrice;
-                    }
-                    processedVariants.push(variantResponse);
+            const menuItemsResult = await this.menuItemsService.findByRestaurantId(restaurantId);
+            const menuItems = menuItemsResult.data;
+            logger.log('Menu items count:', menuItems.length);
+            if (!restaurant.promotions || restaurant.promotions.length === 0) {
+                logger.log('No promotions found for restaurant, returning normal menu items');
+                await redis.setEx(cacheKey, 3600, JSON.stringify(menuItems));
+                return (0, createResponse_1.createResponse)('OK', menuItems, 'Fetched menu items for the restaurant');
+            }
+            const processedMenuItems = menuItems.map((item) => {
+                console.log(`\n--- Processing menu item: ${item.id} - ${item.name} ---`);
+                console.log(`Original price: ${item.price}`);
+                let currentItemPrice = Number(item.price);
+                const processedVariants = [];
+                const itemCategories = item.category || [];
+                console.log('Item categories:', itemCategories);
+                const applicablePromotions = restaurant.promotions.filter(promotion => {
+                    const now = Math.floor(Date.now() / 1000);
+                    const isActive = promotion.status === 'ACTIVE' &&
+                        now >= Number(promotion.start_date) &&
+                        now <= Number(promotion.end_date);
+                    const hasMatchingCategory = promotion.food_categories?.some(fc => itemCategories.includes(fc.id)) || false;
+                    console.log(`Checking promotion ${promotion.id}:`, {
+                        status: promotion.status,
+                        isTimeValid: `${now} between ${promotion.start_date}-${promotion.end_date}: ${isActive}`,
+                        hasMatchingCategory: hasMatchingCategory,
+                        foodCategories: promotion.food_categories?.map(fc => fc.id),
+                        isApplicable: isActive && hasMatchingCategory
+                    });
+                    return isActive && hasMatchingCategory;
                 });
-            }
-            const itemResponse = {
-                id: item.id,
-                restaurant_id: item.restaurant_id,
-                name: item.name,
-                description: item.description,
-                price: item.price,
-                category: item.category,
-                avatar: item.avatar,
-                availability: item.availability,
-                suggest_notes: item.suggest_notes,
-                discount: item.discount,
-                purchase_count: item.purchase_count,
-                created_at: item.created_at,
-                updated_at: item.updated_at,
-                variants: processedVariants
-            };
-            if (isPromotionApplied) {
-                itemResponse.price_after_applied_promotion = currentItemPrice;
-            }
-            return itemResponse;
-        });
-        console.log('Processed items check:');
-        processedMenuItems.forEach(item => {
-            console.log(`Item ${item.id} final price: ${item.price_after_applied_promotion || item.price}`);
-            item.variants.forEach(variant => {
-                console.log(`Variant ${variant.id} final price: ${variant.price_after_applied_promotion || variant.price}`);
+                console.log(`Found ${applicablePromotions.length} applicable promotions for item ${item.id}`);
+                let isPromotionApplied = false;
+                if (applicablePromotions.length > 0) {
+                    const sortedPromotions = [...applicablePromotions].sort((a, b) => {
+                        if (a.discount_type === 'PERCENTAGE' &&
+                            b.discount_type !== 'PERCENTAGE')
+                            return -1;
+                        if (a.discount_type !== 'PERCENTAGE' &&
+                            b.discount_type === 'PERCENTAGE')
+                            return 1;
+                        return 0;
+                    });
+                    sortedPromotions.forEach(promotion => {
+                        console.log(`\nApplying promotion ${promotion.id} to item ${item.id}:`);
+                        console.log(`- Current price: ${currentItemPrice}`);
+                        console.log(`- Discount type: ${promotion.discount_type}`);
+                        console.log(`- Discount value: ${promotion.discount_value}`);
+                        console.log(`- Minimum order value: ${promotion.minimum_order_value || 'none'}`);
+                        const discountedPrice = this.calculateDiscountedPrice(currentItemPrice, promotion);
+                        console.log(`- Calculated discounted price: ${discountedPrice}`);
+                        if (discountedPrice !== null) {
+                            console.log(`- Applied promotion: new price ${discountedPrice} (was: ${currentItemPrice})`);
+                            currentItemPrice = discountedPrice;
+                            isPromotionApplied = true;
+                        }
+                    });
+                }
+                console.log(`Final price after all promotions for item ${item.id}: ${currentItemPrice}`);
+                if (item.variants && item.variants.length > 0) {
+                    console.log(`\nProcessing ${item.variants.length} variants for item ${item.id}`);
+                    item.variants.forEach((variant) => {
+                        console.log(`\n--- Processing variant: ${variant.id} - ${variant.variant} ---`);
+                        console.log(`Original price: ${variant.price}`);
+                        let currentVariantPrice = Number(variant.price);
+                        let isVariantPromotionApplied = false;
+                        if (applicablePromotions.length > 0) {
+                            const sortedPromotions = [...applicablePromotions].sort((a, b) => {
+                                if (a.discount_type === 'PERCENTAGE' &&
+                                    b.discount_type !== 'PERCENTAGE')
+                                    return -1;
+                                if (a.discount_type !== 'PERCENTAGE' &&
+                                    b.discount_type === 'PERCENTAGE')
+                                    return 1;
+                                return 0;
+                            });
+                            sortedPromotions.forEach(promotion => {
+                                console.log(`\nApplying promotion ${promotion.id} to variant ${variant.id}:`);
+                                console.log(`- Current price: ${currentVariantPrice}`);
+                                console.log(`- Discount type: ${promotion.discount_type}`);
+                                console.log(`- Discount value: ${promotion.discount_value}`);
+                                const discountedPrice = this.calculateDiscountedPrice(currentVariantPrice, promotion);
+                                console.log(`- Calculated discounted price: ${discountedPrice}`);
+                                if (discountedPrice !== null) {
+                                    console.log(`- Applied promotion: new price ${discountedPrice} (was: ${currentVariantPrice})`);
+                                    currentVariantPrice = discountedPrice;
+                                    isVariantPromotionApplied = true;
+                                }
+                            });
+                        }
+                        console.log(`Final price after all promotions for variant ${variant.id}: ${currentVariantPrice}`);
+                        const variantResponse = {
+                            id: variant.id,
+                            menu_id: variant.menu_id,
+                            variant: variant.variant,
+                            description: variant.description,
+                            avatar: variant.avatar,
+                            availability: variant.availability,
+                            default_restaurant_notes: variant.default_restaurant_notes,
+                            price: variant.price,
+                            discount_rate: variant.discount_rate,
+                            created_at: variant.created_at,
+                            updated_at: variant.updated_at
+                        };
+                        if (isVariantPromotionApplied) {
+                            variantResponse.price_after_applied_promotion =
+                                currentVariantPrice;
+                        }
+                        processedVariants.push(variantResponse);
+                    });
+                }
+                const itemResponse = {
+                    id: item.id,
+                    restaurant_id: item.restaurant_id,
+                    name: item.name,
+                    description: item.description,
+                    price: item.price,
+                    category: item.category,
+                    avatar: item.avatar,
+                    availability: item.availability,
+                    suggest_notes: item.suggest_notes,
+                    discount: item.discount,
+                    purchase_count: item.purchase_count,
+                    created_at: item.created_at,
+                    updated_at: item.updated_at,
+                    variants: processedVariants
+                };
+                if (isPromotionApplied) {
+                    itemResponse.price_after_applied_promotion = currentItemPrice;
+                }
+                return itemResponse;
             });
-        });
-        return (0, createResponse_1.createResponse)('OK', processedMenuItems, 'Fetched menu items for the restaurant');
+            await redis.setEx(cacheKey, 3600, JSON.stringify(processedMenuItems));
+            logger.log(`Processed menu items in ${Date.now() - start}ms`);
+            return (0, createResponse_1.createResponse)('OK', processedMenuItems, 'Fetched menu items for the restaurant');
+        }
+        catch (error) {
+            logger.error('Error in getMenuItemsForRestaurant:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching menu items');
+        }
     }
     async createMenuItemVariantForRestaurant(menuId, createMenuItemVariantDto) {
         return this.menuItemVariantsService.create({

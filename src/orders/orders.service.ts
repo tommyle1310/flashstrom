@@ -45,6 +45,15 @@ const redis = createClient({
 });
 redis.connect().catch(err => logger.error('Redis connection error:', err));
 
+// interface OrderItem {
+//   item_id: string;
+//   variant_id: string;
+//   name: string;
+//   quantity: number;
+//   price_at_time_of_order: number;
+//   item: MenuItem; // Populated menu item
+// }
+
 @Injectable()
 export class OrdersService {
   constructor(
@@ -889,26 +898,129 @@ export class OrdersService {
   }
 
   async findAll(): Promise<ApiResponse<Order[]>> {
+    const start = Date.now();
+    const cacheKey = 'orders:all';
+
     try {
-      const orders = await this.ordersRepository.find();
+      // Try to get from Redis cache first
+      const cachedOrders = await redis.get(cacheKey);
+      if (cachedOrders) {
+        logger.log('Cache hit for all orders');
+        return createResponse(
+          'OK',
+          JSON.parse(cachedOrders),
+          'Fetched all orders (from cache)'
+        );
+      }
+
+      logger.log('Cache miss for all orders');
+
+      // Fetch orders from database
+      const orders = await this.ordersRepository.find({
+        relations: [
+          'restaurant',
+          'driver',
+          'customer',
+          'restaurantAddress',
+          'customerAddress'
+        ]
+      });
+
+      // Collect all unique menu item IDs
+      const menuItemIds = new Set<string>();
+      orders.forEach(order => {
+        if (order.order_items) {
+          order.order_items.forEach(item => {
+            if (item.item_id) {
+              menuItemIds.add(item.item_id);
+            }
+          });
+        }
+      });
+
+      // Fetch all menu items in one query
+      const menuItems = await this.menuItemsRepository.findByIds([
+        ...menuItemIds
+      ]);
+      const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
+
+      // Map menu items to orders
+      orders.forEach(order => {
+        if (order.order_items) {
+          order.order_items = order.order_items.map(item => ({
+            ...item,
+            item: menuItemMap.get(item.item_id)
+          }));
+        }
+      });
+
+      // Cache the results for 5 minutes (300 seconds)
+      await redis.setEx(cacheKey, 300, JSON.stringify(orders));
+
+      logger.log(`Fetched all orders in ${Date.now() - start}ms`);
       return createResponse('OK', orders, 'Fetched all orders');
     } catch (error: any) {
+      logger.error('Error fetching orders:', error);
       return this.handleError('Error fetching orders:', error);
     }
   }
 
-  async findOne(
-    id: string,
-    transactionalEntityManager?: EntityManager,
-    relations: string[] = ['driver', 'customer', 'restaurant']
-  ): Promise<ApiResponse<Order>> {
+  async findOne(id: string): Promise<ApiResponse<Order>> {
+    const start = Date.now();
+    const cacheKey = `order:${id}`;
+
     try {
-      const manager = transactionalEntityManager || this.dataSource.manager;
-      const order = await manager
-        .getRepository(Order)
-        .findOne({ where: { id }, relations });
-      return this.handleOrderResponse(order);
+      // Try to get from Redis cache first
+      const cachedOrder = await redis.get(cacheKey);
+      if (cachedOrder) {
+        logger.log(`Cache hit for order ${id}`);
+        return createResponse(
+          'OK',
+          JSON.parse(cachedOrder),
+          'Fetched order (from cache)'
+        );
+      }
+
+      logger.log(`Cache miss for order ${id}`);
+
+      // Fetch order from database
+      const order = await this.ordersRepository.findOne({
+        where: { id },
+        relations: [
+          'restaurant',
+          'driver',
+          'customer',
+          'restaurantAddress',
+          'customerAddress'
+        ]
+      });
+
+      if (!order) {
+        return createResponse('NotFound', null, 'Order not found');
+      }
+
+      // Collect menu item IDs from this order
+      const menuItemIds = order.order_items?.map(item => item.item_id) || [];
+
+      // Fetch menu items in one query
+      const menuItems = await this.menuItemsRepository.findByIds(menuItemIds);
+      const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
+
+      // Map menu items to order items
+      if (order.order_items) {
+        order.order_items = order.order_items.map(item => ({
+          ...item,
+          item: menuItemMap.get(item.item_id)
+        }));
+      }
+
+      // Cache the result for 5 minutes (300 seconds)
+      await redis.setEx(cacheKey, 300, JSON.stringify(order));
+
+      logger.log(`Fetched order ${id} in ${Date.now() - start}ms`);
+      return createResponse('OK', order, 'Fetched order');
     } catch (error: any) {
+      logger.error(`Error fetching order ${id}:`, error);
       return this.handleError('Error fetching order:', error);
     }
   }

@@ -14,7 +14,7 @@ export class MenuItemsRepository {
   async findByIds(ids: string[]): Promise<MenuItem[]> {
     return this.menuItemRepository.find({
       where: { id: In(ids) },
-      select: ['id', 'price', 'restaurant_id']
+      select: ['id', 'price', 'restaurant_id', 'avatar', 'name', 'variants']
     });
   }
 

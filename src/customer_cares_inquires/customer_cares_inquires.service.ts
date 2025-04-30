@@ -1,60 +1,142 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CustomerCareInquiriesRepository } from './customer_cares_inquires.repository';
 import { CreateCustomerCareInquiryDto } from './dto/create-customer-care-inquiry.dto';
 import { UpdateCustomerCareInquiryDto } from './dto/update-customer-care-inquiry.dto';
 import { createResponse } from 'src/utils/createResponse';
+import { RedisService } from 'src/redis/redis.service';
+
+const logger = new Logger('CustomerCareInquiriesService');
 
 @Injectable()
 export class CustomerCareInquiriesService {
-  constructor(private readonly repository: CustomerCareInquiriesRepository) {}
+  constructor(
+    private readonly repository: CustomerCareInquiriesRepository,
+    private readonly redisService: RedisService
+  ) {}
 
   async create(createDto: CreateCustomerCareInquiryDto) {
+    const start = Date.now();
     try {
       const inquiry = await this.repository.create(createDto);
+
+      // Invalidate relevant caches
+      if (inquiry.assigned_customer_care) {
+        await this.redisService.del(
+          `inquiries:customer_care:${inquiry.assigned_customer_care.id}`
+        );
+      }
+      await this.redisService.del('inquiries:all');
+
+      logger.log(`Created inquiry in ${Date.now() - start}ms`);
       return createResponse('OK', inquiry, 'Inquiry created successfully');
     } catch (error: any) {
-      console.error('Error creating inquiry:', error);
+      logger.error('Error creating inquiry:', error);
       return createResponse('ServerError', null, 'Failed to create inquiry');
     }
   }
 
   async findAll() {
+    const start = Date.now();
+    const cacheKey = 'inquiries:all';
+
     try {
+      // Try to get from Redis cache first
+      const cachedInquiries = await this.redisService.get(cacheKey);
+      if (cachedInquiries) {
+        logger.log('Cache hit for all inquiries');
+        return createResponse(
+          'OK',
+          JSON.parse(cachedInquiries),
+          'Fetched inquiries (from cache)'
+        );
+      }
+
+      logger.log('Cache miss for all inquiries');
       const inquiries = await this.repository.findAll();
+
+      // Cache the results for 5 minutes (300 seconds)
+      await this.redisService.set(cacheKey, JSON.stringify(inquiries), 300);
+
+      logger.log(`Fetched all inquiries in ${Date.now() - start}ms`);
       return createResponse('OK', inquiries, 'Inquiries fetched successfully');
     } catch (error: any) {
-      console.error('Error fetching inquiries:', error);
+      logger.error('Error fetching inquiries:', error);
       return createResponse('ServerError', null, 'Failed to fetch inquiries');
     }
   }
 
   async findById(id: string) {
+    const start = Date.now();
+    const cacheKey = `inquiry:${id}`;
+
     try {
+      // Try to get from Redis cache first
+      const cachedInquiry = await this.redisService.get(cacheKey);
+      if (cachedInquiry) {
+        logger.log(`Cache hit for inquiry ${id}`);
+        return createResponse(
+          'OK',
+          JSON.parse(cachedInquiry),
+          'Fetched inquiry (from cache)'
+        );
+      }
+
+      logger.log(`Cache miss for inquiry ${id}`);
       const inquiry = await this.repository.findById(id);
+
       if (!inquiry) {
         return createResponse('NotFound', null, 'Inquiry not found');
       }
+
+      // Cache the result for 5 minutes (300 seconds)
+      await this.redisService.set(cacheKey, JSON.stringify(inquiry), 300);
+
+      logger.log(`Fetched inquiry ${id} in ${Date.now() - start}ms`);
       return createResponse('OK', inquiry, 'Inquiry fetched successfully');
     } catch (error: any) {
-      console.error('Error fetching inquiry:', error);
+      logger.error(`Error fetching inquiry ${id}:`, error);
       return createResponse('ServerError', null, 'Failed to fetch inquiry');
     }
   }
 
   async findAllInquiriesByCCId(id: string) {
+    const start = Date.now();
+    const cacheKey = `inquiries:customer_care:${id}`;
+
     try {
-      const inquiry = await this.repository.findAllInquiriesByCCId(id);
-      if (!inquiry) {
-        return createResponse('NotFound', null, 'Inquiry not found');
+      // Try to get from Redis cache first
+      const cachedInquiries = await this.redisService.get(cacheKey);
+      if (cachedInquiries) {
+        logger.log(`Cache hit for customer care ${id} inquiries`);
+        return createResponse(
+          'OK',
+          JSON.parse(cachedInquiries),
+          'Fetched inquiries (from cache)'
+        );
       }
-      return createResponse('OK', inquiry, 'Inquiry fetched successfully');
+
+      logger.log(`Cache miss for customer care ${id} inquiries`);
+      const inquiries = await this.repository.findAllInquiriesByCCId(id);
+
+      if (!inquiries) {
+        return createResponse('NotFound', null, 'Inquiries not found');
+      }
+
+      // Cache the results for 5 minutes (300 seconds)
+      await this.redisService.set(cacheKey, JSON.stringify(inquiries), 300);
+
+      logger.log(
+        `Fetched inquiries for customer care ${id} in ${Date.now() - start}ms`
+      );
+      return createResponse('OK', inquiries, 'Inquiries fetched successfully');
     } catch (error: any) {
-      console.error('Error fetching inquiry:', error);
-      return createResponse('ServerError', null, 'Failed to fetch inquiry');
+      logger.error(`Error fetching inquiries for customer care ${id}:`, error);
+      return createResponse('ServerError', null, 'Failed to fetch inquiries');
     }
   }
 
   async update(id: string, updateDto: UpdateCustomerCareInquiryDto) {
+    const start = Date.now();
     try {
       const inquiry = await this.repository.findById(id);
       if (!inquiry) {
@@ -62,22 +144,47 @@ export class CustomerCareInquiriesService {
       }
 
       const updated = await this.repository.update(id, updateDto);
+
+      // Invalidate relevant caches
+      await this.redisService.del(`inquiry:${id}`);
+      if (inquiry.assigned_customer_care) {
+        await this.redisService.del(
+          `inquiries:customer_care:${inquiry.assigned_customer_care.id}`
+        );
+      }
+      await this.redisService.del('inquiries:all');
+
+      logger.log(`Updated inquiry ${id} in ${Date.now() - start}ms`);
       return createResponse('OK', updated, 'Inquiry updated successfully');
     } catch (error: any) {
-      console.error('Error updating inquiry:', error);
+      logger.error(`Error updating inquiry ${id}:`, error);
       return createResponse('ServerError', null, 'Failed to update inquiry');
     }
   }
 
   async remove(id: string) {
+    const start = Date.now();
     try {
-      const deleted = await this.repository.remove(id);
-      if (!deleted) {
+      const inquiry = await this.repository.findById(id);
+      if (!inquiry) {
         return createResponse('NotFound', null, 'Inquiry not found');
       }
+
+      await this.repository.remove(id);
+
+      // Invalidate relevant caches
+      await this.redisService.del(`inquiry:${id}`);
+      if (inquiry.assigned_customer_care) {
+        await this.redisService.del(
+          `inquiries:customer_care:${inquiry.assigned_customer_care.id}`
+        );
+      }
+      await this.redisService.del('inquiries:all');
+
+      logger.log(`Removed inquiry ${id} in ${Date.now() - start}ms`);
       return createResponse('OK', null, 'Inquiry deleted successfully');
     } catch (error: any) {
-      console.error('Error deleting inquiry:', error);
+      logger.error(`Error removing inquiry ${id}:`, error);
       return createResponse('ServerError', null, 'Failed to delete inquiry');
     }
   }

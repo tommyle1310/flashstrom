@@ -695,23 +695,93 @@ let OrdersService = class OrdersService {
         }
     }
     async findAll() {
+        const start = Date.now();
+        const cacheKey = 'orders:all';
         try {
-            const orders = await this.ordersRepository.find();
+            const cachedOrders = await redis.get(cacheKey);
+            if (cachedOrders) {
+                logger.log('Cache hit for all orders');
+                return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedOrders), 'Fetched all orders (from cache)');
+            }
+            logger.log('Cache miss for all orders');
+            const orders = await this.ordersRepository.find({
+                relations: [
+                    'restaurant',
+                    'driver',
+                    'customer',
+                    'restaurantAddress',
+                    'customerAddress'
+                ]
+            });
+            const menuItemIds = new Set();
+            orders.forEach(order => {
+                if (order.order_items) {
+                    order.order_items.forEach(item => {
+                        if (item.item_id) {
+                            menuItemIds.add(item.item_id);
+                        }
+                    });
+                }
+            });
+            const menuItems = await this.menuItemsRepository.findByIds([
+                ...menuItemIds
+            ]);
+            const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
+            orders.forEach(order => {
+                if (order.order_items) {
+                    order.order_items = order.order_items.map(item => ({
+                        ...item,
+                        item: menuItemMap.get(item.item_id)
+                    }));
+                }
+            });
+            await redis.setEx(cacheKey, 300, JSON.stringify(orders));
+            logger.log(`Fetched all orders in ${Date.now() - start}ms`);
             return (0, createResponse_1.createResponse)('OK', orders, 'Fetched all orders');
         }
         catch (error) {
+            logger.error('Error fetching orders:', error);
             return this.handleError('Error fetching orders:', error);
         }
     }
-    async findOne(id, transactionalEntityManager, relations = ['driver', 'customer', 'restaurant']) {
+    async findOne(id) {
+        const start = Date.now();
+        const cacheKey = `order:${id}`;
         try {
-            const manager = transactionalEntityManager || this.dataSource.manager;
-            const order = await manager
-                .getRepository(order_entity_1.Order)
-                .findOne({ where: { id }, relations });
-            return this.handleOrderResponse(order);
+            const cachedOrder = await redis.get(cacheKey);
+            if (cachedOrder) {
+                logger.log(`Cache hit for order ${id}`);
+                return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedOrder), 'Fetched order (from cache)');
+            }
+            logger.log(`Cache miss for order ${id}`);
+            const order = await this.ordersRepository.findOne({
+                where: { id },
+                relations: [
+                    'restaurant',
+                    'driver',
+                    'customer',
+                    'restaurantAddress',
+                    'customerAddress'
+                ]
+            });
+            if (!order) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Order not found');
+            }
+            const menuItemIds = order.order_items?.map(item => item.item_id) || [];
+            const menuItems = await this.menuItemsRepository.findByIds(menuItemIds);
+            const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
+            if (order.order_items) {
+                order.order_items = order.order_items.map(item => ({
+                    ...item,
+                    item: menuItemMap.get(item.item_id)
+                }));
+            }
+            await redis.setEx(cacheKey, 300, JSON.stringify(order));
+            logger.log(`Fetched order ${id} in ${Date.now() - start}ms`);
+            return (0, createResponse_1.createResponse)('OK', order, 'Fetched order');
         }
         catch (error) {
+            logger.error(`Error fetching order ${id}:`, error);
             return this.handleError('Error fetching order:', error);
         }
     }

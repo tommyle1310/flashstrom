@@ -288,12 +288,7 @@ let RestaurantsGateway = class RestaurantsGateway {
             return { event: 'restaurantAcceptWithAvailableDrivers', data: undefined };
         }
         try {
-            const order = await this.ordersService.findOne(orderId, null, [
-                'restaurant',
-                'customer',
-                'restaurantAddress',
-                'customerAddress'
-            ]);
+            const order = await this.ordersService.findOne(orderId);
             if (!order?.data) {
                 throw new websockets_1.WsException(`Order ${orderId} not found`);
             }

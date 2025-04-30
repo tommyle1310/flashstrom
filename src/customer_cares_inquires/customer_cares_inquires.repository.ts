@@ -32,14 +32,14 @@ export class CustomerCareInquiriesRepository {
         throw new Error(`Invalid assignee_type: ${createDto.assignee_type}`);
       }
 
-      // Tính priority tự động
+      // Calculate priority automatically
       const priority = await calculateInquiryPriority(
         createDto,
         this.orderRepository
       );
       console.log(`Calculated priority: ${priority}`);
 
-      // Tìm CustomerCare có ít inquiry active nhất nếu assignee_type là CUSTOMER_CARE
+      // Find CustomerCare with least active inquiries if assignee_type is CUSTOMER_CARE
       let assignedCustomerCareId: string | null = null;
       if (
         createDto.assignee_type === 'CUSTOMER_CARE' &&
@@ -51,18 +51,13 @@ export class CustomerCareInquiriesRepository {
         );
         console.log(`Assigned CustomerCare ID: ${assignedCustomerCareId}`);
         if (assignedCustomerCareId) {
-          // Tăng active_point và active_workload
+          // Update CustomerCare's active_workload and is_assigned
           const points = getPriorityPoints(priority);
-          await this.customerCareRepository.increment(
-            { id: assignedCustomerCareId },
-            'active_point',
-            points
-          );
-          await this.customerCareRepository.increment(
-            { id: assignedCustomerCareId },
-            'active_workload',
-            1
-          );
+          await this.customerCareRepository.update(assignedCustomerCareId, {
+            active_point: () => `active_point + ${points}`,
+            active_workload: () => 'active_workload + 1',
+            is_assigned: true
+          });
           console.log(
             `Incremented active_point by ${points} and active_workload by 1 for CustomerCare: ${assignedCustomerCareId}`
           );
@@ -133,7 +128,6 @@ export class CustomerCareInquiriesRepository {
     updateDto: UpdateCustomerCareInquiryDto
   ): Promise<CustomerCareInquiry> {
     try {
-      // Lấy inquiry hiện tại với quan hệ assigned_customer_care
       const currentInquiry = await this.repository.findOne({
         where: { id },
         relations: ['assigned_customer_care']
@@ -142,20 +136,26 @@ export class CustomerCareInquiriesRepository {
         throw new Error('Inquiry not found');
       }
 
-      // Nếu status đổi thành RESOLVED hoặc CLOSED, giảm active_workload
+      // If status changes to RESOLVED or CLOSED, update CustomerCare's workload
       if (
         updateDto.status &&
         ['RESOLVED', 'CLOSED'].includes(updateDto.status) &&
-        currentInquiry.assigned_customer_care?.id // Kiểm tra null
+        currentInquiry.assigned_customer_care?.id
       ) {
-        await this.customerCareRepository.decrement(
-          { id: currentInquiry.assigned_customer_care.id },
-          'active_workload',
-          1
-        );
-        console.log(
-          `Decremented active_workload for CustomerCare: ${currentInquiry.assigned_customer_care.id}`
-        );
+        const customerCareId = currentInquiry.assigned_customer_care.id;
+        await this.customerCareRepository.update(customerCareId, {
+          active_workload: () => 'active_workload - 1'
+        });
+
+        // Check if workload is 0 and update is_assigned
+        const customerCare = await this.customerCareRepository.findOne({
+          where: { id: customerCareId }
+        });
+        if (customerCare && customerCare.active_workload <= 0) {
+          await this.customerCareRepository.update(customerCareId, {
+            is_assigned: false
+          });
+        }
       }
 
       // Cập nhật inquiry

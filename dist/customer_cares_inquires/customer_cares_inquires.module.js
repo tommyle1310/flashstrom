@@ -15,6 +15,7 @@ const customer_care_inquiry_entity_1 = require("./entities/customer_care_inquiry
 const customer_cares_inquires_repository_1 = require("./customer_cares_inquires.repository");
 const customer_care_entity_1 = require("../customer_cares/entities/customer_care.entity");
 const order_entity_1 = require("../orders/entities/order.entity");
+const redis_service_1 = require("../redis/redis.service");
 let CustomerCareInquiriesModule = class CustomerCareInquiriesModule {
 };
 exports.CustomerCareInquiriesModule = CustomerCareInquiriesModule;
@@ -24,7 +25,11 @@ exports.CustomerCareInquiriesModule = CustomerCareInquiriesModule = __decorate([
             typeorm_1.TypeOrmModule.forFeature([customer_care_inquiry_entity_1.CustomerCareInquiry, customer_care_entity_1.CustomerCare, order_entity_1.Order])
         ],
         controllers: [customer_cares_inquires_controller_1.CustomerCareInquiriesController],
-        providers: [customer_cares_inquires_service_1.CustomerCareInquiriesService, customer_cares_inquires_repository_1.CustomerCareInquiriesRepository],
+        providers: [
+            customer_cares_inquires_service_1.CustomerCareInquiriesService,
+            redis_service_1.RedisService,
+            customer_cares_inquires_repository_1.CustomerCareInquiriesRepository
+        ],
         exports: [customer_cares_inquires_service_1.CustomerCareInquiriesService, customer_cares_inquires_repository_1.CustomerCareInquiriesRepository]
     })
 ], CustomerCareInquiriesModule);

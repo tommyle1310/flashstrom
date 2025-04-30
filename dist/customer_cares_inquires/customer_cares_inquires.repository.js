@@ -40,8 +40,11 @@ let CustomerCareInquiriesRepository = class CustomerCareInquiriesRepository {
                 console.log(`Assigned CustomerCare ID: ${assignedCustomerCareId}`);
                 if (assignedCustomerCareId) {
                     const points = (0, inquiries_1.getPriorityPoints)(priority);
-                    await this.customerCareRepository.increment({ id: assignedCustomerCareId }, 'active_point', points);
-                    await this.customerCareRepository.increment({ id: assignedCustomerCareId }, 'active_workload', 1);
+                    await this.customerCareRepository.update(assignedCustomerCareId, {
+                        active_point: () => `active_point + ${points}`,
+                        active_workload: () => 'active_workload + 1',
+                        is_assigned: true
+                    });
                     console.log(`Incremented active_point by ${points} and active_workload by 1 for CustomerCare: ${assignedCustomerCareId}`);
                 }
                 else {
@@ -102,8 +105,18 @@ let CustomerCareInquiriesRepository = class CustomerCareInquiriesRepository {
             if (updateDto.status &&
                 ['RESOLVED', 'CLOSED'].includes(updateDto.status) &&
                 currentInquiry.assigned_customer_care?.id) {
-                await this.customerCareRepository.decrement({ id: currentInquiry.assigned_customer_care.id }, 'active_workload', 1);
-                console.log(`Decremented active_workload for CustomerCare: ${currentInquiry.assigned_customer_care.id}`);
+                const customerCareId = currentInquiry.assigned_customer_care.id;
+                await this.customerCareRepository.update(customerCareId, {
+                    active_workload: () => 'active_workload - 1'
+                });
+                const customerCare = await this.customerCareRepository.findOne({
+                    where: { id: customerCareId }
+                });
+                if (customerCare && customerCare.active_workload <= 0) {
+                    await this.customerCareRepository.update(customerCareId, {
+                        is_assigned: false
+                    });
+                }
             }
             await this.repository.update(id, {
                 ...updateDto,

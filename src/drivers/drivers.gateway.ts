@@ -1507,13 +1507,7 @@ export class DriversGateway
       const driverId = orderAssignment.driverListenerId;
       if (!driverId) throw new WsException('Driver ID is required');
 
-      const order = await this.ordersService.findOne(orderAssignment.id, null, [
-        'restaurant',
-        'driver',
-        'customer',
-        'restaurantAddress',
-        'customerAddress'
-      ]);
+      const order = await this.ordersService.findOne(orderAssignment.id);
 
       if (!order?.data) throw new WsException('Order not found');
 
