@@ -30,6 +30,9 @@ let CustomerCareInquiriesController = class CustomerCareInquiriesController {
     findAllInquiriesByCCId(ccId) {
         return this.service.findAllInquiriesByCCId(ccId);
     }
+    findAllInquiriesByCustomerId(customerId) {
+        return this.service.findAllInquiriesByCustomerId(customerId);
+    }
     findOne(id) {
         return this.service.findById(id);
     }
@@ -76,6 +79,13 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], CustomerCareInquiriesController.prototype, "findAllInquiriesByCCId", null);
+__decorate([
+    (0, common_1.Get)('customer/:customerId'),
+    __param(0, (0, common_1.Param)('customerId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], CustomerCareInquiriesController.prototype, "findAllInquiriesByCustomerId", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),

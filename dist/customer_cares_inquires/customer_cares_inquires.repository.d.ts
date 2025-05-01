@@ -14,6 +14,7 @@ export declare class CustomerCareInquiriesRepository {
     findById(id: string): Promise<CustomerCareInquiry>;
     findAll(): Promise<CustomerCareInquiry[]>;
     findAllInquiriesByCCId(customerCareId: string): Promise<CustomerCareInquiry[]>;
+    findAllInquiriesByCustomerId(customerId: string): Promise<CustomerCareInquiry[]>;
     remove(id: string): Promise<boolean>;
     escalateInquiry(id: string, customerCareId: string, reason: string, escalatedTo: 'ADMIN' | 'CUSTOMER_CARE', escalatedToId: string): Promise<CustomerCareInquiry>;
     rejectInquiry(id: string, customerCareId: string, reason: string): Promise<CustomerCareInquiry>;

@@ -29,6 +29,12 @@ export class CustomerCareInquiriesController {
   findAllInquiriesByCCId(@Param('ccId') ccId: string) {
     return this.service.findAllInquiriesByCCId(ccId);
   }
+
+  @Get('customer/:customerId')
+  findAllInquiriesByCustomerId(@Param('customerId') customerId: string) {
+    return this.service.findAllInquiriesByCustomerId(customerId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.service.findById(id);

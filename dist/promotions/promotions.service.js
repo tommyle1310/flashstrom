@@ -178,11 +178,21 @@ let PromotionsService = class PromotionsService {
         }
     }
     async findOne(id) {
+        const start = Date.now();
+        const cacheKey = `promotion:${id}`;
         try {
-            const promotion = await this.promotionsRepository.findById(id);
+            const cachedData = await this.redisService.get(cacheKey);
+            if (cachedData) {
+                logger.log(`Cache hit for promotion ${id} in ${Date.now() - start}ms`);
+                return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedData), 'Promotion retrieved from cache');
+            }
+            logger.log(`Cache miss for promotion ${id}`);
+            const promotion = await this.promotionsRepository.findByIdWithRestaurants(id);
             if (!promotion) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Promotion not found');
             }
+            await this.redisService.set(cacheKey, JSON.stringify(promotion), 300);
+            logger.log(`Fetched promotion ${id} in ${Date.now() - start}ms`);
             return (0, createResponse_1.createResponse)('OK', promotion, 'Promotion retrieved successfully');
         }
         catch (error) {

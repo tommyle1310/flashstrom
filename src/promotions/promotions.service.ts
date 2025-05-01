@@ -290,11 +290,33 @@ export class PromotionsService {
   }
 
   async findOne(id: string): Promise<ApiResponse<Promotion>> {
+    const start = Date.now();
+    const cacheKey = `promotion:${id}`;
+
     try {
-      const promotion = await this.promotionsRepository.findById(id);
+      // Try to get from cache first
+      const cachedData = await this.redisService.get(cacheKey);
+      if (cachedData) {
+        logger.log(`Cache hit for promotion ${id} in ${Date.now() - start}ms`);
+        return createResponse(
+          'OK',
+          JSON.parse(cachedData),
+          'Promotion retrieved from cache'
+        );
+      }
+
+      logger.log(`Cache miss for promotion ${id}`);
+      const promotion =
+        await this.promotionsRepository.findByIdWithRestaurants(id);
+
       if (!promotion) {
         return createResponse('NotFound', null, 'Promotion not found');
       }
+
+      // Cache the result for 5 minutes
+      await this.redisService.set(cacheKey, JSON.stringify(promotion), 300);
+
+      logger.log(`Fetched promotion ${id} in ${Date.now() - start}ms`);
       return createResponse(
         'OK',
         promotion,

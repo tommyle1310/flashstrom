@@ -135,6 +135,54 @@ export class CustomerCareInquiriesService {
     }
   }
 
+  async findAllInquiriesByCustomerId(customerId: string) {
+    const start = Date.now();
+    const cacheKey = `inquiries:customer:${customerId}`;
+
+    try {
+      // Try to get from Redis cache first
+      const cachedInquiries = await this.redisService.get(cacheKey);
+      if (cachedInquiries) {
+        logger.log(`Cache hit for customer ${customerId} inquiries`);
+        return createResponse(
+          'OK',
+          JSON.parse(cachedInquiries),
+          'Fetched customer inquiries (from cache)'
+        );
+      }
+
+      logger.log(`Cache miss for customer ${customerId} inquiries`);
+      const inquiries =
+        await this.repository.findAllInquiriesByCustomerId(customerId);
+
+      if (!inquiries) {
+        return createResponse('NotFound', null, 'Customer inquiries not found');
+      }
+
+      // Cache the results for 5 minutes (300 seconds)
+      await this.redisService.set(cacheKey, JSON.stringify(inquiries), 300);
+
+      logger.log(
+        `Fetched inquiries for customer ${customerId} in ${Date.now() - start}ms`
+      );
+      return createResponse(
+        'OK',
+        inquiries,
+        'Customer inquiries fetched successfully'
+      );
+    } catch (error: any) {
+      logger.error(
+        `Error fetching inquiries for customer ${customerId}:`,
+        error
+      );
+      return createResponse(
+        'ServerError',
+        null,
+        'Failed to fetch customer inquiries'
+      );
+    }
+  }
+
   async update(id: string, updateDto: UpdateCustomerCareInquiryDto) {
     const start = Date.now();
     try {

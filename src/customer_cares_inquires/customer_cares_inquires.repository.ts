@@ -229,6 +229,45 @@ export class CustomerCareInquiriesRepository {
     }
   }
 
+  async findAllInquiriesByCustomerId(
+    customerId: string
+  ): Promise<CustomerCareInquiry[]> {
+    try {
+      if (!customerId) {
+        throw new Error('Customer ID is required');
+      }
+
+      console.log(`Finding inquiries for Customer ID: ${customerId}`);
+
+      const inquiries = await this.repository.find({
+        where: {
+          customer: { id: customerId }
+        },
+        relations: [
+          'customer',
+          'assigned_admin',
+          'assigned_customer_care',
+          'order'
+        ],
+        order: {
+          created_at: 'DESC' // Sort by creation date, newest first
+        }
+      });
+
+      console.log(
+        `Found ${inquiries.length} inquiries for Customer ID: ${customerId}`
+      );
+
+      return inquiries;
+    } catch (error: any) {
+      console.error(
+        `Error finding inquiries for Customer ID ${customerId}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
   async remove(id: string): Promise<boolean> {
     const result = await this.repository.delete(id);
     return result.affected > 0;

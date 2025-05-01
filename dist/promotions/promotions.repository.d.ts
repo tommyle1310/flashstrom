@@ -9,6 +9,7 @@ export declare class PromotionsRepository {
         relations?: string[];
     }): Promise<Promotion[]>;
     findById(id: string): Promise<Promotion | null>;
+    findByIdWithRestaurants(id: string): Promise<Promotion | null>;
     findByName(name: string): Promise<Promotion | null>;
     update(id: string, updateData: UpdatePromotionDto): Promise<Promotion>;
     delete(id: string): Promise<{

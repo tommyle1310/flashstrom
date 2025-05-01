@@ -102,6 +102,29 @@ let CustomerCareInquiriesService = class CustomerCareInquiriesService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to fetch inquiries');
         }
     }
+    async findAllInquiriesByCustomerId(customerId) {
+        const start = Date.now();
+        const cacheKey = `inquiries:customer:${customerId}`;
+        try {
+            const cachedInquiries = await this.redisService.get(cacheKey);
+            if (cachedInquiries) {
+                logger.log(`Cache hit for customer ${customerId} inquiries`);
+                return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedInquiries), 'Fetched customer inquiries (from cache)');
+            }
+            logger.log(`Cache miss for customer ${customerId} inquiries`);
+            const inquiries = await this.repository.findAllInquiriesByCustomerId(customerId);
+            if (!inquiries) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Customer inquiries not found');
+            }
+            await this.redisService.set(cacheKey, JSON.stringify(inquiries), 300);
+            logger.log(`Fetched inquiries for customer ${customerId} in ${Date.now() - start}ms`);
+            return (0, createResponse_1.createResponse)('OK', inquiries, 'Customer inquiries fetched successfully');
+        }
+        catch (error) {
+            logger.error(`Error fetching inquiries for customer ${customerId}:`, error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to fetch customer inquiries');
+        }
+    }
     async update(id, updateDto) {
         const start = Date.now();
         try {

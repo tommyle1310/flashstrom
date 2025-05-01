@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Promotion } from './entities/promotion.entity';
 // import { CreatePromotionDto } from './dto/create-promotion.dto';
 import { UpdatePromotionDto } from './dto/update-promotion.dto';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 
 @Injectable()
 export class PromotionsRepository {
@@ -32,6 +33,84 @@ export class PromotionsRepository {
 
   async findById(id: string): Promise<Promotion | null> {
     return this.promotionRepository.findOne({ where: { id } });
+  }
+
+  async findByIdWithRestaurants(id: string): Promise<Promotion | null> {
+    const queryBuilder = this.promotionRepository
+      .createQueryBuilder('promotion')
+      .leftJoin('restaurant_promotions', 'rp', 'rp.promotion_id = promotion.id')
+      .leftJoin(
+        'restaurants',
+        'restaurants',
+        'restaurants.id = rp.restaurant_id'
+      )
+      .leftJoin(
+        'address_books',
+        'address',
+        'address.id = restaurants.address_id'
+      )
+      .select([
+        'promotion.id',
+        'promotion.name',
+        'promotion.description',
+        'promotion.start_date',
+        'promotion.end_date',
+        'promotion.discount_type',
+        'promotion.discount_value',
+        'promotion.promotion_cost_price',
+        'promotion.minimum_order_value',
+        'promotion.avatar',
+        'promotion.status',
+        'promotion.bogo_details',
+        'promotion.created_at',
+        'promotion.updated_at',
+        'restaurants.id',
+        'restaurants.restaurant_name',
+        'restaurants.avatar',
+        'restaurants.ratings',
+        'restaurants.status',
+        'address.id',
+        'address.street',
+        'address.city',
+        'address.nationality',
+        'address.postal_code',
+        'address.location',
+        'address.title'
+      ])
+      .where('promotion.id = :id', { id });
+
+    const { entities, raw } = await queryBuilder.getRawAndEntities();
+
+    if (!entities.length) {
+      return null;
+    }
+
+    const promotion = entities[0];
+    const restaurants = raw
+      .map(row => ({
+        id: row.restaurants_id,
+        restaurant_name: row.restaurants_restaurant_name,
+        avatar: row.restaurants_avatar,
+        ratings: row.restaurants_ratings,
+        status: row.restaurants_status,
+        address: row.address_id
+          ? {
+              id: row.address_id,
+              street: row.address_street,
+              city: row.address_city,
+              nationality: row.address_nationality,
+              postal_code: row.address_postal_code,
+              location: row.address_location,
+              title: row.address_title
+            }
+          : null
+      }))
+      .filter(restaurant => restaurant.id); // Filter out null restaurants
+
+    return {
+      ...promotion,
+      restaurants: restaurants as Restaurant[]
+    };
   }
 
   async findByName(name: string): Promise<Promotion | null> {
