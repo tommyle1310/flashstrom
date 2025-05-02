@@ -8,6 +8,7 @@ export declare class CustomerCareInquiriesController {
     findAll(): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findAllInquiriesByCCId(ccId: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findAllInquiriesByCustomerId(customerId: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
+    findAllEscalatedInquiries(): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findOne(id: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
     update(id: string, updateDto: UpdateCustomerCareInquiryDto): Promise<import("../utils/createResponse").ApiResponse<any>>;
     remove(id: string): Promise<import("../utils/createResponse").ApiResponse<any>>;

@@ -304,6 +304,30 @@ let CustomerCareInquiriesRepository = class CustomerCareInquiriesRepository {
         });
         return this.findById(id);
     }
+    async findAllEscalatedInquiries() {
+        try {
+            const inquiries = await this.repository.find({
+                where: {
+                    status: 'ESCALATE'
+                },
+                relations: [
+                    'customer',
+                    'assigned_admin',
+                    'assigned_customer_care',
+                    'order'
+                ],
+                order: {
+                    created_at: 'DESC'
+                }
+            });
+            console.log(`Found ${inquiries.length} escalated inquiries`);
+            return inquiries;
+        }
+        catch (error) {
+            console.error('Error finding escalated inquiries:', error);
+            throw error;
+        }
+    }
 };
 exports.CustomerCareInquiriesRepository = CustomerCareInquiriesRepository;
 exports.CustomerCareInquiriesRepository = CustomerCareInquiriesRepository = __decorate([

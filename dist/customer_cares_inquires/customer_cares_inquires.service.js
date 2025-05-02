@@ -217,6 +217,29 @@ let CustomerCareInquiriesService = class CustomerCareInquiriesService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to resolve inquiry');
         }
     }
+    async findAllEscalatedInquiries() {
+        const start = Date.now();
+        const cacheKey = 'inquiries:escalated';
+        try {
+            const cachedInquiries = await this.redisService.get(cacheKey);
+            if (cachedInquiries) {
+                logger.log('Cache hit for escalated inquiries');
+                return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedInquiries), 'Fetched escalated inquiries (from cache)');
+            }
+            logger.log('Cache miss for escalated inquiries');
+            const inquiries = await this.repository.findAllEscalatedInquiries();
+            if (!inquiries) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'No escalated inquiries found');
+            }
+            await this.redisService.set(cacheKey, JSON.stringify(inquiries), 300);
+            logger.log(`Fetched escalated inquiries in ${Date.now() - start}ms`);
+            return (0, createResponse_1.createResponse)('OK', inquiries, 'Escalated inquiries fetched successfully');
+        }
+        catch (error) {
+            logger.error('Error fetching escalated inquiries:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to fetch escalated inquiries');
+        }
+    }
 };
 exports.CustomerCareInquiriesService = CustomerCareInquiriesService;
 exports.CustomerCareInquiriesService = CustomerCareInquiriesService = __decorate([

@@ -445,4 +445,32 @@ export class CustomerCareInquiriesRepository {
 
     return this.findById(id);
   }
+
+  /**
+   * Get all escalated inquiries
+   */
+  async findAllEscalatedInquiries(): Promise<CustomerCareInquiry[]> {
+    try {
+      const inquiries = await this.repository.find({
+        where: {
+          status: 'ESCALATE'
+        },
+        relations: [
+          'customer',
+          'assigned_admin',
+          'assigned_customer_care',
+          'order'
+        ],
+        order: {
+          created_at: 'DESC' // Sort by creation date, newest first
+        }
+      });
+
+      console.log(`Found ${inquiries.length} escalated inquiries`);
+      return inquiries;
+    } catch (error: any) {
+      console.error('Error finding escalated inquiries:', error);
+      throw error;
+    }
+  }
 }

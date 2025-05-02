@@ -18,4 +18,5 @@ export declare class CustomerCareInquiriesService {
     transferInquiry(id: string, fromCustomerCareId: string, toCustomerCareId: string, reason: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
     recordResponse(id: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
     resolveInquiry(id: string, resolutionType: 'REFUND' | 'REPLACEMENT' | 'INVESTIGATING' | 'ACCOUNT_FIX' | 'TECHNICAL_SUPPORT' | 'OTHER', resolutionNotes?: string): Promise<import("src/utils/createResponse").ApiResponse<any>>;
+    findAllEscalatedInquiries(): Promise<import("src/utils/createResponse").ApiResponse<any>>;
 }

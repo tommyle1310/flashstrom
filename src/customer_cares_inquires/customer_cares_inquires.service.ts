@@ -341,4 +341,49 @@ export class CustomerCareInquiriesService {
       return createResponse('ServerError', null, 'Failed to resolve inquiry');
     }
   }
+
+  /**
+   * Get all escalated inquiries
+   */
+  async findAllEscalatedInquiries() {
+    const start = Date.now();
+    const cacheKey = 'inquiries:escalated';
+
+    try {
+      // Try to get from Redis cache first
+      const cachedInquiries = await this.redisService.get(cacheKey);
+      if (cachedInquiries) {
+        logger.log('Cache hit for escalated inquiries');
+        return createResponse(
+          'OK',
+          JSON.parse(cachedInquiries),
+          'Fetched escalated inquiries (from cache)'
+        );
+      }
+
+      logger.log('Cache miss for escalated inquiries');
+      const inquiries = await this.repository.findAllEscalatedInquiries();
+
+      if (!inquiries) {
+        return createResponse('NotFound', null, 'No escalated inquiries found');
+      }
+
+      // Cache the results for 5 minutes (300 seconds)
+      await this.redisService.set(cacheKey, JSON.stringify(inquiries), 300);
+
+      logger.log(`Fetched escalated inquiries in ${Date.now() - start}ms`);
+      return createResponse(
+        'OK',
+        inquiries,
+        'Escalated inquiries fetched successfully'
+      );
+    } catch (error: any) {
+      logger.error('Error fetching escalated inquiries:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Failed to fetch escalated inquiries'
+      );
+    }
+  }
 }

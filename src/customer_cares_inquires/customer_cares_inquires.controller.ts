@@ -35,6 +35,11 @@ export class CustomerCareInquiriesController {
     return this.service.findAllInquiriesByCustomerId(customerId);
   }
 
+  @Get('escalated')
+  findAllEscalatedInquiries() {
+    return this.service.findAllEscalatedInquiries();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.service.findById(id);

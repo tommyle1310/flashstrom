@@ -21,4 +21,5 @@ export declare class CustomerCareInquiriesRepository {
     transferInquiry(id: string, fromCustomerCareId: string, toCustomerCareId: string, reason: string): Promise<CustomerCareInquiry>;
     recordResponse(id: string): Promise<CustomerCareInquiry>;
     resolveInquiry(id: string, resolutionType: 'REFUND' | 'REPLACEMENT' | 'INVESTIGATING' | 'ACCOUNT_FIX' | 'TECHNICAL_SUPPORT' | 'OTHER', resolutionNotes?: string): Promise<CustomerCareInquiry>;
+    findAllEscalatedInquiries(): Promise<CustomerCareInquiry[]>;
 }
