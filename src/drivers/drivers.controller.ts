@@ -117,6 +117,12 @@ export class DriversController {
     });
     return stages;
   }
+
+  @Get('/orders/:id')
+  getAllOrders(@Param('id') id: string) {
+    return this.driversService.getAllOrders(id);
+  }
+
   @Get(':id')
   findDriverById(@Param('id') id: string) {
     return this.driversService.findDriverById(id);

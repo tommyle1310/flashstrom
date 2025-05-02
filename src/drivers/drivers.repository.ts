@@ -17,10 +17,38 @@ export class DriversRepository {
     id: string,
     options?: { relations?: string[] }
   ): Promise<Driver> {
-    const driver = await this.driverEntityRepository.findOne({
-      where: { id },
-      relations: options?.relations || ['user']
-    });
+    const queryBuilder = this.driverEntityRepository
+      .createQueryBuilder('driver')
+      .leftJoin(
+        'banned_accounts',
+        'ban',
+        'ban.entity_id = driver.id AND ban.entity_type = :entityType',
+        {
+          entityType: 'Driver'
+        }
+      )
+      .addSelect(
+        'CASE WHEN ban.id IS NOT NULL THEN true ELSE false END',
+        'driver_is_banned'
+      )
+      .where('driver.id = :id', { id });
+
+    // Add any requested relations
+    if (options?.relations) {
+      options.relations.forEach(relation => {
+        queryBuilder.leftJoinAndSelect(`driver.${relation}`, relation);
+      });
+    } else {
+      // Default relation if none specified
+      queryBuilder.leftJoinAndSelect('driver.user', 'user');
+    }
+
+    const result = await queryBuilder.getRawAndEntities();
+    const driver = result.entities[0];
+    if (driver) {
+      (driver as any).driver_is_banned =
+        result.raw[0]?.driver_is_banned || false;
+    }
     return driver || null;
   }
 
@@ -36,7 +64,28 @@ export class DriversRepository {
   }
 
   async findAll(): Promise<Driver[]> {
-    return await this.driverEntityRepository.find();
+    const result = await this.driverEntityRepository
+      .createQueryBuilder('driver')
+      .leftJoin(
+        'banned_accounts',
+        'ban',
+        'ban.entity_id = driver.id AND ban.entity_type = :entityType',
+        {
+          entityType: 'Driver'
+        }
+      )
+      .addSelect(
+        'CASE WHEN ban.id IS NOT NULL THEN true ELSE false END',
+        'driver_is_banned'
+      )
+      .getRawAndEntities();
+
+    // Map the raw results to the entities
+    return result.entities.map((driver, index) => {
+      (driver as any).driver_is_banned =
+        result.raw[index]?.driver_is_banned || false;
+      return driver;
+    });
   }
 
   async create(createDriverDto: any): Promise<any> {

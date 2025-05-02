@@ -85,34 +85,56 @@ export class RestaurantsRepository {
   }
 
   async findAll(): Promise<Restaurant[]> {
-    return await this.repository.find({
-      relations: ['owner', 'address', 'specialize_in']
+    const result = await this.repository
+      .createQueryBuilder('restaurant')
+      .leftJoin(
+        'banned_accounts',
+        'ban',
+        'ban.entity_id = restaurant.id AND ban.entity_type = :entityType',
+        {
+          entityType: 'Restaurant'
+        }
+      )
+      .addSelect(
+        'CASE WHEN ban.id IS NOT NULL THEN true ELSE false END',
+        'restaurant_is_banned'
+      )
+      .leftJoinAndSelect('restaurant.owner', 'owner')
+      .leftJoinAndSelect('restaurant.address', 'address')
+      .leftJoinAndSelect('restaurant.specialize_in', 'specialize_in')
+      .getRawAndEntities();
+
+    return result.entities.map((restaurant, index) => {
+      (restaurant as any).is_banned =
+        result.raw[index]?.restaurant_is_banned || false;
+      return restaurant;
     });
   }
 
   async findById(id: string): Promise<Restaurant> {
-    const cacheKey = `restaurant:${id}`;
-    const cached = await redis.get(cacheKey);
-    if (cached) {
-      return JSON.parse(cached);
-    }
-    const restaurant = await this.repository.findOne({
-      where: { id },
-      select: [
-        'id',
-        'owner_id',
-        'total_orders',
-        'avatar',
-        'status',
-        'address_id',
-        'address'
-      ]
-    });
-    console.log('check res wtf here', restaurant);
+    const result = await this.repository
+      .createQueryBuilder('restaurant')
+      .leftJoin(
+        'banned_accounts',
+        'ban',
+        'ban.entity_id = restaurant.id AND ban.entity_type = :entityType',
+        {
+          entityType: 'Restaurant'
+        }
+      )
+      .addSelect(
+        'CASE WHEN ban.id IS NOT NULL THEN true ELSE false END',
+        'restaurant_is_banned'
+      )
+      .where('restaurant.id = :id', { id })
+      .getRawAndEntities();
+
+    const restaurant = result.entities[0];
     if (restaurant) {
-      await redis.setEx(cacheKey, 3600, JSON.stringify(restaurant));
+      (restaurant as any).is_banned =
+        result.raw[0]?.restaurant_is_banned || false;
     }
-    return restaurant;
+    return restaurant || null;
   }
 
   async findByOwnerId(ownerId: string): Promise<Restaurant> {

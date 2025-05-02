@@ -17,11 +17,53 @@ export class CustomerCaresRepository {
   }
 
   async findAll(): Promise<CustomerCare[]> {
-    return await this.repository.find();
+    const result = await this.repository
+      .createQueryBuilder('customerCare')
+      .leftJoin(
+        'banned_accounts',
+        'ban',
+        'ban.entity_id = customerCare.id AND ban.entity_type = :entityType',
+        {
+          entityType: 'CustomerCare'
+        }
+      )
+      .addSelect(
+        'CASE WHEN ban.id IS NOT NULL THEN true ELSE false END',
+        'customer_care_is_banned'
+      )
+      .getRawAndEntities();
+
+    return result.entities.map((customerCare, index) => {
+      (customerCare as any).is_banned =
+        result.raw[index]?.customer_care_is_banned || false;
+      return customerCare;
+    });
   }
 
   async findById(id: string): Promise<CustomerCare> {
-    return await this.repository.findOne({ where: { id } });
+    const result = await this.repository
+      .createQueryBuilder('customerCare')
+      .leftJoin(
+        'banned_accounts',
+        'ban',
+        'ban.entity_id = customerCare.id AND ban.entity_type = :entityType',
+        {
+          entityType: 'CustomerCare'
+        }
+      )
+      .addSelect(
+        'CASE WHEN ban.id IS NOT NULL THEN true ELSE false END',
+        'customer_care_is_banned'
+      )
+      .where('customerCare.id = :id', { id })
+      .getRawAndEntities();
+
+    const customerCare = result.entities[0];
+    if (customerCare) {
+      (customerCare as any).is_banned =
+        result.raw[0]?.customer_care_is_banned || false;
+    }
+    return customerCare || null;
   }
 
   async findOne(condition: any): Promise<CustomerCare> {

@@ -12,9 +12,9 @@ export declare class CustomerCareService {
     private readonly dataSource;
     constructor(repository: CustomerCaresRepository, inquiryRepository: CustomerCareInquiriesRepository, redisService: RedisService, dataSource: DataSource);
     create(createCustomerCareDto: CreateCustomerCareDto): Promise<any>;
-    findAll(): Promise<any>;
+    findAll(): Promise<ApiResponse<any>>;
     findAllInquiriesByCCId(id: string, forceRefresh?: boolean): Promise<ApiResponse<any>>;
-    findCustomerCareById(id: string): Promise<any>;
+    findCustomerCareById(id: string): Promise<ApiResponse<any>>;
     findOne(conditions: object): Promise<any>;
     update(inquiryId: string, updateData: Partial<CustomerCareInquiry>): Promise<ApiResponse<any>>;
     setAvailability(id: string): Promise<any>;

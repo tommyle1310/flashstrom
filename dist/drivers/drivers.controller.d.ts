@@ -10,7 +10,7 @@ export declare class DriversController {
     constructor(driversService: DriversService, onlineSessionsService: OnlineSessionsService);
     create(createDriverDto: CreateDriverDto): Promise<ApiResponse<import("./entities/driver.entity").Driver>>;
     clearRedis(): Promise<ApiResponse<null>>;
-    findAll(): Promise<ApiResponse<import("./entities/driver.entity").Driver[]>>;
+    findAll(): Promise<ApiResponse<any>>;
     findOnlineSessionByDriverId(driverId: string, limit?: string, offset?: string): Promise<ApiResponse<{
         date: any;
         items: any;
@@ -18,7 +18,8 @@ export declare class DriversController {
         total_hours: Promise<string>;
     }[]>>;
     findAllDpsByDriverId(driverId: string, limit?: string, offset?: string): Promise<ApiResponse<any>>;
-    findDriverById(id: string): Promise<ApiResponse<import("./entities/driver.entity").Driver>>;
+    getAllOrders(id: string): Promise<ApiResponse<any>>;
+    findDriverById(id: string): Promise<ApiResponse<any>>;
     getDriverRatingsReviews(id: string): Promise<ApiResponse<any>>;
     findOne(field: string, value: string): Promise<ApiResponse<import("./entities/driver.entity").Driver>>;
     updateDriverVehicle(updateVehicleDto: UpdateVehicleDto, driverId: string): Promise<ApiResponse<import("./entities/driver.entity").Driver>>;

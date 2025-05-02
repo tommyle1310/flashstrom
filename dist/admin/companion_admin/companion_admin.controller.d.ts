@@ -19,18 +19,18 @@ export declare class CompanionAdminController {
     constructor(adminService: AdminService, restaurantService: RestaurantsService, customerService: CustomersService, driverService: DriversService, customerCareService: CustomerCareService, authService: AuthService, addressBookService: AddressBookService);
     createCompanionAdmin(createAdminDto: CreateAdminDto): Promise<import("../../utils/createResponse").ApiResponse<import("../entities/admin.entity").Admin>>;
     findAllCompanionAdmins(): Promise<import("../../utils/createResponse").ApiResponse<import("../entities/admin.entity").Admin[]>>;
-    findAllRestaurants(): Promise<import("../../utils/createResponse").ApiResponse<import("../../restaurants/entities/restaurant.entity").Restaurant[]>>;
+    findAllRestaurants(): Promise<import("../../utils/createResponse").ApiResponse<any>>;
     createRestaurant(): Promise<any>;
     findAllCustomers(): Promise<import("../../utils/createResponse").ApiResponse<import("../../customers/entities/customer.entity").Customer[]>>;
     createCustomer(): Promise<any>;
-    findAllDrivers(): Promise<import("../../utils/createResponse").ApiResponse<import("../../drivers/entities/driver.entity").Driver[]>>;
+    findAllDrivers(): Promise<import("../../utils/createResponse").ApiResponse<any>>;
     createDriver(): Promise<any>;
-    findAllCustomerCare(): Promise<any>;
+    findAllCustomerCare(): Promise<import("../../utils/createResponse").ApiResponse<any>>;
     createCustomerCare(): Promise<any>;
     findOneCompanionAdmin(id: string): Promise<import("../../utils/createResponse").ApiResponse<import("../entities/admin.entity").Admin>>;
     updateCompanionAdmin(id: string, updateAdminDto: UpdateAdminDto): Promise<import("../../utils/createResponse").ApiResponse<import("../entities/admin.entity").Admin>>;
     removeCompanionAdmin(id: string): Promise<import("../../utils/createResponse").ApiResponse<null>>;
-    findOneRestaurant(id: string): Promise<import("../../utils/createResponse").ApiResponse<import("../../restaurants/entities/restaurant.entity").Restaurant>>;
+    findOneRestaurant(id: string): Promise<import("../../utils/createResponse").ApiResponse<any>>;
     updateRestaurant(id: string, updateRestaurantDto: UpdateRestaurantDto): Promise<import("../../utils/createResponse").ApiResponse<import("../../restaurants/entities/restaurant.entity").Restaurant>>;
     removeRestaurant(id: string): Promise<import("../../utils/createResponse").ApiResponse<boolean>>;
 }

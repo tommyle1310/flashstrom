@@ -22,6 +22,9 @@ import { createClient } from 'redis';
 import { ToggleDriverAvailabilityDto } from './dto/driver-availability.dto';
 import { OnlineSession } from 'src/online-sessions/entities/online-session.entity';
 import * as dotenv from 'dotenv';
+import { RedisService } from 'src/redis/redis.service';
+import { In } from 'typeorm';
+import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 
 dotenv.config();
 
@@ -31,6 +34,11 @@ const redis = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
 redis.connect().catch(err => logger.error('Redis connection error:', err));
+
+// interface DriverWithBanStatus extends Omit<Driver, 'generateId'> {
+//   is_banned: boolean;
+// }
+
 @Injectable()
 export class DriversService {
   constructor(
@@ -43,7 +51,8 @@ export class DriversService {
     private readonly driverProgressStageRepository: DriverProgressStagesRepository,
     private readonly onlineSessionsService: OnlineSessionsService,
     private readonly dataSource: DataSource,
-    private readonly ratingsReviewsRepository: RatingsReviewsRepository
+    private readonly ratingsReviewsRepository: RatingsReviewsRepository,
+    private readonly redisService: RedisService
   ) {}
 
   async onModuleInit() {
@@ -250,22 +259,35 @@ export class DriversService {
     }
   }
 
-  async findAll(): Promise<ApiResponse<Driver[]>> {
+  async findAll(): Promise<ApiResponse<any>> {
     try {
-      const drivers = await this.driverEntityRepository.find();
-      return createResponse('OK', drivers, 'Fetched all drivers');
+      const drivers = await this.driversRepository.findAll();
+      const driversWithBanStatus = drivers.map(driver => ({
+        ...driver,
+        is_banned: (driver as any).driver_is_banned || false
+      }));
+      console.log('hcekc what this', drivers);
+      return createResponse('OK', driversWithBanStatus, 'Fetched all drivers');
     } catch (error: any) {
       return this.handleError('Error fetching drivers:', error);
     }
   }
 
-  async findDriverById(id: string): Promise<ApiResponse<Driver>> {
+  async findDriverById(id: string): Promise<ApiResponse<any>> {
     try {
       const driver = await this.driversRepository.findById(id);
       if (!driver) {
         return createResponse('NotFound', null, 'Driver not found');
       }
-      return createResponse('OK', driver, 'Driver retrieved successfully');
+      const driverWithBanStatus = {
+        ...driver,
+        is_banned: (driver as any).driver_is_banned || false
+      };
+      return createResponse(
+        'OK',
+        driverWithBanStatus,
+        'Driver retrieved successfully'
+      );
     } catch (error: any) {
       console.error('Error finding driver:', error);
       return createResponse('ServerError', null, 'Error retrieving driver');
@@ -813,6 +835,207 @@ export class DriversService {
         'ServerError',
         null,
         'Error retrieving driver ratings and reviews'
+      );
+    }
+  }
+
+  async getAllOrders(driverId: string): Promise<ApiResponse<any>> {
+    const cacheKey = `orders:driver:${driverId}`;
+    const ttl = 300; // Cache 5 minutes (300 seconds)
+    const start = Date.now();
+
+    try {
+      // Check cache first
+      const cacheStart = Date.now();
+      const cachedData = await this.redisService.get(cacheKey);
+      if (cachedData) {
+        logger.log(`Fetched orders from cache in ${Date.now() - cacheStart}ms`);
+        logger.log(`Total time (cache): ${Date.now() - start}ms`);
+        return createResponse(
+          'OK',
+          JSON.parse(cachedData),
+          'Fetched orders from cache successfully'
+        );
+      }
+      logger.log(`Cache miss for ${cacheKey}`);
+
+      // Check driver exists
+      const driverStart = Date.now();
+      const driver = await this.driversRepository.findById(driverId);
+      if (!driver) {
+        logger.log(`Driver fetch took ${Date.now() - driverStart}ms`);
+        return createResponse('NotFound', null, 'Driver not found');
+      }
+      logger.log(`Driver fetch took ${Date.now() - driverStart}ms`);
+
+      // Get orders with optimized fields
+      const ordersStart = Date.now();
+      const orders = await this.dataSource.getRepository(Order).find({
+        where: { driver_id: driverId },
+        relations: [
+          'restaurant',
+          'customer',
+          'restaurantAddress',
+          'customerAddress'
+        ],
+        select: {
+          id: true,
+          customer_id: true,
+          restaurant_id: true,
+          driver_id: true,
+          status: true,
+          total_amount: true,
+          payment_status: true,
+          payment_method: true,
+          customer_location: true,
+          restaurant_location: true,
+          order_items: true,
+          customer_note: true,
+          restaurant_note: true,
+          distance: true,
+          delivery_fee: true,
+          updated_at: true,
+          order_time: true,
+          delivery_time: true,
+          tracking_info: true,
+          cancelled_by: true,
+          cancelled_by_id: true,
+          cancellation_reason: true,
+          cancellation_title: true,
+          cancellation_description: true,
+          cancelled_at: true,
+          restaurant: {
+            id: true,
+            restaurant_name: true,
+            address_id: true,
+            avatar: { url: true, key: true }
+          }
+        }
+      });
+      logger.log(`Orders fetch took ${Date.now() - ordersStart}ms`);
+
+      if (!orders || orders.length === 0) {
+        const response = createResponse(
+          'OK',
+          [],
+          'No orders found for this driver'
+        );
+        await this.redisService.setNx(cacheKey, JSON.stringify([]), ttl * 1000);
+        logger.log(`Stored empty orders in cache: ${cacheKey}`);
+        return response;
+      }
+
+      // Get specializations
+      const specializationsStart = Date.now();
+      const restaurantIds = orders.map(order => order.restaurant_id);
+      const specializations = await this.dataSource
+        .createQueryBuilder()
+        .select('rs.restaurant_id', 'restaurant_id')
+        .addSelect('array_agg(fc.name)', 'specializations')
+        .from('restaurant_specializations', 'rs')
+        .leftJoin('food_categories', 'fc', 'fc.id = rs.food_category_id')
+        .where('rs.restaurant_id IN (:...restaurantIds)', { restaurantIds })
+        .groupBy('rs.restaurant_id')
+        .getRawMany();
+      const specializationMap = new Map(
+        specializations.map(spec => [spec.restaurant_id, spec.specializations])
+      );
+      logger.log(
+        `Specializations fetch took ${Date.now() - specializationsStart}ms`
+      );
+
+      // Batch query MenuItem
+      const menuItemsStart = Date.now();
+      const allItemIds = orders.flatMap(order =>
+        order.order_items.map(item => item.item_id)
+      );
+      const menuItems = await this.dataSource.getRepository(MenuItem).find({
+        where: { id: In(allItemIds) },
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          avatar: { url: true, key: true },
+          restaurant: {
+            id: true,
+            restaurant_name: true,
+            address_id: true,
+            avatar: { url: true, key: true }
+          }
+        },
+        relations: ['restaurant']
+      });
+      const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
+      logger.log(`MenuItems fetch took ${Date.now() - menuItemsStart}ms`);
+
+      // Populate orders
+      const processingStart = Date.now();
+      const populatedOrders = orders.map(order => {
+        const populatedOrderItems = order.order_items.map(item => ({
+          ...item,
+          menu_item: menuItemMap.get(item.item_id) || null
+        }));
+
+        const restaurantSpecializations =
+          specializationMap.get(order.restaurant_id) || [];
+
+        const baseOrder = {
+          ...order,
+          order_items: populatedOrderItems,
+          customer_address: order.customerAddress,
+          restaurant_address: order.restaurantAddress,
+          restaurant: {
+            ...order.restaurant,
+            specialize_in: restaurantSpecializations
+          }
+        };
+
+        if (
+          order.status === 'CANCELLED' ||
+          order.tracking_info === 'CANCELLED'
+        ) {
+          return {
+            ...baseOrder,
+            cancelled_by: order.cancelled_by,
+            cancelled_by_id: order.cancelled_by_id,
+            cancellation_reason: order.cancellation_reason,
+            cancellation_title: order.cancellation_title,
+            cancellation_description: order.cancellation_description,
+            cancelled_at: order.cancelled_at
+          };
+        }
+
+        return baseOrder;
+      });
+      logger.log(`Orders processing took ${Date.now() - processingStart}ms`);
+
+      // Store in cache
+      const cacheSaveStart = Date.now();
+      const cacheSaved = await this.redisService.setNx(
+        cacheKey,
+        JSON.stringify(populatedOrders),
+        ttl * 1000
+      );
+      if (cacheSaved) {
+        logger.log(
+          `Stored orders in cache: ${cacheKey} (took ${Date.now() - cacheSaveStart}ms)`
+        );
+      } else {
+        logger.warn(`Failed to store orders in cache: ${cacheKey}`);
+      }
+
+      logger.log(`Total DB fetch and processing took ${Date.now() - start}ms`);
+      return createResponse(
+        'OK',
+        populatedOrders,
+        'Fetched orders successfully'
+      );
+    } catch (error: any) {
+      logger.error(`Error fetching orders: ${error.message}`, error.stack);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while fetching orders'
       );
     }
   }

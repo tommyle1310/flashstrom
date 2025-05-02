@@ -55,8 +55,8 @@ export declare class RestaurantsService {
     deleteMenuItemVariantForRestaurant(menuItemVariantId: string): Promise<any>;
     getOrderById(orderId: string): Promise<import("src/orders/entities/order.entity").Order>;
     updateOrderStatus(orderId: string, status: string): Promise<any>;
-    findAll(): Promise<ApiResponse<Restaurant[]>>;
-    findOne(id: string): Promise<ApiResponse<Restaurant>>;
+    findAll(): Promise<ApiResponse<any>>;
+    findOne(id: string): Promise<ApiResponse<any>>;
     remove(id: string): Promise<ApiResponse<boolean>>;
     updateImageGalleries(uploadResults: Array<{
         key: string;

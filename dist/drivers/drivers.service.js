@@ -64,6 +64,9 @@ const ratings_reviews_repository_1 = require("../ratings_reviews/ratings_reviews
 const redis_1 = require("redis");
 const online_session_entity_1 = require("../online-sessions/entities/online-session.entity");
 const dotenv = __importStar(require("dotenv"));
+const redis_service_1 = require("../redis/redis.service");
+const typeorm_3 = require("typeorm");
+const menu_item_entity_1 = require("../menu_items/entities/menu_item.entity");
 dotenv.config();
 const logger = new common_1.Logger('DriversService');
 const redis = (0, redis_1.createClient)({
@@ -71,7 +74,7 @@ const redis = (0, redis_1.createClient)({
 });
 redis.connect().catch(err => logger.error('Redis connection error:', err));
 let DriversService = class DriversService {
-    constructor(driversRepository, driverEntityRepository, ordersRepository, driverStatsService, addressRepository, driverProgressStageRepository, onlineSessionsService, dataSource, ratingsReviewsRepository) {
+    constructor(driversRepository, driverEntityRepository, ordersRepository, driverStatsService, addressRepository, driverProgressStageRepository, onlineSessionsService, dataSource, ratingsReviewsRepository, redisService) {
         this.driversRepository = driversRepository;
         this.driverEntityRepository = driverEntityRepository;
         this.ordersRepository = ordersRepository;
@@ -81,6 +84,7 @@ let DriversService = class DriversService {
         this.onlineSessionsService = onlineSessionsService;
         this.dataSource = dataSource;
         this.ratingsReviewsRepository = ratingsReviewsRepository;
+        this.redisService = redisService;
     }
     async onModuleInit() {
         await this.preloadDrivers();
@@ -233,8 +237,13 @@ let DriversService = class DriversService {
     }
     async findAll() {
         try {
-            const drivers = await this.driverEntityRepository.find();
-            return (0, createResponse_1.createResponse)('OK', drivers, 'Fetched all drivers');
+            const drivers = await this.driversRepository.findAll();
+            const driversWithBanStatus = drivers.map(driver => ({
+                ...driver,
+                is_banned: driver.driver_is_banned || false
+            }));
+            console.log('hcekc what this', drivers);
+            return (0, createResponse_1.createResponse)('OK', driversWithBanStatus, 'Fetched all drivers');
         }
         catch (error) {
             return this.handleError('Error fetching drivers:', error);
@@ -246,7 +255,11 @@ let DriversService = class DriversService {
             if (!driver) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Driver not found');
             }
-            return (0, createResponse_1.createResponse)('OK', driver, 'Driver retrieved successfully');
+            const driverWithBanStatus = {
+                ...driver,
+                is_banned: driver.driver_is_banned || false
+            };
+            return (0, createResponse_1.createResponse)('OK', driverWithBanStatus, 'Driver retrieved successfully');
         }
         catch (error) {
             console.error('Error finding driver:', error);
@@ -575,6 +588,157 @@ let DriversService = class DriversService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error retrieving driver ratings and reviews');
         }
     }
+    async getAllOrders(driverId) {
+        const cacheKey = `orders:driver:${driverId}`;
+        const ttl = 300;
+        const start = Date.now();
+        try {
+            const cacheStart = Date.now();
+            const cachedData = await this.redisService.get(cacheKey);
+            if (cachedData) {
+                logger.log(`Fetched orders from cache in ${Date.now() - cacheStart}ms`);
+                logger.log(`Total time (cache): ${Date.now() - start}ms`);
+                return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedData), 'Fetched orders from cache successfully');
+            }
+            logger.log(`Cache miss for ${cacheKey}`);
+            const driverStart = Date.now();
+            const driver = await this.driversRepository.findById(driverId);
+            if (!driver) {
+                logger.log(`Driver fetch took ${Date.now() - driverStart}ms`);
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Driver not found');
+            }
+            logger.log(`Driver fetch took ${Date.now() - driverStart}ms`);
+            const ordersStart = Date.now();
+            const orders = await this.dataSource.getRepository(order_entity_1.Order).find({
+                where: { driver_id: driverId },
+                relations: [
+                    'restaurant',
+                    'customer',
+                    'restaurantAddress',
+                    'customerAddress'
+                ],
+                select: {
+                    id: true,
+                    customer_id: true,
+                    restaurant_id: true,
+                    driver_id: true,
+                    status: true,
+                    total_amount: true,
+                    payment_status: true,
+                    payment_method: true,
+                    customer_location: true,
+                    restaurant_location: true,
+                    order_items: true,
+                    customer_note: true,
+                    restaurant_note: true,
+                    distance: true,
+                    delivery_fee: true,
+                    updated_at: true,
+                    order_time: true,
+                    delivery_time: true,
+                    tracking_info: true,
+                    cancelled_by: true,
+                    cancelled_by_id: true,
+                    cancellation_reason: true,
+                    cancellation_title: true,
+                    cancellation_description: true,
+                    cancelled_at: true,
+                    restaurant: {
+                        id: true,
+                        restaurant_name: true,
+                        address_id: true,
+                        avatar: { url: true, key: true }
+                    }
+                }
+            });
+            logger.log(`Orders fetch took ${Date.now() - ordersStart}ms`);
+            if (!orders || orders.length === 0) {
+                const response = (0, createResponse_1.createResponse)('OK', [], 'No orders found for this driver');
+                await this.redisService.setNx(cacheKey, JSON.stringify([]), ttl * 1000);
+                logger.log(`Stored empty orders in cache: ${cacheKey}`);
+                return response;
+            }
+            const specializationsStart = Date.now();
+            const restaurantIds = orders.map(order => order.restaurant_id);
+            const specializations = await this.dataSource
+                .createQueryBuilder()
+                .select('rs.restaurant_id', 'restaurant_id')
+                .addSelect('array_agg(fc.name)', 'specializations')
+                .from('restaurant_specializations', 'rs')
+                .leftJoin('food_categories', 'fc', 'fc.id = rs.food_category_id')
+                .where('rs.restaurant_id IN (:...restaurantIds)', { restaurantIds })
+                .groupBy('rs.restaurant_id')
+                .getRawMany();
+            const specializationMap = new Map(specializations.map(spec => [spec.restaurant_id, spec.specializations]));
+            logger.log(`Specializations fetch took ${Date.now() - specializationsStart}ms`);
+            const menuItemsStart = Date.now();
+            const allItemIds = orders.flatMap(order => order.order_items.map(item => item.item_id));
+            const menuItems = await this.dataSource.getRepository(menu_item_entity_1.MenuItem).find({
+                where: { id: (0, typeorm_3.In)(allItemIds) },
+                select: {
+                    id: true,
+                    name: true,
+                    price: true,
+                    avatar: { url: true, key: true },
+                    restaurant: {
+                        id: true,
+                        restaurant_name: true,
+                        address_id: true,
+                        avatar: { url: true, key: true }
+                    }
+                },
+                relations: ['restaurant']
+            });
+            const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
+            logger.log(`MenuItems fetch took ${Date.now() - menuItemsStart}ms`);
+            const processingStart = Date.now();
+            const populatedOrders = orders.map(order => {
+                const populatedOrderItems = order.order_items.map(item => ({
+                    ...item,
+                    menu_item: menuItemMap.get(item.item_id) || null
+                }));
+                const restaurantSpecializations = specializationMap.get(order.restaurant_id) || [];
+                const baseOrder = {
+                    ...order,
+                    order_items: populatedOrderItems,
+                    customer_address: order.customerAddress,
+                    restaurant_address: order.restaurantAddress,
+                    restaurant: {
+                        ...order.restaurant,
+                        specialize_in: restaurantSpecializations
+                    }
+                };
+                if (order.status === 'CANCELLED' ||
+                    order.tracking_info === 'CANCELLED') {
+                    return {
+                        ...baseOrder,
+                        cancelled_by: order.cancelled_by,
+                        cancelled_by_id: order.cancelled_by_id,
+                        cancellation_reason: order.cancellation_reason,
+                        cancellation_title: order.cancellation_title,
+                        cancellation_description: order.cancellation_description,
+                        cancelled_at: order.cancelled_at
+                    };
+                }
+                return baseOrder;
+            });
+            logger.log(`Orders processing took ${Date.now() - processingStart}ms`);
+            const cacheSaveStart = Date.now();
+            const cacheSaved = await this.redisService.setNx(cacheKey, JSON.stringify(populatedOrders), ttl * 1000);
+            if (cacheSaved) {
+                logger.log(`Stored orders in cache: ${cacheKey} (took ${Date.now() - cacheSaveStart}ms)`);
+            }
+            else {
+                logger.warn(`Failed to store orders in cache: ${cacheKey}`);
+            }
+            logger.log(`Total DB fetch and processing took ${Date.now() - start}ms`);
+            return (0, createResponse_1.createResponse)('OK', populatedOrders, 'Fetched orders successfully');
+        }
+        catch (error) {
+            logger.error(`Error fetching orders: ${error.message}`, error.stack);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching orders');
+        }
+    }
 };
 exports.DriversService = DriversService;
 exports.DriversService = DriversService = __decorate([
@@ -588,6 +752,7 @@ exports.DriversService = DriversService = __decorate([
         driver_progress_stages_repository_1.DriverProgressStagesRepository,
         online_sessions_service_1.OnlineSessionsService,
         typeorm_1.DataSource,
-        ratings_reviews_repository_1.RatingsReviewsRepository])
+        ratings_reviews_repository_1.RatingsReviewsRepository,
+        redis_service_1.RedisService])
 ], DriversService);
 //# sourceMappingURL=drivers.service.js.map

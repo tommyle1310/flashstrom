@@ -83,6 +83,10 @@ interface MenuItemResponse {
   variants: MenuItemVariantResponse[];
 }
 
+interface RestaurantWithBanStatus extends Omit<Restaurant, 'generateId'> {
+  is_banned: boolean;
+}
+
 @Injectable()
 export class RestaurantsService {
   constructor(
@@ -991,7 +995,7 @@ export class RestaurantsService {
     }
   }
 
-  async findAll(): Promise<ApiResponse<Restaurant[]>> {
+  async findAll(): Promise<ApiResponse<any>> {
     try {
       const restaurants = await this.restaurantsRepository.findAll();
       return createResponse(
@@ -1009,18 +1013,16 @@ export class RestaurantsService {
     }
   }
 
-  // Trong RestaurantsService
-  async findOne(id: string): Promise<ApiResponse<Restaurant>> {
+  async findOne(id: string): Promise<ApiResponse<any>> {
     try {
       const restaurant = await this.restaurantsRepository.findById(id);
-      console.log('what the fack', restaurant);
       if (!restaurant) {
         return createResponse('NotFound', null, 'Restaurant not found');
       }
 
       return createResponse(
         'OK',
-        restaurant, // promotions đã tự động populate
+        restaurant,
         'Restaurant retrieved successfully'
       );
     } catch (error: any) {

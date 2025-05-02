@@ -24,10 +24,27 @@ let DriversRepository = class DriversRepository {
         this.orderRepository = orderRepository;
     }
     async findById(id, options) {
-        const driver = await this.driverEntityRepository.findOne({
-            where: { id },
-            relations: options?.relations || ['user']
-        });
+        const queryBuilder = this.driverEntityRepository
+            .createQueryBuilder('driver')
+            .leftJoin('banned_accounts', 'ban', 'ban.entity_id = driver.id AND ban.entity_type = :entityType', {
+            entityType: 'Driver'
+        })
+            .addSelect('CASE WHEN ban.id IS NOT NULL THEN true ELSE false END', 'driver_is_banned')
+            .where('driver.id = :id', { id });
+        if (options?.relations) {
+            options.relations.forEach(relation => {
+                queryBuilder.leftJoinAndSelect(`driver.${relation}`, relation);
+            });
+        }
+        else {
+            queryBuilder.leftJoinAndSelect('driver.user', 'user');
+        }
+        const result = await queryBuilder.getRawAndEntities();
+        const driver = result.entities[0];
+        if (driver) {
+            driver.driver_is_banned =
+                result.raw[0]?.driver_is_banned || false;
+        }
         return driver || null;
     }
     async findOne(conditions) {
@@ -40,7 +57,18 @@ let DriversRepository = class DriversRepository {
         });
     }
     async findAll() {
-        return await this.driverEntityRepository.find();
+        const result = await this.driverEntityRepository
+            .createQueryBuilder('driver')
+            .leftJoin('banned_accounts', 'ban', 'ban.entity_id = driver.id AND ban.entity_type = :entityType', {
+            entityType: 'Driver'
+        })
+            .addSelect('CASE WHEN ban.id IS NOT NULL THEN true ELSE false END', 'driver_is_banned')
+            .getRawAndEntities();
+        return result.entities.map((driver, index) => {
+            driver.driver_is_banned =
+                result.raw[index]?.driver_is_banned || false;
+            return driver;
+        });
     }
     async create(createDriverDto) {
         const driver = this.driverEntityRepository.create(createDriverDto);

@@ -14,13 +14,13 @@ export declare class RestaurantsController {
     create(createRestaurantDto: CreateRestaurantDto): Promise<ApiResponse<Restaurant>>;
     applyPromotion(restaurantId: string, promotionId: string): Promise<ApiResponse<any>>;
     clearRedis(): Promise<ApiResponse<null>>;
-    findAll(): Promise<ApiResponse<Restaurant[]>>;
+    findAll(): Promise<ApiResponse<any>>;
     findOne(id: string): Promise<ApiResponse<Restaurant>>;
     update(id: string, updateRestaurantDto: UpdateRestaurantDto): Promise<ApiResponse<Restaurant>>;
     remove(id: string): Promise<ApiResponse<boolean>>;
     createMenuItem(restaurantId: string, createMenuItemDto: CreateMenuItemDto): Promise<any>;
     getMenuItemsForRestaurant(restaurantId: string): Promise<any>;
-    findOneMenuItem(restaurantId: string, id: string): Promise<ApiResponse<Restaurant>>;
+    findOneMenuItem(restaurantId: string, id: string): Promise<ApiResponse<any>>;
     updateMenuItem(restaurantId: string, id: string, updateMenuItemDto: UpdateMenuItemDto): Promise<any>;
     toggleAvailability(id: string, toggleDto: ToggleRestaurantAvailabilityDto): Promise<ApiResponse<Restaurant>>;
     removeMenuItem(restaurantId: string, id: string): Promise<any>;

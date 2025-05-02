@@ -9,6 +9,7 @@ import * as dotenv from 'dotenv';
 import { RedisService } from 'src/redis/redis.service';
 import { DataSource } from 'typeorm';
 import { CustomerCareInquiry } from 'src/customer_cares_inquires/entities/customer_care_inquiry.entity';
+import { CustomerCare } from './entities/customer_care.entity';
 
 dotenv.config();
 
@@ -18,6 +19,10 @@ const redis = createClient({
 redis.connect().catch(err => logger.error('Redis connection error:', err));
 
 const logger = new Logger('CustomersService');
+
+interface CustomerCareWithBanStatus extends Omit<CustomerCare, 'generateId'> {
+  is_banned: boolean;
+}
 
 @Injectable()
 export class CustomerCareService {
@@ -85,7 +90,7 @@ export class CustomerCareService {
   }
 
   // Get all customer care records
-  async findAll(): Promise<any> {
+  async findAll(): Promise<ApiResponse<any>> {
     try {
       const records = await this.repository.findAll();
       return createResponse('OK', records, 'Fetched all customer care records');
@@ -236,7 +241,7 @@ export class CustomerCareService {
   }
 
   // Get a customer care record by ID
-  async findCustomerCareById(id: string): Promise<any> {
+  async findCustomerCareById(id: string): Promise<ApiResponse<any>> {
     try {
       const record = await this.repository.findById(id);
       if (!record) {
@@ -356,7 +361,7 @@ export class CustomerCareService {
         // Update existing inquiry in cache
         inquiries[inquiryIndex] = populatedInquiry;
       } else {
-        // Append new inquiry (if it wasn’t in the cache before)
+        // Append new inquiry (if it wasn't in the cache before)
         inquiries.push(populatedInquiry);
       }
 
