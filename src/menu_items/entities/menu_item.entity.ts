@@ -35,7 +35,7 @@ export class MenuItem {
   @Column('numeric')
   price: number;
 
-  @Column('text', { array: true })
+  @Column('text', { array: true, default: [] })
   category: string[];
 
   @Column('jsonb', { nullable: true })

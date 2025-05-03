@@ -52,7 +52,7 @@ __decorate([
     __metadata("design:type", Number)
 ], MenuItem.prototype, "price", void 0);
 __decorate([
-    (0, typeorm_1.Column)('text', { array: true }),
+    (0, typeorm_1.Column)('text', { array: true, default: [] }),
     __metadata("design:type", Array)
 ], MenuItem.prototype, "category", void 0);
 __decorate([

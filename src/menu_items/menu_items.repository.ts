@@ -47,10 +47,19 @@ export class MenuItemsRepository {
   }
 
   async findByRestaurantId(restaurantId: string): Promise<MenuItem[]> {
-    return this.menuItemRepository.find({
-      where: { restaurant_id: Equal(restaurantId) },
-      relations: ['variants']
-    });
+    console.log('Finding menu items for restaurant:', restaurantId);
+
+    const result = await this.menuItemRepository
+      .createQueryBuilder('menuItem')
+      .leftJoinAndSelect('menuItem.variants', 'variants')
+      .where('menuItem.restaurant_id = :restaurantId', { restaurantId })
+      .getMany();
+
+    console.log(
+      `Found ${result?.length || 0} menu items for restaurant ${restaurantId}`
+    );
+
+    return result || [];
   }
 
   async update(id: string, data: Partial<MenuItem>): Promise<MenuItem> {

@@ -438,12 +438,17 @@ let RestaurantsService = class RestaurantsService {
                         start_date: new Date(Number(promo.start_date) * 1000).toISOString(),
                         end_date: new Date(Number(promo.end_date) * 1000).toISOString(),
                         current_time: new Date().toISOString(),
-                        food_categories: promo.food_categories?.map(fc => fc.id)
+                        food_categories: promo.food_categories || []
                     });
                 });
             }
             const menuItemsResult = await this.menuItemsService.findByRestaurantId(restaurantId);
-            const menuItems = menuItemsResult.data;
+            logger.log('Menu items result:', menuItemsResult);
+            if (!menuItemsResult || !menuItemsResult.data) {
+                logger.log('No menu items result or data found');
+                return (0, createResponse_1.createResponse)('OK', [], 'No menu items found for the restaurant');
+            }
+            const menuItems = menuItemsResult.data || [];
             logger.log('Menu items count:', menuItems.length);
             if (!restaurant.promotions || restaurant.promotions.length === 0) {
                 logger.log('No promotions found for restaurant, returning normal menu items');
@@ -462,12 +467,13 @@ let RestaurantsService = class RestaurantsService {
                     const isActive = promotion.status === 'ACTIVE' &&
                         now >= Number(promotion.start_date) &&
                         now <= Number(promotion.end_date);
-                    const hasMatchingCategory = promotion.food_categories?.some(fc => itemCategories.includes(fc.id)) || false;
+                    const promotionCategories = (promotion.food_categories || []).map(fc => (typeof fc === 'string' ? fc : fc.id));
+                    const hasMatchingCategory = promotionCategories.some(fcId => itemCategories.includes(fcId));
                     console.log(`Checking promotion ${promotion.id}:`, {
                         status: promotion.status,
                         isTimeValid: `${now} between ${promotion.start_date}-${promotion.end_date}: ${isActive}`,
                         hasMatchingCategory: hasMatchingCategory,
-                        foodCategories: promotion.food_categories?.map(fc => fc.id),
+                        foodCategories: promotionCategories,
                         isApplicable: isActive && hasMatchingCategory
                     });
                     return isActive && hasMatchingCategory;

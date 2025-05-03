@@ -105,6 +105,8 @@ let RestaurantsRepository = class RestaurantsRepository {
             entityType: 'Restaurant'
         })
             .addSelect('CASE WHEN ban.id IS NOT NULL THEN true ELSE false END', 'restaurant_is_banned')
+            .leftJoinAndSelect('restaurant.promotions', 'promotions')
+            .leftJoinAndSelect('promotions.food_categories', 'food_categories')
             .where('restaurant.id = :id', { id })
             .getRawAndEntities();
         const restaurant = result.entities[0];
@@ -187,11 +189,25 @@ let RestaurantsRepository = class RestaurantsRepository {
         });
     }
     async findAllPaginated(skip, limit) {
-        return await this.repository.findAndCount({
-            skip,
-            take: limit,
-            relations: ['user']
+        const result = await this.repository
+            .createQueryBuilder('restaurant')
+            .leftJoin('banned_accounts', 'ban', 'ban.entity_id = restaurant.id AND ban.entity_type = :entityType', {
+            entityType: 'Restaurant'
+        })
+            .addSelect('CASE WHEN ban.id IS NOT NULL THEN true ELSE false END', 'restaurant_is_banned')
+            .leftJoinAndSelect('restaurant.owner', 'owner')
+            .leftJoinAndSelect('restaurant.address', 'address')
+            .leftJoinAndSelect('restaurant.specialize_in', 'specialize_in')
+            .skip(skip)
+            .take(limit)
+            .getRawAndEntities();
+        const restaurants = result.entities.map((restaurant, index) => {
+            restaurant.is_banned =
+                result.raw[index]?.restaurant_is_banned || false;
+            return restaurant;
         });
+        const total = await this.repository.count();
+        return [restaurants, total];
     }
 };
 exports.RestaurantsRepository = RestaurantsRepository;

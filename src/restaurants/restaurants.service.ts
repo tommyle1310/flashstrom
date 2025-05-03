@@ -83,9 +83,9 @@ interface MenuItemResponse {
   variants: MenuItemVariantResponse[];
 }
 
-interface RestaurantWithBanStatus extends Omit<Restaurant, 'generateId'> {
-  is_banned: boolean;
-}
+// interface RestaurantWithBanStatus extends Omit<Restaurant, 'generateId'> {
+//   is_banned: boolean;
+// }
 
 @Injectable()
 export class RestaurantsService {
@@ -666,7 +666,7 @@ export class RestaurantsService {
             start_date: new Date(Number(promo.start_date) * 1000).toISOString(),
             end_date: new Date(Number(promo.end_date) * 1000).toISOString(),
             current_time: new Date().toISOString(),
-            food_categories: promo.food_categories?.map(fc => fc.id)
+            food_categories: promo.food_categories || []
           });
         });
       }
@@ -674,7 +674,18 @@ export class RestaurantsService {
       // Fetch all menu items, including variants
       const menuItemsResult =
         await this.menuItemsService.findByRestaurantId(restaurantId);
-      const menuItems = menuItemsResult.data;
+      logger.log('Menu items result:', menuItemsResult);
+
+      if (!menuItemsResult || !menuItemsResult.data) {
+        logger.log('No menu items result or data found');
+        return createResponse(
+          'OK',
+          [],
+          'No menu items found for the restaurant'
+        );
+      }
+
+      const menuItems = menuItemsResult.data || [];
       logger.log('Menu items count:', menuItems.length);
 
       // If restaurant has no promotions, cache and return normal menu items
@@ -713,16 +724,19 @@ export class RestaurantsService {
                 now >= Number(promotion.start_date) &&
                 now <= Number(promotion.end_date);
 
-              const hasMatchingCategory =
-                promotion.food_categories?.some(fc =>
-                  itemCategories.includes(fc.id)
-                ) || false;
+              // Handle food_categories as array of strings (IDs)
+              const promotionCategories = (promotion.food_categories || []).map(
+                fc => (typeof fc === 'string' ? fc : fc.id)
+              );
+              const hasMatchingCategory = promotionCategories.some(fcId =>
+                itemCategories.includes(fcId)
+              );
 
               console.log(`Checking promotion ${promotion.id}:`, {
                 status: promotion.status,
                 isTimeValid: `${now} between ${promotion.start_date}-${promotion.end_date}: ${isActive}`,
                 hasMatchingCategory: hasMatchingCategory,
-                foodCategories: promotion.food_categories?.map(fc => fc.id),
+                foodCategories: promotionCategories,
                 isApplicable: isActive && hasMatchingCategory
               });
 

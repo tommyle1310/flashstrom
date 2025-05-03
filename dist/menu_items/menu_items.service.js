@@ -23,8 +23,10 @@ const menu_item_entity_1 = require("./entities/menu_item.entity");
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("typeorm");
 const typeorm_2 = require("@nestjs/typeorm");
+const typeorm_3 = require("typeorm");
 let MenuItemsService = MenuItemsService_1 = class MenuItemsService {
-    constructor(menuItemsRepository, restaurantRepository, foodCategoriesRepository, menuItemVariantsService) {
+    constructor(menuItemRepository, menuItemsRepository, restaurantRepository, foodCategoriesRepository, menuItemVariantsService) {
+        this.menuItemRepository = menuItemRepository;
         this.menuItemsRepository = menuItemsRepository;
         this.restaurantRepository = restaurantRepository;
         this.foodCategoriesRepository = foodCategoriesRepository;
@@ -289,10 +291,11 @@ let MenuItemsService = MenuItemsService_1 = class MenuItemsService {
     async findByRestaurantId(restaurantId) {
         try {
             const menuItems = await this.menuItemsRepository.findByRestaurantId(restaurantId);
-            return (0, createResponse_1.createResponse)('OK', menuItems, 'Fetched menu items for restaurant');
+            return (0, createResponse_1.createResponse)('OK', menuItems || [], 'Fetched menu items for restaurant');
         }
         catch (error) {
-            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching menu items');
+            this.logger.error('Error in findByRestaurantId:', error);
+            return (0, createResponse_1.createResponse)('ServerError', [], 'An error occurred while fetching menu items');
         }
     }
     async findAllPaginated(page = 1, limit = 10) {
@@ -317,7 +320,8 @@ exports.MenuItemsService = MenuItemsService;
 exports.MenuItemsService = MenuItemsService = MenuItemsService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_2.InjectRepository)(menu_item_entity_1.MenuItem)),
-    __metadata("design:paramtypes", [menu_items_repository_1.MenuItemsRepository,
+    __metadata("design:paramtypes", [typeorm_3.Repository,
+        menu_items_repository_1.MenuItemsRepository,
         restaurants_repository_1.RestaurantsRepository,
         food_categories_repository_1.FoodCategoriesRepository,
         menu_item_variants_service_1.MenuItemVariantsService])

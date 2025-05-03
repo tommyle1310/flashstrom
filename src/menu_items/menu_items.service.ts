@@ -59,6 +59,7 @@ export class MenuItemsService {
 
   constructor(
     @InjectRepository(MenuItem)
+    private readonly menuItemRepository: Repository<MenuItem>,
     private readonly menuItemsRepository: MenuItemsRepository,
     private readonly restaurantRepository: RestaurantsRepository,
     private readonly foodCategoriesRepository: FoodCategoriesRepository,
@@ -473,13 +474,14 @@ export class MenuItemsService {
         await this.menuItemsRepository.findByRestaurantId(restaurantId);
       return createResponse(
         'OK',
-        menuItems,
+        menuItems || [],
         'Fetched menu items for restaurant'
       );
     } catch (error: any) {
+      this.logger.error('Error in findByRestaurantId:', error);
       return createResponse(
         'ServerError',
-        null,
+        [],
         'An error occurred while fetching menu items'
       );
     }
