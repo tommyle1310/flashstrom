@@ -27,6 +27,11 @@ let PenaltiesController = class PenaltiesController {
     findAll() {
         return this.penaltiesService.findAll();
     }
+    findAllPaginated(page = '1', limit = '10') {
+        const parsedPage = parseInt(page, 10);
+        const parsedLimit = parseInt(limit, 10);
+        return this.penaltiesService.findAllPaginated(parsedPage, parsedLimit);
+    }
     async findByDriverId(driverId, limit, offset) {
         const limitNum = limit ? parseInt(limit, 10) : 10;
         const offsetNum = offset ? parseInt(offset, 10) : 0;
@@ -90,6 +95,14 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], PenaltiesController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('paginated'),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], PenaltiesController.prototype, "findAllPaginated", null);
 __decorate([
     (0, common_1.Get)('/by-driver/:driverId'),
     __param(0, (0, common_1.Param)('driverId')),

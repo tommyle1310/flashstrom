@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var PenaltiesService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PenaltiesService = void 0;
 const common_1 = require("@nestjs/common");
@@ -22,13 +23,14 @@ const createResponse_1 = require("../utils/createResponse");
 const penalty_rules_repository_1 = require("../penalty-rules/penalty-rules.repository");
 const admin_repository_1 = require("../admin/admin.repository");
 const drivers_repository_1 = require("../drivers/drivers.repository");
-let PenaltiesService = class PenaltiesService {
+let PenaltiesService = PenaltiesService_1 = class PenaltiesService {
     constructor(penaltiesRepository, penaltyRulesRepository, driverRepository, adminRepository, penaltyEntityRepository) {
         this.penaltiesRepository = penaltiesRepository;
         this.penaltyRulesRepository = penaltyRulesRepository;
         this.driverRepository = driverRepository;
         this.adminRepository = adminRepository;
         this.penaltyEntityRepository = penaltyEntityRepository;
+        this.logger = new common_1.Logger(PenaltiesService_1.name);
     }
     async create(createPenaltyDto) {
         try {
@@ -151,6 +153,23 @@ let PenaltiesService = class PenaltiesService {
             return this.handleError('Error deleting penalty:', error);
         }
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [items, total] = await this.penaltiesRepository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items
+            });
+        }
+        catch (error) {
+            this.logger.error(`Error fetching paginated penalties: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            return (0, createResponse_1.createResponse)('ServerError', null);
+        }
+    }
     handlePenaltyResponse(penalty) {
         if (!penalty) {
             return (0, createResponse_1.createResponse)('NotFound', null, 'Penalty not found');
@@ -163,7 +182,7 @@ let PenaltiesService = class PenaltiesService {
     }
 };
 exports.PenaltiesService = PenaltiesService;
-exports.PenaltiesService = PenaltiesService = __decorate([
+exports.PenaltiesService = PenaltiesService = PenaltiesService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(4, (0, typeorm_1.InjectRepository)(penalty_entity_1.Penalty)),
     __metadata("design:paramtypes", [penalties_repository_1.PenaltiesRepository,

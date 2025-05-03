@@ -473,4 +473,15 @@ export class CustomerCareInquiriesRepository {
       throw error;
     }
   }
+
+  async findAllPaginated(
+    skip: number,
+    limit: number
+  ): Promise<[CustomerCareInquiry[], number]> {
+    return await this.repository.findAndCount({
+      skip,
+      take: limit,
+      relations: ['customer_care', 'customer']
+    });
+  }
 }

@@ -8,10 +8,12 @@ import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { MenuItemsRepository } from './menu_items.repository';
 import { MenuItem } from './entities/menu_item.entity';
 import { MenuItemVariantDto } from 'src/menu_item_variants/dto/create-menu_item_variant.dto';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { MenuItemVariant } from 'src/menu_item_variants/entities/menu_item_variant.entity';
 import { Equal } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 interface MenuItemVariantResponse {
   id: string;
@@ -53,8 +55,11 @@ interface MenuItemResponse {
 
 @Injectable()
 export class MenuItemsService {
+  private readonly logger = new Logger(MenuItemsService.name);
+
   constructor(
-    private readonly menuItemRepository: MenuItemsRepository,
+    @InjectRepository(MenuItem)
+    private readonly menuItemsRepository: MenuItemsRepository,
     private readonly restaurantRepository: RestaurantsRepository,
     private readonly foodCategoriesRepository: FoodCategoriesRepository,
     private readonly menuItemVariantsService: MenuItemVariantsService
@@ -90,7 +95,7 @@ export class MenuItemsService {
 
   async findAll(): Promise<ApiResponse<MenuItem[]>> {
     try {
-      const menuItems = await this.menuItemRepository.findAll();
+      const menuItems = await this.menuItemsRepository.findAll();
       return createResponse('OK', menuItems, 'Fetched all menu items');
     } catch (error: any) {
       return this.handleError('Error fetching menu items:', error);
@@ -116,7 +121,7 @@ export class MenuItemsService {
   async findOne(id: string): Promise<ApiResponse<any>> {
     try {
       console.log('Starting findOne with id:', id);
-      const menuItem = await this.menuItemRepository.findOne({
+      const menuItem = await this.menuItemsRepository.findOne({
         where: { id: Equal(id) },
         relations: ['variants', 'restaurant']
       });
@@ -250,7 +255,7 @@ export class MenuItemsService {
     updateMenuItemDto: UpdateMenuItemDto
   ): Promise<ApiResponse<MenuItem>> {
     try {
-      const existingMenuItem = await this.menuItemRepository.findById(id);
+      const existingMenuItem = await this.menuItemsRepository.findById(id);
       if (!existingMenuItem) {
         return createResponse('NotFound', null, 'Menu Item not found');
       }
@@ -271,7 +276,7 @@ export class MenuItemsService {
 
   async remove(id: string): Promise<ApiResponse<null>> {
     try {
-      await this.menuItemRepository.remove(id);
+      await this.menuItemsRepository.remove(id);
       return createResponse('OK', null, 'Menu Item deleted successfully');
     } catch (error: any) {
       return this.handleError('Error deleting menu item:', error);
@@ -283,7 +288,7 @@ export class MenuItemsService {
     menuItemId: string
   ): Promise<ApiResponse<MenuItem>> {
     try {
-      const menuItem = await this.menuItemRepository.update(menuItemId, {
+      const menuItem = await this.menuItemsRepository.update(menuItemId, {
         avatar: { url: uploadResult.url, key: uploadResult.public_id }
       });
       return this.handleMenuItemResponse(menuItem);
@@ -322,7 +327,7 @@ export class MenuItemsService {
     name: string,
     restaurantId: string
   ): Promise<MenuItem | null> {
-    return this.menuItemRepository.findOne({
+    return this.menuItemsRepository.findOne({
       where: { name: Equal(name), restaurant_id: Equal(restaurantId) }
     });
   }
@@ -338,12 +343,12 @@ export class MenuItemsService {
     );
 
     if (createMenuItemDto.discount) {
-      await this.menuItemRepository.update(existingMenuItem.id, {
+      await this.menuItemsRepository.update(existingMenuItem.id, {
         discount: createMenuItemDto.discount
       });
     }
 
-    const updatedMenuItem = await this.menuItemRepository.findById(
+    const updatedMenuItem = await this.menuItemsRepository.findById(
       existingMenuItem.id
     );
     return createResponse(
@@ -364,7 +369,7 @@ export class MenuItemsService {
       updated_at: Math.floor(Date.now() / 1000)
     };
 
-    const newMenuItem = await this.menuItemRepository.create(menuItemData);
+    const newMenuItem = await this.menuItemsRepository.create(menuItemData);
 
     // Create variants separately if they exist
     let variants = [];
@@ -394,7 +399,7 @@ export class MenuItemsService {
     const { variants, ...updateFields } = updateData; // Destructure to remove variants
 
     // Update the menu item
-    const updatedMenuItem = await this.menuItemRepository.update(menuItem.id, {
+    const updatedMenuItem = await this.menuItemsRepository.update(menuItem.id, {
       ...updateFields,
       updated_at: Math.floor(Date.now() / 1000)
     });
@@ -465,7 +470,7 @@ export class MenuItemsService {
   ): Promise<ApiResponse<MenuItem[]>> {
     try {
       const menuItems =
-        await this.menuItemRepository.findByRestaurantId(restaurantId);
+        await this.menuItemsRepository.findByRestaurantId(restaurantId);
       return createResponse(
         'OK',
         menuItems,
@@ -477,6 +482,29 @@ export class MenuItemsService {
         null,
         'An error occurred while fetching menu items'
       );
+    }
+  }
+
+  async findAllPaginated(page: number = 1, limit: number = 10) {
+    try {
+      const skip = (page - 1) * limit;
+      const [items, total] = await this.menuItemsRepository.findAllPaginated(
+        skip,
+        limit
+      );
+      const totalPages = Math.ceil(total / limit);
+
+      return createResponse('OK', {
+        totalPages,
+        currentPage: page,
+        totalItems: total,
+        items
+      });
+    } catch (error) {
+      this.logger.error(
+        `Error fetching paginated menu items: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      return createResponse('ServerError', null);
     }
   }
 }

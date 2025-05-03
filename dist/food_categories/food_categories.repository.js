@@ -50,6 +50,12 @@ let FoodCategoriesRepository = class FoodCategoriesRepository {
         const result = await this.repository.delete(id);
         return result.affected > 0;
     }
+    async findAllPaginated(skip, limit) {
+        return this.repository.findAndCount({
+            skip,
+            take: limit
+        });
+    }
 };
 exports.FoodCategoriesRepository = FoodCategoriesRepository;
 exports.FoodCategoriesRepository = FoodCategoriesRepository = __decorate([

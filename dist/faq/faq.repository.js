@@ -45,6 +45,12 @@ let FAQsRepository = class FAQsRepository {
     async delete(id) {
         return this.faqRepository.delete(id);
     }
+    async findAllPaginated(skip, limit) {
+        return await this.faqRepository.findAndCount({
+            skip,
+            take: limit
+        });
+    }
 };
 exports.FAQsRepository = FAQsRepository;
 exports.FAQsRepository = FAQsRepository = __decorate([

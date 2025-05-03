@@ -18,4 +18,5 @@ export declare class OrdersRepository {
     }): Promise<Order>;
     updateTrackingInfo(id: string, tracking_info: OrderTrackingInfo): Promise<Order>;
     updateDriverTips(id: string, driver_tips: number): Promise<Order>;
+    findAllPaginated(skip: number, limit: number): Promise<[Order[], number]>;
 }

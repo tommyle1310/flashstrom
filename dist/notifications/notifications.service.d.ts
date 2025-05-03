@@ -19,4 +19,10 @@ export declare class NotificationsService {
     private handleNotificationResponse;
     private handleError;
     broadcast(broadcastNotificationDto: BroadcastNotificationDto): Promise<ApiResponse<Notification[]>>;
+    findAllPaginated(page?: number, limit?: number): Promise<ApiResponse<{
+        totalPages: number;
+        currentPage: number;
+        totalItems: number;
+        items: Notification[];
+    }>>;
 }

@@ -5,7 +5,8 @@ import {
   Body,
   Patch,
   Param,
-  Delete
+  Delete,
+  Query
 } from '@nestjs/common';
 import { TransactionService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
@@ -23,6 +24,16 @@ export class TransactionsController {
   @Get()
   findAll() {
     return this.transactionsService.findAll();
+  }
+
+  @Get('paginated')
+  findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.transactionsService.findAllPaginated(parsedPage, parsedLimit);
   }
 
   @Get(':id')

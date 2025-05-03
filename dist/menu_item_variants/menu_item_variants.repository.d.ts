@@ -8,6 +8,7 @@ export declare class MenuItemVariantsRepository {
     findByIds(ids: string[]): Promise<MenuItemVariant[]>;
     findByDetails(price: number, description: string, menu_id: string): Promise<MenuItemVariant>;
     findAll(conditions?: any): Promise<MenuItemVariant[]>;
+    findAllPaginated(skip: number, limit: number): Promise<[MenuItemVariant[], number]>;
     update(id: string, data: Partial<MenuItemVariant>): Promise<MenuItemVariant>;
     remove(id: string): Promise<void>;
 }

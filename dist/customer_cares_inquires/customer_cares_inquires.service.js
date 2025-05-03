@@ -240,6 +240,23 @@ let CustomerCareInquiriesService = class CustomerCareInquiriesService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to fetch escalated inquiries');
         }
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [inquiries, total] = await this.repository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items: inquiries
+            }, 'Fetched paginated customer care inquiries');
+        }
+        catch (error) {
+            console.error('Error fetching paginated customer care inquiries:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching paginated customer care inquiries');
+        }
+    }
 };
 exports.CustomerCareInquiriesService = CustomerCareInquiriesService;
 exports.CustomerCareInquiriesService = CustomerCareInquiriesService = __decorate([

@@ -16,4 +16,5 @@ export declare class FWalletsRepository {
     update(id: string, updateDto: UpdateFwalletDto, manager?: EntityManager): Promise<UpdateResult>;
     delete(id: string, manager?: EntityManager): Promise<boolean>;
     findHistoryTransaction(fWalletId: string, manager?: EntityManager): Promise<Transaction[]>;
+    findAllPaginated(skip: number, limit: number): Promise<[FWallet[], number]>;
 }

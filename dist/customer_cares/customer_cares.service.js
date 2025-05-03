@@ -327,6 +327,23 @@ let CustomerCareService = class CustomerCareService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while resetting inquiries cache');
         }
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [customerCares, total] = await this.repository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items: customerCares
+            }, 'Fetched paginated customer cares');
+        }
+        catch (error) {
+            console.error('Error fetching paginated customer cares:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching paginated customer cares');
+        }
+    }
 };
 exports.CustomerCareService = CustomerCareService;
 exports.CustomerCareService = CustomerCareService = __decorate([

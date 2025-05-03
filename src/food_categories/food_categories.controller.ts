@@ -5,7 +5,8 @@ import {
   Body,
   Patch,
   Param,
-  Delete
+  Delete,
+  Query
 } from '@nestjs/common';
 import { FoodCategoriesService } from './food_categories.service';
 import { CreateFoodCategoryDto } from './dto/create-food_category.dto';
@@ -25,6 +26,16 @@ export class FoodCategoriesController {
   @Get()
   findAll() {
     return this.foodCategoriesService.findAll();
+  }
+
+  @Get('paginated')
+  findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.foodCategoriesService.findAllPaginated(parsedPage, parsedLimit);
   }
 
   // Get a food category by ID

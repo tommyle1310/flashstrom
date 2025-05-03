@@ -74,4 +74,10 @@ export declare class DriversService {
     formatTime(milliseconds: any): Promise<string>;
     getDriverRatingsReviews(driverId: string): Promise<ApiResponse<any>>;
     getAllOrders(driverId: string): Promise<ApiResponse<any>>;
+    findAllPaginated(page?: number, limit?: number): Promise<ApiResponse<{
+        totalPages: number;
+        currentPage: number;
+        totalItems: number;
+        items: Driver[];
+    }>>;
 }

@@ -42,4 +42,14 @@ export class FinanceRulesRepository {
     }
     return financeRule;
   }
+
+  async findAllPaginated(
+    skip: number,
+    limit: number
+  ): Promise<[FinanceRule[], number]> {
+    return this.financeRuleEntityRepository.findAndCount({
+      skip,
+      take: limit
+    });
+  }
 }

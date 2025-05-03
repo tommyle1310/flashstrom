@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var PenaltyRulesService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PenaltyRulesService = void 0;
 const common_1 = require("@nestjs/common");
@@ -19,10 +20,11 @@ const typeorm_2 = require("typeorm");
 const penalty_rule_entity_1 = require("./entities/penalty-rule.entity");
 const penalty_rules_repository_1 = require("./penalty-rules.repository");
 const createResponse_1 = require("../utils/createResponse");
-let PenaltyRulesService = class PenaltyRulesService {
+let PenaltyRulesService = PenaltyRulesService_1 = class PenaltyRulesService {
     constructor(penaltyRulesRepository, penaltyRuleEntityRepository) {
         this.penaltyRulesRepository = penaltyRulesRepository;
         this.penaltyRuleEntityRepository = penaltyRuleEntityRepository;
+        this.logger = new common_1.Logger(PenaltyRulesService_1.name);
     }
     async create(createPenaltyRuleDto) {
         try {
@@ -80,6 +82,23 @@ let PenaltyRulesService = class PenaltyRulesService {
             return this.handleError('Error deleting penalty rule:', error);
         }
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [items, total] = await this.penaltyRulesRepository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items
+            });
+        }
+        catch (error) {
+            this.logger.error(`Error fetching paginated penalty rules: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            return (0, createResponse_1.createResponse)('ServerError', null);
+        }
+    }
     handleRuleResponse(rule) {
         if (!rule) {
             return (0, createResponse_1.createResponse)('NotFound', null, 'Penalty rule not found');
@@ -92,7 +111,7 @@ let PenaltyRulesService = class PenaltyRulesService {
     }
 };
 exports.PenaltyRulesService = PenaltyRulesService;
-exports.PenaltyRulesService = PenaltyRulesService = __decorate([
+exports.PenaltyRulesService = PenaltyRulesService = PenaltyRulesService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(1, (0, typeorm_1.InjectRepository)(penalty_rule_entity_1.PenaltyRule)),
     __metadata("design:paramtypes", [penalty_rules_repository_1.PenaltyRulesRepository,

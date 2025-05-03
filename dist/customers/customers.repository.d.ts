@@ -21,4 +21,5 @@ export declare class CustomersRepository {
     update(id: string, updateCustomerDto: UpdateCustomerDto): Promise<Customer>;
     remove(id: string): Promise<void>;
     findOneBy(conditions: Partial<Customer>): Promise<Customer | null>;
+    findAllPaginated(skip: number, limit: number): Promise<[Customer[], number]>;
 }

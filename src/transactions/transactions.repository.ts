@@ -48,4 +48,15 @@ export class TransactionsRepository {
     const result = await this.repository.delete(id);
     return result.affected > 0;
   }
+
+  async findAllPaginated(
+    skip: number,
+    limit: number
+  ): Promise<[Transaction[], number]> {
+    return await this.repository.findAndCount({
+      skip,
+      take: limit,
+      relations: ['user', 'fwallet']
+    });
+  }
 }

@@ -22,4 +22,5 @@ export declare class DriversRepository {
         key: string;
         url: string;
     }>): Promise<Driver>;
+    findAllPaginated(skip: number, limit: number): Promise<[Driver[], number]>;
 }

@@ -10,7 +10,6 @@ exports.CustomerCaresModule = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const customer_cares_service_1 = require("./customer_cares.service");
-const customer_cares_controller_1 = require("./customer_cares.controller");
 const customer_care_entity_1 = require("./entities/customer_care.entity");
 const customer_cares_repository_1 = require("./customer_cares.repository");
 const customer_cares_inquires_repository_1 = require("../customer_cares_inquires/customer_cares_inquires.repository");
@@ -19,6 +18,7 @@ const order_entity_1 = require("../orders/entities/order.entity");
 const orders_repository_1 = require("../orders/orders.repository");
 const promotion_entity_1 = require("../promotions/entities/promotion.entity");
 const redis_service_1 = require("../redis/redis.service");
+const customer_cares_controller_1 = require("./customer_cares.controller");
 let CustomerCaresModule = class CustomerCaresModule {
 };
 exports.CustomerCaresModule = CustomerCaresModule;
@@ -32,7 +32,7 @@ exports.CustomerCaresModule = CustomerCaresModule = __decorate([
                 promotion_entity_1.Promotion
             ])
         ],
-        controllers: [customer_cares_controller_1.CustomerCareController],
+        controllers: [customer_cares_controller_1.CustomerCaresController],
         providers: [
             redis_service_1.RedisService,
             customer_cares_service_1.CustomerCareService,

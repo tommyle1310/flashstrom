@@ -5,7 +5,8 @@ import {
   Body,
   Patch,
   Param,
-  Delete
+  Delete,
+  Query
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -37,6 +38,16 @@ export class OrdersController {
       data: orders,
       message: 'Orders retrieved successfully'
     };
+  }
+
+  @Get('paginated')
+  findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.ordersService.findAllPaginated(parsedPage, parsedLimit);
   }
 
   // Get a specific order by ID

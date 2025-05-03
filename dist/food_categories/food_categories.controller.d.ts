@@ -6,6 +6,7 @@ export declare class FoodCategoriesController {
     constructor(foodCategoriesService: FoodCategoriesService);
     create(createFoodCategoryDto: CreateFoodCategoryDto): Promise<import("../utils/createResponse").ApiResponse<import("./entities/food_category.entity").FoodCategory>>;
     findAll(): Promise<import("../utils/createResponse").ApiResponse<import("./entities/food_category.entity").FoodCategory[]>>;
+    findAllPaginated(page?: string, limit?: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findOne(id: string): Promise<import("../utils/createResponse").ApiResponse<import("./entities/food_category.entity").FoodCategory>>;
     update(id: string, updateFoodCategoryDto: UpdateFoodCategoryDto): Promise<import("../utils/createResponse").ApiResponse<import("./entities/food_category.entity").FoodCategory>>;
     remove(id: string): Promise<import("../utils/createResponse").ApiResponse<null>>;

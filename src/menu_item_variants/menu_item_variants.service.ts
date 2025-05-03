@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { MenuItemVariant } from './entities/menu_item_variant.entity';
 import { createResponse } from 'src/utils/createResponse';
 import { CreateMenuItemVariantDto } from './dto/create-menu_item_variant.dto';
@@ -8,6 +8,8 @@ import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
 
 @Injectable()
 export class MenuItemVariantsService {
+  private readonly logger = new Logger(MenuItemVariantsService.name);
+
   constructor(
     private readonly menuItemVariantRepository: MenuItemVariantsRepository,
     private readonly menuItemRepository: MenuItemsRepository
@@ -142,5 +144,26 @@ export class MenuItemVariantsService {
     await this.menuItemVariantRepository.remove(id);
 
     return createResponse('OK', null, 'Menu Item Variant deleted successfully');
+  }
+
+  async findAllPaginated(page: number = 1, limit: number = 10) {
+    try {
+      const skip = (page - 1) * limit;
+      const [items, total] =
+        await this.menuItemVariantRepository.findAllPaginated(skip, limit);
+      const totalPages = Math.ceil(total / limit);
+
+      return createResponse('OK', {
+        totalPages,
+        currentPage: page,
+        totalItems: total,
+        items
+      });
+    } catch (error) {
+      this.logger.error(
+        `Error fetching paginated menu item variants: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      return createResponse('ServerError', null);
+    }
   }
 }

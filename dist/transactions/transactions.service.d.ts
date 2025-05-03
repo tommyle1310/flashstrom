@@ -19,6 +19,12 @@ export declare class TransactionService {
     findOne(conditions: object): Promise<ApiResponse<Transaction>>;
     update(id: string, updateTransactionDto: UpdateTransactionDto): Promise<ApiResponse<Transaction>>;
     remove(id: string): Promise<ApiResponse<null>>;
+    findAllPaginated(page?: number, limit?: number): Promise<ApiResponse<{
+        totalPages: number;
+        currentPage: number;
+        totalItems: number;
+        items: Transaction[];
+    }>>;
     private handleTransactionResponse;
     private handleError;
 }

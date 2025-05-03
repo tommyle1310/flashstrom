@@ -5,6 +5,8 @@ import { FoodCategoriesRepository } from './food_categories.repository';
 import { createResponse, ApiResponse } from 'src/utils/createResponse';
 import { FoodCategory } from './entities/food_category.entity';
 import { RedisService } from 'src/redis/redis.service'; // Giả định bạn có RedisService
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 const logger = new Logger('FoodCategoriesService');
 
@@ -14,8 +16,11 @@ export class FoodCategoriesService {
   private readonly cacheTtl = 3600; // 1 giờ (3600 giây)
 
   constructor(
+    @InjectRepository(FoodCategory)
     private readonly foodCategoriesRepository: FoodCategoriesRepository,
-    private readonly redisService: RedisService // Inject RedisService
+    private readonly redisService: RedisService, // Inject RedisService
+    @InjectRepository(FoodCategory)
+    private readonly foodCategoryRepository: Repository<FoodCategory>
   ) {}
 
   async create(
@@ -197,6 +202,27 @@ export class FoodCategoriesService {
         null,
         'Error deleting food category'
       );
+    }
+  }
+
+  async findAllPaginated(page: number = 1, limit: number = 10) {
+    try {
+      const skip = (page - 1) * limit;
+      const [items, total] =
+        await this.foodCategoriesRepository.findAllPaginated(skip, limit);
+      const totalPages = Math.ceil(total / limit);
+
+      return createResponse('OK', {
+        totalPages,
+        currentPage: page,
+        totalItems: total,
+        items
+      });
+    } catch (error) {
+      logger.error(
+        `Error fetching paginated food categories: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      return createResponse('ServerError', null);
     }
   }
 }

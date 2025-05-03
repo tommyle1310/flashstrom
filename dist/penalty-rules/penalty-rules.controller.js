@@ -27,6 +27,11 @@ let PenaltyRulesController = class PenaltyRulesController {
     findAll() {
         return this.penaltyRulesService.findAll();
     }
+    findAllPaginated(page = '1', limit = '10') {
+        const parsedPage = parseInt(page, 10);
+        const parsedLimit = parseInt(limit, 10);
+        return this.penaltyRulesService.findAllPaginated(parsedPage, parsedLimit);
+    }
     findOne(id) {
         return this.penaltyRulesService.findOne(id);
     }
@@ -51,6 +56,14 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], PenaltyRulesController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('paginated'),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], PenaltyRulesController.prototype, "findAllPaginated", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),

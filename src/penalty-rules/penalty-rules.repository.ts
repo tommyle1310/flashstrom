@@ -37,4 +37,14 @@ export class PenaltyRulesRepository {
     }
     return rule;
   }
+
+  async findAllPaginated(
+    skip: number,
+    limit: number
+  ): Promise<[PenaltyRule[], number]> {
+    return this.penaltyRuleEntityRepository.findAndCount({
+      skip,
+      take: limit
+    });
+  }
 }

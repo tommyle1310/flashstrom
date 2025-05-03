@@ -127,6 +127,13 @@ let PromotionsRepository = class PromotionsRepository {
     async findByIds(ids) {
         return await this.promotionRepository.findByIds(ids);
     }
+    async findAllPaginated(skip, limit) {
+        return this.promotionRepository.findAndCount({
+            skip,
+            take: limit,
+            relations: ['restaurants']
+        });
+    }
 };
 exports.PromotionsRepository = PromotionsRepository;
 exports.PromotionsRepository = PromotionsRepository = __decorate([

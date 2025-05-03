@@ -124,6 +124,23 @@ let NotificationsService = class NotificationsService {
             return this.handleError('Error broadcasting notifications:', error);
         }
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [notifications, total] = await this.notificationsRepository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items: notifications
+            }, 'Fetched paginated notifications');
+        }
+        catch (error) {
+            console.error('Error fetching paginated notifications:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching paginated notifications');
+        }
+    }
 };
 exports.NotificationsService = NotificationsService;
 exports.NotificationsService = NotificationsService = __decorate([

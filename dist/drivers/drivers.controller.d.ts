@@ -11,6 +11,12 @@ export declare class DriversController {
     create(createDriverDto: CreateDriverDto): Promise<ApiResponse<import("./entities/driver.entity").Driver>>;
     clearRedis(): Promise<ApiResponse<null>>;
     findAll(): Promise<ApiResponse<any>>;
+    findAllPaginated(page?: string, limit?: string): Promise<ApiResponse<{
+        totalPages: number;
+        currentPage: number;
+        totalItems: number;
+        items: import("./entities/driver.entity").Driver[];
+    }>>;
     findOnlineSessionByDriverId(driverId: string, limit?: string, offset?: string): Promise<ApiResponse<{
         date: any;
         items: any;

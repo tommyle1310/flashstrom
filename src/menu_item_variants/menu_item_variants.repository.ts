@@ -70,6 +70,17 @@ export class MenuItemVariantsRepository {
     });
   }
 
+  async findAllPaginated(
+    skip: number,
+    limit: number
+  ): Promise<[MenuItemVariant[], number]> {
+    return this.menuItemVariantRepository.findAndCount({
+      skip,
+      take: limit,
+      relations: ['menuItem']
+    });
+  }
+
   async update(
     id: string,
     data: Partial<MenuItemVariant>

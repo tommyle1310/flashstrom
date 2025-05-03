@@ -328,6 +328,13 @@ let CustomerCareInquiriesRepository = class CustomerCareInquiriesRepository {
             throw error;
         }
     }
+    async findAllPaginated(skip, limit) {
+        return await this.repository.findAndCount({
+            skip,
+            take: limit,
+            relations: ['customer_care', 'customer']
+        });
+    }
 };
 exports.CustomerCareInquiriesRepository = CustomerCareInquiriesRepository;
 exports.CustomerCareInquiriesRepository = CustomerCareInquiriesRepository = __decorate([

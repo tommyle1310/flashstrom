@@ -698,6 +698,23 @@ let CustomersService = class CustomersService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching notifications');
         }
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [customers, total] = await this.customerRepository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items: customers
+            }, 'Fetched paginated customers');
+        }
+        catch (error) {
+            console.error('Error fetching paginated customers:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching paginated customers');
+        }
+    }
 };
 exports.CustomersService = CustomersService;
 exports.CustomersService = CustomersService = __decorate([

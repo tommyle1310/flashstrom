@@ -6,6 +6,7 @@ export declare class MenuItemsController {
     constructor(menuItemsService: MenuItemsService);
     create(createMenuItemDto: CreateMenuItemDto): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findAll(): Promise<import("../utils/createResponse").ApiResponse<import("./entities/menu_item.entity").MenuItem[]>>;
+    findAllPaginated(page?: string, limit?: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findOne(id: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
     update(id: string, updateMenuItemDto: UpdateMenuItemDto): Promise<import("../utils/createResponse").ApiResponse<import("./entities/menu_item.entity").MenuItem>>;
     remove(id: string): Promise<import("../utils/createResponse").ApiResponse<null>>;

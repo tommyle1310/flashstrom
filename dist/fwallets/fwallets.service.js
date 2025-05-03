@@ -118,6 +118,23 @@ let FWalletService = class FWalletService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching transaction history');
         }
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [wallets, total] = await this.fWalletsRepository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items: wallets
+            }, 'Fetched paginated wallets');
+        }
+        catch (error) {
+            console.error('Error fetching paginated wallets:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching paginated wallets');
+        }
+    }
 };
 exports.FWalletService = FWalletService;
 exports.FWalletService = FWalletService = __decorate([

@@ -195,4 +195,15 @@ export class CustomersRepository {
       select: ['id', 'user_id']
     });
   }
+
+  async findAllPaginated(
+    skip: number,
+    limit: number
+  ): Promise<[Customer[], number]> {
+    return await this.customerRepository.findAndCount({
+      skip,
+      take: limit,
+      relations: ['user']
+    });
+  }
 }

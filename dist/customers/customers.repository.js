@@ -164,6 +164,13 @@ let CustomersRepository = class CustomersRepository {
             select: ['id', 'user_id']
         });
     }
+    async findAllPaginated(skip, limit) {
+        return await this.customerRepository.findAndCount({
+            skip,
+            take: limit,
+            relations: ['user']
+        });
+    }
 };
 exports.CustomersRepository = CustomersRepository;
 exports.CustomersRepository = CustomersRepository = __decorate([

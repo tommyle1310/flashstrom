@@ -6,6 +6,7 @@ export declare class PenaltiesController {
     constructor(penaltiesService: PenaltiesService);
     create(createPenaltyDto: CreatePenaltyDto): Promise<import("../utils/createResponse").ApiResponse<import("./entities/penalty.entity").Penalty>>;
     findAll(): Promise<import("../utils/createResponse").ApiResponse<import("./entities/penalty.entity").Penalty[]>>;
+    findAllPaginated(page?: string, limit?: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findByDriverId(driverId: string, limit?: string, offset?: string): Promise<import("../utils/createResponse").ApiResponse<import("./entities/penalty.entity").Penalty[]>>;
     findByCustomerCareId(customerCareId: string, limit?: string, offset?: string): Promise<import("../utils/createResponse").ApiResponse<import("./entities/penalty.entity").Penalty[]>>;
     findByRestaurantId(restaurantId: string, limit?: string, offset?: string): Promise<import("../utils/createResponse").ApiResponse<import("./entities/penalty.entity").Penalty[]>>;

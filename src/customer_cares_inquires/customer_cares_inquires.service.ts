@@ -2,8 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { CustomerCareInquiriesRepository } from './customer_cares_inquires.repository';
 import { CreateCustomerCareInquiryDto } from './dto/create-customer-care-inquiry.dto';
 import { UpdateCustomerCareInquiryDto } from './dto/update-customer-care-inquiry.dto';
-import { createResponse } from 'src/utils/createResponse';
+import { ApiResponse, createResponse } from 'src/utils/createResponse';
 import { RedisService } from 'src/redis/redis.service';
+import { CustomerCareInquiry } from './entities/customer_care_inquiry.entity';
 
 const logger = new Logger('CustomerCareInquiriesService');
 
@@ -383,6 +384,45 @@ export class CustomerCareInquiriesService {
         'ServerError',
         null,
         'Failed to fetch escalated inquiries'
+      );
+    }
+  }
+
+  async findAllPaginated(
+    page: number = 1,
+    limit: number = 10
+  ): Promise<
+    ApiResponse<{
+      totalPages: number;
+      currentPage: number;
+      totalItems: number;
+      items: CustomerCareInquiry[];
+    }>
+  > {
+    try {
+      const skip = (page - 1) * limit;
+      const [inquiries, total] = await this.repository.findAllPaginated(
+        skip,
+        limit
+      );
+      const totalPages = Math.ceil(total / limit);
+
+      return createResponse(
+        'OK',
+        {
+          totalPages,
+          currentPage: page,
+          totalItems: total,
+          items: inquiries
+        },
+        'Fetched paginated customer care inquiries'
+      );
+    } catch (error: any) {
+      console.error('Error fetching paginated customer care inquiries:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error fetching paginated customer care inquiries'
       );
     }
   }

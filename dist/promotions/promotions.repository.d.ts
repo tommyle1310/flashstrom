@@ -16,4 +16,5 @@ export declare class PromotionsRepository {
         affected?: number;
     }>;
     findByIds(ids: string[]): Promise<Promotion[]>;
+    findAllPaginated(skip: number, limit: number): Promise<[Promotion[], number]>;
 }

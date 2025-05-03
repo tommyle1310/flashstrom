@@ -5,14 +5,15 @@ import {
   Post,
   Get,
   Patch,
-  Delete
+  Delete,
+  Query
 } from '@nestjs/common';
 import { CustomerCareService } from './customer_cares.service'; // Corrected to use CustomerCareService
 import { CreateCustomerCareDto } from './dto/create-customer_cares.dto'; // Corrected to use CreateCustomerCareDto
 import { UpdateCustomerCareDto } from './dto/update-customer_cares.dto'; // Corrected to use UpdateCustomerCareDto
 
-@Controller('customer-care') // Updated route to 'customerCare'
-export class CustomerCareController {
+@Controller('customer-cares')
+export class CustomerCaresController {
   constructor(private readonly customerCareService: CustomerCareService) {} // Corrected service to CustomerCareService
 
   @Post('reset-inquiries-cache')
@@ -28,6 +29,16 @@ export class CustomerCareController {
   @Get()
   findAll() {
     return this.customerCareService.findAll(); // Corrected service method to use customerCareService
+  }
+
+  @Get('paginated')
+  findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.customerCareService.findAllPaginated(parsedPage, parsedLimit);
   }
 
   @Get('inquiries/:ccId')

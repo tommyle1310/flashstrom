@@ -15,4 +15,10 @@ export declare class FWalletService {
     update(id: string, updateFWalletDto: UpdateFwalletDto): Promise<ApiResponse<any>>;
     remove(id: string): Promise<ApiResponse<null>>;
     findHistoryTransaction(fWalletId: string): Promise<ApiResponse<Transaction[]>>;
+    findAllPaginated(page?: number, limit?: number): Promise<ApiResponse<{
+        totalPages: number;
+        currentPage: number;
+        totalItems: number;
+        items: FWallet[];
+    }>>;
 }

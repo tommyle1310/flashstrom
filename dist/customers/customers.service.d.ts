@@ -46,4 +46,10 @@ export declare class CustomersService {
     getAllOrders(customerId: string): Promise<ApiResponse<any>>;
     findOne(conditions: Partial<Customer>): Promise<ApiResponse<Customer>>;
     getNotifications(customerId: string): Promise<ApiResponse<any>>;
+    findAllPaginated(page?: number, limit?: number): Promise<ApiResponse<{
+        totalPages: number;
+        currentPage: number;
+        totalItems: number;
+        items: Customer[];
+    }>>;
 }

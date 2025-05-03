@@ -12,6 +12,12 @@ export declare class OrdersController {
         tipAmount: number;
     }): Promise<import("../utils/createResponse").ApiResponse<import("./entities/order.entity").Order>>;
     findAll(): Promise<Promise<any>>;
+    findAllPaginated(page?: string, limit?: string): Promise<import("../utils/createResponse").ApiResponse<{
+        totalPages: number;
+        currentPage: number;
+        totalItems: number;
+        items: import("./entities/order.entity").Order[];
+    }>>;
     findOne(id: string): Promise<any>;
     update(id: string, updateOrderDto: UpdateOrderDto): Promise<any>;
     remove(id: string): Promise<ApiResponse<void>>;

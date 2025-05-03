@@ -27,6 +27,11 @@ let CustomerCareInquiriesController = class CustomerCareInquiriesController {
     findAll() {
         return this.service.findAll();
     }
+    findAllPaginated(page = '1', limit = '10') {
+        const parsedPage = parseInt(page, 10);
+        const parsedLimit = parseInt(limit, 10);
+        return this.service.findAllPaginated(parsedPage, parsedLimit);
+    }
     findAllInquiriesByCCId(ccId) {
         return this.service.findAllInquiriesByCCId(ccId);
     }
@@ -75,6 +80,14 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], CustomerCareInquiriesController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('paginated'),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], CustomerCareInquiriesController.prototype, "findAllPaginated", null);
 __decorate([
     (0, common_1.Get)('customer-care/:ccId'),
     __param(0, (0, common_1.Param)('ccId')),

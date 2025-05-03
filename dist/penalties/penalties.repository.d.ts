@@ -11,4 +11,5 @@ export declare class PenaltiesRepository {
     create(createPenaltyDto: any): Promise<any>;
     update(id: string, updatePenaltyDto: any): Promise<Penalty>;
     remove(id: string): Promise<Penalty>;
+    findAllPaginated(skip: number, limit: number): Promise<[Penalty[], number]>;
 }

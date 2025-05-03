@@ -5,7 +5,8 @@ import {
   Post,
   Get,
   Patch,
-  Delete
+  Delete,
+  Query
 } from '@nestjs/common';
 import { FWalletService } from './fwallets.service'; // Service for FWallet operations
 import { CreateFWalletDto } from './dto/create-fwallet.dto'; // DTO for creating FWallet
@@ -34,6 +35,17 @@ export class FWalletController {
   @Get('search/:query')
   searchByQuery(@Param('query') query: string) {
     return this.fWalletService.findBySearchQuery(query);
+  }
+
+  // Endpoint to get all FWallets with pagination
+  @Get('paginated')
+  findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.fWalletService.findAllPaginated(parsedPage, parsedLimit);
   }
 
   // Endpoint to get a specific FWallet by ID

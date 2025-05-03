@@ -26,6 +26,16 @@ export class PenaltiesController {
     return this.penaltiesService.findAll();
   }
 
+  @Get('paginated')
+  findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.penaltiesService.findAllPaginated(parsedPage, parsedLimit);
+  }
+
   @Get('/by-driver/:driverId')
   async findByDriverId(
     @Param('driverId') driverId: string,

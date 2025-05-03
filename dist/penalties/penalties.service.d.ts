@@ -13,6 +13,7 @@ export declare class PenaltiesService {
     private readonly driverRepository;
     private readonly adminRepository;
     private penaltyEntityRepository;
+    private readonly logger;
     constructor(penaltiesRepository: PenaltiesRepository, penaltyRulesRepository: PenaltyRulesRepository, driverRepository: DriversRepository, adminRepository: AdminRepository, penaltyEntityRepository: Repository<Penalty>);
     create(createPenaltyDto: CreatePenaltyDto): Promise<ApiResponse<Penalty>>;
     findAll(): Promise<ApiResponse<Penalty[]>>;
@@ -40,6 +41,7 @@ export declare class PenaltiesService {
     update(id: string, updatePenaltyDto: UpdatePenaltyDto): Promise<ApiResponse<Penalty>>;
     updateStatus(id: string, status: string): Promise<ApiResponse<Penalty>>;
     remove(id: string): Promise<ApiResponse<null>>;
+    findAllPaginated(page?: number, limit?: number): Promise<ApiResponse<any>>;
     private handlePenaltyResponse;
     private handleError;
 }

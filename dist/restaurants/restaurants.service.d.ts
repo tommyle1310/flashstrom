@@ -63,4 +63,10 @@ export declare class RestaurantsService {
         url: string;
     }>, entityId: string): Promise<ApiResponse<any>>;
     applyPromotion(restaurantId: string, promotionId: string): Promise<ApiResponse<any>>;
+    findAllPaginated(page?: number, limit?: number): Promise<ApiResponse<{
+        totalPages: number;
+        currentPage: number;
+        totalItems: number;
+        items: Restaurant[];
+    }>>;
 }

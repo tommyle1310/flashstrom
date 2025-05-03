@@ -34,6 +34,11 @@ let CustomersController = class CustomersController {
     findAll() {
         return this.customersService.findAll();
     }
+    findAllPaginated(page = '1', limit = '10') {
+        const parsedPage = parseInt(page, 10);
+        const parsedLimit = parseInt(limit, 10);
+        return this.customersService.findAllPaginated(parsedPage, parsedLimit);
+    }
     getAllRestaurants(id) {
         return this.customersService.getAllRestaurants(id);
     }
@@ -113,6 +118,14 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('paginated'),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "findAllPaginated", null);
 __decorate([
     (0, common_1.Get)('/restaurants/:id'),
     __param(0, (0, common_1.Param)('id')),

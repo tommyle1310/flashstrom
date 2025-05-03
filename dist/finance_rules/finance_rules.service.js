@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var FinanceRulesService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FinanceRulesService = void 0;
 const common_1 = require("@nestjs/common");
@@ -20,11 +21,12 @@ const finance_rule_entity_1 = require("./entities/finance_rule.entity");
 const finance_rules_repository_1 = require("./finance_rules.repository");
 const createResponse_1 = require("../utils/createResponse");
 const admin_repository_1 = require("../admin/admin.repository");
-let FinanceRulesService = class FinanceRulesService {
+let FinanceRulesService = FinanceRulesService_1 = class FinanceRulesService {
     constructor(financeRulesRepository, adminRepository, financeRuleEntityRepository) {
         this.financeRulesRepository = financeRulesRepository;
         this.adminRepository = adminRepository;
         this.financeRuleEntityRepository = financeRuleEntityRepository;
+        this.logger = new common_1.Logger(FinanceRulesService_1.name);
     }
     async create(createFinanceRuleDto) {
         try {
@@ -94,6 +96,23 @@ let FinanceRulesService = class FinanceRulesService {
             return this.handleError('Error deleting finance rule:', error);
         }
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [items, total] = await this.financeRulesRepository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items
+            });
+        }
+        catch (error) {
+            this.logger.error(`Error fetching paginated finance rules: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            return (0, createResponse_1.createResponse)('ServerError', null);
+        }
+    }
     handleFinanceRuleResponse(financeRule) {
         if (!financeRule) {
             return (0, createResponse_1.createResponse)('NotFound', null, 'Finance rule not found');
@@ -106,7 +125,7 @@ let FinanceRulesService = class FinanceRulesService {
     }
 };
 exports.FinanceRulesService = FinanceRulesService;
-exports.FinanceRulesService = FinanceRulesService = __decorate([
+exports.FinanceRulesService = FinanceRulesService = FinanceRulesService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(2, (0, typeorm_1.InjectRepository)(finance_rule_entity_1.FinanceRule)),
     __metadata("design:paramtypes", [finance_rules_repository_1.FinanceRulesRepository,

@@ -5,7 +5,8 @@ import {
   Body,
   Patch,
   Param,
-  Delete
+  Delete,
+  Query
 } from '@nestjs/common';
 import { RestaurantsService } from './restaurants.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
@@ -43,6 +44,16 @@ export class RestaurantsController {
   @Get()
   findAll() {
     return this.restaurantsService.findAll();
+  }
+
+  @Get('paginated')
+  findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.restaurantsService.findAllPaginated(parsedPage, parsedLimit);
   }
 
   @Get(':id')

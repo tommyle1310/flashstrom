@@ -48,6 +48,12 @@ let FinanceRulesRepository = class FinanceRulesRepository {
         }
         return financeRule;
     }
+    async findAllPaginated(skip, limit) {
+        return this.financeRuleEntityRepository.findAndCount({
+            skip,
+            take: limit
+        });
+    }
 };
 exports.FinanceRulesRepository = FinanceRulesRepository;
 exports.FinanceRulesRepository = FinanceRulesRepository = __decorate([

@@ -11,4 +11,5 @@ export declare class TransactionsRepository {
     findByCondition(condition: any): Promise<Transaction>;
     update(id: string, updateDto: UpdateTransactionDto): Promise<Transaction>;
     remove(id: string): Promise<boolean>;
+    findAllPaginated(skip: number, limit: number): Promise<[Transaction[], number]>;
 }

@@ -90,4 +90,15 @@ export class PenaltiesRepository {
     }
     return penalty;
   }
+
+  async findAllPaginated(
+    skip: number,
+    limit: number
+  ): Promise<[Penalty[], number]> {
+    return this.penaltyEntityRepository.findAndCount({
+      skip,
+      take: limit,
+      relations: ['driver', 'customerCare', 'restaurant', 'admin']
+    });
+  }
 }

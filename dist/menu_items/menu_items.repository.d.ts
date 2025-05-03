@@ -12,4 +12,5 @@ export declare class MenuItemsRepository {
     update(id: string, data: Partial<MenuItem>): Promise<MenuItem>;
     remove(id: string): Promise<void>;
     save(menuItem: MenuItem): Promise<MenuItem>;
+    findAllPaginated(skip: number, limit: number): Promise<[MenuItem[], number]>;
 }

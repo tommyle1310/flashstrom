@@ -17,6 +17,7 @@ import { DriverStatsService } from 'src/driver_stats_records/driver_stats_record
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DriversService } from 'src/drivers/drivers.service';
 import { RedisService } from 'src/redis/redis.service';
+import { OrdersRepository } from './orders.repository';
 export declare class OrdersService {
     private readonly ordersRepository;
     private readonly menuItemsRepository;
@@ -27,6 +28,7 @@ export declare class OrdersService {
     private readonly restaurantsRepository;
     private readonly dataSource;
     private readonly cartItemsRepository;
+    private readonly orderRepository;
     private readonly customersGateway;
     private readonly driversGateway;
     private readonly transactionService;
@@ -34,7 +36,7 @@ export declare class OrdersService {
     private readonly eventEmitter;
     private readonly driverService;
     private readonly redisService;
-    constructor(ordersRepository: Repository<Order>, menuItemsRepository: MenuItemsRepository, menuItemVariantsRepository: MenuItemVariantsRepository, addressBookRepository: AddressBookRepository, customersRepository: CustomersRepository, driverStatsService: DriverStatsService, restaurantsRepository: RestaurantsRepository, dataSource: DataSource, cartItemsRepository: CartItemsRepository, customersGateway: CustomersGateway, driversGateway: DriversGateway, transactionService: TransactionService, fWalletsRepository: FWalletsRepository, eventEmitter: EventEmitter2, driverService: DriversService, redisService: RedisService);
+    constructor(ordersRepository: Repository<Order>, menuItemsRepository: MenuItemsRepository, menuItemVariantsRepository: MenuItemVariantsRepository, addressBookRepository: AddressBookRepository, customersRepository: CustomersRepository, driverStatsService: DriverStatsService, restaurantsRepository: RestaurantsRepository, dataSource: DataSource, cartItemsRepository: CartItemsRepository, orderRepository: OrdersRepository, customersGateway: CustomersGateway, driversGateway: DriversGateway, transactionService: TransactionService, fWalletsRepository: FWalletsRepository, eventEmitter: EventEmitter2, driverService: DriversService, redisService: RedisService);
     createOrder(createOrderDto: CreateOrderDto): Promise<ApiResponse<any>>;
     assignDriver(orderId: string, driverId: string): Promise<void>;
     notifyOrderStatus(order: Order): Promise<void>;
@@ -52,4 +54,10 @@ export declare class OrdersService {
     private validateOrderItems;
     private handleOrderResponse;
     private handleError;
+    findAllPaginated(page?: number, limit?: number): Promise<ApiResponse<{
+        totalPages: number;
+        currentPage: number;
+        totalItems: number;
+        items: Order[];
+    }>>;
 }

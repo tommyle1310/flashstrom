@@ -5,7 +5,8 @@ import {
   Body,
   Patch,
   Param,
-  Delete
+  Delete,
+  Query
 } from '@nestjs/common';
 import { MenuItemVariantsService } from './menu_item_variants.service';
 import { CreateMenuItemVariantDto } from './dto/create-menu_item_variant.dto';
@@ -27,6 +28,19 @@ export class MenuItemVariantsController {
   @Get()
   findAll() {
     return this.menuItemVariantsService.findAll();
+  }
+
+  @Get('paginated')
+  findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.menuItemVariantsService.findAllPaginated(
+      parsedPage,
+      parsedLimit
+    );
   }
 
   // Get a menu item variant by ID

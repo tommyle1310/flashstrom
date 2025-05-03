@@ -5,7 +5,8 @@ import {
   Get,
   Patch,
   Delete,
-  Param
+  Param,
+  Query
 } from '@nestjs/common';
 import { FinanceRulesService } from './finance_rules.service';
 import { CreateFinanceRuleDto } from './dto/create-finance_rule.dto';
@@ -23,6 +24,16 @@ export class FinanceRulesController {
   @Get()
   findAll() {
     return this.financeRulesService.findAll();
+  }
+
+  @Get('paginated')
+  findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.financeRulesService.findAllPaginated(parsedPage, parsedLimit);
   }
 
   @Get(':id')

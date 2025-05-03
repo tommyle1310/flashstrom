@@ -72,6 +72,13 @@ let MenuItemVariantsRepository = class MenuItemVariantsRepository {
             select: ['id', 'price', 'description', 'menu_id']
         });
     }
+    async findAllPaginated(skip, limit) {
+        return this.menuItemVariantRepository.findAndCount({
+            skip,
+            take: limit,
+            relations: ['menuItem']
+        });
+    }
     async update(id, data) {
         await this.menuItemVariantRepository.update(id, {
             ...data,

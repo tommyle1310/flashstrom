@@ -12,12 +12,12 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CustomerCareController = void 0;
+exports.CustomerCaresController = void 0;
 const common_1 = require("@nestjs/common");
 const customer_cares_service_1 = require("./customer_cares.service");
 const create_customer_cares_dto_1 = require("./dto/create-customer_cares.dto");
 const update_customer_cares_dto_1 = require("./dto/update-customer_cares.dto");
-let CustomerCareController = class CustomerCareController {
+let CustomerCaresController = class CustomerCaresController {
     constructor(customerCareService) {
         this.customerCareService = customerCareService;
     }
@@ -29,6 +29,11 @@ let CustomerCareController = class CustomerCareController {
     }
     findAll() {
         return this.customerCareService.findAll();
+    }
+    findAllPaginated(page = '1', limit = '10') {
+        const parsedPage = parseInt(page, 10);
+        const parsedLimit = parseInt(limit, 10);
+        return this.customerCareService.findAllPaginated(parsedPage, parsedLimit);
     }
     findAllInquiriesByCCId(ccId) {
         return this.customerCareService.findAllInquiriesByCCId(ccId);
@@ -49,40 +54,48 @@ let CustomerCareController = class CustomerCareController {
         return this.customerCareService.remove(id);
     }
 };
-exports.CustomerCareController = CustomerCareController;
+exports.CustomerCaresController = CustomerCaresController;
 __decorate([
     (0, common_1.Post)('reset-inquiries-cache'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
-], CustomerCareController.prototype, "resetInquiriesCache", null);
+], CustomerCaresController.prototype, "resetInquiriesCache", null);
 __decorate([
     (0, common_1.Post)(),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [create_customer_cares_dto_1.CreateCustomerCareDto]),
     __metadata("design:returntype", void 0)
-], CustomerCareController.prototype, "create", null);
+], CustomerCaresController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
-], CustomerCareController.prototype, "findAll", null);
+], CustomerCaresController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('paginated'),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], CustomerCaresController.prototype, "findAllPaginated", null);
 __decorate([
     (0, common_1.Get)('inquiries/:ccId'),
     __param(0, (0, common_1.Param)('ccId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
-], CustomerCareController.prototype, "findAllInquiriesByCCId", null);
+], CustomerCaresController.prototype, "findAllInquiriesByCCId", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
-], CustomerCareController.prototype, "findCustomerCareById", null);
+], CustomerCaresController.prototype, "findCustomerCareById", null);
 __decorate([
     (0, common_1.Get)(':field/:value'),
     __param(0, (0, common_1.Param)('field')),
@@ -90,7 +103,7 @@ __decorate([
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", void 0)
-], CustomerCareController.prototype, "findOne", null);
+], CustomerCaresController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),
     __param(0, (0, common_1.Param)('id')),
@@ -98,23 +111,23 @@ __decorate([
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, update_customer_cares_dto_1.UpdateCustomerCareDto]),
     __metadata("design:returntype", void 0)
-], CustomerCareController.prototype, "update", null);
+], CustomerCaresController.prototype, "update", null);
 __decorate([
     (0, common_1.Patch)(':id/availability'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
-], CustomerCareController.prototype, "setAvailability", null);
+], CustomerCaresController.prototype, "setAvailability", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
-], CustomerCareController.prototype, "remove", null);
-exports.CustomerCareController = CustomerCareController = __decorate([
-    (0, common_1.Controller)('customer-care'),
+], CustomerCaresController.prototype, "remove", null);
+exports.CustomerCaresController = CustomerCaresController = __decorate([
+    (0, common_1.Controller)('customer-cares'),
     __metadata("design:paramtypes", [customer_cares_service_1.CustomerCareService])
-], CustomerCareController);
+], CustomerCaresController);
 //# sourceMappingURL=customer_cares.controller.js.map

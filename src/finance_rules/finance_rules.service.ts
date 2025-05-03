@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FinanceRule } from './entities/finance_rule.entity';
@@ -10,6 +10,8 @@ import { AdminRepository } from 'src/admin/admin.repository';
 
 @Injectable()
 export class FinanceRulesService {
+  private readonly logger = new Logger(FinanceRulesService.name);
+
   constructor(
     private readonly financeRulesRepository: FinanceRulesRepository,
     private readonly adminRepository: AdminRepository,
@@ -110,6 +112,29 @@ export class FinanceRulesService {
       return createResponse('OK', null, 'Finance rule deleted successfully');
     } catch (error: any) {
       return this.handleError('Error deleting finance rule:', error);
+    }
+  }
+
+  async findAllPaginated(page: number = 1, limit: number = 10) {
+    try {
+      const skip = (page - 1) * limit;
+      const [items, total] = await this.financeRulesRepository.findAllPaginated(
+        skip,
+        limit
+      );
+      const totalPages = Math.ceil(total / limit);
+
+      return createResponse('OK', {
+        totalPages,
+        currentPage: page,
+        totalItems: total,
+        items
+      });
+    } catch (error) {
+      this.logger.error(
+        `Error fetching paginated finance rules: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      return createResponse('ServerError', null);
     }
   }
 

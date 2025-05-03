@@ -7,11 +7,12 @@ import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { MenuItemsRepository } from './menu_items.repository';
 import { MenuItem } from './entities/menu_item.entity';
 export declare class MenuItemsService {
-    private readonly menuItemRepository;
+    private readonly menuItemsRepository;
     private readonly restaurantRepository;
     private readonly foodCategoriesRepository;
     private readonly menuItemVariantsService;
-    constructor(menuItemRepository: MenuItemsRepository, restaurantRepository: RestaurantsRepository, foodCategoriesRepository: FoodCategoriesRepository, menuItemVariantsService: MenuItemVariantsService);
+    private readonly logger;
+    constructor(menuItemsRepository: MenuItemsRepository, restaurantRepository: RestaurantsRepository, foodCategoriesRepository: FoodCategoriesRepository, menuItemVariantsService: MenuItemVariantsService);
     create(createMenuItemDto: CreateMenuItemDto): Promise<ApiResponse<any>>;
     findAll(): Promise<ApiResponse<MenuItem[]>>;
     private calculateDiscountedPrice;
@@ -31,4 +32,5 @@ export declare class MenuItemsService {
     private handleMenuItemResponse;
     private handleError;
     findByRestaurantId(restaurantId: string): Promise<ApiResponse<MenuItem[]>>;
+    findAllPaginated(page?: number, limit?: number): Promise<ApiResponse<any>>;
 }

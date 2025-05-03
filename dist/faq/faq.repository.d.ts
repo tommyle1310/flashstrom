@@ -13,4 +13,5 @@ export declare class FAQsRepository {
     delete(id: string): Promise<{
         affected?: number;
     }>;
+    findAllPaginated(skip: number, limit: number): Promise<[FAQ[], number]>;
 }

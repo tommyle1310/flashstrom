@@ -8,16 +8,18 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var MenuItemVariantsService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MenuItemVariantsService = void 0;
 const common_1 = require("@nestjs/common");
 const createResponse_1 = require("../utils/createResponse");
 const menu_item_variants_repository_1 = require("./menu_item_variants.repository");
 const menu_items_repository_1 = require("../menu_items/menu_items.repository");
-let MenuItemVariantsService = class MenuItemVariantsService {
+let MenuItemVariantsService = MenuItemVariantsService_1 = class MenuItemVariantsService {
     constructor(menuItemVariantRepository, menuItemRepository) {
         this.menuItemVariantRepository = menuItemVariantRepository;
         this.menuItemRepository = menuItemRepository;
+        this.logger = new common_1.Logger(MenuItemVariantsService_1.name);
     }
     async create(createMenuItemVariantDto) {
         const { menu_id, variant, description, avatar, availability, default_restaurant_notes, price, discount_rate } = createMenuItemVariantDto;
@@ -81,9 +83,26 @@ let MenuItemVariantsService = class MenuItemVariantsService {
         await this.menuItemVariantRepository.remove(id);
         return (0, createResponse_1.createResponse)('OK', null, 'Menu Item Variant deleted successfully');
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [items, total] = await this.menuItemVariantRepository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items
+            });
+        }
+        catch (error) {
+            this.logger.error(`Error fetching paginated menu item variants: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            return (0, createResponse_1.createResponse)('ServerError', null);
+        }
+    }
 };
 exports.MenuItemVariantsService = MenuItemVariantsService;
-exports.MenuItemVariantsService = MenuItemVariantsService = __decorate([
+exports.MenuItemVariantsService = MenuItemVariantsService = MenuItemVariantsService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [menu_item_variants_repository_1.MenuItemVariantsRepository,
         menu_items_repository_1.MenuItemsRepository])

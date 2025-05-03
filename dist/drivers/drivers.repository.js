@@ -122,6 +122,13 @@ let DriversRepository = class DriversRepository {
         });
         return await this.findById(id);
     }
+    async findAllPaginated(skip, limit) {
+        return await this.driverEntityRepository.findAndCount({
+            skip,
+            take: limit,
+            relations: ['user']
+        });
+    }
 };
 exports.DriversRepository = DriversRepository;
 exports.DriversRepository = DriversRepository = __decorate([

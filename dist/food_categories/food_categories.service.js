@@ -8,17 +8,24 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FoodCategoriesService = void 0;
 const common_1 = require("@nestjs/common");
 const food_categories_repository_1 = require("./food_categories.repository");
 const createResponse_1 = require("../utils/createResponse");
+const food_category_entity_1 = require("./entities/food_category.entity");
 const redis_service_1 = require("../redis/redis.service");
+const typeorm_1 = require("@nestjs/typeorm");
+const typeorm_2 = require("typeorm");
 const logger = new common_1.Logger('FoodCategoriesService');
 let FoodCategoriesService = class FoodCategoriesService {
-    constructor(foodCategoriesRepository, redisService) {
+    constructor(foodCategoriesRepository, redisService, foodCategoryRepository) {
         this.foodCategoriesRepository = foodCategoriesRepository;
         this.redisService = redisService;
+        this.foodCategoryRepository = foodCategoryRepository;
         this.cacheKey = 'food_categories:all';
         this.cacheTtl = 3600;
     }
@@ -110,11 +117,31 @@ let FoodCategoriesService = class FoodCategoriesService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error deleting food category');
         }
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [items, total] = await this.foodCategoriesRepository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items
+            });
+        }
+        catch (error) {
+            logger.error(`Error fetching paginated food categories: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            return (0, createResponse_1.createResponse)('ServerError', null);
+        }
+    }
 };
 exports.FoodCategoriesService = FoodCategoriesService;
 exports.FoodCategoriesService = FoodCategoriesService = __decorate([
     (0, common_1.Injectable)(),
+    __param(0, (0, typeorm_1.InjectRepository)(food_category_entity_1.FoodCategory)),
+    __param(2, (0, typeorm_1.InjectRepository)(food_category_entity_1.FoodCategory)),
     __metadata("design:paramtypes", [food_categories_repository_1.FoodCategoriesRepository,
-        redis_service_1.RedisService])
+        redis_service_1.RedisService,
+        typeorm_2.Repository])
 ], FoodCategoriesService);
 //# sourceMappingURL=food_categories.service.js.map

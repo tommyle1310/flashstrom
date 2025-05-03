@@ -28,4 +28,5 @@ export declare class RestaurantsRepository {
         url: string;
     }>): Promise<Restaurant>;
     incrementTotalOrders(restaurantId: string): Promise<void>;
+    findAllPaginated(skip: number, limit: number): Promise<[Restaurant[], number]>;
 }

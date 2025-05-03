@@ -5,7 +5,8 @@ import {
   Body,
   Patch,
   Param,
-  Delete
+  Delete,
+  Query
 } from '@nestjs/common';
 import { FAQsService } from './faq.service';
 import { CreateFAQDto } from './dto/create-faq.dto';
@@ -24,6 +25,16 @@ export class FAQsController {
   @Get()
   findAll() {
     return this.faqsService.findAll();
+  }
+
+  @Get('paginated')
+  findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.faqsService.findAllPaginated(parsedPage, parsedLimit);
   }
 
   @Get('active')

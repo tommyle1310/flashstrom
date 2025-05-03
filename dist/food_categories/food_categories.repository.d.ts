@@ -12,4 +12,5 @@ export declare class FoodCategoriesRepository {
     findByName(name: string): Promise<FoodCategory>;
     update(id: string, updateDto: UpdateFoodCategoryDto): Promise<FoodCategory>;
     delete(id: string): Promise<boolean>;
+    findAllPaginated(skip: number, limit: number): Promise<[FoodCategory[], number]>;
 }

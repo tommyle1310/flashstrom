@@ -41,4 +41,14 @@ export class FAQsRepository {
   async delete(id: string): Promise<{ affected?: number }> {
     return this.faqRepository.delete(id);
   }
+
+  async findAllPaginated(
+    skip: number,
+    limit: number
+  ): Promise<[FAQ[], number]> {
+    return await this.faqRepository.findAndCount({
+      skip,
+      take: limit
+    });
+  }
 }

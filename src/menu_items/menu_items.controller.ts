@@ -5,7 +5,8 @@ import {
   Body,
   Patch,
   Param,
-  Delete
+  Delete,
+  Query
 } from '@nestjs/common';
 import { MenuItemsService } from './menu_items.service';
 import { CreateMenuItemDto } from './dto/create-menu_item.dto';
@@ -25,6 +26,16 @@ export class MenuItemsController {
   @Get()
   findAll() {
     return this.menuItemsService.findAll();
+  }
+
+  @Get('paginated')
+  findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.menuItemsService.findAllPaginated(parsedPage, parsedLimit);
   }
 
   // Get a menu item by ID

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PenaltyRule } from './entities/penalty-rule.entity';
@@ -9,6 +9,8 @@ import { createResponse, ApiResponse } from 'src/utils/createResponse';
 
 @Injectable()
 export class PenaltyRulesService {
+  private readonly logger = new Logger(PenaltyRulesService.name);
+
   constructor(
     private readonly penaltyRulesRepository: PenaltyRulesRepository,
     @InjectRepository(PenaltyRule)
@@ -90,6 +92,29 @@ export class PenaltyRulesService {
       return createResponse('OK', null, 'Penalty rule deleted successfully');
     } catch (error: any) {
       return this.handleError('Error deleting penalty rule:', error);
+    }
+  }
+
+  async findAllPaginated(page: number = 1, limit: number = 10) {
+    try {
+      const skip = (page - 1) * limit;
+      const [items, total] = await this.penaltyRulesRepository.findAllPaginated(
+        skip,
+        limit
+      );
+      const totalPages = Math.ceil(total / limit);
+
+      return createResponse('OK', {
+        totalPages,
+        currentPage: page,
+        totalItems: total,
+        items
+      });
+    } catch (error) {
+      this.logger.error(
+        `Error fetching paginated penalty rules: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      return createResponse('ServerError', null);
     }
   }
 

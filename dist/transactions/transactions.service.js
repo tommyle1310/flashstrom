@@ -298,6 +298,23 @@ let TransactionService = class TransactionService {
             return this.handleError('Error deleting transaction:', error);
         }
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [transactions, total] = await this.transactionsRepository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items: transactions
+            }, 'Fetched paginated transactions');
+        }
+        catch (error) {
+            console.error('Error fetching paginated transactions:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching paginated transactions');
+        }
+    }
     handleTransactionResponse(transaction) {
         if (!transaction) {
             return (0, createResponse_1.createResponse)('NotFound', null, 'Transaction not found');

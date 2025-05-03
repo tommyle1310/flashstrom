@@ -15,6 +15,12 @@ export declare class RestaurantsController {
     applyPromotion(restaurantId: string, promotionId: string): Promise<ApiResponse<any>>;
     clearRedis(): Promise<ApiResponse<null>>;
     findAll(): Promise<ApiResponse<any>>;
+    findAllPaginated(page?: string, limit?: string): Promise<ApiResponse<{
+        totalPages: number;
+        currentPage: number;
+        totalItems: number;
+        items: Restaurant[];
+    }>>;
     findOne(id: string): Promise<ApiResponse<Restaurant>>;
     update(id: string, updateRestaurantDto: UpdateRestaurantDto): Promise<ApiResponse<Restaurant>>;
     remove(id: string): Promise<ApiResponse<boolean>>;

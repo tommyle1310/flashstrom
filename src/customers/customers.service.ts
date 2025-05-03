@@ -1049,4 +1049,43 @@ export class CustomersService {
       );
     }
   }
+
+  async findAllPaginated(
+    page: number = 1,
+    limit: number = 10
+  ): Promise<
+    ApiResponse<{
+      totalPages: number;
+      currentPage: number;
+      totalItems: number;
+      items: Customer[];
+    }>
+  > {
+    try {
+      const skip = (page - 1) * limit;
+      const [customers, total] = await this.customerRepository.findAllPaginated(
+        skip,
+        limit
+      );
+      const totalPages = Math.ceil(total / limit);
+
+      return createResponse(
+        'OK',
+        {
+          totalPages,
+          currentPage: page,
+          totalItems: total,
+          items: customers
+        },
+        'Fetched paginated customers'
+      );
+    } catch (error: any) {
+      console.error('Error fetching paginated customers:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error fetching paginated customers'
+      );
+    }
+  }
 }

@@ -145,4 +145,15 @@ export class OrdersRepository {
     });
     return this.findById(id);
   }
+
+  async findAllPaginated(
+    skip: number,
+    limit: number
+  ): Promise<[Order[], number]> {
+    return await this.repository.findAndCount({
+      skip,
+      take: limit,
+      relations: ['customer', 'restaurant', 'driver']
+    });
+  }
 }

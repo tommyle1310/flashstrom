@@ -22,4 +22,5 @@ export declare class CustomerCareInquiriesRepository {
     recordResponse(id: string): Promise<CustomerCareInquiry>;
     resolveInquiry(id: string, resolutionType: 'REFUND' | 'REPLACEMENT' | 'INVESTIGATING' | 'ACCOUNT_FIX' | 'TECHNICAL_SUPPORT' | 'OTHER', resolutionNotes?: string): Promise<CustomerCareInquiry>;
     findAllEscalatedInquiries(): Promise<CustomerCareInquiry[]>;
+    findAllPaginated(skip: number, limit: number): Promise<[CustomerCareInquiry[], number]>;
 }

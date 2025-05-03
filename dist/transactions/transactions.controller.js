@@ -27,6 +27,11 @@ let TransactionsController = class TransactionsController {
     findAll() {
         return this.transactionsService.findAll();
     }
+    findAllPaginated(page = '1', limit = '10') {
+        const parsedPage = parseInt(page, 10);
+        const parsedLimit = parseInt(limit, 10);
+        return this.transactionsService.findAllPaginated(parsedPage, parsedLimit);
+    }
     findTransactionById(id) {
         return this.transactionsService.findTransactionById(id);
     }
@@ -54,6 +59,14 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], TransactionsController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('paginated'),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], TransactionsController.prototype, "findAllPaginated", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),

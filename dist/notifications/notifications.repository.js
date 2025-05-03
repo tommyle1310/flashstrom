@@ -49,6 +49,13 @@ let NotificationsRepository = class NotificationsRepository {
         }
         return notification;
     }
+    async findAllPaginated(skip, limit) {
+        return await this.notificationEntityRepository.findAndCount({
+            skip,
+            take: limit,
+            relations: ['user']
+        });
+    }
 };
 exports.NotificationsRepository = NotificationsRepository;
 exports.NotificationsRepository = NotificationsRepository = __decorate([

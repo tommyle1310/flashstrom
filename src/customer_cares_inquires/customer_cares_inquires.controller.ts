@@ -5,7 +5,8 @@ import {
   Body,
   Patch,
   Param,
-  Delete
+  Delete,
+  Query
 } from '@nestjs/common';
 import { CustomerCareInquiriesService } from './customer_cares_inquires.service';
 import { CreateCustomerCareInquiryDto } from './dto/create-customer-care-inquiry.dto';
@@ -23,6 +24,16 @@ export class CustomerCareInquiriesController {
   @Get()
   findAll() {
     return this.service.findAll();
+  }
+
+  @Get('paginated')
+  findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.service.findAllPaginated(parsedPage, parsedLimit);
   }
 
   @Get('customer-care/:ccId')

@@ -120,6 +120,13 @@ let OrdersRepository = class OrdersRepository {
         });
         return this.findById(id);
     }
+    async findAllPaginated(skip, limit) {
+        return await this.repository.findAndCount({
+            skip,
+            take: limit,
+            relations: ['customer', 'restaurant', 'driver']
+        });
+    }
 };
 exports.OrdersRepository = OrdersRepository;
 exports.OrdersRepository = OrdersRepository = __decorate([

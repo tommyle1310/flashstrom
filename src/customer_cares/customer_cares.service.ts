@@ -486,4 +486,43 @@ export class CustomerCareService {
       );
     }
   }
+
+  async findAllPaginated(
+    page: number = 1,
+    limit: number = 10
+  ): Promise<
+    ApiResponse<{
+      totalPages: number;
+      currentPage: number;
+      totalItems: number;
+      items: CustomerCare[];
+    }>
+  > {
+    try {
+      const skip = (page - 1) * limit;
+      const [customerCares, total] = await this.repository.findAllPaginated(
+        skip,
+        limit
+      );
+      const totalPages = Math.ceil(total / limit);
+
+      return createResponse(
+        'OK',
+        {
+          totalPages,
+          currentPage: page,
+          totalItems: total,
+          items: customerCares
+        },
+        'Fetched paginated customer cares'
+      );
+    } catch (error: any) {
+      console.error('Error fetching paginated customer cares:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error fetching paginated customer cares'
+      );
+    }
+  }
 }

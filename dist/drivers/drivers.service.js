@@ -739,6 +739,23 @@ let DriversService = class DriversService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching orders');
         }
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [drivers, total] = await this.driversRepository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items: drivers
+            }, 'Fetched paginated drivers');
+        }
+        catch (error) {
+            console.error('Error fetching paginated drivers:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching paginated drivers');
+        }
+    }
 };
 exports.DriversService = DriversService;
 exports.DriversService = DriversService = __decorate([

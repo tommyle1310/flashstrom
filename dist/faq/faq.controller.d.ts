@@ -7,6 +7,12 @@ export declare class FAQsController {
     constructor(faqsService: FAQsService);
     create(createFAQDto: CreateFAQDto): Promise<import("../utils/createResponse").ApiResponse<import("./entities/faq.entity").FAQ>>;
     findAll(): Promise<import("../utils/createResponse").ApiResponse<import("./entities/faq.entity").FAQ[]>>;
+    findAllPaginated(page?: string, limit?: string): Promise<import("../utils/createResponse").ApiResponse<{
+        totalPages: number;
+        currentPage: number;
+        totalItems: number;
+        items: import("./entities/faq.entity").FAQ[];
+    }>>;
     findActive(): Promise<import("../utils/createResponse").ApiResponse<import("./entities/faq.entity").FAQ[]>>;
     findByType(type: FAQType): Promise<import("../utils/createResponse").ApiResponse<import("./entities/faq.entity").FAQ[]>>;
     findOne(id: string): Promise<import("../utils/createResponse").ApiResponse<import("./entities/faq.entity").FAQ>>;

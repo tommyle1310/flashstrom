@@ -13,4 +13,10 @@ export declare class FAQsService {
     findOne(id: string): Promise<ApiResponse<FAQ>>;
     update(id: string, updateFAQDto: UpdateFAQDto): Promise<ApiResponse<FAQ>>;
     remove(id: string): Promise<ApiResponse<null>>;
+    findAllPaginated(page?: number, limit?: number): Promise<ApiResponse<{
+        totalPages: number;
+        currentPage: number;
+        totalItems: number;
+        items: FAQ[];
+    }>>;
 }

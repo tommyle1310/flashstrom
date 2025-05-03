@@ -81,6 +81,13 @@ let CustomerCaresRepository = class CustomerCaresRepository {
         const result = await this.repository.delete(id);
         return result.affected > 0;
     }
+    async findAllPaginated(skip, limit) {
+        return await this.repository.findAndCount({
+            skip,
+            take: limit,
+            relations: ['user']
+        });
+    }
 };
 exports.CustomerCaresRepository = CustomerCaresRepository;
 exports.CustomerCaresRepository = CustomerCaresRepository = __decorate([

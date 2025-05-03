@@ -745,6 +745,23 @@ let RestaurantsService = class RestaurantsService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error applying promotion');
         }
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [restaurants, total] = await this.restaurantsRepository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items: restaurants
+            }, 'Fetched paginated restaurants');
+        }
+        catch (error) {
+            console.error('Error fetching paginated restaurants:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching paginated restaurants');
+        }
+    }
 };
 exports.RestaurantsService = RestaurantsService;
 exports.RestaurantsService = RestaurantsService = __decorate([

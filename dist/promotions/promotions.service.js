@@ -8,20 +8,27 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PromotionsService = void 0;
 const common_1 = require("@nestjs/common");
+const promotion_entity_1 = require("./entities/promotion.entity");
 const createResponse_1 = require("../utils/createResponse");
 const uuid_1 = require("uuid");
 const promotions_repository_1 = require("./promotions.repository");
 const food_categories_repository_1 = require("../food_categories/food_categories.repository");
 const redis_service_1 = require("../redis/redis.service");
+const typeorm_1 = require("@nestjs/typeorm");
+const typeorm_2 = require("typeorm");
 const logger = new common_1.Logger('PromotionsService');
 let PromotionsService = class PromotionsService {
-    constructor(promotionsRepository, foodCategoriesRepository, redisService) {
+    constructor(promotionsRepository, foodCategoriesRepository, redisService, promotionRepository) {
         this.promotionsRepository = promotionsRepository;
         this.foodCategoriesRepository = foodCategoriesRepository;
         this.redisService = redisService;
+        this.promotionRepository = promotionRepository;
         this.allPromotionsCacheKey = 'promotions:all';
         this.validPromotionsCacheKey = 'promotions:valid_with_restaurants';
         this.cacheTtl = 300;
@@ -252,12 +259,32 @@ let PromotionsService = class PromotionsService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error updating promotion avatar');
         }
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [items, total] = await this.promotionsRepository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items
+            });
+        }
+        catch (error) {
+            logger.error(`Error fetching paginated promotions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            return (0, createResponse_1.createResponse)('ServerError', null);
+        }
+    }
 };
 exports.PromotionsService = PromotionsService;
 exports.PromotionsService = PromotionsService = __decorate([
     (0, common_1.Injectable)(),
+    __param(0, (0, typeorm_1.InjectRepository)(promotion_entity_1.Promotion)),
+    __param(3, (0, typeorm_1.InjectRepository)(promotion_entity_1.Promotion)),
     __metadata("design:paramtypes", [promotions_repository_1.PromotionsRepository,
         food_categories_repository_1.FoodCategoriesRepository,
-        redis_service_1.RedisService])
+        redis_service_1.RedisService,
+        typeorm_2.Repository])
 ], PromotionsService);
 //# sourceMappingURL=promotions.service.js.map

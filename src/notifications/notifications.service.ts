@@ -121,6 +121,7 @@ export class NotificationsService {
       'An error occurred while processing your request'
     );
   }
+
   async broadcast(
     broadcastNotificationDto: BroadcastNotificationDto
   ): Promise<ApiResponse<Notification[]>> {
@@ -173,6 +174,43 @@ export class NotificationsService {
       );
     } catch (error: any) {
       return this.handleError('Error broadcasting notifications:', error);
+    }
+  }
+
+  async findAllPaginated(
+    page: number = 1,
+    limit: number = 10
+  ): Promise<
+    ApiResponse<{
+      totalPages: number;
+      currentPage: number;
+      totalItems: number;
+      items: Notification[];
+    }>
+  > {
+    try {
+      const skip = (page - 1) * limit;
+      const [notifications, total] =
+        await this.notificationsRepository.findAllPaginated(skip, limit);
+      const totalPages = Math.ceil(total / limit);
+
+      return createResponse(
+        'OK',
+        {
+          totalPages,
+          currentPage: page,
+          totalItems: total,
+          items: notifications
+        },
+        'Fetched paginated notifications'
+      );
+    } catch (error: any) {
+      console.error('Error fetching paginated notifications:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error fetching paginated notifications'
+      );
     }
   }
 }

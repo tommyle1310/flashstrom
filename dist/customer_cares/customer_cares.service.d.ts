@@ -5,6 +5,7 @@ import { CustomerCareInquiriesRepository } from 'src/customer_cares_inquires/cus
 import { RedisService } from 'src/redis/redis.service';
 import { DataSource } from 'typeorm';
 import { CustomerCareInquiry } from 'src/customer_cares_inquires/entities/customer_care_inquiry.entity';
+import { CustomerCare } from './entities/customer_care.entity';
 export declare class CustomerCareService {
     private readonly repository;
     private readonly inquiryRepository;
@@ -24,4 +25,10 @@ export declare class CustomerCareService {
         public_id: string;
     }, entityId: string): Promise<ApiResponse<any>>;
     resetInquiriesCache(): Promise<ApiResponse<any>>;
+    findAllPaginated(page?: number, limit?: number): Promise<ApiResponse<{
+        totalPages: number;
+        currentPage: number;
+        totalItems: number;
+        items: CustomerCare[];
+    }>>;
 }

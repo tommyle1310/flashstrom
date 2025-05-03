@@ -230,4 +230,15 @@ export class RestaurantsRepository {
       updated_at: Math.floor(Date.now() / 1000)
     });
   }
+
+  async findAllPaginated(
+    skip: number,
+    limit: number
+  ): Promise<[Restaurant[], number]> {
+    return await this.repository.findAndCount({
+      skip,
+      take: limit,
+      relations: ['user']
+    });
+  }
 }

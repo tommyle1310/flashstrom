@@ -80,6 +80,13 @@ let FWalletsRepository = class FWalletsRepository {
             order: { created_at: 'DESC' }
         });
     }
+    async findAllPaginated(skip, limit) {
+        return await this.repository.findAndCount({
+            skip,
+            take: limit,
+            relations: ['user']
+        });
+    }
 };
 exports.FWalletsRepository = FWalletsRepository;
 exports.FWalletsRepository = FWalletsRepository = __decorate([

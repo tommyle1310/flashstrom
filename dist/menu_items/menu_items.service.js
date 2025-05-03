@@ -8,6 +8,10 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+var MenuItemsService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MenuItemsService = void 0;
 const createResponse_1 = require("../utils/createResponse");
@@ -15,14 +19,17 @@ const menu_item_variants_service_1 = require("../menu_item_variants/menu_item_va
 const food_categories_repository_1 = require("../food_categories/food_categories.repository");
 const restaurants_repository_1 = require("../restaurants/restaurants.repository");
 const menu_items_repository_1 = require("./menu_items.repository");
+const menu_item_entity_1 = require("./entities/menu_item.entity");
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("typeorm");
-let MenuItemsService = class MenuItemsService {
-    constructor(menuItemRepository, restaurantRepository, foodCategoriesRepository, menuItemVariantsService) {
-        this.menuItemRepository = menuItemRepository;
+const typeorm_2 = require("@nestjs/typeorm");
+let MenuItemsService = MenuItemsService_1 = class MenuItemsService {
+    constructor(menuItemsRepository, restaurantRepository, foodCategoriesRepository, menuItemVariantsService) {
+        this.menuItemsRepository = menuItemsRepository;
         this.restaurantRepository = restaurantRepository;
         this.foodCategoriesRepository = foodCategoriesRepository;
         this.menuItemVariantsService = menuItemVariantsService;
+        this.logger = new common_1.Logger(MenuItemsService_1.name);
     }
     async create(createMenuItemDto) {
         try {
@@ -42,7 +49,7 @@ let MenuItemsService = class MenuItemsService {
     }
     async findAll() {
         try {
-            const menuItems = await this.menuItemRepository.findAll();
+            const menuItems = await this.menuItemsRepository.findAll();
             return (0, createResponse_1.createResponse)('OK', menuItems, 'Fetched all menu items');
         }
         catch (error) {
@@ -65,7 +72,7 @@ let MenuItemsService = class MenuItemsService {
     async findOne(id) {
         try {
             console.log('Starting findOne with id:', id);
-            const menuItem = await this.menuItemRepository.findOne({
+            const menuItem = await this.menuItemsRepository.findOne({
                 where: { id: (0, typeorm_1.Equal)(id) },
                 relations: ['variants', 'restaurant']
             });
@@ -160,7 +167,7 @@ let MenuItemsService = class MenuItemsService {
     }
     async update(id, updateMenuItemDto) {
         try {
-            const existingMenuItem = await this.menuItemRepository.findById(id);
+            const existingMenuItem = await this.menuItemsRepository.findById(id);
             if (!existingMenuItem) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Menu Item not found');
             }
@@ -173,7 +180,7 @@ let MenuItemsService = class MenuItemsService {
     }
     async remove(id) {
         try {
-            await this.menuItemRepository.remove(id);
+            await this.menuItemsRepository.remove(id);
             return (0, createResponse_1.createResponse)('OK', null, 'Menu Item deleted successfully');
         }
         catch (error) {
@@ -182,7 +189,7 @@ let MenuItemsService = class MenuItemsService {
     }
     async updateEntityAvatar(uploadResult, menuItemId) {
         try {
-            const menuItem = await this.menuItemRepository.update(menuItemId, {
+            const menuItem = await this.menuItemsRepository.update(menuItemId, {
                 avatar: { url: uploadResult.url, key: uploadResult.public_id }
             });
             return this.handleMenuItemResponse(menuItem);
@@ -206,18 +213,18 @@ let MenuItemsService = class MenuItemsService {
         return true;
     }
     async findExistingMenuItem(name, restaurantId) {
-        return this.menuItemRepository.findOne({
+        return this.menuItemsRepository.findOne({
             where: { name: (0, typeorm_1.Equal)(name), restaurant_id: (0, typeorm_1.Equal)(restaurantId) }
         });
     }
     async handleExistingMenuItem(existingMenuItem, createMenuItemDto) {
         const variants = await Promise.all(createMenuItemDto.variants.map(variant => this.createVariant(variant, existingMenuItem)));
         if (createMenuItemDto.discount) {
-            await this.menuItemRepository.update(existingMenuItem.id, {
+            await this.menuItemsRepository.update(existingMenuItem.id, {
                 discount: createMenuItemDto.discount
             });
         }
-        const updatedMenuItem = await this.menuItemRepository.findById(existingMenuItem.id);
+        const updatedMenuItem = await this.menuItemsRepository.findById(existingMenuItem.id);
         return (0, createResponse_1.createResponse)('OK', { ...updatedMenuItem, variants }, 'Menu Item and variants updated successfully');
     }
     async createNewMenuItem(createMenuItemDto) {
@@ -227,7 +234,7 @@ let MenuItemsService = class MenuItemsService {
             created_at: Math.floor(Date.now() / 1000),
             updated_at: Math.floor(Date.now() / 1000)
         };
-        const newMenuItem = await this.menuItemRepository.create(menuItemData);
+        const newMenuItem = await this.menuItemsRepository.create(menuItemData);
         let variants = [];
         if (createMenuItemDto.variants?.length) {
             variants = await Promise.all(createMenuItemDto.variants.map(variant => this.createVariant(variant, newMenuItem)));
@@ -239,7 +246,7 @@ let MenuItemsService = class MenuItemsService {
     }
     async updateExistingMenuItem(menuItem, updateData) {
         const { variants, ...updateFields } = updateData;
-        const updatedMenuItem = await this.menuItemRepository.update(menuItem.id, {
+        const updatedMenuItem = await this.menuItemsRepository.update(menuItem.id, {
             ...updateFields,
             updated_at: Math.floor(Date.now() / 1000)
         });
@@ -281,17 +288,35 @@ let MenuItemsService = class MenuItemsService {
     }
     async findByRestaurantId(restaurantId) {
         try {
-            const menuItems = await this.menuItemRepository.findByRestaurantId(restaurantId);
+            const menuItems = await this.menuItemsRepository.findByRestaurantId(restaurantId);
             return (0, createResponse_1.createResponse)('OK', menuItems, 'Fetched menu items for restaurant');
         }
         catch (error) {
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching menu items');
         }
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [items, total] = await this.menuItemsRepository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items
+            });
+        }
+        catch (error) {
+            this.logger.error(`Error fetching paginated menu items: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            return (0, createResponse_1.createResponse)('ServerError', null);
+        }
+    }
 };
 exports.MenuItemsService = MenuItemsService;
-exports.MenuItemsService = MenuItemsService = __decorate([
+exports.MenuItemsService = MenuItemsService = MenuItemsService_1 = __decorate([
     (0, common_1.Injectable)(),
+    __param(0, (0, typeorm_2.InjectRepository)(menu_item_entity_1.MenuItem)),
     __metadata("design:paramtypes", [menu_items_repository_1.MenuItemsRepository,
         restaurants_repository_1.RestaurantsRepository,
         food_categories_repository_1.FoodCategoriesRepository,

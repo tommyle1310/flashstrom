@@ -72,6 +72,13 @@ let MenuItemsRepository = class MenuItemsRepository {
     async save(menuItem) {
         return this.menuItemRepository.save(menuItem);
     }
+    async findAllPaginated(skip, limit) {
+        return this.menuItemRepository.findAndCount({
+            skip,
+            take: limit,
+            relations: ['variants', 'restaurant']
+        });
+    }
 };
 exports.MenuItemsRepository = MenuItemsRepository;
 exports.MenuItemsRepository = MenuItemsRepository = __decorate([

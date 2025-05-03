@@ -1189,4 +1189,41 @@ export class RestaurantsService {
       return createResponse('ServerError', null, 'Error applying promotion');
     }
   }
+
+  async findAllPaginated(
+    page: number = 1,
+    limit: number = 10
+  ): Promise<
+    ApiResponse<{
+      totalPages: number;
+      currentPage: number;
+      totalItems: number;
+      items: Restaurant[];
+    }>
+  > {
+    try {
+      const skip = (page - 1) * limit;
+      const [restaurants, total] =
+        await this.restaurantsRepository.findAllPaginated(skip, limit);
+      const totalPages = Math.ceil(total / limit);
+
+      return createResponse(
+        'OK',
+        {
+          totalPages,
+          currentPage: page,
+          totalItems: total,
+          items: restaurants
+        },
+        'Fetched paginated restaurants'
+      );
+    } catch (error: any) {
+      console.error('Error fetching paginated restaurants:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error fetching paginated restaurants'
+      );
+    }
+  }
 }

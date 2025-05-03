@@ -8,6 +8,12 @@ export declare class FWalletController {
     findAll(): Promise<import("../utils/createResponse").ApiResponse<import("./entities/fwallet.entity").FWallet[]>>;
     findHistoryTransaction(fwalletId: string): Promise<import("../utils/createResponse").ApiResponse<import("../transactions/entities/transaction.entity").Transaction[]>>;
     searchByQuery(query: string): Promise<import("../utils/createResponse").ApiResponse<import("./entities/fwallet.entity").FWallet[]>>;
+    findAllPaginated(page?: string, limit?: string): Promise<import("../utils/createResponse").ApiResponse<{
+        totalPages: number;
+        currentPage: number;
+        totalItems: number;
+        items: import("./entities/fwallet.entity").FWallet[];
+    }>>;
     findFWalletById(id: string): Promise<import("../utils/createResponse").ApiResponse<import("./entities/fwallet.entity").FWallet>>;
     findOne(field: string, value: string): Promise<import("../utils/createResponse").ApiResponse<import("./entities/fwallet.entity").FWallet>>;
     update(id: string, updateFWalletDto: UpdateFwalletDto): Promise<import("../utils/createResponse").ApiResponse<any>>;

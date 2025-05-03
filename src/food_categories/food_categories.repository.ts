@@ -50,4 +50,14 @@ export class FoodCategoriesRepository {
     const result = await this.repository.delete(id);
     return result.affected > 0;
   }
+
+  async findAllPaginated(
+    skip: number,
+    limit: number
+  ): Promise<[FoodCategory[], number]> {
+    return this.repository.findAndCount({
+      skip,
+      take: limit
+    });
+  }
 }

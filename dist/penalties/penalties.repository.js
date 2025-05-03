@@ -78,6 +78,13 @@ let PenaltiesRepository = class PenaltiesRepository {
         }
         return penalty;
     }
+    async findAllPaginated(skip, limit) {
+        return this.penaltyEntityRepository.findAndCount({
+            skip,
+            take: limit,
+            relations: ['driver', 'customerCare', 'restaurant', 'admin']
+        });
+    }
 };
 exports.PenaltiesRepository = PenaltiesRepository;
 exports.PenaltiesRepository = PenaltiesRepository = __decorate([

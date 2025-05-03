@@ -15,6 +15,12 @@ export declare class CustomersController {
     constructor(customersService: CustomersService, cartItemService: CartItemsService, addressBookService: AddressBookService);
     create(createCustomerDto: CreateCustomerDto): Promise<ApiResponse<Customer>>;
     findAll(): Promise<ApiResponse<Customer[]>>;
+    findAllPaginated(page?: string, limit?: string): Promise<ApiResponse<{
+        totalPages: number;
+        currentPage: number;
+        totalItems: number;
+        items: Customer[];
+    }>>;
     getAllRestaurants(id: string): Promise<any>;
     searchRestaurants(keyword: string, page?: number, limit?: number): Promise<ApiResponse<import("../restaurants/entities/restaurant.entity").Restaurant[]>> | {
         status: string;

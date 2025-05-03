@@ -44,4 +44,15 @@ export class NotificationsRepository {
     }
     return notification;
   }
+
+  async findAllPaginated(
+    skip: number,
+    limit: number
+  ): Promise<[Notification[], number]> {
+    return await this.notificationEntityRepository.findAndCount({
+      skip,
+      take: limit,
+      relations: ['user']
+    });
+  }
 }

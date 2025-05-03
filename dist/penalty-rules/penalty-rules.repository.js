@@ -44,6 +44,12 @@ let PenaltyRulesRepository = class PenaltyRulesRepository {
         }
         return rule;
     }
+    async findAllPaginated(skip, limit) {
+        return this.penaltyRuleEntityRepository.findAndCount({
+            skip,
+            take: limit
+        });
+    }
 };
 exports.PenaltyRulesRepository = PenaltyRulesRepository;
 exports.PenaltyRulesRepository = PenaltyRulesRepository = __decorate([

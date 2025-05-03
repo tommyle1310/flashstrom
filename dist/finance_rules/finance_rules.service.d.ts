@@ -9,6 +9,7 @@ export declare class FinanceRulesService {
     private readonly financeRulesRepository;
     private readonly adminRepository;
     private financeRuleEntityRepository;
+    private readonly logger;
     constructor(financeRulesRepository: FinanceRulesRepository, adminRepository: AdminRepository, financeRuleEntityRepository: Repository<FinanceRule>);
     create(createFinanceRuleDto: CreateFinanceRuleDto): Promise<ApiResponse<FinanceRule>>;
     findAll(): Promise<ApiResponse<FinanceRule[]>>;
@@ -16,6 +17,7 @@ export declare class FinanceRulesService {
     findOneLatest(): Promise<ApiResponse<FinanceRule>>;
     update(id: string, updateFinanceRuleDto: UpdateFinanceRuleDto): Promise<ApiResponse<FinanceRule>>;
     remove(id: string): Promise<ApiResponse<null>>;
+    findAllPaginated(page?: number, limit?: number): Promise<ApiResponse<any>>;
     private handleFinanceRuleResponse;
     private handleError;
 }

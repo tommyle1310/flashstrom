@@ -186,6 +186,13 @@ let RestaurantsRepository = class RestaurantsRepository {
             updated_at: Math.floor(Date.now() / 1000)
         });
     }
+    async findAllPaginated(skip, limit) {
+        return await this.repository.findAndCount({
+            skip,
+            take: limit,
+            relations: ['user']
+        });
+    }
 };
 exports.RestaurantsRepository = RestaurantsRepository;
 exports.RestaurantsRepository = RestaurantsRepository = __decorate([

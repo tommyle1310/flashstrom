@@ -11,4 +11,5 @@ export declare class CustomerCaresRepository {
     findByUserId(userId: string): Promise<CustomerCare>;
     update(id: string, updateDto: any): Promise<CustomerCare>;
     remove(id: string): Promise<boolean>;
+    findAllPaginated(skip: number, limit: number): Promise<[CustomerCare[], number]>;
 }

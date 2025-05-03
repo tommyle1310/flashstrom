@@ -100,6 +100,23 @@ let FAQsService = class FAQsService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error deleting FAQ');
         }
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [faqs, total] = await this.faqsRepository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items: faqs
+            }, 'Fetched paginated FAQs');
+        }
+        catch (error) {
+            console.error('Error fetching paginated FAQs:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching paginated FAQs');
+        }
+    }
 };
 exports.FAQsService = FAQsService;
 exports.FAQsService = FAQsService = __decorate([

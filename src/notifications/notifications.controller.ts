@@ -5,7 +5,8 @@ import {
   Get,
   Patch,
   Delete,
-  Param
+  Param,
+  Query
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
@@ -24,6 +25,15 @@ export class NotificationsController {
   @Get()
   findAll() {
     return this.notificationsService.findAll();
+  }
+  @Get('paginated')
+  findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.notificationsService.findAllPaginated(parsedPage, parsedLimit);
   }
 
   @Get(':id')

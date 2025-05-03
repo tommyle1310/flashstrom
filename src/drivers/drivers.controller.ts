@@ -37,6 +37,16 @@ export class DriversController {
     return this.driversService.findAll(); // Corrected service method to use driversService
   }
 
+  @Get('paginated')
+  findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.driversService.findAllPaginated(parsedPage, parsedLimit);
+  }
+
   @Get('/online-session/:driver')
   async findOnlineSessionByDriverId(
     @Param('driver') driverId: string,

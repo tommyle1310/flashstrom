@@ -5,7 +5,8 @@ import {
   Get,
   Patch,
   Delete,
-  Param
+  Param,
+  Query
 } from '@nestjs/common';
 import { PenaltyRulesService } from './penalty-rules.service';
 import { CreatePenaltyRuleDto } from './dto/create-penalty-rule.dto';
@@ -23,6 +24,16 @@ export class PenaltyRulesController {
   @Get()
   findAll() {
     return this.penaltyRulesService.findAll();
+  }
+
+  @Get('paginated')
+  findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.penaltyRulesService.findAllPaginated(parsedPage, parsedLimit);
   }
 
   @Get(':id')

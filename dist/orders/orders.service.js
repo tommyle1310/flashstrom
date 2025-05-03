@@ -73,6 +73,7 @@ const redis_1 = require("redis");
 const dotenv = __importStar(require("dotenv"));
 const typeorm_2 = require("@nestjs/typeorm");
 const redis_service_1 = require("../redis/redis.service");
+const orders_repository_1 = require("./orders.repository");
 dotenv.config();
 const logger = new common_2.Logger('OrdersService');
 const redis = (0, redis_1.createClient)({
@@ -80,7 +81,7 @@ const redis = (0, redis_1.createClient)({
 });
 redis.connect().catch(err => logger.error('Redis connection error:', err));
 let OrdersService = class OrdersService {
-    constructor(ordersRepository, menuItemsRepository, menuItemVariantsRepository, addressBookRepository, customersRepository, driverStatsService, restaurantsRepository, dataSource, cartItemsRepository, customersGateway, driversGateway, transactionService, fWalletsRepository, eventEmitter, driverService, redisService) {
+    constructor(ordersRepository, menuItemsRepository, menuItemVariantsRepository, addressBookRepository, customersRepository, driverStatsService, restaurantsRepository, dataSource, cartItemsRepository, orderRepository, customersGateway, driversGateway, transactionService, fWalletsRepository, eventEmitter, driverService, redisService) {
         this.ordersRepository = ordersRepository;
         this.menuItemsRepository = menuItemsRepository;
         this.menuItemVariantsRepository = menuItemVariantsRepository;
@@ -90,6 +91,7 @@ let OrdersService = class OrdersService {
         this.restaurantsRepository = restaurantsRepository;
         this.dataSource = dataSource;
         this.cartItemsRepository = cartItemsRepository;
+        this.orderRepository = orderRepository;
         this.customersGateway = customersGateway;
         this.driversGateway = driversGateway;
         this.transactionService = transactionService;
@@ -928,13 +930,30 @@ let OrdersService = class OrdersService {
         logger.error(message, error);
         return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while processing your request');
     }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [orders, total] = await this.orderRepository.findAllPaginated(skip, limit);
+            const totalPages = Math.ceil(total / limit);
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items: orders
+            }, 'Fetched paginated orders');
+        }
+        catch (error) {
+            console.error('Error fetching paginated orders:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching paginated orders');
+        }
+    }
 };
 exports.OrdersService = OrdersService;
 exports.OrdersService = OrdersService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_2.InjectRepository)(order_entity_1.Order)),
     __param(7, (0, typeorm_2.InjectDataSource)()),
-    __param(10, (0, common_1.Inject)((0, common_1.forwardRef)(() => drivers_gateway_1.DriversGateway))),
+    __param(11, (0, common_1.Inject)((0, common_1.forwardRef)(() => drivers_gateway_1.DriversGateway))),
     __metadata("design:paramtypes", [typeorm_1.Repository,
         menu_items_repository_1.MenuItemsRepository,
         menu_item_variants_repository_1.MenuItemVariantsRepository,
@@ -944,6 +963,7 @@ exports.OrdersService = OrdersService = __decorate([
         restaurants_repository_1.RestaurantsRepository,
         typeorm_1.DataSource,
         cart_items_repository_1.CartItemsRepository,
+        orders_repository_1.OrdersRepository,
         customers_gateway_1.CustomersGateway,
         drivers_gateway_1.DriversGateway,
         transactions_service_1.TransactionService,

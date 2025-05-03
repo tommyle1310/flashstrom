@@ -145,4 +145,15 @@ export class PromotionsRepository {
   async findByIds(ids: string[]): Promise<Promotion[]> {
     return await this.promotionRepository.findByIds(ids);
   }
+
+  async findAllPaginated(
+    skip: number,
+    limit: number
+  ): Promise<[Promotion[], number]> {
+    return this.promotionRepository.findAndCount({
+      skip,
+      take: limit,
+      relations: ['restaurants']
+    });
+  }
 }

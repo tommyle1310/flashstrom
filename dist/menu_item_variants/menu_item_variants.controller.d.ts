@@ -6,6 +6,7 @@ export declare class MenuItemVariantsController {
     constructor(menuItemVariantsService: MenuItemVariantsService);
     create(createMenuItemVariantDto: CreateMenuItemVariantDto): Promise<any>;
     findAll(): Promise<any>;
+    findAllPaginated(page?: string, limit?: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findOne(id: string): Promise<any>;
     update(id: string, updateMenuItemVariantDto: UpdateMenuItemVariantDto): Promise<any>;
     remove(id: string): Promise<any>;

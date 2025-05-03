@@ -41,6 +41,16 @@ export class CustomersController {
     return this.customersService.findAll();
   }
 
+  @Get('paginated')
+  findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.customersService.findAllPaginated(parsedPage, parsedLimit);
+  }
+
   // Ensure this specific route for restaurants comes before the generic :id route
   @Get('/restaurants/:id')
   getAllRestaurants(@Param('id') id: string) {

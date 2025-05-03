@@ -8,4 +8,5 @@ export declare class FinanceRulesRepository {
     create(createFinanceRuleDto: any): Promise<any>;
     update(id: string, updateFinanceRuleDto: any): Promise<FinanceRule>;
     remove(id: string): Promise<FinanceRule>;
+    findAllPaginated(skip: number, limit: number): Promise<[FinanceRule[], number]>;
 }

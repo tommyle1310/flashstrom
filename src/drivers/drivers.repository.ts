@@ -156,4 +156,15 @@ export class DriversRepository {
     // Trả về driver đã cập nhật
     return await this.findById(id);
   }
+
+  async findAllPaginated(
+    skip: number,
+    limit: number
+  ): Promise<[Driver[], number]> {
+    return await this.driverEntityRepository.findAndCount({
+      skip,
+      take: limit,
+      relations: ['user']
+    });
+  }
 }

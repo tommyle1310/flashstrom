@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { PromotionsRepository } from './promotions.repository';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 import { RedisService } from 'src/redis/redis.service'; // Giả định bạn có RedisService
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 const logger = new Logger('PromotionsService');
 
@@ -18,9 +20,12 @@ export class PromotionsService {
   private readonly cacheTtl = 300; // 5 phút (300 giây)
 
   constructor(
+    @InjectRepository(Promotion)
     private readonly promotionsRepository: PromotionsRepository,
     private readonly foodCategoriesRepository: FoodCategoriesRepository,
-    private readonly redisService: RedisService // Inject RedisService
+    private readonly redisService: RedisService, // Inject RedisService
+    @InjectRepository(Promotion)
+    private readonly promotionRepository: Repository<Promotion>
   ) {}
 
   async create(
@@ -415,6 +420,29 @@ export class PromotionsService {
         null,
         'Error updating promotion avatar'
       );
+    }
+  }
+
+  async findAllPaginated(page: number = 1, limit: number = 10) {
+    try {
+      const skip = (page - 1) * limit;
+      const [items, total] = await this.promotionsRepository.findAllPaginated(
+        skip,
+        limit
+      );
+      const totalPages = Math.ceil(total / limit);
+
+      return createResponse('OK', {
+        totalPages,
+        currentPage: page,
+        totalItems: total,
+        items
+      });
+    } catch (error) {
+      logger.error(
+        `Error fetching paginated promotions: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      return createResponse('ServerError', null);
     }
   }
 }

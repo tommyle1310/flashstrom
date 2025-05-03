@@ -6,6 +6,12 @@ export declare class CustomerCareInquiriesController {
     constructor(service: CustomerCareInquiriesService);
     create(createDto: CreateCustomerCareInquiryDto): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findAll(): Promise<import("../utils/createResponse").ApiResponse<any>>;
+    findAllPaginated(page?: string, limit?: string): Promise<import("../utils/createResponse").ApiResponse<{
+        totalPages: number;
+        currentPage: number;
+        totalItems: number;
+        items: import("./entities/customer_care_inquiry.entity").CustomerCareInquiry[];
+    }>>;
     findAllInquiriesByCCId(ccId: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findAllInquiriesByCustomerId(customerId: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
     findAllEscalatedInquiries(): Promise<import("../utils/createResponse").ApiResponse<any>>;

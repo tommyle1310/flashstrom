@@ -35,6 +35,7 @@ import { createClient } from 'redis';
 import * as dotenv from 'dotenv';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { RedisService } from 'src/redis/redis.service';
+import { OrdersRepository } from './orders.repository';
 
 dotenv.config();
 
@@ -68,6 +69,7 @@ export class OrdersService {
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly cartItemsRepository: CartItemsRepository,
+    private readonly orderRepository: OrdersRepository,
     private readonly customersGateway: CustomersGateway,
     @Inject(forwardRef(() => DriversGateway))
     private readonly driversGateway: DriversGateway,
@@ -1261,5 +1263,44 @@ export class OrdersService {
       null,
       'An error occurred while processing your request'
     );
+  }
+
+  async findAllPaginated(
+    page: number = 1,
+    limit: number = 10
+  ): Promise<
+    ApiResponse<{
+      totalPages: number;
+      currentPage: number;
+      totalItems: number;
+      items: Order[];
+    }>
+  > {
+    try {
+      const skip = (page - 1) * limit;
+      const [orders, total] = await this.orderRepository.findAllPaginated(
+        skip,
+        limit
+      );
+      const totalPages = Math.ceil(total / limit);
+
+      return createResponse(
+        'OK',
+        {
+          totalPages,
+          currentPage: page,
+          totalItems: total,
+          items: orders
+        },
+        'Fetched paginated orders'
+      );
+    } catch (error: any) {
+      console.error('Error fetching paginated orders:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error fetching paginated orders'
+      );
+    }
   }
 }

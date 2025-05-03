@@ -103,4 +103,43 @@ export class FAQsService {
       return createResponse('ServerError', null, 'Error deleting FAQ');
     }
   }
+
+  async findAllPaginated(
+    page: number = 1,
+    limit: number = 10
+  ): Promise<
+    ApiResponse<{
+      totalPages: number;
+      currentPage: number;
+      totalItems: number;
+      items: FAQ[];
+    }>
+  > {
+    try {
+      const skip = (page - 1) * limit;
+      const [faqs, total] = await this.faqsRepository.findAllPaginated(
+        skip,
+        limit
+      );
+      const totalPages = Math.ceil(total / limit);
+
+      return createResponse(
+        'OK',
+        {
+          totalPages,
+          currentPage: page,
+          totalItems: total,
+          items: faqs
+        },
+        'Fetched paginated FAQs'
+      );
+    } catch (error: any) {
+      console.error('Error fetching paginated FAQs:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error fetching paginated FAQs'
+      );
+    }
+  }
 }

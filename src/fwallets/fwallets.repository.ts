@@ -99,4 +99,15 @@ export class FWalletsRepository {
       order: { created_at: 'DESC' } // Sắp xếp theo thời gian giảm dần
     });
   }
+
+  async findAllPaginated(
+    skip: number,
+    limit: number
+  ): Promise<[FWallet[], number]> {
+    return await this.repository.findAndCount({
+      skip,
+      take: limit,
+      relations: ['user']
+    });
+  }
 }

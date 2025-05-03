@@ -70,4 +70,15 @@ export class MenuItemsRepository {
   async save(menuItem: MenuItem): Promise<MenuItem> {
     return this.menuItemRepository.save(menuItem);
   }
+
+  async findAllPaginated(
+    skip: number,
+    limit: number
+  ): Promise<[MenuItem[], number]> {
+    return this.menuItemRepository.findAndCount({
+      skip,
+      take: limit,
+      relations: ['variants', 'restaurant']
+    });
+  }
 }
