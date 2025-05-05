@@ -138,7 +138,6 @@ let FoodCategoriesService = class FoodCategoriesService {
 exports.FoodCategoriesService = FoodCategoriesService;
 exports.FoodCategoriesService = FoodCategoriesService = __decorate([
     (0, common_1.Injectable)(),
-    __param(0, (0, typeorm_1.InjectRepository)(food_category_entity_1.FoodCategory)),
     __param(2, (0, typeorm_1.InjectRepository)(food_category_entity_1.FoodCategory)),
     __metadata("design:paramtypes", [food_categories_repository_1.FoodCategoriesRepository,
         redis_service_1.RedisService,

@@ -16,7 +16,6 @@ export class FoodCategoriesService {
   private readonly cacheTtl = 3600; // 1 giờ (3600 giây)
 
   constructor(
-    @InjectRepository(FoodCategory)
     private readonly foodCategoriesRepository: FoodCategoriesRepository,
     private readonly redisService: RedisService, // Inject RedisService
     @InjectRepository(FoodCategory)

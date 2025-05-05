@@ -603,6 +603,53 @@ let FchatGateway = class FchatGateway {
         console.warn(`Unknown user type for userId: ${userId}`);
         return null;
     }
+    async handleRequestCustomerCare(client, data) {
+        try {
+            const userData = await this.validateToken(client);
+            if (!userData) {
+                throw new websockets_1.WsException('Unauthorized');
+            }
+            const chatRoomId = this.getChatId(userData.id, 'customer_care', data.type);
+            this.eventEmitter.emit('customerCareRequest', {
+                userId: userData.id,
+                type: data.type,
+                chatRoomId
+            });
+            setTimeout(async () => {
+                const optimalCustomerCare = await this.findOptimalCustomerCare();
+                if (optimalCustomerCare) {
+                    const socketRoomId = this.getChatId(userData.id, optimalCustomerCare.id, data.type);
+                    await client.join(socketRoomId);
+                    const recipientSocket = this.userSockets.get(optimalCustomerCare.id);
+                    if (recipientSocket) {
+                        await recipientSocket.join(socketRoomId);
+                        recipientSocket.emit('chatStarted', {
+                            chatId: socketRoomId,
+                            withUser: userData.id,
+                            type: data.type
+                        });
+                    }
+                    client.emit('chatStarted', {
+                        chatId: socketRoomId,
+                        withUser: optimalCustomerCare.id,
+                        type: data.type
+                    });
+                }
+                else {
+                    client.emit('error', {
+                        message: 'No customer care representative available'
+                    });
+                }
+            }, 10000);
+        }
+        catch (error) {
+            console.error('Error in requestCustomerCare:', error);
+            throw new websockets_1.WsException(error.message || 'Failed to request customer care');
+        }
+    }
+    async findOptimalCustomerCare() {
+        return { id: 'FF_CC_12345' };
+    }
 };
 exports.FchatGateway = FchatGateway;
 __decorate([
@@ -653,6 +700,14 @@ __decorate([
     __metadata("design:paramtypes", [socket_io_1.Socket]),
     __metadata("design:returntype", Promise)
 ], FchatGateway.prototype, "handleGetAllChats", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)('requestCustomerCare'),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", Promise)
+], FchatGateway.prototype, "handleRequestCustomerCare", null);
 exports.FchatGateway = FchatGateway = __decorate([
     (0, websockets_1.WebSocketGateway)({
         namespace: 'chat',

@@ -10,6 +10,7 @@ import { OrdersRepository } from 'src/orders/orders.repository';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { RedisService } from 'src/redis/redis.service';
 import { CustomerCaresController } from './customer_cares.controller';
+import { CustomerCaresGateway } from './customer_cares.gateway';
 
 @Module({
   imports: [
@@ -26,7 +27,8 @@ import { CustomerCaresController } from './customer_cares.controller';
     CustomerCareService,
     CustomerCaresRepository,
     OrdersRepository,
-    CustomerCareInquiriesRepository
+    CustomerCareInquiriesRepository,
+    CustomerCaresGateway
   ],
   exports: [CustomerCareService, CustomerCaresRepository]
 })

@@ -814,4 +814,70 @@ export class FchatGateway
     console.warn(`Unknown user type for userId: ${userId}`);
     return null;
   }
+
+  @SubscribeMessage('requestCustomerCare')
+  async handleRequestCustomerCare(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { type: 'SUPPORT' | 'ORDER' }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      const chatRoomId = this.getChatId(
+        userData.id,
+        'customer_care',
+        data.type
+      );
+
+      // Emit event to customer care gateway using EventEmitter2
+      this.eventEmitter.emit('customerCareRequest', {
+        userId: userData.id,
+        type: data.type,
+        chatRoomId
+      });
+
+      // Wait for 10 seconds to find the most suitable customer care representative
+      setTimeout(async () => {
+        const optimalCustomerCare = await this.findOptimalCustomerCare();
+        if (optimalCustomerCare) {
+          const socketRoomId = this.getChatId(
+            userData.id,
+            optimalCustomerCare.id,
+            data.type
+          );
+          await client.join(socketRoomId);
+          const recipientSocket = this.userSockets.get(optimalCustomerCare.id);
+          if (recipientSocket) {
+            await recipientSocket.join(socketRoomId);
+            recipientSocket.emit('chatStarted', {
+              chatId: socketRoomId,
+              withUser: userData.id,
+              type: data.type
+            });
+          }
+          client.emit('chatStarted', {
+            chatId: socketRoomId,
+            withUser: optimalCustomerCare.id,
+            type: data.type
+          });
+        } else {
+          client.emit('error', {
+            message: 'No customer care representative available'
+          });
+        }
+      }, 10000); // 10 seconds
+    } catch (error: any) {
+      console.error('Error in requestCustomerCare:', error);
+      throw new WsException(error.message || 'Failed to request customer care');
+    }
+  }
+
+  private async findOptimalCustomerCare(): Promise<any> {
+    // Implement logic to find the most suitable customer care representative
+    // This could be based on availability, load, expertise, etc.
+    return { id: 'FF_CC_12345' }; // Example return value
+  }
 }

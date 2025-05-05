@@ -66,4 +66,8 @@ export declare class FchatGateway implements OnGatewayConnection, OnGatewayDisco
     private getSocketRoomIdFromDbRoom;
     handleDisconnect(client: Socket): void;
     private getUserType;
+    handleRequestCustomerCare(client: Socket, data: {
+        type: 'SUPPORT' | 'ORDER';
+    }): Promise<void>;
+    private findOptimalCustomerCare;
 }

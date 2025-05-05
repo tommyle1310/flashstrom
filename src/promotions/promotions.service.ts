@@ -159,7 +159,7 @@ export class PromotionsService {
       const dbStart = Date.now();
       const currentTimestamp = Math.floor(Date.now() / 1000);
 
-      const queryBuilder = this.promotionsRepository.promotionRepository
+      const queryBuilder = this.promotionRepository
         .createQueryBuilder('promotion')
         .leftJoin(
           'restaurant_promotions',

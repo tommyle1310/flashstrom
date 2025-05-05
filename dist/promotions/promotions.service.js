@@ -100,7 +100,7 @@ let PromotionsService = class PromotionsService {
             logger.log(`Cache miss for ${this.validPromotionsCacheKey}`);
             const dbStart = Date.now();
             const currentTimestamp = Math.floor(Date.now() / 1000);
-            const queryBuilder = this.promotionsRepository.promotionRepository
+            const queryBuilder = this.promotionRepository
                 .createQueryBuilder('promotion')
                 .leftJoin('restaurant_promotions', 'rp', 'rp.promotion_id = promotion.id')
                 .leftJoin('restaurants', 'r', 'r.id = rp.restaurant_id')
