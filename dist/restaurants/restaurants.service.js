@@ -60,9 +60,11 @@ const fwallets_repository_1 = require("../fwallets/fwallets.repository");
 const transactions_service_1 = require("../transactions/transactions.service");
 const constants_1 = require("../utils/constants");
 const menu_items_repository_1 = require("../menu_items/menu_items.repository");
+const menu_item_variant_entity_1 = require("../menu_item_variants/entities/menu_item_variant.entity");
 const redis_1 = require("redis");
 const typeorm_1 = require("typeorm");
 const dotenv = __importStar(require("dotenv"));
+const order_entity_2 = require("../orders/entities/order.entity");
 dotenv.config();
 const logger = new common_1.Logger('RestaurantsService');
 const redis = (0, redis_1.createClient)({
@@ -603,6 +605,19 @@ let RestaurantsService = class RestaurantsService {
     async getOrderById(orderId) {
         return this.ordersRepository.findById(orderId);
     }
+    async invalidateRestaurantOrderCache(restaurantId) {
+        try {
+            const cachePattern = `orders:restaurant:${restaurantId}:*`;
+            const keys = await redis.keys(cachePattern);
+            if (keys.length > 0) {
+                await redis.del(keys);
+                logger.log(`Invalidated ${keys.length} cache entries for restaurant ${restaurantId}`);
+            }
+        }
+        catch (cacheError) {
+            logger.warn('Failed to invalidate order cache:', cacheError);
+        }
+    }
     async updateOrderStatus(orderId, status) {
         try {
             let tracking_info;
@@ -629,13 +644,14 @@ let RestaurantsService = class RestaurantsService {
             if (!updatedOrder) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Order not found');
             }
+            await this.invalidateRestaurantOrderCache(updatedOrder.restaurant_id);
             if (this.restaurantsGateway) {
                 await this.restaurantsGateway.notifyPartiesOnce(updatedOrder);
             }
             return (0, createResponse_1.createResponse)('OK', updatedOrder, 'Order status updated successfully');
         }
         catch (error) {
-            console.error('Error updating order status:', error);
+            logger.error('Error updating order status:', error);
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while updating the order status');
         }
     }
@@ -766,6 +782,108 @@ let RestaurantsService = class RestaurantsService {
         catch (error) {
             console.error('Error fetching paginated restaurants:', error);
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching paginated restaurants');
+        }
+    }
+    async getRestaurantOrders(restaurantId, page = 1, limit = 10) {
+        const start = Date.now();
+        try {
+            const cacheKey = `orders:restaurant:${restaurantId}:page:${page}:limit:${limit}`;
+            try {
+                const cachedData = await redis.get(cacheKey);
+                if (cachedData) {
+                    logger.log(`Cache hit for restaurant orders ${restaurantId}, page ${page}`);
+                    return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedData), 'Fetched restaurant orders from cache');
+                }
+            }
+            catch (cacheError) {
+                logger.warn('Redis cache error:', cacheError);
+            }
+            logger.log(`Cache miss for restaurant orders ${restaurantId}, page ${page}`);
+            const restaurant = await this.restaurantsRepository.findById(restaurantId);
+            if (!restaurant) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant not found');
+            }
+            const skip = (page - 1) * limit;
+            const queryStart = Date.now();
+            const [cancelledOrders, otherOrders] = await Promise.all([
+                this.dataSource
+                    .createQueryBuilder(order_entity_2.Order, 'order')
+                    .leftJoinAndSelect('order.customer', 'customer')
+                    .leftJoinAndSelect('order.driver', 'driver')
+                    .leftJoinAndSelect('order.customerAddress', 'customerAddress')
+                    .leftJoinAndSelect('order.restaurantAddress', 'restaurantAddress')
+                    .where('order.restaurant_id = :restaurantId', { restaurantId })
+                    .andWhere('order.status = :status', { status: order_entity_1.OrderStatus.CANCELLED })
+                    .orderBy('order.created_at', 'DESC')
+                    .getMany(),
+                this.dataSource
+                    .createQueryBuilder(order_entity_2.Order, 'order')
+                    .leftJoinAndSelect('order.customer', 'customer')
+                    .leftJoinAndSelect('order.driver', 'driver')
+                    .leftJoinAndSelect('order.customerAddress', 'customerAddress')
+                    .leftJoinAndSelect('order.restaurantAddress', 'restaurantAddress')
+                    .where('order.restaurant_id = :restaurantId', { restaurantId })
+                    .andWhere('order.status != :status', {
+                    status: order_entity_1.OrderStatus.CANCELLED
+                })
+                    .orderBy('order.created_at', 'DESC')
+                    .getMany()
+            ]);
+            logger.log(`Queries executed in ${Date.now() - queryStart}ms`);
+            const allOrders = [...cancelledOrders, ...otherOrders];
+            const total = allOrders.length;
+            const paginatedOrders = allOrders.slice(skip, skip + limit);
+            const menuItemStart = Date.now();
+            const allItemIds = paginatedOrders.flatMap(order => order.order_items.map(item => item.item_id));
+            const allVariantIds = paginatedOrders
+                .flatMap(order => order.order_items.map(item => item.variant_id))
+                .filter(id => id);
+            const [menuItems, menuItemVariants] = await Promise.all([
+                this.menuItemRepository.findByIds(allItemIds),
+                this.dataSource
+                    .createQueryBuilder(menu_item_variant_entity_1.MenuItemVariant, 'variant')
+                    .where('variant.id IN (:...ids)', { ids: allVariantIds })
+                    .getMany()
+            ]);
+            const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
+            const variantMap = new Map(menuItemVariants.map(variant => [variant.id, variant]));
+            logger.log(`Menu items and variants fetched in ${Date.now() - menuItemStart}ms`);
+            const populatedOrders = paginatedOrders.map(order => {
+                const populatedOrderItems = order.order_items.map(item => ({
+                    ...item,
+                    menu_item: menuItemMap.get(item.item_id) || null,
+                    menu_item_variant: item.variant_id
+                        ? variantMap.get(item.variant_id) || null
+                        : null
+                }));
+                return {
+                    ...order,
+                    order_items: populatedOrderItems
+                };
+            });
+            const result = {
+                orders: populatedOrders,
+                pagination: {
+                    total,
+                    totalPages: Math.ceil(total / limit),
+                    currentPage: page,
+                    perPage: limit
+                }
+            };
+            try {
+                const ttl = 300;
+                await redis.setEx(cacheKey, ttl, JSON.stringify(result));
+                logger.log(`Cached restaurant orders for ${cacheKey}`);
+            }
+            catch (cacheError) {
+                logger.warn('Failed to cache restaurant orders:', cacheError);
+            }
+            logger.log(`getRestaurantOrders completed in ${Date.now() - start}ms`);
+            return (0, createResponse_1.createResponse)('OK', result, `Fetched ${populatedOrders.length} orders for restaurant successfully`);
+        }
+        catch (error) {
+            logger.error(`Error fetching restaurant orders: ${error.message}`, error.stack);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching restaurant orders');
         }
     }
 };

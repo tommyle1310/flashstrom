@@ -79,6 +79,11 @@ let RestaurantsController = class RestaurantsController {
     removeMenuItemVariantForRestaurant(variantId) {
         return this.restaurantsService.deleteMenuItemVariantForRestaurant(variantId);
     }
+    getRestaurantOrders(restaurantId, page = '1', limit = '10') {
+        const parsedPage = parseInt(page, 10);
+        const parsedLimit = parseInt(limit, 10);
+        return this.restaurantsService.getRestaurantOrders(restaurantId, parsedPage, parsedLimit);
+    }
 };
 exports.RestaurantsController = RestaurantsController;
 __decorate([
@@ -209,6 +214,15 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], RestaurantsController.prototype, "removeMenuItemVariantForRestaurant", null);
+__decorate([
+    (0, common_1.Get)(':restaurantId/orders'),
+    __param(0, (0, common_1.Param)('restaurantId')),
+    __param(1, (0, common_1.Query)('page')),
+    __param(2, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", void 0)
+], RestaurantsController.prototype, "getRestaurantOrders", null);
 exports.RestaurantsController = RestaurantsController = __decorate([
     (0, common_1.Controller)('restaurants'),
     __metadata("design:paramtypes", [restaurants_service_1.RestaurantsService])

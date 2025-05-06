@@ -20,6 +20,7 @@ import { TransactionService } from 'src/transactions/transactions.service';
 import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
 import { DataSource } from 'typeorm';
 import { ToggleRestaurantAvailabilityDto } from './dto/restaurant-availability.dto';
+import { Order } from 'src/orders/entities/order.entity';
 export declare class RestaurantsService {
     private readonly restaurantsRepository;
     private readonly userRepository;
@@ -53,7 +54,8 @@ export declare class RestaurantsService {
     createMenuItemVariantForRestaurant(menuId: string, createMenuItemVariantDto: CreateMenuItemVariantDto): Promise<any>;
     updateMenuItemVariantForRestaurant(variantId: string, updateMenuItemVariantDto: UpdateMenuItemVariantDto): Promise<any>;
     deleteMenuItemVariantForRestaurant(menuItemVariantId: string): Promise<any>;
-    getOrderById(orderId: string): Promise<import("src/orders/entities/order.entity").Order>;
+    getOrderById(orderId: string): Promise<Order>;
+    private invalidateRestaurantOrderCache;
     updateOrderStatus(orderId: string, status: string): Promise<any>;
     findAll(): Promise<ApiResponse<any>>;
     findOne(id: string): Promise<ApiResponse<any>>;
@@ -69,4 +71,5 @@ export declare class RestaurantsService {
         totalItems: number;
         items: Restaurant[];
     }>>;
+    getRestaurantOrders(restaurantId: string, page?: number, limit?: number): Promise<ApiResponse<any>>;
 }

@@ -33,4 +33,5 @@ export declare class RestaurantsController {
     createMenuItemVariant(variantId: string, createMenuItemVariantDto: CreateMenuItemVariantDto): Promise<any>;
     updateMenuItemVariant(variantId: string, updateMenuItemVariantDto: UpdateMenuItemVariantDto): Promise<any>;
     removeMenuItemVariantForRestaurant(variantId: string): Promise<any>;
+    getRestaurantOrders(restaurantId: string, page?: string, limit?: string): Promise<ApiResponse<any>>;
 }

@@ -178,4 +178,19 @@ export class RestaurantsController {
       variantId // Pass menu item variant id
     );
   }
+
+  @Get(':restaurantId/orders')
+  getRestaurantOrders(
+    @Param('restaurantId') restaurantId: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    return this.restaurantsService.getRestaurantOrders(
+      restaurantId,
+      parsedPage,
+      parsedLimit
+    );
+  }
 }
