@@ -160,8 +160,7 @@ exports.AppModule = AppModule = __decorate([
                     sslmode: 'require'
                 },
                 entities: [__dirname + '/**/*.entity{.ts,.js}'],
-                synchronize: false,
-                logging: true
+                synchronize: false
             }),
             users_module_1.UsersModule,
             penalties_module_1.PenaltiesModule,

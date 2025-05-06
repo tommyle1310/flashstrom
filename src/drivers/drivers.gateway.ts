@@ -446,14 +446,16 @@ export class DriversGateway
         console.warn(
           `[DriversGateway] order.driver is null, fetching driver with id: ${order.driver_id}`
         );
-        driver = await this.dataSource
-          .getRepository(Driver)
-          .findOne({ where: { id: order.driver_id } });
+        driver = await this.dataSource.getRepository(Driver).findOne({
+          where: { id: order.driver_id },
+          relations: ['vehicle', 'rating']
+        });
         if (!driver) {
           console.error(`[DriversGateway] Driver ${order.driver_id} not found`);
         }
       }
 
+      // Include complete order status information
       const trackingUpdate = {
         orderId: order.id,
         status: order.status,
@@ -464,6 +466,23 @@ export class DriversGateway
         restaurant_id: order.restaurant_id,
         restaurant_avatar: order.restaurant?.avatar || null,
         driver_avatar: driver?.avatar || order.driver?.avatar || null,
+        order_details: {
+          id: order.id,
+          status: order.status,
+          tracking_info: order.tracking_info,
+          total_amount: order.total_amount,
+          payment_method: order.payment_method,
+          created_at: order.created_at,
+          updated_at: order.updated_at,
+          distance: order.distance,
+          driver_tips: order.driver_tips,
+          driver_wage: order.driver_wage,
+          order_items: order.order_items,
+          delivery_fee: order.delivery_fee,
+          service_fee: order.service_fee,
+          customer_note: order.customer_note,
+          restaurant_note: order.restaurant_note
+        },
         restaurantAddress: order.restaurantAddress || {
           id: '',
           street: 'N/A',
@@ -527,9 +546,11 @@ export class DriversGateway
         '[DriversGateway] notifyPartiesOnce - trackingUpdate:',
         trackingUpdate
       );
+
+      // Emit complete order status update
       this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
       console.log(
-        `[DriversGateway] Emitted notifyOrderStatus for order ${order.id}`
+        `[DriversGateway] Emitted complete order status update for order ${order.id}`
       );
     } catch (err) {
       console.error('[DriversGateway] Error in notifyPartiesOnce:', err);
@@ -935,18 +956,58 @@ export class DriversGateway
             );
 
             if (dps.total_earns > 0) {
+              console.log(
+                '[DriversGateway] Processing earnings transaction for driver',
+                driver.id,
+                'amount:',
+                dps.total_earns
+              );
+
+              let flashfoodWallet = await this.fWalletsRepository.findByUserId(
+                FLASHFOOD_FINANCE.user_id,
+                transactionalEntityManager
+              );
+
+              if (!flashfoodWallet) {
+                console.log(
+                  '[DriversGateway] FlashFood finance wallet not found, creating it'
+                );
+                flashfoodWallet = await this.fWalletsRepository.create(
+                  {
+                    user_id: FLASHFOOD_FINANCE.user_id,
+                    balance: 1000000, // Initial balance for FlashFood finance wallet
+                    email: FLASHFOOD_FINANCE.email,
+                    password: 'dummy', // This is a system wallet, no need for real password
+                    first_name: 'FlashFood',
+                    last_name: 'Finance'
+                  },
+                  transactionalEntityManager
+                );
+                console.log(
+                  '[DriversGateway] Created FlashFood finance wallet:',
+                  flashfoodWallet.id
+                );
+              }
+
               const earningsTransactionDto: CreateTransactionDto = {
                 user_id: driver.user_id,
-                fwallet_id: FLASHFOOD_FINANCE.id,
+                fwallet_id: flashfoodWallet.id,
                 transaction_type: 'PURCHASE',
                 amount: dps.total_earns,
-                balance_after: 0,
+                balance_after:
+                  parseFloat(flashfoodWallet.balance.toString()) -
+                  dps.total_earns,
                 status: 'PENDING',
                 version: 0,
                 source: 'FWALLET',
                 destination: driverWallet.id,
                 destination_type: 'FWALLET'
               };
+
+              console.log(
+                '[DriversGateway] Creating earnings transaction:',
+                earningsTransactionDto
+              );
 
               const earningsTransactionResponse =
                 await this.transactionsService.create(

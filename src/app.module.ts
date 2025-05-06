@@ -139,8 +139,8 @@ import { CustomerCareInquiry } from './customer_cares_inquires/entities/customer
         sslmode: 'require' // Cần cho Neon
       },
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: false,
-      logging: true
+      synchronize: false
+      // logging: true
     }),
     UsersModule,
     PenaltiesModule,
