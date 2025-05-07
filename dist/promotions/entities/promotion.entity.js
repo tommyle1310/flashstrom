@@ -11,7 +11,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Promotion = exports.DiscountType = exports.PromotionStatus = void 0;
 const typeorm_1 = require("typeorm");
-const food_category_entity_1 = require("../../food_categories/entities/food_category.entity");
 const restaurant_entity_1 = require("../../restaurants/entities/restaurant.entity");
 var PromotionStatus;
 (function (PromotionStatus) {
@@ -81,20 +80,9 @@ __decorate([
     __metadata("design:type", String)
 ], Promotion.prototype, "status", void 0);
 __decorate([
-    (0, typeorm_1.ManyToMany)(() => food_category_entity_1.FoodCategory, foodCategory => foodCategory.promotions),
-    (0, typeorm_1.JoinTable)({
-        name: 'promotion_food_categories',
-        joinColumn: {
-            name: 'promotion_id',
-            referencedColumnName: 'id'
-        },
-        inverseJoinColumn: {
-            name: 'food_category_id',
-            referencedColumnName: 'id'
-        }
-    }),
+    (0, typeorm_1.Column)('text', { array: true, default: [] }),
     __metadata("design:type", Array)
-], Promotion.prototype, "food_categories", void 0);
+], Promotion.prototype, "food_category_ids", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
     __metadata("design:type", Object)

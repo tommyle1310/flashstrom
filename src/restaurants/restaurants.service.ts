@@ -36,6 +36,7 @@ import { ToggleRestaurantAvailabilityDto } from './dto/restaurant-availability.d
 import * as dotenv from 'dotenv';
 import { Order } from 'src/orders/entities/order.entity';
 import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
+// import { Equal } from 'typeorm';
 
 dotenv.config();
 
@@ -519,10 +520,23 @@ export class RestaurantsService {
     restaurantId: string,
     createMenuItemDto: CreateMenuItemDto
   ): Promise<any> {
-    return this.menuItemsService.create({
-      ...createMenuItemDto,
-      restaurant_id: restaurantId
-    });
+    try {
+      // Create the menu item
+      const result = await this.menuItemsService.create({
+        ...createMenuItemDto,
+        restaurant_id: restaurantId
+      });
+
+      // Invalidate the cache for this restaurant's menu items
+      const cacheKey = `menu_items:${restaurantId}`;
+      await redis.del(cacheKey);
+      logger.log(`Invalidated cache for restaurant menu items: ${cacheKey}`);
+
+      return result;
+    } catch (error) {
+      logger.error('Error in createMenuItemForRestaurant:', error);
+      throw error;
+    }
   }
 
   async updateMenuItemForRestaurant(
@@ -530,37 +544,63 @@ export class RestaurantsService {
     menuItemId: string,
     updateMenuItemDto: UpdateMenuItemDto
   ): Promise<any> {
-    const menuItem = await this.menuItemsService.findOne(menuItemId);
+    try {
+      const menuItem = await this.menuItemsService.findOne(menuItemId);
 
-    if (menuItem.data.menuItem.restaurant_id !== restaurantId) {
-      return createResponse(
-        'Forbidden',
-        null,
-        'Menu Item does not belong to this restaurant'
-      );
+      if (menuItem.data.menuItem.restaurant_id !== restaurantId) {
+        return createResponse(
+          'Forbidden',
+          null,
+          'Menu Item does not belong to this restaurant'
+        );
+      }
+
+      // Update the menu item
+      const result = await this.menuItemsService.update(menuItemId, {
+        ...updateMenuItemDto,
+        restaurant_id: restaurantId
+      });
+
+      // Invalidate the cache for this restaurant's menu items
+      const cacheKey = `menu_items:${restaurantId}`;
+      await redis.del(cacheKey);
+      logger.log(`Invalidated cache for restaurant menu items: ${cacheKey}`);
+
+      return result;
+    } catch (error) {
+      logger.error('Error in updateMenuItemForRestaurant:', error);
+      throw error;
     }
-
-    return this.menuItemsService.update(menuItemId, {
-      ...updateMenuItemDto,
-      restaurant_id: restaurantId
-    });
   }
 
   async deleteMenuItemForRestaurant(
     restaurantId: string,
     menuItemId: string
   ): Promise<any> {
-    const menuItem = await this.menuItemsService.findOne(menuItemId);
+    try {
+      const menuItem = await this.menuItemsService.findOne(menuItemId);
 
-    if (menuItem.data.restaurant_id !== restaurantId) {
-      return createResponse(
-        'Forbidden',
-        null,
-        'Menu Item does not belong to this restaurant'
-      );
+      if (menuItem.data.restaurant_id !== restaurantId) {
+        return createResponse(
+          'Forbidden',
+          null,
+          'Menu Item does not belong to this restaurant'
+        );
+      }
+
+      // Delete the menu item
+      const result = await this.menuItemsService.remove(menuItemId);
+
+      // Invalidate the cache for this restaurant's menu items
+      const cacheKey = `menu_items:${restaurantId}`;
+      await redis.del(cacheKey);
+      logger.log(`Invalidated cache for restaurant menu items: ${cacheKey}`);
+
+      return result;
+    } catch (error) {
+      logger.error('Error in deleteMenuItemForRestaurant:', error);
+      throw error;
     }
-
-    return this.menuItemsService.remove(menuItemId);
   }
   private calculateDiscountedPrice(
     originalPrice: number,
@@ -669,7 +709,7 @@ export class RestaurantsService {
             start_date: new Date(Number(promo.start_date) * 1000).toISOString(),
             end_date: new Date(Number(promo.end_date) * 1000).toISOString(),
             current_time: new Date().toISOString(),
-            food_categories: promo.food_categories || []
+            food_categories: promo.food_category_ids || []
           });
         });
       }
@@ -727,10 +767,7 @@ export class RestaurantsService {
                 now >= Number(promotion.start_date) &&
                 now <= Number(promotion.end_date);
 
-              // Handle food_categories as array of strings (IDs)
-              const promotionCategories = (promotion.food_categories || []).map(
-                fc => (typeof fc === 'string' ? fc : fc.id)
-              );
+              const promotionCategories = promotion.food_category_ids || [];
               const hasMatchingCategory = promotionCategories.some(fcId =>
                 itemCategories.includes(fcId)
               );

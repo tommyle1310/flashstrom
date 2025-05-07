@@ -334,6 +334,34 @@ let OrdersService = class OrdersService {
                 }
             }
             logger.log(`Calculation took ${Date.now() - calcStart}ms`);
+            if (createOrderDto.payment_method === 'FWallet') {
+                if (!customerWallet) {
+                    return (0, createResponse_1.createResponse)('NotFound', null, 'Customer wallet not found');
+                }
+                if (customerWallet.balance < createOrderDto.total_amount) {
+                    return (0, createResponse_1.createResponse)('InsufficientBalance', null, 'Insufficient balance');
+                }
+                const transactionDto = {
+                    user_id: customer.user_id,
+                    fwallet_id: customerWallet.id,
+                    transaction_type: 'WITHDRAW',
+                    amount: createOrderDto.total_amount,
+                    balance_after: customerWallet.balance - createOrderDto.total_amount,
+                    status: 'PENDING',
+                    version: 0,
+                    source: 'FWALLET',
+                    destination: restaurant.owner_id,
+                    destination_type: 'FWALLET'
+                };
+                const transactionResult = await this.transactionService.create(transactionDto);
+                if (transactionResult.EC !== 0) {
+                    return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to process payment');
+                }
+                createOrderDto.payment_status = 'PAID';
+            }
+            else {
+                createOrderDto.payment_status = 'PENDING';
+            }
             const txStart = Date.now();
             const result = await this.dataSource.transaction(async (transactionalEntityManager) => {
                 const orderData = {
@@ -951,14 +979,44 @@ let OrdersService = class OrdersService {
         try {
             const manager = transactionalEntityManager || this.dataSource.createEntityManager();
             const order = await this.ordersRepository.findOne({
-                where: { id: orderId }
+                where: { id: orderId },
+                relations: ['restaurant']
             });
             if (!order) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Order not found');
             }
             order.payment_status = paymentStatus;
             order.updated_at = Math.floor(Date.now() / 1000);
-            if (paymentStatus === 'FAILED') {
+            if (paymentStatus === 'PAID') {
+                if (order.payment_method === 'COD' &&
+                    order.status === order_entity_1.OrderStatus.DELIVERED) {
+                    const restaurant = order.restaurant;
+                    if (!restaurant) {
+                        return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant not found');
+                    }
+                    const restaurantWallet = await this.fWalletsRepository.findByUserId(restaurant.owner_id, manager);
+                    if (!restaurantWallet) {
+                        return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant wallet not found');
+                    }
+                    const transactionDto = {
+                        user_id: restaurant.owner_id,
+                        fwallet_id: restaurantWallet.id,
+                        transaction_type: 'DEPOSIT',
+                        amount: order.total_amount,
+                        balance_after: restaurantWallet.balance + order.total_amount,
+                        status: 'PENDING',
+                        version: 0,
+                        source: 'FWALLET',
+                        destination: restaurantWallet.id,
+                        destination_type: 'FWALLET'
+                    };
+                    const transactionResult = await this.transactionService.create(transactionDto, manager);
+                    if (transactionResult.EC !== 0) {
+                        return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to process restaurant payment');
+                    }
+                }
+            }
+            else if (paymentStatus === 'FAILED') {
                 order.status = order_entity_1.OrderStatus.CANCELLED;
                 order.cancellation_reason = order_entity_1.OrderCancellationReason.OTHER;
                 order.cancellation_title = 'Payment Failed';
@@ -968,24 +1026,16 @@ let OrdersService = class OrdersService {
             }
             const updatedOrder = await manager.save(order_entity_1.Order, order);
             await redis.del(`order:${orderId}`);
-            if (paymentStatus === 'PAID') {
-                this.eventEmitter.emit('notifyOrderStatus', {
-                    room: `customer_${order.customer_id}`,
-                    type: 'PAYMENT_SUCCESS',
-                    message: 'Payment successful for your order',
-                    orderId: orderId,
-                    status: order.status
-                });
-            }
-            else if (paymentStatus === 'FAILED') {
-                this.eventEmitter.emit('notifyOrderStatus', {
-                    room: `customer_${order.customer_id}`,
-                    type: 'PAYMENT_FAILED',
-                    message: 'Payment failed for your order',
-                    orderId: orderId,
-                    status: order.status
-                });
-            }
+            this.eventEmitter.emit('notifyOrderStatus', {
+                room: `customer_${order.customer_id}`,
+                type: paymentStatus === 'PAID' ? 'PAYMENT_SUCCESS' : 'PAYMENT_FAILED',
+                message: paymentStatus === 'PAID'
+                    ? 'Payment successful for your order'
+                    : 'Payment failed for your order',
+                orderId: orderId,
+                status: order.status,
+                payment_status: paymentStatus
+            });
             return (0, createResponse_1.createResponse)('OK', updatedOrder, 'Order payment status updated successfully');
         }
         catch (error) {

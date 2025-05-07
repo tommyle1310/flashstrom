@@ -1,12 +1,17 @@
-import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
-import { FoodCategory } from 'src/food_categories/entities/food_category.entity'; // Import FoodCategory
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsArray
+} from 'class-validator';
 import { DiscountType, PromotionStatus } from '../entities/promotion.entity';
 
-interface BogoDetails {
-  buy_quantity: number;
-  get_quantity: number;
-  max_redemptions?: number;
-}
+// interface BogoDetails {
+//   buy_quantity: number;
+//   get_quantity: number;
+//   max_redemptions?: number;
+// }
 
 export class CreatePromotionDto {
   @IsString()
@@ -14,7 +19,7 @@ export class CreatePromotionDto {
 
   @IsOptional()
   @IsString()
-  description: string;
+  description?: string;
 
   @IsNumber()
   start_date: number;
@@ -33,18 +38,22 @@ export class CreatePromotionDto {
 
   @IsOptional()
   @IsNumber()
-  minimum_order_value: number;
+  minimum_order_value?: number;
 
   @IsOptional()
   avatar?: { url: string; key: string };
 
-  @IsOptional()
   @IsEnum(PromotionStatus)
   status: PromotionStatus;
 
-  @IsOptional()
-  food_categories?: FoodCategory[]; // Đổi từ string[] sang FoodCategory[]
+  @IsArray()
+  @IsString({ each: true })
+  food_category_ids: string[];
 
   @IsOptional()
-  bogo_details?: BogoDetails;
+  bogo_details?: {
+    buy_quantity: number;
+    get_quantity: number;
+    max_redemptions?: number;
+  };
 }

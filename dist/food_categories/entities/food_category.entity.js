@@ -10,19 +10,12 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FoodCategory = void 0;
-const promotion_entity_1 = require("../../promotions/entities/promotion.entity");
 const typeorm_1 = require("typeorm");
-const uuid_1 = require("uuid");
 let FoodCategory = class FoodCategory {
-    generateId() {
-        this.id = `FF_FC_${(0, uuid_1.v4)()}`;
-        this.created_at = Math.floor(Date.now() / 1000);
-        this.updated_at = Math.floor(Date.now() / 1000);
-    }
 };
 exports.FoodCategory = FoodCategory;
 __decorate([
-    (0, typeorm_1.PrimaryColumn)(),
+    (0, typeorm_1.Column)({ primary: true }),
     __metadata("design:type", String)
 ], FoodCategory.prototype, "id", void 0);
 __decorate([
@@ -30,31 +23,21 @@ __decorate([
     __metadata("design:type", String)
 ], FoodCategory.prototype, "name", void 0);
 __decorate([
-    (0, typeorm_1.Column)(),
+    (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], FoodCategory.prototype, "description", void 0);
 __decorate([
-    (0, typeorm_1.Column)('jsonb', { nullable: true }),
+    (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
     __metadata("design:type", Object)
 ], FoodCategory.prototype, "avatar", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'created_at' }),
+    (0, typeorm_1.Column)(),
     __metadata("design:type", Number)
 ], FoodCategory.prototype, "created_at", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'updated_at' }),
+    (0, typeorm_1.Column)(),
     __metadata("design:type", Number)
 ], FoodCategory.prototype, "updated_at", void 0);
-__decorate([
-    (0, typeorm_1.ManyToMany)(() => promotion_entity_1.Promotion, promotion => promotion.food_categories),
-    __metadata("design:type", Array)
-], FoodCategory.prototype, "promotions", void 0);
-__decorate([
-    (0, typeorm_1.BeforeInsert)(),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
-], FoodCategory.prototype, "generateId", null);
 exports.FoodCategory = FoodCategory = __decorate([
     (0, typeorm_1.Entity)('food_categories')
 ], FoodCategory);

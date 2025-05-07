@@ -272,8 +272,8 @@ export class CartItemsService {
                 now >= Number(promotion.start_date) &&
                 now <= Number(promotion.end_date);
               const hasMatchingCategory =
-                promotion.food_categories?.some(fc =>
-                  itemCategories.includes(fc.id)
+                promotion.food_category_ids?.some(categoryId =>
+                  itemCategories.includes(categoryId)
                 ) || false;
               return isActive && hasMatchingCategory;
             }) || [];
@@ -367,8 +367,8 @@ export class CartItemsService {
             now >= Number(promotion.start_date) &&
             now <= Number(promotion.end_date);
           const hasMatchingCategory =
-            promotion.food_categories?.some(fc =>
-              itemCategories.includes(fc.id)
+            promotion.food_category_ids?.some(categoryId =>
+              itemCategories.includes(categoryId)
             ) || false;
           return isActive && hasMatchingCategory;
         }) || [];
@@ -457,8 +457,8 @@ export class CartItemsService {
             now >= Number(promotion.start_date) &&
             now <= Number(promotion.end_date);
           const hasMatchingCategory =
-            promotion.food_categories?.some(fc =>
-              itemCategories.includes(fc.id)
+            promotion.food_category_ids?.some(categoryId =>
+              itemCategories.includes(categoryId)
             ) || false;
           return isActive && hasMatchingCategory;
         }) || [];
@@ -568,8 +568,8 @@ export class CartItemsService {
               now >= Number(promotion.start_date) &&
               now <= Number(promotion.end_date);
             const hasMatchingCategory =
-              promotion.food_categories?.some(fc =>
-                itemCategories.includes(fc.id)
+              promotion.food_category_ids?.some(categoryId =>
+                itemCategories.includes(categoryId)
               ) || false;
             return isActive && hasMatchingCategory;
           });
@@ -636,8 +636,8 @@ export class CartItemsService {
             now >= Number(promotion.start_date) &&
             now <= Number(promotion.end_date);
           const hasMatchingCategory =
-            promotion.food_categories?.some(fc =>
-              itemCategories.includes(fc.id)
+            promotion.food_category_ids?.some(categoryId =>
+              itemCategories.includes(categoryId)
             ) || false;
           return isActive && hasMatchingCategory;
         });

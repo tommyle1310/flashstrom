@@ -1,4 +1,3 @@
-import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 export declare enum PromotionStatus {
     ACTIVE = "ACTIVE",
@@ -26,7 +25,7 @@ export declare class Promotion {
         key: string;
     };
     status: PromotionStatus;
-    food_categories: FoodCategory[];
+    food_category_ids: string[];
     bogo_details: {
         buy_quantity: number;
         get_quantity: number;

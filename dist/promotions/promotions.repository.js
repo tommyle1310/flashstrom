@@ -22,7 +22,10 @@ let PromotionsRepository = class PromotionsRepository {
         this.promotionRepository = promotionRepository;
     }
     async create(promotionData) {
-        const newPromotion = this.promotionRepository.create(promotionData);
+        const newPromotion = this.promotionRepository.create({
+            ...promotionData,
+            food_category_ids: promotionData.food_category_ids || []
+        });
         return this.promotionRepository.save(newPromotion);
     }
     async findAll(options) {
@@ -105,21 +108,12 @@ let PromotionsRepository = class PromotionsRepository {
     async findByName(name) {
         return this.promotionRepository.findOne({ where: { name } });
     }
-    async update(id, updateData) {
-        const { food_categories, ...restData } = updateData;
-        await this.promotionRepository.update(id, restData);
-        if (food_categories) {
-            const promotion = await this.promotionRepository.findOne({
-                where: { id },
-                relations: ['food_categories']
-            });
-            if (promotion) {
-                promotion.food_categories = food_categories;
-                await this.promotionRepository.save(promotion);
-            }
-        }
-        const updatedPromotion = await this.findById(id);
-        return updatedPromotion;
+    async update(id, updatePromotionDto) {
+        await this.promotionRepository.update(id, {
+            ...updatePromotionDto,
+            food_category_ids: updatePromotionDto.food_category_ids
+        });
+        return this.findById(id);
     }
     async delete(id) {
         return this.promotionRepository.delete(id);

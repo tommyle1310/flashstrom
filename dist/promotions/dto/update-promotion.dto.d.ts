@@ -1,5 +1,4 @@
 import { CreatePromotionDto } from './create-promotion.dto';
-import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 import { DiscountType, PromotionStatus } from '../entities/promotion.entity';
 declare const UpdatePromotionDto_base: import("@nestjs/mapped-types").MappedType<Partial<CreatePromotionDto>>;
 export declare class UpdatePromotionDto extends UpdatePromotionDto_base {
@@ -16,7 +15,7 @@ export declare class UpdatePromotionDto extends UpdatePromotionDto_base {
     promotion_cost_price?: number;
     minimum_order_value?: number;
     status?: PromotionStatus;
-    food_categories?: FoodCategory[];
+    food_category_ids?: string[];
     bogo_details?: {
         buy_quantity: number;
         get_quantity: number;

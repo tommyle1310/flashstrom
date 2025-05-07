@@ -1,7 +1,12 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreatePromotionDto } from './create-promotion.dto';
-import { IsEnum, IsNumber, IsOptional } from 'class-validator';
-import { FoodCategory } from 'src/food_categories/entities/food_category.entity'; // Import FoodCategory
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  IsString
+} from 'class-validator';
 import { DiscountType, PromotionStatus } from '../entities/promotion.entity';
 
 export class UpdatePromotionDto extends PartialType(CreatePromotionDto) {
@@ -43,7 +48,9 @@ export class UpdatePromotionDto extends PartialType(CreatePromotionDto) {
   status?: PromotionStatus;
 
   @IsOptional()
-  food_categories?: FoodCategory[]; // Đổi từ string[] sang FoodCategory[]
+  @IsArray()
+  @IsString({ each: true })
+  food_category_ids?: string[];
 
   @IsOptional()
   bogo_details?: {

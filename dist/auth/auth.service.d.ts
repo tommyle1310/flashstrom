@@ -1,15 +1,15 @@
-import { User } from '../users/entities/user.entity';
 import { JwtService } from '@nestjs/jwt';
-import { Enum_UserType } from 'src/types/Payload';
-import { CartItemsService } from 'src/cart_items/cart_items.service';
 import { UserRepository } from 'src/users/users.repository';
-import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
-import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { CustomersRepository } from 'src/customers/customers.repository';
 import { DriversRepository } from 'src/drivers/drivers.repository';
+import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
+import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { CustomerCaresRepository } from 'src/customer_cares/customer_cares.repository';
 import { EmailService } from 'src/mailer/email.service';
 import { AdminService } from 'src/admin/admin.service';
+import { Enum_UserType } from 'src/types/Payload';
+import { User } from 'src/users/entities/user.entity';
+import { CartItemsService } from 'src/cart_items/cart_items.service';
 export declare class AuthService {
     private readonly userRepository;
     private readonly fWalletsRepository;
@@ -19,9 +19,9 @@ export declare class AuthService {
     private readonly customerCareRepository;
     private readonly adminService;
     private readonly jwtService;
-    private readonly cartItemService;
     private readonly emailService;
-    constructor(userRepository: UserRepository, fWalletsRepository: FWalletsRepository, restaurantsRepository: RestaurantsRepository, customersRepository: CustomersRepository, driverRepository: DriversRepository, customerCareRepository: CustomerCaresRepository, adminService: AdminService, jwtService: JwtService, cartItemService: CartItemsService, emailService: EmailService);
+    private readonly cartItemService;
+    constructor(userRepository: UserRepository, fWalletsRepository: FWalletsRepository, restaurantsRepository: RestaurantsRepository, customersRepository: CustomersRepository, driverRepository: DriversRepository, customerCareRepository: CustomerCaresRepository, adminService: AdminService, jwtService: JwtService, emailService: EmailService, cartItemService: CartItemsService);
     register(userData: any, type: Enum_UserType): Promise<any>;
     login({ email, password }: {
         email: string;

@@ -13,6 +13,7 @@ exports.UpdateUserDto = void 0;
 const mapped_types_1 = require("@nestjs/mapped-types");
 const create_user_dto_1 = require("./create-user.dto");
 const class_validator_1 = require("class-validator");
+const Payload_1 = require("../../types/Payload");
 class UpdateUserDto extends (0, mapped_types_1.PartialType)(create_user_dto_1.CreateUserDto) {
 }
 exports.UpdateUserDto = UpdateUserDto;
@@ -47,4 +48,10 @@ __decorate([
     (0, class_validator_1.IsDate)(),
     __metadata("design:type", Date)
 ], UpdateUserDto.prototype, "last_login", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsEnum)(Payload_1.Enum_UserType, { each: true }),
+    __metadata("design:type", Array)
+], UpdateUserDto.prototype, "user_type", void 0);
 //# sourceMappingURL=update-user.dto.js.map

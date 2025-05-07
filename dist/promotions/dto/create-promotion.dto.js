@@ -54,14 +54,14 @@ __decorate([
     __metadata("design:type", Object)
 ], CreatePromotionDto.prototype, "avatar", void 0);
 __decorate([
-    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(promotion_entity_1.PromotionStatus),
     __metadata("design:type", String)
 ], CreatePromotionDto.prototype, "status", void 0);
 __decorate([
-    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
     __metadata("design:type", Array)
-], CreatePromotionDto.prototype, "food_categories", void 0);
+], CreatePromotionDto.prototype, "food_category_ids", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Object)

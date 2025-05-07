@@ -716,6 +716,15 @@ export class DriversGateway
                   );
 
                   if (nextStateBase === 'delivery_complete') {
+                    // Update order payment status for COD orders
+                    if (order.payment_method === 'COD') {
+                      await this.ordersService.updateOrderPaymentStatus(
+                        order.id,
+                        'PAID',
+                        transactionalEntityManager
+                      );
+                    }
+
                     dps.total_tips =
                       (dps.total_tips || 0) + (order.driver_tips || 0);
                     dps.total_distance_travelled =
@@ -944,6 +953,13 @@ export class DriversGateway
                 console.log(
                   '[DriversGateway] COD transaction from driver to restaurant succeeded:',
                   codTransactionResponse.data
+                );
+
+                // Update order payment status after successful transaction
+                await this.ordersService.updateOrderPaymentStatus(
+                  order.id,
+                  'PAID',
+                  transactionalEntityManager
                 );
               }
             }

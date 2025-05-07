@@ -6,9 +6,7 @@ import { createResponse, ApiResponse } from 'src/utils/createResponse';
 import { v4 as uuidv4 } from 'uuid';
 import { PromotionsRepository } from './promotions.repository';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
-import { RedisService } from 'src/redis/redis.service'; // Giả định bạn có RedisService
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { RedisService } from 'src/redis/redis.service';
 
 const logger = new Logger('PromotionsService');
 
@@ -20,12 +18,9 @@ export class PromotionsService {
   private readonly cacheTtl = 300; // 5 phút (300 giây)
 
   constructor(
-    @InjectRepository(Promotion)
-    private readonly promotionsRepository: PromotionsRepository,
+    private readonly promotionsRepository: PromotionsRepository, // Use custom repository only
     private readonly foodCategoriesRepository: FoodCategoriesRepository,
-    private readonly redisService: RedisService, // Inject RedisService
-    @InjectRepository(Promotion)
-    private readonly promotionRepository: Repository<Promotion>
+    private readonly redisService: RedisService
   ) {}
 
   async create(
@@ -44,8 +39,8 @@ export class PromotionsService {
       }
 
       const existingFoodCategories = await Promise.all(
-        createPromotionDto.food_categories.map(async foodCategory => {
-          return await this.foodCategoriesRepository.findById(foodCategory.id);
+        createPromotionDto.food_category_ids.map(async foodCategoryId => {
+          return await this.foodCategoriesRepository.findById(foodCategoryId);
         })
       );
 
@@ -64,10 +59,10 @@ export class PromotionsService {
       const savedPromotion = await this.promotionsRepository.create({
         ...createPromotionDto,
         id: `FF_PROMO_${uuidv4()}`,
-        food_categories: existingFoodCategories
+        food_category_ids: existingFoodCategories.map(category => category.id)
       });
 
-      // Xóa cache
+      // Clear cache
       await this.redisService.del(this.allPromotionsCacheKey);
       await this.redisService.del(this.validPromotionsCacheKey);
       logger.log(
@@ -139,7 +134,7 @@ export class PromotionsService {
   async findValidWithRestaurants(): Promise<ApiResponse<Promotion[]>> {
     const start = Date.now();
     try {
-      // Kiểm tra cache
+      // Check cache
       const cachedData = await this.redisService.get(
         this.validPromotionsCacheKey
       );
@@ -155,11 +150,11 @@ export class PromotionsService {
       }
       logger.log(`Cache miss for ${this.validPromotionsCacheKey}`);
 
-      // Truy vấn database
+      // Query database
       const dbStart = Date.now();
       const currentTimestamp = Math.floor(Date.now() / 1000);
 
-      const queryBuilder = this.promotionRepository
+      const queryBuilder = this.promotionsRepository.promotionRepository // Use the underlying TypeORM repository
         .createQueryBuilder('promotion')
         .leftJoin(
           'restaurant_promotions',
@@ -205,7 +200,7 @@ export class PromotionsService {
       const { entities, raw } = await queryBuilder.getRawAndEntities();
       logger.log(`Database fetch took ${Date.now() - dbStart}ms`);
 
-      // Xử lý dữ liệu
+      // Process data
       const processingStart = Date.now();
       interface SimplifiedRestaurant {
         id: string;
@@ -258,7 +253,7 @@ export class PromotionsService {
       }));
       logger.log(`Data processing took ${Date.now() - processingStart}ms`);
 
-      // Lưu vào cache
+      // Save to cache
       const cacheStart = Date.now();
       const cacheSaved = await this.redisService.setNx(
         this.validPromotionsCacheKey,

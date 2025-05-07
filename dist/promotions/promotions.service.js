@@ -8,27 +8,20 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var __param = (this && this.__param) || function (paramIndex, decorator) {
-    return function (target, key) { decorator(target, key, paramIndex); }
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PromotionsService = void 0;
 const common_1 = require("@nestjs/common");
-const promotion_entity_1 = require("./entities/promotion.entity");
 const createResponse_1 = require("../utils/createResponse");
 const uuid_1 = require("uuid");
 const promotions_repository_1 = require("./promotions.repository");
 const food_categories_repository_1 = require("../food_categories/food_categories.repository");
 const redis_service_1 = require("../redis/redis.service");
-const typeorm_1 = require("@nestjs/typeorm");
-const typeorm_2 = require("typeorm");
 const logger = new common_1.Logger('PromotionsService');
 let PromotionsService = class PromotionsService {
-    constructor(promotionsRepository, foodCategoriesRepository, redisService, promotionRepository) {
+    constructor(promotionsRepository, foodCategoriesRepository, redisService) {
         this.promotionsRepository = promotionsRepository;
         this.foodCategoriesRepository = foodCategoriesRepository;
         this.redisService = redisService;
-        this.promotionRepository = promotionRepository;
         this.allPromotionsCacheKey = 'promotions:all';
         this.validPromotionsCacheKey = 'promotions:valid_with_restaurants';
         this.cacheTtl = 300;
@@ -39,8 +32,8 @@ let PromotionsService = class PromotionsService {
             if (existingPromotion) {
                 return (0, createResponse_1.createResponse)('DuplicatedRecord', null, 'Promotion with this name already exists');
             }
-            const existingFoodCategories = await Promise.all(createPromotionDto.food_categories.map(async (foodCategory) => {
-                return await this.foodCategoriesRepository.findById(foodCategory.id);
+            const existingFoodCategories = await Promise.all(createPromotionDto.food_category_ids.map(async (foodCategoryId) => {
+                return await this.foodCategoriesRepository.findById(foodCategoryId);
             }));
             const missingCategories = existingFoodCategories.some(category => !category);
             if (missingCategories) {
@@ -49,7 +42,7 @@ let PromotionsService = class PromotionsService {
             const savedPromotion = await this.promotionsRepository.create({
                 ...createPromotionDto,
                 id: `FF_PROMO_${(0, uuid_1.v4)()}`,
-                food_categories: existingFoodCategories
+                food_category_ids: existingFoodCategories.map(category => category.id)
             });
             await this.redisService.del(this.allPromotionsCacheKey);
             await this.redisService.del(this.validPromotionsCacheKey);
@@ -100,7 +93,7 @@ let PromotionsService = class PromotionsService {
             logger.log(`Cache miss for ${this.validPromotionsCacheKey}`);
             const dbStart = Date.now();
             const currentTimestamp = Math.floor(Date.now() / 1000);
-            const queryBuilder = this.promotionRepository
+            const queryBuilder = this.promotionsRepository.promotionRepository
                 .createQueryBuilder('promotion')
                 .leftJoin('restaurant_promotions', 'rp', 'rp.promotion_id = promotion.id')
                 .leftJoin('restaurants', 'r', 'r.id = rp.restaurant_id')
@@ -280,11 +273,8 @@ let PromotionsService = class PromotionsService {
 exports.PromotionsService = PromotionsService;
 exports.PromotionsService = PromotionsService = __decorate([
     (0, common_1.Injectable)(),
-    __param(0, (0, typeorm_1.InjectRepository)(promotion_entity_1.Promotion)),
-    __param(3, (0, typeorm_1.InjectRepository)(promotion_entity_1.Promotion)),
     __metadata("design:paramtypes", [promotions_repository_1.PromotionsRepository,
         food_categories_repository_1.FoodCategoriesRepository,
-        redis_service_1.RedisService,
-        typeorm_2.Repository])
+        redis_service_1.RedisService])
 ], PromotionsService);
 //# sourceMappingURL=promotions.service.js.map

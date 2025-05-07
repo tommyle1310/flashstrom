@@ -34,14 +34,32 @@ export class UserRepository {
     updateDto: UpdateUserDto,
     manager?: EntityManager
   ): Promise<UpdateResult> {
+    console.log('Updating user with ID:', id);
+    console.log('Update data:', updateDto);
+
+    if (!id) {
+      console.error('Update called with invalid ID:', id);
+      throw new Error('User ID is required for update');
+    }
+
     const repo = manager ? manager.getRepository(User) : this.repository;
-    const updateData: Partial<User> = {
-      ...updateDto,
-      verification_code: updateDto.verification_code
-        ? Number(updateDto.verification_code)
-        : undefined // Ép kiểu string -> number
-    };
-    return await repo.update(id, updateData);
+
+    // Create clean update data
+    const updateData: Partial<User> = {};
+
+    // Only include defined fields
+    Object.keys(updateDto).forEach(key => {
+      if (updateDto[key] !== undefined) {
+        if (key === 'verification_code') {
+          updateData[key] = parseInt(updateDto[key]?.toString() || '0', 10);
+        } else {
+          updateData[key] = updateDto[key];
+        }
+      }
+    });
+
+    console.log('Final update data:', updateData);
+    return repo.update({ id }, updateData);
   }
 
   async delete(id: string): Promise<{ affected?: number }> {

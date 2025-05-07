@@ -36,14 +36,26 @@ let UserRepository = class UserRepository {
         return await repo.findOne({ where: { id } });
     }
     async update(id, updateDto, manager) {
+        console.log('Updating user with ID:', id);
+        console.log('Update data:', updateDto);
+        if (!id) {
+            console.error('Update called with invalid ID:', id);
+            throw new Error('User ID is required for update');
+        }
         const repo = manager ? manager.getRepository(user_entity_1.User) : this.repository;
-        const updateData = {
-            ...updateDto,
-            verification_code: updateDto.verification_code
-                ? Number(updateDto.verification_code)
-                : undefined
-        };
-        return await repo.update(id, updateData);
+        const updateData = {};
+        Object.keys(updateDto).forEach(key => {
+            if (updateDto[key] !== undefined) {
+                if (key === 'verification_code') {
+                    updateData[key] = parseInt(updateDto[key]?.toString() || '0', 10);
+                }
+                else {
+                    updateData[key] = updateDto[key];
+                }
+            }
+        });
+        console.log('Final update data:', updateData);
+        return repo.update({ id }, updateData);
     }
     async delete(id) {
         return this.repository.delete(id);

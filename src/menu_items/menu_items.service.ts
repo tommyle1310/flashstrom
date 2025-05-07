@@ -154,12 +154,12 @@ export class MenuItemsService {
             now >= Number(promotion.start_date) &&
             now <= Number(promotion.end_date);
           const hasMatchingCategory =
-            promotion.food_categories?.some(fc =>
-              itemCategories.includes(fc.id)
+            promotion.food_category_ids?.some(categoryId =>
+              itemCategories.includes(categoryId)
             ) || false;
           console.log(
             `check promotion ${promotion.id}: active=${isActive}, hasMatchingCategory=${hasMatchingCategory}`,
-            promotion.food_categories?.map(fc => fc.id)
+            promotion.food_category_ids
           );
           return isActive && hasMatchingCategory;
         }) || [];

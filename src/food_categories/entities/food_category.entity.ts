@@ -1,43 +1,22 @@
-import { Promotion } from 'src/promotions/entities/promotion.entity';
-import {
-  Entity,
-  Column,
-  PrimaryColumn,
-  BeforeInsert,
-  ManyToMany
-} from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
+import { Entity, Column } from 'typeorm';
 
 @Entity('food_categories')
 export class FoodCategory {
-  @PrimaryColumn()
+  @Column({ primary: true })
   id: string;
 
   @Column()
   name: string;
 
-  @Column()
+  @Column({ nullable: true })
   description: string;
 
-  @Column('jsonb', { nullable: true })
-  avatar: {
-    url: string;
-    key: string;
-  };
+  @Column({ type: 'jsonb', nullable: true })
+  avatar: { url: string; key: string };
 
-  @Column({ name: 'created_at' })
+  @Column()
   created_at: number;
 
-  @Column({ name: 'updated_at' })
+  @Column()
   updated_at: number;
-
-  @ManyToMany(() => Promotion, promotion => promotion.food_categories)
-  promotions: Promotion[]; // Quan hệ ngược với Promotion
-
-  @BeforeInsert()
-  generateId() {
-    this.id = `FF_FC_${uuidv4()}`;
-    this.created_at = Math.floor(Date.now() / 1000);
-    this.updated_at = Math.floor(Date.now() / 1000);
-  }
 }

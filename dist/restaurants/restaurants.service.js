@@ -352,27 +352,57 @@ let RestaurantsService = class RestaurantsService {
         return (0, createResponse_1.createResponse)('OK', restaurant, 'Restaurant avatar updated successfully');
     }
     async createMenuItemForRestaurant(restaurantId, createMenuItemDto) {
-        return this.menuItemsService.create({
-            ...createMenuItemDto,
-            restaurant_id: restaurantId
-        });
+        try {
+            const result = await this.menuItemsService.create({
+                ...createMenuItemDto,
+                restaurant_id: restaurantId
+            });
+            const cacheKey = `menu_items:${restaurantId}`;
+            await redis.del(cacheKey);
+            logger.log(`Invalidated cache for restaurant menu items: ${cacheKey}`);
+            return result;
+        }
+        catch (error) {
+            logger.error('Error in createMenuItemForRestaurant:', error);
+            throw error;
+        }
     }
     async updateMenuItemForRestaurant(restaurantId, menuItemId, updateMenuItemDto) {
-        const menuItem = await this.menuItemsService.findOne(menuItemId);
-        if (menuItem.data.menuItem.restaurant_id !== restaurantId) {
-            return (0, createResponse_1.createResponse)('Forbidden', null, 'Menu Item does not belong to this restaurant');
+        try {
+            const menuItem = await this.menuItemsService.findOne(menuItemId);
+            if (menuItem.data.menuItem.restaurant_id !== restaurantId) {
+                return (0, createResponse_1.createResponse)('Forbidden', null, 'Menu Item does not belong to this restaurant');
+            }
+            const result = await this.menuItemsService.update(menuItemId, {
+                ...updateMenuItemDto,
+                restaurant_id: restaurantId
+            });
+            const cacheKey = `menu_items:${restaurantId}`;
+            await redis.del(cacheKey);
+            logger.log(`Invalidated cache for restaurant menu items: ${cacheKey}`);
+            return result;
         }
-        return this.menuItemsService.update(menuItemId, {
-            ...updateMenuItemDto,
-            restaurant_id: restaurantId
-        });
+        catch (error) {
+            logger.error('Error in updateMenuItemForRestaurant:', error);
+            throw error;
+        }
     }
     async deleteMenuItemForRestaurant(restaurantId, menuItemId) {
-        const menuItem = await this.menuItemsService.findOne(menuItemId);
-        if (menuItem.data.restaurant_id !== restaurantId) {
-            return (0, createResponse_1.createResponse)('Forbidden', null, 'Menu Item does not belong to this restaurant');
+        try {
+            const menuItem = await this.menuItemsService.findOne(menuItemId);
+            if (menuItem.data.restaurant_id !== restaurantId) {
+                return (0, createResponse_1.createResponse)('Forbidden', null, 'Menu Item does not belong to this restaurant');
+            }
+            const result = await this.menuItemsService.remove(menuItemId);
+            const cacheKey = `menu_items:${restaurantId}`;
+            await redis.del(cacheKey);
+            logger.log(`Invalidated cache for restaurant menu items: ${cacheKey}`);
+            return result;
         }
-        return this.menuItemsService.remove(menuItemId);
+        catch (error) {
+            logger.error('Error in deleteMenuItemForRestaurant:', error);
+            throw error;
+        }
     }
     calculateDiscountedPrice(originalPrice, promotion) {
         console.log(`\n>> calculateDiscountedPrice called with:`);
@@ -442,7 +472,7 @@ let RestaurantsService = class RestaurantsService {
                         start_date: new Date(Number(promo.start_date) * 1000).toISOString(),
                         end_date: new Date(Number(promo.end_date) * 1000).toISOString(),
                         current_time: new Date().toISOString(),
-                        food_categories: promo.food_categories || []
+                        food_categories: promo.food_category_ids || []
                     });
                 });
             }
@@ -471,7 +501,7 @@ let RestaurantsService = class RestaurantsService {
                     const isActive = promotion.status === 'ACTIVE' &&
                         now >= Number(promotion.start_date) &&
                         now <= Number(promotion.end_date);
-                    const promotionCategories = (promotion.food_categories || []).map(fc => (typeof fc === 'string' ? fc : fc.id));
+                    const promotionCategories = promotion.food_category_ids || [];
                     const hasMatchingCategory = promotionCategories.some(fcId => itemCategories.includes(fcId));
                     console.log(`Checking promotion ${promotion.id}:`, {
                         status: promotion.status,

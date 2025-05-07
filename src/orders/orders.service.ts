@@ -389,6 +389,51 @@ export class OrdersService {
       }
       logger.log(`Calculation took ${Date.now() - calcStart}ms`);
 
+      // Handle FWallet payment
+      if (createOrderDto.payment_method === 'FWallet') {
+        if (!customerWallet) {
+          return createResponse('NotFound', null, 'Customer wallet not found');
+        }
+
+        if (customerWallet.balance < createOrderDto.total_amount) {
+          return createResponse(
+            'InsufficientBalance',
+            null,
+            'Insufficient balance'
+          );
+        }
+
+        // Create transaction for customer payment
+        const transactionDto: CreateTransactionDto = {
+          user_id: customer.user_id,
+          fwallet_id: customerWallet.id,
+          transaction_type: 'WITHDRAW',
+          amount: createOrderDto.total_amount,
+          balance_after: customerWallet.balance - createOrderDto.total_amount,
+          status: 'PENDING',
+          version: 0,
+          source: 'FWALLET',
+          destination: restaurant.owner_id,
+          destination_type: 'FWALLET'
+        };
+
+        const transactionResult =
+          await this.transactionService.create(transactionDto);
+        if (transactionResult.EC !== 0) {
+          return createResponse(
+            'ServerError',
+            null,
+            'Failed to process payment'
+          );
+        }
+
+        // Set payment status to PAID since FWallet payment is immediate
+        createOrderDto.payment_status = 'PAID';
+      } else {
+        // For COD orders, set payment status to PENDING
+        createOrderDto.payment_status = 'PENDING';
+      }
+
       // 5. Transaction
       const txStart = Date.now();
       const result = await this.dataSource.transaction(
@@ -1315,7 +1360,8 @@ export class OrdersService {
         transactionalEntityManager || this.dataSource.createEntityManager();
 
       const order = await this.ordersRepository.findOne({
-        where: { id: orderId }
+        where: { id: orderId },
+        relations: ['restaurant']
       });
 
       if (!order) {
@@ -1326,8 +1372,59 @@ export class OrdersService {
       order.payment_status = paymentStatus;
       order.updated_at = Math.floor(Date.now() / 1000);
 
-      // If payment failed or is pending, ensure order status reflects this
-      if (paymentStatus === 'FAILED') {
+      // Handle payment status changes
+      if (paymentStatus === 'PAID') {
+        // For COD orders, ensure the restaurant receives the payment
+        if (
+          order.payment_method === 'COD' &&
+          order.status === OrderStatus.DELIVERED
+        ) {
+          const restaurant = order.restaurant;
+          if (!restaurant) {
+            return createResponse('NotFound', null, 'Restaurant not found');
+          }
+
+          const restaurantWallet = await this.fWalletsRepository.findByUserId(
+            restaurant.owner_id,
+            manager
+          );
+
+          if (!restaurantWallet) {
+            return createResponse(
+              'NotFound',
+              null,
+              'Restaurant wallet not found'
+            );
+          }
+
+          // Create transaction for restaurant payment
+          const transactionDto: CreateTransactionDto = {
+            user_id: restaurant.owner_id,
+            fwallet_id: restaurantWallet.id,
+            transaction_type: 'DEPOSIT',
+            amount: order.total_amount,
+            balance_after: restaurantWallet.balance + order.total_amount,
+            status: 'PENDING',
+            version: 0,
+            source: 'FWALLET',
+            destination: restaurantWallet.id,
+            destination_type: 'FWALLET'
+          };
+
+          const transactionResult = await this.transactionService.create(
+            transactionDto,
+            manager
+          );
+
+          if (transactionResult.EC !== 0) {
+            return createResponse(
+              'ServerError',
+              null,
+              'Failed to process restaurant payment'
+            );
+          }
+        }
+      } else if (paymentStatus === 'FAILED') {
         order.status = OrderStatus.CANCELLED;
         order.cancellation_reason = OrderCancellationReason.OTHER;
         order.cancellation_title = 'Payment Failed';
@@ -1343,23 +1440,17 @@ export class OrdersService {
       await redis.del(`order:${orderId}`);
 
       // Notify relevant parties about the payment status change
-      if (paymentStatus === 'PAID') {
-        this.eventEmitter.emit('notifyOrderStatus', {
-          room: `customer_${order.customer_id}`,
-          type: 'PAYMENT_SUCCESS',
-          message: 'Payment successful for your order',
-          orderId: orderId,
-          status: order.status
-        });
-      } else if (paymentStatus === 'FAILED') {
-        this.eventEmitter.emit('notifyOrderStatus', {
-          room: `customer_${order.customer_id}`,
-          type: 'PAYMENT_FAILED',
-          message: 'Payment failed for your order',
-          orderId: orderId,
-          status: order.status
-        });
-      }
+      this.eventEmitter.emit('notifyOrderStatus', {
+        room: `customer_${order.customer_id}`,
+        type: paymentStatus === 'PAID' ? 'PAYMENT_SUCCESS' : 'PAYMENT_FAILED',
+        message:
+          paymentStatus === 'PAID'
+            ? 'Payment successful for your order'
+            : 'Payment failed for your order',
+        orderId: orderId,
+        status: order.status,
+        payment_status: paymentStatus
+      });
 
       return createResponse(
         'OK',

@@ -11,7 +11,7 @@ export declare class PromotionsRepository {
     findById(id: string): Promise<Promotion | null>;
     findByIdWithRestaurants(id: string): Promise<Promotion | null>;
     findByName(name: string): Promise<Promotion | null>;
-    update(id: string, updateData: UpdatePromotionDto): Promise<Promotion>;
+    update(id: string, updatePromotionDto: UpdatePromotionDto): Promise<Promotion | null>;
     delete(id: string): Promise<{
         affected?: number;
     }>;

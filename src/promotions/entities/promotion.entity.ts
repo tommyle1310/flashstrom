@@ -3,10 +3,8 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToMany,
-  JoinTable
+  ManyToMany
 } from 'typeorm';
-import { FoodCategory } from 'src/food_categories/entities/food_category.entity'; // Import FoodCategory
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 
 export enum PromotionStatus {
@@ -64,19 +62,8 @@ export class Promotion {
   })
   status: PromotionStatus;
 
-  @ManyToMany(() => FoodCategory, foodCategory => foodCategory.promotions) // Ref tới FoodCategory
-  @JoinTable({
-    name: 'promotion_food_categories', // Tên bảng join
-    joinColumn: {
-      name: 'promotion_id',
-      referencedColumnName: 'id'
-    },
-    inverseJoinColumn: {
-      name: 'food_category_id',
-      referencedColumnName: 'id'
-    }
-  })
-  food_categories: FoodCategory[]; // Đổi từ string[] sang FoodCategory[]
+  @Column('text', { array: true, default: [] })
+  food_category_ids: string[];
 
   @Column({ type: 'jsonb', nullable: true })
   bogo_details: {
@@ -92,5 +79,5 @@ export class Promotion {
   updated_at: Date;
 
   @ManyToMany(() => Restaurant, restaurant => restaurant.promotions)
-  restaurants: Restaurant[]; // Xóa @JoinTable
+  restaurants: Restaurant[];
 }

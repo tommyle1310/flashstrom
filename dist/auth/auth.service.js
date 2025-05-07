@@ -43,24 +43,24 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
-const bcrypt = __importStar(require("bcryptjs"));
+const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
-const createResponse_1 = require("../utils/createResponse");
-const Payload_1 = require("../types/Payload");
-const cart_items_service_1 = require("../cart_items/cart_items.service");
 const users_repository_1 = require("../users/users.repository");
-const fwallets_repository_1 = require("../fwallets/fwallets.repository");
-const restaurants_repository_1 = require("../restaurants/restaurants.repository");
 const customers_repository_1 = require("../customers/customers.repository");
 const drivers_repository_1 = require("../drivers/drivers.repository");
-const common_1 = require("@nestjs/common");
-const uuid_1 = require("uuid");
+const restaurants_repository_1 = require("../restaurants/restaurants.repository");
+const fwallets_repository_1 = require("../fwallets/fwallets.repository");
 const customer_cares_repository_1 = require("../customer_cares/customer_cares.repository");
 const email_service_1 = require("../mailer/email.service");
 const admin_service_1 = require("../admin/admin.service");
+const uuid_1 = require("uuid");
+const bcryptjs = __importStar(require("bcryptjs"));
+const createResponse_1 = require("../utils/createResponse");
+const Payload_1 = require("../types/Payload");
 const admin_1 = require("../utils/types/admin");
+const cart_items_service_1 = require("../cart_items/cart_items.service");
 let AuthService = class AuthService {
-    constructor(userRepository, fWalletsRepository, restaurantsRepository, customersRepository, driverRepository, customerCareRepository, adminService, jwtService, cartItemService, emailService) {
+    constructor(userRepository, fWalletsRepository, restaurantsRepository, customersRepository, driverRepository, customerCareRepository, adminService, jwtService, emailService, cartItemService) {
         this.userRepository = userRepository;
         this.fWalletsRepository = fWalletsRepository;
         this.restaurantsRepository = restaurantsRepository;
@@ -69,8 +69,8 @@ let AuthService = class AuthService {
         this.customerCareRepository = customerCareRepository;
         this.adminService = adminService;
         this.jwtService = jwtService;
-        this.cartItemService = cartItemService;
         this.emailService = emailService;
+        this.cartItemService = cartItemService;
     }
     async register(userData, type) {
         console.log('Starting registration process with data:', { userData, type });
@@ -114,7 +114,7 @@ let AuthService = class AuthService {
         const user = await this.findUserByEmail(email);
         if (!user)
             return null;
-        const isPasswordValid = await bcrypt.compare(password, user.password);
+        const isPasswordValid = await bcryptjs.compare(password, user.password);
         if (!isPasswordValid)
             return null;
         return user;
@@ -376,52 +376,80 @@ let AuthService = class AuthService {
                 });
                 break;
             case Payload_1.Enum_UserType.RESTAURANT_OWNER:
-                if (!userData.address_id) {
-                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Address is required');
-                }
-                if (!userData.owner_name) {
-                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Owner name is required');
-                }
-                if (!userData.restaurant_name) {
-                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Restaurant name is required');
-                }
-                if (!userData.contact_email) {
-                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Contact email is required');
-                }
-                if (!userData.contact_phone) {
-                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Contact phone is required');
-                }
-                fWallet = await this.fWalletsRepository.findByUserId(existingUser.id);
-                if (!fWallet) {
-                    fWallet = await this.fWalletsRepository.create({
-                        ...userData,
-                        password: existingUser.password,
+                console.log('=== Starting Restaurant Owner Registration ===');
+                try {
+                    const fWalletData = {
                         user_id: existingUser.id,
+                        email: existingUser.email,
+                        password: existingUser.password,
+                        first_name: userData.first_name,
+                        last_name: userData.last_name,
                         balance: 0
-                    });
-                    if (!existingUser.user_type.includes(Payload_1.Enum_UserType.F_WALLET)) {
-                        existingUser.user_type.push(Payload_1.Enum_UserType.F_WALLET);
+                    };
+                    console.log('Creating FWallet with data:', fWalletData);
+                    fWallet = await this.fWalletsRepository.create(fWalletData);
+                    console.log('FWallet created successfully:', fWallet);
+                    const restaurantData = {
+                        owner_id: existingUser.id,
+                        owner_name: userData.owner_name,
+                        restaurant_name: userData.restaurant_name,
+                        contact_email: userData.contact_email || [
+                            { title: 'Primary', is_default: true, email: userData.email }
+                        ],
+                        contact_phone: userData.contact_phone || [
+                            {
+                                title: 'Primary',
+                                is_default: true,
+                                number: userData.phone || ''
+                            }
+                        ],
+                        status: userData.status || {
+                            is_open: false,
+                            is_active: false,
+                            is_accepted_orders: false
+                        },
+                        opening_hours: userData.opening_hours || {
+                            mon: { from: 8, to: 17 },
+                            tue: { from: 8, to: 17 },
+                            wed: { from: 8, to: 17 },
+                            thu: { from: 8, to: 17 },
+                            fri: { from: 8, to: 17 },
+                            sat: { from: 8, to: 17 },
+                            sun: { from: 8, to: 17 }
+                        },
+                        address_id: userData.address_id,
+                        food_category_ids: userData.food_category_ids || []
+                    };
+                    console.log('Creating restaurant with data:', restaurantData);
+                    const restaurantResult = await this.restaurantsRepository.create(restaurantData);
+                    console.log('Restaurant creation result:', restaurantResult);
+                    if (restaurantResult.EC === -2) {
+                        await this.fWalletsRepository.delete(fWallet.id);
+                        await this.userRepository.delete(existingUser.id);
+                        return (0, createResponse_1.createResponse)('NotFound', null, restaurantResult.EM || 'Failed to create restaurant');
+                    }
+                    newUserWithRole = restaurantResult.data;
+                    if (newUserWithRole && fWallet) {
+                        console.log('Both FWallet and Restaurant created, updating user type');
+                        const updatedUserTypes = [...existingUser.user_type];
+                        if (!updatedUserTypes.includes(Payload_1.Enum_UserType.F_WALLET)) {
+                            updatedUserTypes.push(Payload_1.Enum_UserType.F_WALLET);
+                        }
+                        await this.userRepository.update(existingUser.id, {
+                            user_type: updatedUserTypes,
+                            verification_code: existingUser.verification_code?.toString()
+                        });
+                        existingUser.user_type = updatedUserTypes;
                     }
                 }
-                newUserWithRole = await this.restaurantsRepository.create({
-                    ...userData,
-                    password: existingUser.password,
-                    owner_id: existingUser.id,
-                    status: {
-                        is_open: false,
-                        is_active: false,
-                        is_accepted_orders: false
-                    },
-                    opening_hours: {
-                        mon: { from: 8, to: 17 },
-                        tue: { from: 8, to: 17 },
-                        wed: { from: 8, to: 17 },
-                        thu: { from: 8, to: 17 },
-                        fri: { from: 8, to: 17 },
-                        sat: { from: 8, to: 17 },
-                        sun: { from: 8, to: 17 }
+                catch (error) {
+                    console.error('Error in restaurant owner registration:', error);
+                    if (fWallet) {
+                        await this.fWalletsRepository.delete(fWallet.id);
                     }
-                });
+                    await this.userRepository.delete(existingUser.id);
+                    throw error;
+                }
                 break;
             case Payload_1.Enum_UserType.F_WALLET:
                 newUserWithRole = await this.fWalletsRepository.create({
@@ -492,10 +520,12 @@ let AuthService = class AuthService {
                 break;
         }
         if (!existingUser.user_type.includes(type)) {
-            existingUser.user_type.push(type);
+            const updatedUserTypes = [...existingUser.user_type, type];
             await this.userRepository.update(existingUser.id, {
-                user_type: existingUser.user_type
+                user_type: updatedUserTypes,
+                verification_code: existingUser.verification_code?.toString()
             });
+            existingUser.user_type = updatedUserTypes;
         }
         const responseData = {
             id: existingUser.id,
@@ -512,242 +542,143 @@ let AuthService = class AuthService {
         return (0, createResponse_1.createResponse)('OK', responseData, `${type} created successfully with existing user`);
     }
     async createNewUserRegistration(userData, type, phone) {
+        console.log('=== Starting createNewUserRegistration ===');
+        console.log('Input data:', { userData, type, phone });
         const { email, password, first_name, last_name } = userData;
+        console.log('Extracted user data:', { email, first_name, last_name });
         if (!this.validateRegistrationInput(email, password)) {
+            console.log('Registration validation failed');
             return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Email & Password cannot be empty');
         }
-        switch (type) {
-            case Payload_1.Enum_UserType.CUSTOMER:
-                if (!first_name || !last_name) {
-                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'First name and last name are required');
-                }
-                break;
-            case Payload_1.Enum_UserType.DRIVER:
-                if (!first_name) {
-                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'First name is required');
-                }
-                if (!last_name) {
-                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Last name is required');
-                }
-                if (!userData.contact_email) {
-                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Contact email is required');
-                }
-                if (!userData.contact_phone) {
-                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Contact phone is required');
-                }
-                break;
-            case Payload_1.Enum_UserType.RESTAURANT_OWNER:
-                const { contact_email, contact_phone, opening_hours, owner_name, restaurant_name, status } = userData;
-                if (!contact_email ||
-                    !contact_phone ||
-                    !opening_hours ||
-                    !owner_name ||
-                    !restaurant_name ||
-                    !status) {
-                    return (0, createResponse_1.createResponse)('MissingInput', null, 'Missing required fields: contact_email, contact_phone, opening_hours, owner_name, restaurant_name, status');
-                }
-                if (!userData.restaurant_name) {
-                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Restaurant name is required');
-                }
-                if (!userData.owner_name) {
-                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Owner name is required');
-                }
-                if (!userData.address_id) {
-                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Address is required');
-                }
-                break;
-            case Payload_1.Enum_UserType.F_WALLET:
-                if (!first_name || !last_name) {
-                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'First name and last name are required');
-                }
-                break;
-            case Payload_1.Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
-                if (!first_name || !last_name) {
-                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'First name and last name are required');
-                }
-                break;
-            case Payload_1.Enum_UserType.SUPER_ADMIN:
-            case Payload_1.Enum_UserType.FINANCE_ADMIN:
-            case Payload_1.Enum_UserType.COMPANION_ADMIN:
-                if (!first_name || !last_name) {
-                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'First name and last name are required');
-                }
-                break;
-            default:
-                return (0, createResponse_1.createResponse)('Unauthorized', null, 'Invalid user type provided');
-        }
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = await this.userRepository.create({
-            ...userData,
-            id: `USR_${(0, uuid_1.v4)()}`,
-            phone,
-            password: hashedPassword,
-            verification_code: Math.floor(Math.random() * 1000000),
-            is_verified: false,
-            created_at: new Date(),
-            updated_at: new Date(),
-            user_type: [type]
-        });
-        await this.userRepository.update(newUser.id, {
-            user_type: newUser.user_type
-        });
-        let newUserWithRole;
-        let fWallet;
-        switch (type) {
-            case Payload_1.Enum_UserType.CUSTOMER:
-                fWallet = await this.fWalletsRepository.create({
-                    ...userData,
-                    password: hashedPassword,
-                    user_id: newUser.id,
-                    balance: 0
-                });
-                newUser.user_type.push(Payload_1.Enum_UserType.F_WALLET);
-                await this.userRepository.update(newUser.id, {
-                    user_type: newUser.user_type
-                });
-                newUserWithRole = await this.customersRepository.create({
-                    ...userData,
-                    password: hashedPassword,
-                    user_id: newUser.id
-                });
-                break;
-            case Payload_1.Enum_UserType.DRIVER:
-                fWallet = await this.fWalletsRepository.create({
-                    ...userData,
-                    password: hashedPassword,
-                    user_id: newUser.id,
-                    balance: 0
-                });
-                newUser.user_type.push(Payload_1.Enum_UserType.F_WALLET);
-                await this.userRepository.update(newUser.id, {
-                    user_type: newUser.user_type
-                });
-                newUserWithRole = await this.driverRepository.create({
-                    user_id: newUser.id,
-                    first_name: userData.first_name,
-                    last_name: userData.last_name,
-                    contact_email: [
-                        { title: 'Primary', is_default: true, email: userData.email }
-                    ],
-                    contact_phone: [
-                        { title: 'Primary', is_default: true, number: userData.phone }
-                    ],
-                    available_for_work: false,
-                    is_on_delivery: false,
-                    active_points: 0,
-                    current_order_id: [],
-                    vehicle: {
-                        license_plate: '',
-                        model: '',
-                        color: ''
-                    },
-                    current_location: {
-                        lat: 0,
-                        lng: 0
-                    },
-                    rating: {
-                        average_rating: 0,
-                        review_count: 0
+        try {
+            console.log('Creating new user with data:', {
+                email,
+                phone,
+                first_name,
+                last_name,
+                type
+            });
+            const newUserData = {
+                id: `USR_${(0, uuid_1.v4)()}`,
+                email,
+                phone,
+                password: await bcryptjs.hash(password, 10),
+                first_name: userData.first_name,
+                last_name: userData.last_name,
+                verification_code: Math.floor(Math.random() * 1000000),
+                is_verified: false,
+                created_at: new Date(),
+                updated_at: new Date(),
+                user_type: [type]
+            };
+            console.log('Creating user with data:', newUserData);
+            const newUser = await this.userRepository.create(newUserData);
+            console.log('User created successfully:', newUser);
+            let newUserWithRole;
+            let fWallet;
+            switch (type) {
+                case Payload_1.Enum_UserType.RESTAURANT_OWNER:
+                    console.log('=== Starting Restaurant Owner Registration ===');
+                    try {
+                        const fWalletData = {
+                            user_id: newUser.id,
+                            email: newUser.email,
+                            password: newUserData.password,
+                            first_name: userData.first_name,
+                            last_name: userData.last_name,
+                            balance: 0
+                        };
+                        console.log('Creating FWallet with data:', fWalletData);
+                        fWallet = await this.fWalletsRepository.create(fWalletData);
+                        console.log('FWallet created successfully:', fWallet);
+                        const restaurantData = {
+                            owner_id: newUser.id,
+                            owner_name: userData.owner_name,
+                            restaurant_name: userData.restaurant_name,
+                            contact_email: userData.contact_email || [
+                                { title: 'Primary', is_default: true, email: userData.email }
+                            ],
+                            contact_phone: userData.contact_phone || [
+                                {
+                                    title: 'Primary',
+                                    is_default: true,
+                                    number: userData.phone || ''
+                                }
+                            ],
+                            status: userData.status || {
+                                is_open: false,
+                                is_active: false,
+                                is_accepted_orders: false
+                            },
+                            opening_hours: userData.opening_hours || {
+                                mon: { from: 8, to: 17 },
+                                tue: { from: 8, to: 17 },
+                                wed: { from: 8, to: 17 },
+                                thu: { from: 8, to: 17 },
+                                fri: { from: 8, to: 17 },
+                                sat: { from: 8, to: 17 },
+                                sun: { from: 8, to: 17 }
+                            },
+                            address_id: userData.address_id,
+                            food_category_ids: userData.food_category_ids || []
+                        };
+                        console.log('Creating restaurant with data:', restaurantData);
+                        const restaurantResult = await this.restaurantsRepository.create(restaurantData);
+                        console.log('Restaurant creation result:', restaurantResult);
+                        if (restaurantResult.EC === -2) {
+                            await this.fWalletsRepository.delete(fWallet.id);
+                            await this.userRepository.delete(newUser.id);
+                            return (0, createResponse_1.createResponse)('NotFound', null, restaurantResult.EM || 'Failed to create restaurant');
+                        }
+                        newUserWithRole = restaurantResult.data;
+                        if (newUserWithRole && fWallet) {
+                            console.log('Both FWallet and Restaurant created, updating user type');
+                            const updatedUserTypes = [...newUser.user_type];
+                            if (!updatedUserTypes.includes(Payload_1.Enum_UserType.F_WALLET)) {
+                                updatedUserTypes.push(Payload_1.Enum_UserType.F_WALLET);
+                            }
+                            await this.userRepository.update(newUser.id, {
+                                user_type: updatedUserTypes,
+                                verification_code: newUser.verification_code?.toString()
+                            });
+                            newUser.user_type = updatedUserTypes;
+                        }
                     }
-                });
-                break;
-            case Payload_1.Enum_UserType.RESTAURANT_OWNER:
-                fWallet = await this.fWalletsRepository.create({
-                    ...userData,
-                    password: hashedPassword,
-                    user_id: newUser.id,
-                    balance: 0
-                });
-                newUser.user_type.push(Payload_1.Enum_UserType.F_WALLET);
-                await this.userRepository.update(newUser.id, {
-                    user_type: newUser.user_type
-                });
-                newUserWithRole = await this.restaurantsRepository.create({
-                    ...userData,
-                    password: hashedPassword,
-                    user_id: newUser.id,
-                    owner_id: newUser.id
-                });
-                break;
-            case Payload_1.Enum_UserType.F_WALLET:
-                newUserWithRole = await this.fWalletsRepository.create({
-                    ...userData,
-                    password: hashedPassword,
-                    user_id: newUser.id,
-                    balance: 0
-                });
-                break;
-            case Payload_1.Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
-                fWallet = await this.fWalletsRepository.create({
-                    ...userData,
-                    password: hashedPassword,
-                    user_id: newUser.id,
-                    balance: 0
-                });
-                newUser.user_type.push(Payload_1.Enum_UserType.F_WALLET);
-                await this.userRepository.update(newUser.id, {
-                    user_type: newUser.user_type
-                });
-                newUserWithRole = await this.customerCareRepository.create({
-                    user_id: newUser.id,
-                    first_name: userData.first_name,
-                    last_name: userData.last_name,
-                    contact_email: [
-                        { title: 'Primary', is_default: true, email: userData.email }
-                    ],
-                    contact_phone: [
-                        { title: 'Primary', is_default: true, number: userData.phone }
-                    ],
-                    assigned_tickets: [],
-                    available_for_work: false,
-                    is_assigned: false,
-                    created_at: Math.floor(Date.now() / 1000),
-                    updated_at: Math.floor(Date.now() / 1000),
-                    last_login: Math.floor(Date.now() / 1000)
-                });
-                break;
-            case Payload_1.Enum_UserType.SUPER_ADMIN:
-            case Payload_1.Enum_UserType.FINANCE_ADMIN:
-            case Payload_1.Enum_UserType.COMPANION_ADMIN:
-                const roleMap = {
-                    [Payload_1.Enum_UserType.SUPER_ADMIN]: admin_1.AdminRole.SUPER_ADMIN,
-                    [Payload_1.Enum_UserType.FINANCE_ADMIN]: admin_1.AdminRole.FINANCE_ADMIN,
-                    [Payload_1.Enum_UserType.COMPANION_ADMIN]: admin_1.AdminRole.COMPANION_ADMIN
-                };
-                const role = roleMap[type];
-                newUserWithRole = await this.adminService.create({
-                    user_id: newUser.id,
-                    role,
-                    first_name: newUser.first_name,
-                    last_name: newUser.last_name,
-                    permissions: [],
-                    status: admin_1.AdminStatus.ACTIVE,
-                    created_at: new Date(),
-                    updated_at: new Date()
-                });
-                if (newUserWithRole.EC !== 0) {
-                    return newUserWithRole;
-                }
-                newUserWithRole = newUserWithRole.data;
-                break;
-            default:
-                return (0, createResponse_1.createResponse)('Unauthorized', null, 'Invalid user type provided');
+                    catch (error) {
+                        console.error('Error in restaurant owner registration:', error);
+                        if (fWallet) {
+                            await this.fWalletsRepository.delete(fWallet.id);
+                        }
+                        await this.userRepository.delete(newUser.id);
+                        throw error;
+                    }
+                    break;
+            }
+            console.log('=== Registration Complete ===');
+            console.log('Final user data:', newUser);
+            console.log('Role-specific data:', newUserWithRole);
+            console.log('FWallet data:', fWallet);
+            const responseData = {
+                id: newUser.id,
+                user_id: newUser.id,
+                phone,
+                email: newUser.email,
+                first_name: newUser.first_name,
+                last_name: newUser.last_name,
+                user_type: newUser.user_type,
+                data: newUserWithRole
+            };
+            if (fWallet &&
+                (type === Payload_1.Enum_UserType.DRIVER ||
+                    type === Payload_1.Enum_UserType.RESTAURANT_OWNER)) {
+                responseData['fWallet'] = fWallet;
+            }
+            return (0, createResponse_1.createResponse)('OK', responseData, `${type} registered successfully`);
         }
-        const responseData = {
-            id: newUser.id,
-            user_id: newUser.id,
-            phone,
-            email: newUser.email,
-            first_name: newUser.first_name,
-            last_name: newUser.last_name,
-            user_type: newUser.user_type,
-            data: newUserWithRole
-        };
-        if (fWallet &&
-            (type === Payload_1.Enum_UserType.DRIVER || type === Payload_1.Enum_UserType.RESTAURANT_OWNER)) {
-            responseData['fWallet'] = fWallet;
+        catch (error) {
+            console.error('Error in createNewUserRegistration:', error);
+            throw error;
         }
-        return (0, createResponse_1.createResponse)('OK', responseData, `${type} registered successfully`);
     }
     async validateUser(payload) {
         return this.userRepository.findById(payload.userId);
@@ -780,7 +711,7 @@ let AuthService = class AuthService {
         if (user.reset_token_expiry < new Date()) {
             return (0, createResponse_1.createResponse)('Unauthorized', null, 'Token has expired');
         }
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        const hashedPassword = await bcryptjs.hash(newPassword, 10);
         await this.userRepository.update(user.id, {
             password: hashedPassword,
             reset_token: null,
@@ -800,7 +731,7 @@ exports.AuthService = AuthService = __decorate([
         customer_cares_repository_1.CustomerCaresRepository,
         admin_service_1.AdminService,
         jwt_1.JwtService,
-        cart_items_service_1.CartItemsService,
-        email_service_1.EmailService])
+        email_service_1.EmailService,
+        cart_items_service_1.CartItemsService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

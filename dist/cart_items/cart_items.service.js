@@ -163,7 +163,7 @@ let CartItemsService = class CartItemsService {
                     const isActive = promotion.status === 'ACTIVE' &&
                         now >= Number(promotion.start_date) &&
                         now <= Number(promotion.end_date);
-                    const hasMatchingCategory = promotion.food_categories?.some(fc => itemCategories.includes(fc.id)) || false;
+                    const hasMatchingCategory = promotion.food_category_ids?.some(categoryId => itemCategories.includes(categoryId)) || false;
                     return isActive && hasMatchingCategory;
                 }) || [];
                 const populatedVariants = await Promise.all(cartItem.variants.map(async (variant) => {
@@ -223,7 +223,7 @@ let CartItemsService = class CartItemsService {
                 const isActive = promotion.status === 'ACTIVE' &&
                     now >= Number(promotion.start_date) &&
                     now <= Number(promotion.end_date);
-                const hasMatchingCategory = promotion.food_categories?.some(fc => itemCategories.includes(fc.id)) || false;
+                const hasMatchingCategory = promotion.food_category_ids?.some(categoryId => itemCategories.includes(categoryId)) || false;
                 return isActive && hasMatchingCategory;
             }) || [];
             const populatedVariants = await Promise.all(cartItem.variants.map(async (variant) => {
@@ -281,7 +281,7 @@ let CartItemsService = class CartItemsService {
                 const isActive = promotion.status === 'ACTIVE' &&
                     now >= Number(promotion.start_date) &&
                     now <= Number(promotion.end_date);
-                const hasMatchingCategory = promotion.food_categories?.some(fc => itemCategories.includes(fc.id)) || false;
+                const hasMatchingCategory = promotion.food_category_ids?.some(categoryId => itemCategories.includes(categoryId)) || false;
                 return isActive && hasMatchingCategory;
             }) || [];
             const populatedVariants = await Promise.all(cartItem.variants.map(async (variant) => {
@@ -353,7 +353,7 @@ let CartItemsService = class CartItemsService {
                     const isActive = promotion.status === 'ACTIVE' &&
                         now >= Number(promotion.start_date) &&
                         now <= Number(promotion.end_date);
-                    const hasMatchingCategory = promotion.food_categories?.some(fc => itemCategories.includes(fc.id)) || false;
+                    const hasMatchingCategory = promotion.food_category_ids?.some(categoryId => itemCategories.includes(categoryId)) || false;
                     return isActive && hasMatchingCategory;
                 });
                 if (applicablePromotions.length > 0) {
@@ -395,7 +395,7 @@ let CartItemsService = class CartItemsService {
                     const isActive = promotion.status === 'ACTIVE' &&
                         now >= Number(promotion.start_date) &&
                         now <= Number(promotion.end_date);
-                    const hasMatchingCategory = promotion.food_categories?.some(fc => itemCategories.includes(fc.id)) || false;
+                    const hasMatchingCategory = promotion.food_category_ids?.some(categoryId => itemCategories.includes(categoryId)) || false;
                     return isActive && hasMatchingCategory;
                 });
                 if (applicablePromotions.length > 0) {

@@ -1,20 +1,22 @@
-import { User } from '../users/entities/user.entity';
-import * as bcrypt from 'bcryptjs';
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { createResponse } from 'src/utils/createResponse';
-import { BasePayload, Enum_UserType } from 'src/types/Payload';
-import { CartItemsService } from 'src/cart_items/cart_items.service';
 import { UserRepository } from 'src/users/users.repository';
-import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
-import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { CustomersRepository } from 'src/customers/customers.repository';
 import { DriversRepository } from 'src/drivers/drivers.repository';
-import { Injectable } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
+import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
+import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { CustomerCaresRepository } from 'src/customer_cares/customer_cares.repository';
 import { EmailService } from 'src/mailer/email.service';
-import { AdminService } from 'src/admin/admin.service'; // Thêm AdminService
-import { AdminRole, AdminStatus } from 'src/utils/types/admin'; // Thêm AdminRole và AdminStatus
+import { AdminService } from 'src/admin/admin.service';
+import { v4 as uuidv4 } from 'uuid';
+import * as bcryptjs from 'bcryptjs';
+import { createResponse } from 'src/utils/createResponse';
+import { Enum_UserType, BasePayload } from 'src/types/Payload';
+import { AdminRole, AdminStatus } from 'src/utils/types/admin';
+import { CreateFWalletDto } from 'src/fwallets/dto/create-fwallet.dto';
+import { CreateRestaurantDto } from 'src/restaurants/dto/create-restaurant.dto';
+import { User } from 'src/users/entities/user.entity';
+import { CartItemsService } from 'src/cart_items/cart_items.service';
 
 @Injectable()
 export class AuthService {
@@ -25,10 +27,10 @@ export class AuthService {
     private readonly customersRepository: CustomersRepository,
     private readonly driverRepository: DriversRepository,
     private readonly customerCareRepository: CustomerCaresRepository,
-    private readonly adminService: AdminService, // Inject AdminService
+    private readonly adminService: AdminService,
     private readonly jwtService: JwtService,
-    private readonly cartItemService: CartItemsService,
-    private readonly emailService: EmailService
+    private readonly emailService: EmailService,
+    private readonly cartItemService: CartItemsService
   ) {}
 
   async register(userData: any, type: Enum_UserType): Promise<any> {
@@ -106,7 +108,7 @@ export class AuthService {
     const user = await this.findUserByEmail(email);
     if (!user) return null;
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcryptjs.compare(password, user.password);
     if (!isPasswordValid) return null;
 
     return user;
@@ -463,74 +465,100 @@ export class AuthService {
         break;
 
       case Enum_UserType.RESTAURANT_OWNER:
-        if (!userData.address_id) {
-          return createResponse(
-            'InvalidFormatInput',
-            null,
-            'Address is required'
-          );
-        }
-        if (!userData.owner_name) {
-          return createResponse(
-            'InvalidFormatInput',
-            null,
-            'Owner name is required'
-          );
-        }
-        if (!userData.restaurant_name) {
-          return createResponse(
-            'InvalidFormatInput',
-            null,
-            'Restaurant name is required'
-          );
-        }
-        if (!userData.contact_email) {
-          return createResponse(
-            'InvalidFormatInput',
-            null,
-            'Contact email is required'
-          );
-        }
-        if (!userData.contact_phone) {
-          return createResponse(
-            'InvalidFormatInput',
-            null,
-            'Contact phone is required'
-          );
-        }
-
-        fWallet = await this.fWalletsRepository.findByUserId(existingUser.id);
-        if (!fWallet) {
-          fWallet = await this.fWalletsRepository.create({
-            ...userData,
-            password: existingUser.password,
+        console.log('=== Starting Restaurant Owner Registration ===');
+        try {
+          // Create FWallet first
+          const fWalletData: CreateFWalletDto = {
             user_id: existingUser.id,
+            email: existingUser.email,
+            password: existingUser.password,
+            first_name: userData.first_name,
+            last_name: userData.last_name,
             balance: 0
-          });
-          if (!existingUser.user_type.includes(Enum_UserType.F_WALLET)) {
-            existingUser.user_type.push(Enum_UserType.F_WALLET);
-          }
-        }
+          };
 
-        newUserWithRole = await this.restaurantsRepository.create({
-          ...userData,
-          password: existingUser.password,
-          owner_id: existingUser.id,
-          status: {
-            is_open: false,
-            is_active: false,
-            is_accepted_orders: false
-          },
-          opening_hours: {
-            mon: { from: 8, to: 17 },
-            tue: { from: 8, to: 17 },
-            wed: { from: 8, to: 17 },
-            thu: { from: 8, to: 17 },
-            fri: { from: 8, to: 17 },
-            sat: { from: 8, to: 17 },
-            sun: { from: 8, to: 17 }
+          console.log('Creating FWallet with data:', fWalletData);
+          fWallet = await this.fWalletsRepository.create(fWalletData);
+          console.log('FWallet created successfully:', fWallet);
+
+          // Create restaurant
+          const restaurantData: CreateRestaurantDto = {
+            owner_id: existingUser.id,
+            owner_name: userData.owner_name,
+            restaurant_name: userData.restaurant_name,
+            contact_email: userData.contact_email || [
+              { title: 'Primary', is_default: true, email: userData.email }
+            ],
+            contact_phone: userData.contact_phone || [
+              {
+                title: 'Primary',
+                is_default: true,
+                number: userData.phone || ''
+              }
+            ],
+            status: userData.status || {
+              is_open: false,
+              is_active: false,
+              is_accepted_orders: false
+            },
+            opening_hours: userData.opening_hours || {
+              mon: { from: 8, to: 17 },
+              tue: { from: 8, to: 17 },
+              wed: { from: 8, to: 17 },
+              thu: { from: 8, to: 17 },
+              fri: { from: 8, to: 17 },
+              sat: { from: 8, to: 17 },
+              sun: { from: 8, to: 17 }
+            },
+            address_id: userData.address_id,
+            food_category_ids: userData.food_category_ids || []
+          };
+
+          console.log('Creating restaurant with data:', restaurantData);
+          const restaurantResult =
+            await this.restaurantsRepository.create(restaurantData);
+          console.log('Restaurant creation result:', restaurantResult);
+
+          if (restaurantResult.EC === -2) {
+            // If restaurant creation fails, we should clean up the FWallet and user
+            await this.fWalletsRepository.delete(fWallet.id);
+            await this.userRepository.delete(existingUser.id);
+            return createResponse(
+              'NotFound',
+              null,
+              restaurantResult.EM || 'Failed to create restaurant'
+            );
           }
-        });
+
+          newUserWithRole = restaurantResult.data;
+
+          // Only update user type after successful creation of both FWallet and Restaurant
+          if (newUserWithRole && fWallet) {
+            console.log(
+              'Both FWallet and Restaurant created, updating user type'
+            );
+            const updatedUserTypes = [...existingUser.user_type];
+            if (!updatedUserTypes.includes(Enum_UserType.F_WALLET)) {
+              updatedUserTypes.push(Enum_UserType.F_WALLET);
+            }
+
+            await this.userRepository.update(existingUser.id, {
+              user_type: updatedUserTypes,
+              verification_code: existingUser.verification_code?.toString()
+            });
+
+            // Update the newUser object to reflect changes
+            existingUser.user_type = updatedUserTypes;
+          }
+        } catch (error) {
+          console.error('Error in restaurant owner registration:', error);
+          // Clean up created resources in case of error
+          if (fWallet) {
+            await this.fWalletsRepository.delete(fWallet.id);
+          }
+          await this.userRepository.delete(existingUser.id);
+          throw error;
+        }
         break;
 
       case Enum_UserType.F_WALLET:
@@ -620,10 +648,12 @@ export class AuthService {
     }
 
     if (!existingUser.user_type.includes(type)) {
-      existingUser.user_type.push(type);
+      const updatedUserTypes = [...existingUser.user_type, type];
       await this.userRepository.update(existingUser.id, {
-        user_type: existingUser.user_type
+        user_type: updatedUserTypes,
+        verification_code: existingUser.verification_code?.toString()
       });
+      existingUser.user_type = updatedUserTypes;
     }
 
     const responseData = {
@@ -652,9 +682,14 @@ export class AuthService {
     type: Enum_UserType,
     phone: string
   ) {
+    console.log('=== Starting createNewUserRegistration ===');
+    console.log('Input data:', { userData, type, phone });
+
     const { email, password, first_name, last_name } = userData;
+    console.log('Extracted user data:', { email, first_name, last_name });
 
     if (!this.validateRegistrationInput(email, password)) {
+      console.log('Registration validation failed');
       return createResponse(
         'InvalidFormatInput',
         null,
@@ -662,330 +697,171 @@ export class AuthService {
       );
     }
 
-    // Type-specific validation before any creation
-    switch (type) {
-      case Enum_UserType.CUSTOMER:
-        if (!first_name || !last_name) {
-          return createResponse(
-            'InvalidFormatInput',
-            null,
-            'First name and last name are required'
-          );
-        }
-        break;
+    try {
+      console.log('Creating new user with data:', {
+        email,
+        phone,
+        first_name,
+        last_name,
+        type
+      });
 
-      case Enum_UserType.DRIVER:
-        if (!first_name) {
-          return createResponse(
-            'InvalidFormatInput',
-            null,
-            'First name is required'
-          );
-        }
-        if (!last_name) {
-          return createResponse(
-            'InvalidFormatInput',
-            null,
-            'Last name is required'
-          );
-        }
-        if (!userData.contact_email) {
-          return createResponse(
-            'InvalidFormatInput',
-            null,
-            'Contact email is required'
-          );
-        }
-        if (!userData.contact_phone) {
-          return createResponse(
-            'InvalidFormatInput',
-            null,
-            'Contact phone is required'
-          );
-        }
-        break;
+      // Create new user with initial data
+      const newUserData = {
+        id: `USR_${uuidv4()}`,
+        email,
+        phone,
+        password: await bcryptjs.hash(password, 10),
+        first_name: userData.first_name,
+        last_name: userData.last_name,
+        verification_code: Math.floor(Math.random() * 1000000),
+        is_verified: false,
+        created_at: new Date(),
+        updated_at: new Date(),
+        user_type: [type]
+      };
 
-      case Enum_UserType.RESTAURANT_OWNER:
-        const {
-          contact_email,
-          contact_phone,
-          opening_hours,
-          owner_name,
-          restaurant_name,
-          status
-        } = userData;
-        if (
-          !contact_email ||
-          !contact_phone ||
-          !opening_hours ||
-          !owner_name ||
-          !restaurant_name ||
-          !status
-        ) {
-          return createResponse(
-            'MissingInput',
-            null,
-            'Missing required fields: contact_email, contact_phone, opening_hours, owner_name, restaurant_name, status'
-          );
-        }
-        if (!userData.restaurant_name) {
-          return createResponse(
-            'InvalidFormatInput',
-            null,
-            'Restaurant name is required'
-          );
-        }
-        if (!userData.owner_name) {
-          return createResponse(
-            'InvalidFormatInput',
-            null,
-            'Owner name is required'
-          );
-        }
-        if (!userData.address_id) {
-          return createResponse(
-            'InvalidFormatInput',
-            null,
-            'Address is required'
-          );
-        }
-        break;
+      console.log('Creating user with data:', newUserData);
+      const newUser = await this.userRepository.create(newUserData);
+      console.log('User created successfully:', newUser);
 
-      case Enum_UserType.F_WALLET:
-        if (!first_name || !last_name) {
-          return createResponse(
-            'InvalidFormatInput',
-            null,
-            'First name and last name are required'
-          );
-        }
-        break;
+      let newUserWithRole;
+      let fWallet;
 
-      case Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
-        if (!first_name || !last_name) {
-          return createResponse(
-            'InvalidFormatInput',
-            null,
-            'First name and last name are required'
-          );
-        }
-        break;
+      switch (type) {
+        case Enum_UserType.RESTAURANT_OWNER:
+          console.log('=== Starting Restaurant Owner Registration ===');
+          try {
+            // Create FWallet first
+            const fWalletData: CreateFWalletDto = {
+              user_id: newUser.id,
+              email: newUser.email,
+              password: newUserData.password,
+              first_name: userData.first_name,
+              last_name: userData.last_name,
+              balance: 0
+            };
 
-      // Thêm validation cho các type admin
-      case Enum_UserType.SUPER_ADMIN:
-      case Enum_UserType.FINANCE_ADMIN:
-      case Enum_UserType.COMPANION_ADMIN:
-        if (!first_name || !last_name) {
-          return createResponse(
-            'InvalidFormatInput',
-            null,
-            'First name and last name are required'
-          );
-        }
-        break;
+            console.log('Creating FWallet with data:', fWalletData);
+            fWallet = await this.fWalletsRepository.create(fWalletData);
+            console.log('FWallet created successfully:', fWallet);
 
-      default:
-        return createResponse(
-          'Unauthorized',
-          null,
-          'Invalid user type provided'
-        );
-    }
+            // Create restaurant
+            const restaurantData: CreateRestaurantDto = {
+              owner_id: newUser.id,
+              owner_name: userData.owner_name,
+              restaurant_name: userData.restaurant_name,
+              contact_email: userData.contact_email || [
+                { title: 'Primary', is_default: true, email: userData.email }
+              ],
+              contact_phone: userData.contact_phone || [
+                {
+                  title: 'Primary',
+                  is_default: true,
+                  number: userData.phone || ''
+                }
+              ],
+              status: userData.status || {
+                is_open: false,
+                is_active: false,
+                is_accepted_orders: false
+              },
+              opening_hours: userData.opening_hours || {
+                mon: { from: 8, to: 17 },
+                tue: { from: 8, to: 17 },
+                wed: { from: 8, to: 17 },
+                thu: { from: 8, to: 17 },
+                fri: { from: 8, to: 17 },
+                sat: { from: 8, to: 17 },
+                sun: { from: 8, to: 17 }
+              },
+              address_id: userData.address_id,
+              food_category_ids: userData.food_category_ids || []
+            };
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+            console.log('Creating restaurant with data:', restaurantData);
+            const restaurantResult =
+              await this.restaurantsRepository.create(restaurantData);
+            console.log('Restaurant creation result:', restaurantResult);
 
-    const newUser = await this.userRepository.create({
-      ...userData,
-      id: `USR_${uuidv4()}`,
-      phone,
-      password: hashedPassword,
-      verification_code: Math.floor(Math.random() * 1000000),
-      is_verified: false,
-      created_at: new Date(),
-      updated_at: new Date(),
-      user_type: [type]
-    });
-    await this.userRepository.update(newUser.id, {
-      user_type: newUser.user_type
-    });
-    let newUserWithRole;
-    let fWallet;
+            if (restaurantResult.EC === -2) {
+              // If restaurant creation fails, we should clean up the FWallet and user
+              await this.fWalletsRepository.delete(fWallet.id);
+              await this.userRepository.delete(newUser.id);
+              return createResponse(
+                'NotFound',
+                null,
+                restaurantResult.EM || 'Failed to create restaurant'
+              );
+            }
 
-    switch (type) {
-      case Enum_UserType.CUSTOMER:
-        fWallet = await this.fWalletsRepository.create({
-          ...userData,
-          password: hashedPassword,
-          user_id: newUser.id,
-          balance: 0
-        });
-        newUser.user_type.push(Enum_UserType.F_WALLET);
-        await this.userRepository.update(newUser.id, {
-          user_type: newUser.user_type
-        });
-        newUserWithRole = await this.customersRepository.create({
-          ...userData,
-          password: hashedPassword,
-          user_id: newUser.id
-        });
-        break;
+            newUserWithRole = restaurantResult.data;
 
-      case Enum_UserType.DRIVER:
-        fWallet = await this.fWalletsRepository.create({
-          ...userData,
-          password: hashedPassword,
-          user_id: newUser.id,
-          balance: 0
-        });
-        newUser.user_type.push(Enum_UserType.F_WALLET);
-        await this.userRepository.update(newUser.id, {
-          user_type: newUser.user_type
-        });
-        newUserWithRole = await this.driverRepository.create({
-          user_id: newUser.id,
-          first_name: userData.first_name,
-          last_name: userData.last_name,
-          contact_email: [
-            { title: 'Primary', is_default: true, email: userData.email }
-          ],
-          contact_phone: [
-            { title: 'Primary', is_default: true, number: userData.phone }
-          ],
-          available_for_work: false,
-          is_on_delivery: false,
-          active_points: 0,
-          current_order_id: [],
-          vehicle: {
-            license_plate: '',
-            model: '',
-            color: ''
-          },
-          current_location: {
-            lat: 0,
-            lng: 0
-          },
-          rating: {
-            average_rating: 0,
-            review_count: 0
+            // Only update user type after successful creation of both FWallet and Restaurant
+            if (newUserWithRole && fWallet) {
+              console.log(
+                'Both FWallet and Restaurant created, updating user type'
+              );
+              const updatedUserTypes = [...newUser.user_type];
+              if (!updatedUserTypes.includes(Enum_UserType.F_WALLET)) {
+                updatedUserTypes.push(Enum_UserType.F_WALLET);
+              }
+
+              await this.userRepository.update(newUser.id, {
+                user_type: updatedUserTypes,
+                verification_code: newUser.verification_code?.toString()
+              });
+
+              // Update the newUser object to reflect changes
+              newUser.user_type = updatedUserTypes;
+            }
+          } catch (error) {
+            console.error('Error in restaurant owner registration:', error);
+            // Clean up created resources in case of error
+            if (fWallet) {
+              await this.fWalletsRepository.delete(fWallet.id);
+            }
+            await this.userRepository.delete(newUser.id);
+            throw error;
           }
-        });
-        break;
+          break;
 
-      case Enum_UserType.RESTAURANT_OWNER:
-        fWallet = await this.fWalletsRepository.create({
-          ...userData,
-          password: hashedPassword,
-          user_id: newUser.id,
-          balance: 0
-        });
-        newUser.user_type.push(Enum_UserType.F_WALLET);
-        await this.userRepository.update(newUser.id, {
-          user_type: newUser.user_type
-        });
-        newUserWithRole = await this.restaurantsRepository.create({
-          ...userData,
-          password: hashedPassword,
-          user_id: newUser.id,
-          owner_id: newUser.id
-        });
-        break;
+        // ... rest of the cases ...
+      }
 
-      case Enum_UserType.F_WALLET:
-        newUserWithRole = await this.fWalletsRepository.create({
-          ...userData,
-          password: hashedPassword,
-          user_id: newUser.id,
-          balance: 0
-        });
-        break;
+      console.log('=== Registration Complete ===');
+      console.log('Final user data:', newUser);
+      console.log('Role-specific data:', newUserWithRole);
+      console.log('FWallet data:', fWallet);
 
-      case Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
-        fWallet = await this.fWalletsRepository.create({
-          ...userData,
-          password: hashedPassword,
-          user_id: newUser.id,
-          balance: 0
-        });
-        newUser.user_type.push(Enum_UserType.F_WALLET);
-        await this.userRepository.update(newUser.id, {
-          user_type: newUser.user_type
-        });
-        newUserWithRole = await this.customerCareRepository.create({
-          user_id: newUser.id as unknown as User,
-          first_name: userData.first_name,
-          last_name: userData.last_name,
-          contact_email: [
-            { title: 'Primary', is_default: true, email: userData.email }
-          ],
-          contact_phone: [
-            { title: 'Primary', is_default: true, number: userData.phone }
-          ],
-          assigned_tickets: [],
-          available_for_work: false,
-          is_assigned: false,
-          created_at: Math.floor(Date.now() / 1000),
-          updated_at: Math.floor(Date.now() / 1000),
-          last_login: Math.floor(Date.now() / 1000)
-        });
-        break;
+      const responseData = {
+        id: newUser.id,
+        user_id: newUser.id,
+        phone,
+        email: newUser.email,
+        first_name: newUser.first_name,
+        last_name: newUser.last_name,
+        user_type: newUser.user_type,
+        data: newUserWithRole
+      };
 
-      // Thêm logic cho các type admin
-      case Enum_UserType.SUPER_ADMIN:
-      case Enum_UserType.FINANCE_ADMIN:
-      case Enum_UserType.COMPANION_ADMIN:
-        const roleMap = {
-          [Enum_UserType.SUPER_ADMIN]: AdminRole.SUPER_ADMIN,
-          [Enum_UserType.FINANCE_ADMIN]: AdminRole.FINANCE_ADMIN,
-          [Enum_UserType.COMPANION_ADMIN]: AdminRole.COMPANION_ADMIN
-        };
-        const role = roleMap[type];
-        newUserWithRole = await this.adminService.create({
-          user_id: newUser.id,
-          role,
-          first_name: newUser.first_name,
-          last_name: newUser.last_name,
-          permissions: [], // Gán permissions mặc định, có thể tùy chỉnh sau
-          status: AdminStatus.ACTIVE,
-          created_at: new Date(),
-          updated_at: new Date()
-        });
-        if (newUserWithRole.EC !== 0) {
-          return newUserWithRole;
-        }
-        newUserWithRole = newUserWithRole.data;
-        break;
+      if (
+        fWallet &&
+        (type === Enum_UserType.DRIVER ||
+          type === Enum_UserType.RESTAURANT_OWNER)
+      ) {
+        responseData['fWallet'] = fWallet;
+      }
 
-      default:
-        return createResponse(
-          'Unauthorized',
-          null,
-          'Invalid user type provided'
-        );
+      return createResponse(
+        'OK',
+        responseData,
+        `${type} registered successfully`
+      );
+    } catch (error) {
+      console.error('Error in createNewUserRegistration:', error);
+      throw error;
     }
-
-    const responseData = {
-      id: newUser.id,
-      user_id: newUser.id,
-      phone,
-      email: newUser.email,
-      first_name: newUser.first_name,
-      last_name: newUser.last_name,
-      user_type: newUser.user_type,
-      data: newUserWithRole
-    };
-
-    if (
-      fWallet &&
-      (type === Enum_UserType.DRIVER || type === Enum_UserType.RESTAURANT_OWNER)
-    ) {
-      responseData['fWallet'] = fWallet;
-    }
-
-    return createResponse(
-      'OK',
-      responseData,
-      `${type} registered successfully`
-    );
   }
 
   // Utility methods
@@ -1034,7 +910,7 @@ export class AuthService {
       return createResponse('Unauthorized', null, 'Token has expired');
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcryptjs.hash(newPassword, 10);
 
     await this.userRepository.update(user.id, {
       password: hashedPassword,

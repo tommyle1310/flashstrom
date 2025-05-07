@@ -534,6 +534,9 @@ let DriversGateway = class DriversGateway {
                                     updated_at: Math.floor(Date.now() / 1000)
                                 });
                                 if (nextStateBase === 'delivery_complete') {
+                                    if (order.payment_method === 'COD') {
+                                        await this.ordersService.updateOrderPaymentStatus(order.id, 'PAID', transactionalEntityManager);
+                                    }
                                     dps.total_tips =
                                         (dps.total_tips || 0) + (order.driver_tips || 0);
                                     dps.total_distance_travelled =
@@ -690,6 +693,7 @@ let DriversGateway = class DriversGateway {
                                 throw new Error(`COD Transaction failed: ${codTransactionResponse.EM}`);
                             }
                             console.log('[DriversGateway] COD transaction from driver to restaurant succeeded:', codTransactionResponse.data);
+                            await this.ordersService.updateOrderPaymentStatus(order.id, 'PAID', transactionalEntityManager);
                         }
                     }
                     console.log('[DriversGateway] check total earns', dps.total_earns, 'check driver wallet', driverWallet.id);
