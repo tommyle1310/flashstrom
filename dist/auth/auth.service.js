@@ -232,6 +232,7 @@ let AuthService = class AuthService {
         if (!userWithRole) {
             return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant owner not found');
         }
+        const fwallet = await this.fWalletsRepository.findByUserId(user.id);
         const restaurantPayload = {
             ...basePayload,
             id: userWithRole.id,
@@ -251,7 +252,9 @@ let AuthService = class AuthService {
             promotions: userWithRole.promotions,
             ratings: userWithRole.ratings,
             specialize_in: userWithRole.specialize_in,
-            opening_hours: userWithRole.opening_hours
+            opening_hours: userWithRole.opening_hours,
+            fWallet_id: fwallet?.id,
+            fWallet_balance: fwallet?.balance
         };
         const accessToken = this.jwtService.sign(restaurantPayload);
         return (0, createResponse_1.createResponse)('OK', {
