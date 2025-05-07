@@ -8,6 +8,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TransactionService = void 0;
 const common_1 = require("@nestjs/common");
@@ -17,16 +20,18 @@ const transactions_repository_1 = require("./transactions.repository");
 const fwallet_entity_1 = require("../fwallets/entities/fwallet.entity");
 const typeorm_1 = require("typeorm");
 const redis_1 = require("redis");
+const orders_service_1 = require("../orders/orders.service");
 const logger = new common_1.Logger('TransactionService');
 const redis = (0, redis_1.createClient)({
     url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
 redis.connect().catch(err => logger.error('Redis connection error:', err));
 let TransactionService = class TransactionService {
-    constructor(transactionsRepository, fWalletsRepository, dataSource) {
+    constructor(transactionsRepository, fWalletsRepository, dataSource, ordersService) {
         this.transactionsRepository = transactionsRepository;
         this.fWalletsRepository = fWalletsRepository;
         this.dataSource = dataSource;
+        this.ordersService = ordersService;
     }
     async create(createTransactionDto, manager) {
         const start = Date.now();
@@ -325,12 +330,66 @@ let TransactionService = class TransactionService {
         logger.error(message, error);
         return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while processing your request');
     }
+    async updateTransactionStatus(transactionId, newStatus, orderId, manager) {
+        const txManager = manager || this.dataSource.createEntityManager();
+        try {
+            const transaction = await this.transactionsRepository.findById(transactionId);
+            if (!transaction) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Transaction not found');
+            }
+            transaction.status = newStatus;
+            transaction.updated_at = Math.floor(Date.now() / 1000);
+            if (transaction.transaction_type === 'PURCHASE' && orderId) {
+                let orderPaymentStatus;
+                switch (newStatus) {
+                    case 'COMPLETED':
+                        orderPaymentStatus = 'PAID';
+                        break;
+                    case 'FAILED':
+                        orderPaymentStatus = 'FAILED';
+                        break;
+                    case 'CANCELLED':
+                        orderPaymentStatus = 'FAILED';
+                        break;
+                    default:
+                        orderPaymentStatus = 'PENDING';
+                }
+                await this.ordersService.updateOrderPaymentStatus(orderId, orderPaymentStatus, txManager);
+            }
+            if (newStatus === 'COMPLETED' && !transaction.balance_after) {
+                const wallet = await this.fWalletsRepository.findById(transaction.fwallet_id);
+                if (wallet) {
+                    const currentBalance = Number(wallet.balance);
+                    transaction.balance_after =
+                        transaction.transaction_type === 'WITHDRAW' ||
+                            transaction.transaction_type === 'PURCHASE'
+                            ? currentBalance - transaction.amount
+                            : currentBalance + transaction.amount;
+                }
+            }
+            await this.transactionsRepository.update(transactionId, {
+                status: newStatus,
+                balance_after: transaction.balance_after,
+                updated_at: transaction.updated_at
+            });
+            const updatedTransaction = await this.transactionsRepository.findById(transactionId);
+            await redis.del(`transaction:${transactionId}`);
+            await redis.del(`fwallet:${transaction.user_id}`);
+            return (0, createResponse_1.createResponse)('OK', updatedTransaction, 'Transaction status updated successfully');
+        }
+        catch (error) {
+            logger.error('Error updating transaction status:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to update transaction status');
+        }
+    }
 };
 exports.TransactionService = TransactionService;
 exports.TransactionService = TransactionService = __decorate([
     (0, common_1.Injectable)(),
+    __param(3, (0, common_1.Inject)((0, common_1.forwardRef)(() => orders_service_1.OrdersService))),
     __metadata("design:paramtypes", [transactions_repository_1.TransactionsRepository,
         fwallets_repository_1.FWalletsRepository,
-        typeorm_1.DataSource])
+        typeorm_1.DataSource,
+        orders_service_1.OrdersService])
 ], TransactionService);
 //# sourceMappingURL=transactions.service.js.map

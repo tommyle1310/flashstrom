@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { Transaction } from './entities/transaction.entity';
@@ -8,6 +8,7 @@ import { TransactionsRepository } from './transactions.repository';
 import { FWallet } from 'src/fwallets/entities/fwallet.entity';
 import { DataSource, EntityManager } from 'typeorm';
 import { createClient } from 'redis';
+import { OrdersService } from 'src/orders/orders.service';
 
 const logger = new Logger('TransactionService');
 
@@ -21,7 +22,9 @@ export class TransactionService {
   constructor(
     private readonly transactionsRepository: TransactionsRepository,
     private readonly fWalletsRepository: FWalletsRepository,
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
+    @Inject(forwardRef(() => OrdersService))
+    private readonly ordersService: OrdersService
   ) {}
 
   async create(
@@ -452,5 +455,95 @@ export class TransactionService {
       null,
       'An error occurred while processing your request'
     );
+  }
+
+  async updateTransactionStatus(
+    transactionId: string,
+    newStatus: 'PENDING' | 'CANCELLED' | 'FAILED' | 'COMPLETED',
+    orderId?: string,
+    manager?: EntityManager
+  ): Promise<ApiResponse<Transaction>> {
+    const txManager = manager || this.dataSource.createEntityManager();
+
+    try {
+      const transaction =
+        await this.transactionsRepository.findById(transactionId);
+      if (!transaction) {
+        return createResponse('NotFound', null, 'Transaction not found');
+      }
+
+      // Update transaction status
+      transaction.status = newStatus;
+      transaction.updated_at = Math.floor(Date.now() / 1000);
+
+      // If this is a PURCHASE transaction and we have an orderId, sync the order payment status
+      if (transaction.transaction_type === 'PURCHASE' && orderId) {
+        let orderPaymentStatus: 'PENDING' | 'PAID' | 'FAILED';
+
+        switch (newStatus) {
+          case 'COMPLETED':
+            orderPaymentStatus = 'PAID';
+            break;
+          case 'FAILED':
+            orderPaymentStatus = 'FAILED';
+            break;
+          case 'CANCELLED':
+            orderPaymentStatus = 'FAILED';
+            break;
+          default:
+            orderPaymentStatus = 'PENDING';
+        }
+
+        // Update order payment status
+        await this.ordersService.updateOrderPaymentStatus(
+          orderId,
+          orderPaymentStatus,
+          txManager
+        );
+      }
+
+      // If transaction is completed, ensure wallet balance is updated
+      if (newStatus === 'COMPLETED' && !transaction.balance_after) {
+        const wallet = await this.fWalletsRepository.findById(
+          transaction.fwallet_id
+        );
+        if (wallet) {
+          const currentBalance = Number(wallet.balance);
+          transaction.balance_after =
+            transaction.transaction_type === 'WITHDRAW' ||
+            transaction.transaction_type === 'PURCHASE'
+              ? currentBalance - transaction.amount
+              : currentBalance + transaction.amount;
+        }
+      }
+
+      // Save transaction using the repository's update method
+      await this.transactionsRepository.update(transactionId, {
+        status: newStatus,
+        balance_after: transaction.balance_after,
+        updated_at: transaction.updated_at
+      });
+
+      // Get updated transaction
+      const updatedTransaction =
+        await this.transactionsRepository.findById(transactionId);
+
+      // Clear cache
+      await redis.del(`transaction:${transactionId}`);
+      await redis.del(`fwallet:${transaction.user_id}`);
+
+      return createResponse(
+        'OK',
+        updatedTransaction,
+        'Transaction status updated successfully'
+      );
+    } catch (error) {
+      logger.error('Error updating transaction status:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Failed to update transaction status'
+      );
+    }
   }
 }

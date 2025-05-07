@@ -5,11 +5,13 @@ import { ApiResponse } from 'src/utils/createResponse';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionsRepository } from './transactions.repository';
 import { DataSource, EntityManager } from 'typeorm';
+import { OrdersService } from 'src/orders/orders.service';
 export declare class TransactionService {
     private readonly transactionsRepository;
     private readonly fWalletsRepository;
     private readonly dataSource;
-    constructor(transactionsRepository: TransactionsRepository, fWalletsRepository: FWalletsRepository, dataSource: DataSource);
+    private readonly ordersService;
+    constructor(transactionsRepository: TransactionsRepository, fWalletsRepository: FWalletsRepository, dataSource: DataSource, ordersService: OrdersService);
     create(createTransactionDto: CreateTransactionDto, manager?: EntityManager): Promise<ApiResponse<Transaction>>;
     private processTransaction;
     private handleSourceWalletTransaction;
@@ -27,4 +29,5 @@ export declare class TransactionService {
     }>>;
     private handleTransactionResponse;
     private handleError;
+    updateTransactionStatus(transactionId: string, newStatus: 'PENDING' | 'CANCELLED' | 'FAILED' | 'COMPLETED', orderId?: string, manager?: EntityManager): Promise<ApiResponse<Transaction>>;
 }

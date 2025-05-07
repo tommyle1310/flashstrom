@@ -18,15 +18,18 @@ const fwallets_module_1 = require("../fwallets/fwallets.module");
 const user_entity_1 = require("../users/entities/user.entity");
 const fwallet_entity_1 = require("../fwallets/entities/fwallet.entity");
 const fwallets_repository_1 = require("../fwallets/fwallets.repository");
+const orders_module_1 = require("../orders/orders.module");
+const order_entity_1 = require("../orders/entities/order.entity");
 let TransactionsModule = class TransactionsModule {
 };
 exports.TransactionsModule = TransactionsModule;
 exports.TransactionsModule = TransactionsModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            typeorm_1.TypeOrmModule.forFeature([transaction_entity_1.Transaction, user_entity_1.User, fwallet_entity_1.FWallet]),
+            typeorm_1.TypeOrmModule.forFeature([transaction_entity_1.Transaction, user_entity_1.User, fwallet_entity_1.FWallet, order_entity_1.Order]),
             users_module_1.UsersModule,
-            fwallets_module_1.FwalletsModule
+            fwallets_module_1.FwalletsModule,
+            (0, common_1.forwardRef)(() => orders_module_1.OrdersModule)
         ],
         controllers: [transactions_controller_1.TransactionsController],
         providers: [transactions_service_1.TransactionService, transactions_repository_1.TransactionsRepository, fwallets_repository_1.FWalletsRepository],

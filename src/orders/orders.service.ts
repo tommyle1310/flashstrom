@@ -73,6 +73,7 @@ export class OrdersService {
     private readonly customersGateway: CustomersGateway,
     @Inject(forwardRef(() => DriversGateway))
     private readonly driversGateway: DriversGateway,
+    @Inject(forwardRef(() => TransactionService))
     private readonly transactionService: TransactionService,
     private readonly fWalletsRepository: FWalletsRepository,
     private readonly eventEmitter: EventEmitter2,
@@ -1300,6 +1301,77 @@ export class OrdersService {
         'ServerError',
         null,
         'Error fetching paginated orders'
+      );
+    }
+  }
+
+  async updateOrderPaymentStatus(
+    orderId: string,
+    paymentStatus: 'PENDING' | 'PAID' | 'FAILED',
+    transactionalEntityManager?: EntityManager
+  ): Promise<ApiResponse<Order>> {
+    try {
+      const manager =
+        transactionalEntityManager || this.dataSource.createEntityManager();
+
+      const order = await this.ordersRepository.findOne({
+        where: { id: orderId }
+      });
+
+      if (!order) {
+        return createResponse('NotFound', null, 'Order not found');
+      }
+
+      // Update payment status
+      order.payment_status = paymentStatus;
+      order.updated_at = Math.floor(Date.now() / 1000);
+
+      // If payment failed or is pending, ensure order status reflects this
+      if (paymentStatus === 'FAILED') {
+        order.status = OrderStatus.CANCELLED;
+        order.cancellation_reason = OrderCancellationReason.OTHER;
+        order.cancellation_title = 'Payment Failed';
+        order.cancellation_description =
+          'Order cancelled due to payment failure';
+        order.cancelled_at = Math.floor(Date.now() / 1000);
+      }
+
+      // Save the order
+      const updatedOrder = await manager.save(Order, order);
+
+      // Clear cache
+      await redis.del(`order:${orderId}`);
+
+      // Notify relevant parties about the payment status change
+      if (paymentStatus === 'PAID') {
+        this.eventEmitter.emit('notifyOrderStatus', {
+          room: `customer_${order.customer_id}`,
+          type: 'PAYMENT_SUCCESS',
+          message: 'Payment successful for your order',
+          orderId: orderId,
+          status: order.status
+        });
+      } else if (paymentStatus === 'FAILED') {
+        this.eventEmitter.emit('notifyOrderStatus', {
+          room: `customer_${order.customer_id}`,
+          type: 'PAYMENT_FAILED',
+          message: 'Payment failed for your order',
+          orderId: orderId,
+          status: order.status
+        });
+      }
+
+      return createResponse(
+        'OK',
+        updatedOrder,
+        'Order payment status updated successfully'
+      );
+    } catch (error) {
+      logger.error('Error updating order payment status:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Failed to update order payment status'
       );
     }
   }

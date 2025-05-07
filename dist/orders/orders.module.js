@@ -68,6 +68,7 @@ const event_emitter_1 = require("@nestjs/event-emitter");
 const drivers_gateway_1 = require("../drivers/drivers.gateway");
 const restaurants_gateway_1 = require("../restaurants/restaurants.gateway");
 const socket_io_1 = require("socket.io");
+const transactions_module_1 = require("../transactions/transactions.module");
 let OrdersModule = class OrdersModule {
 };
 exports.OrdersModule = OrdersModule;
@@ -96,7 +97,8 @@ exports.OrdersModule = OrdersModule = __decorate([
                 fwallet_entity_1.FWallet,
                 cart_item_entity_1.CartItem
             ]),
-            (0, common_1.forwardRef)(() => drivers_module_1.DriversModule)
+            (0, common_1.forwardRef)(() => drivers_module_1.DriversModule),
+            (0, common_1.forwardRef)(() => transactions_module_1.TransactionsModule)
         ],
         controllers: [orders_controller_1.OrdersController],
         providers: [

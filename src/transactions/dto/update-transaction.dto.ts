@@ -26,4 +26,8 @@ export class UpdateTransactionDto extends PartialType(CreateTransactionDto) {
   @IsString()
   @IsOptional()
   destination?: string; // Can be `fwallet.id` or `users.id` depending on the transaction
+
+  @IsNumber()
+  @IsOptional()
+  updated_at?: number;
 }

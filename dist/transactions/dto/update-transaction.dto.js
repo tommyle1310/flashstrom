@@ -46,4 +46,9 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateTransactionDto.prototype, "destination", void 0);
+__decorate([
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], UpdateTransactionDto.prototype, "updated_at", void 0);
 //# sourceMappingURL=update-transaction.dto.js.map

@@ -60,6 +60,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
 import { Server } from 'socket.io';
+import { TransactionsModule } from 'src/transactions/transactions.module';
 
 @Module({
   imports: [
@@ -85,7 +86,8 @@ import { Server } from 'socket.io';
       FWallet,
       CartItem
     ]),
-    forwardRef(() => DriversModule)
+    forwardRef(() => DriversModule),
+    forwardRef(() => TransactionsModule)
   ],
   controllers: [OrdersController],
   providers: [

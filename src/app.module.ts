@@ -70,6 +70,7 @@ import { CustomersGateway } from './customers/customers.gateway';
 import { CustomerCareInquiriesModule } from './customer_cares_inquires/customer_cares_inquires.module';
 import { CustomerCareInquiry } from './customer_cares_inquires/entities/customer_care_inquiry.entity';
 import { RestaurantStatsModule } from './restaurant_stats_records/restaurant_stats_records.module';
+import { OrdersService } from './orders/orders.service';
 
 @Global()
 @Module({
@@ -161,6 +162,7 @@ import { RestaurantStatsModule } from './restaurant_stats_records/restaurant_sta
     EmailService,
     DriversGateway,
     CustomersGateway,
+    OrdersService,
     OnlineSessionsRepository,
     FinanceRulesRepository,
     RestaurantsGateway,

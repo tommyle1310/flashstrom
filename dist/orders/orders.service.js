@@ -947,6 +947,52 @@ let OrdersService = class OrdersService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching paginated orders');
         }
     }
+    async updateOrderPaymentStatus(orderId, paymentStatus, transactionalEntityManager) {
+        try {
+            const manager = transactionalEntityManager || this.dataSource.createEntityManager();
+            const order = await this.ordersRepository.findOne({
+                where: { id: orderId }
+            });
+            if (!order) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Order not found');
+            }
+            order.payment_status = paymentStatus;
+            order.updated_at = Math.floor(Date.now() / 1000);
+            if (paymentStatus === 'FAILED') {
+                order.status = order_entity_1.OrderStatus.CANCELLED;
+                order.cancellation_reason = order_entity_1.OrderCancellationReason.OTHER;
+                order.cancellation_title = 'Payment Failed';
+                order.cancellation_description =
+                    'Order cancelled due to payment failure';
+                order.cancelled_at = Math.floor(Date.now() / 1000);
+            }
+            const updatedOrder = await manager.save(order_entity_1.Order, order);
+            await redis.del(`order:${orderId}`);
+            if (paymentStatus === 'PAID') {
+                this.eventEmitter.emit('notifyOrderStatus', {
+                    room: `customer_${order.customer_id}`,
+                    type: 'PAYMENT_SUCCESS',
+                    message: 'Payment successful for your order',
+                    orderId: orderId,
+                    status: order.status
+                });
+            }
+            else if (paymentStatus === 'FAILED') {
+                this.eventEmitter.emit('notifyOrderStatus', {
+                    room: `customer_${order.customer_id}`,
+                    type: 'PAYMENT_FAILED',
+                    message: 'Payment failed for your order',
+                    orderId: orderId,
+                    status: order.status
+                });
+            }
+            return (0, createResponse_1.createResponse)('OK', updatedOrder, 'Order payment status updated successfully');
+        }
+        catch (error) {
+            logger.error('Error updating order payment status:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to update order payment status');
+        }
+    }
 };
 exports.OrdersService = OrdersService;
 exports.OrdersService = OrdersService = __decorate([
@@ -954,6 +1000,7 @@ exports.OrdersService = OrdersService = __decorate([
     __param(0, (0, typeorm_2.InjectRepository)(order_entity_1.Order)),
     __param(7, (0, typeorm_2.InjectDataSource)()),
     __param(11, (0, common_1.Inject)((0, common_1.forwardRef)(() => drivers_gateway_1.DriversGateway))),
+    __param(12, (0, common_1.Inject)((0, common_1.forwardRef)(() => transactions_service_1.TransactionService))),
     __metadata("design:paramtypes", [typeorm_1.Repository,
         menu_items_repository_1.MenuItemsRepository,
         menu_item_variants_repository_1.MenuItemVariantsRepository,

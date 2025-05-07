@@ -60,4 +60,5 @@ export declare class OrdersService {
         totalItems: number;
         items: Order[];
     }>>;
+    updateOrderPaymentStatus(orderId: string, paymentStatus: 'PENDING' | 'PAID' | 'FAILED', transactionalEntityManager?: EntityManager): Promise<ApiResponse<Order>>;
 }

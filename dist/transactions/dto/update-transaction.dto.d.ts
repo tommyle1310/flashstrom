@@ -7,5 +7,6 @@ export declare class UpdateTransactionDto extends UpdateTransactionDto_base {
     status?: 'PENDING' | 'CANCELLED' | 'FAILED' | 'COMPLETED';
     source?: 'MOMO' | 'FWALLET';
     destination?: string;
+    updated_at?: number;
 }
 export {};
