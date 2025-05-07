@@ -21,6 +21,7 @@ import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
 import { DataSource } from 'typeorm';
 import { ToggleRestaurantAvailabilityDto } from './dto/restaurant-availability.dto';
 import { Order } from 'src/orders/entities/order.entity';
+import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
 export declare class RestaurantsService {
     private readonly restaurantsRepository;
     private readonly userRepository;
@@ -35,7 +36,8 @@ export declare class RestaurantsService {
     private readonly foodCategoryRepository;
     private readonly fWalletsRepository;
     private readonly dataSource;
-    constructor(restaurantsRepository: RestaurantsRepository, userRepository: UserRepository, promotionRepository: PromotionsRepository, addressRepository: AddressBookRepository, ordersRepository: OrdersRepository, menuItemRepository: MenuItemsRepository, menuItemsService: MenuItemsService, menuItemVariantsService: MenuItemVariantsService, transactionsService: TransactionService, restaurantsGateway: RestaurantsGateway, foodCategoryRepository: FoodCategoriesRepository, fWalletsRepository: FWalletsRepository, dataSource: DataSource);
+    private readonly ratingsReviewsRepository;
+    constructor(restaurantsRepository: RestaurantsRepository, userRepository: UserRepository, promotionRepository: PromotionsRepository, addressRepository: AddressBookRepository, ordersRepository: OrdersRepository, menuItemRepository: MenuItemsRepository, menuItemsService: MenuItemsService, menuItemVariantsService: MenuItemVariantsService, transactionsService: TransactionService, restaurantsGateway: RestaurantsGateway, foodCategoryRepository: FoodCategoriesRepository, fWalletsRepository: FWalletsRepository, dataSource: DataSource, ratingsReviewsRepository: RatingsReviewsRepository);
     onModuleInit(): Promise<void>;
     preloadRestaurants(): Promise<void>;
     clearRedis(): Promise<ApiResponse<null>>;
@@ -72,4 +74,5 @@ export declare class RestaurantsService {
         items: Restaurant[];
     }>>;
     getRestaurantOrders(restaurantId: string, page?: number, limit?: number): Promise<ApiResponse<any>>;
+    getRestaurantRatingsReviews(restaurantId: string): Promise<ApiResponse<any>>;
 }

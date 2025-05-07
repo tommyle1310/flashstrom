@@ -46,6 +46,9 @@ let RestaurantsController = class RestaurantsController {
     async findOne(id) {
         return this.restaurantsService.findOne(id);
     }
+    async getRestaurantRatingsReviews(id) {
+        return this.restaurantsService.getRestaurantRatingsReviews(id);
+    }
     update(id, updateRestaurantDto) {
         return this.restaurantsService.update(id, updateRestaurantDto);
     }
@@ -128,6 +131,13 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], RestaurantsController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Get)(':id/ratings-reviews'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], RestaurantsController.prototype, "getRestaurantRatingsReviews", null);
 __decorate([
     (0, common_1.Patch)(':id'),
     __param(0, (0, common_1.Param)('id')),

@@ -35,6 +35,7 @@ import { DataSource } from 'typeorm';
 import { ToggleRestaurantAvailabilityDto } from './dto/restaurant-availability.dto';
 import * as dotenv from 'dotenv';
 import { Order } from 'src/orders/entities/order.entity';
+import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
 
 dotenv.config();
 
@@ -103,7 +104,8 @@ export class RestaurantsService {
     private readonly restaurantsGateway: RestaurantsGateway,
     private readonly foodCategoryRepository: FoodCategoriesRepository,
     private readonly fWalletsRepository: FWalletsRepository,
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
+    private readonly ratingsReviewsRepository: RatingsReviewsRepository
   ) {}
 
   async onModuleInit() {
@@ -1420,6 +1422,76 @@ export class RestaurantsService {
         'ServerError',
         null,
         'An error occurred while fetching restaurant orders'
+      );
+    }
+  }
+
+  async getRestaurantRatingsReviews(
+    restaurantId: string
+  ): Promise<ApiResponse<any>> {
+    try {
+      const restaurant =
+        await this.restaurantsRepository.findById(restaurantId);
+      if (!restaurant) {
+        return createResponse('NotFound', null, 'Restaurant not found');
+      }
+
+      const ratingsReviews = await this.ratingsReviewsRepository.findAll({
+        where: {
+          rr_recipient_restaurant_id: restaurantId,
+          recipient_type: 'restaurant'
+        },
+        relations: ['reviewer_customer', 'reviewer_driver', 'order']
+      });
+
+      // Calculate average ratings
+      const totalReviews = ratingsReviews.length;
+      const totalFoodRating = ratingsReviews.reduce(
+        (sum, review) => sum + review.food_rating,
+        0
+      );
+      const totalDeliveryRating = ratingsReviews.reduce(
+        (sum, review) => sum + review.delivery_rating,
+        0
+      );
+      const averageFoodRating =
+        totalReviews > 0 ? totalFoodRating / totalReviews : 0;
+      const averageDeliveryRating =
+        totalReviews > 0 ? totalDeliveryRating / totalReviews : 0;
+
+      const response = {
+        restaurant_id: restaurantId,
+        total_reviews: totalReviews,
+        average_food_rating: averageFoodRating,
+        average_delivery_rating: averageDeliveryRating,
+        reviews: ratingsReviews.map(review => ({
+          id: review.id,
+          reviewer_type: review.reviewer_type,
+          reviewer:
+            review.reviewer_type === 'customer'
+              ? review.reviewer_customer
+              : review.reviewer_driver,
+          food_rating: review.food_rating,
+          delivery_rating: review.delivery_rating,
+          food_review: review.food_review,
+          delivery_review: review.delivery_review,
+          images: review.images,
+          created_at: review.created_at,
+          order_id: review.order_id
+        }))
+      };
+
+      return createResponse(
+        'OK',
+        response,
+        'Restaurant ratings and reviews retrieved successfully'
+      );
+    } catch (error: any) {
+      console.error('Error getting restaurant ratings and reviews:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error retrieving restaurant ratings and reviews'
       );
     }
   }

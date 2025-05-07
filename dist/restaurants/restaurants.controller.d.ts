@@ -22,6 +22,7 @@ export declare class RestaurantsController {
         items: Restaurant[];
     }>>;
     findOne(id: string): Promise<ApiResponse<Restaurant>>;
+    getRestaurantRatingsReviews(id: string): Promise<ApiResponse<any>>;
     update(id: string, updateRestaurantDto: UpdateRestaurantDto): Promise<ApiResponse<Restaurant>>;
     remove(id: string): Promise<ApiResponse<boolean>>;
     createMenuItem(restaurantId: string, createMenuItemDto: CreateMenuItemDto): Promise<any>;

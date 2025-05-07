@@ -69,6 +69,7 @@ import { AddressBook } from './address_book/entities/address_book.entity';
 import { CustomersGateway } from './customers/customers.gateway';
 import { CustomerCareInquiriesModule } from './customer_cares_inquires/customer_cares_inquires.module';
 import { CustomerCareInquiry } from './customer_cares_inquires/entities/customer_care_inquiry.entity';
+import { RestaurantStatsModule } from './restaurant_stats_records/restaurant_stats_records.module';
 
 @Global()
 @Module({
@@ -149,6 +150,7 @@ import { CustomerCareInquiry } from './customer_cares_inquires/entities/customer
     FinanceRulesModule,
     FaqModule,
     DriverStatsRecordsModule,
+    RestaurantStatsModule,
     BannedAccountModule,
     NotificationsModule
   ],

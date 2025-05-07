@@ -61,12 +61,10 @@ export class RestaurantsController {
     return this.restaurantsService.findOne(id);
   }
 
-  // @Get(':id/ratings-reviews')
-  // async getRestaurantRatingsReviews(
-  //   @Param('id') id: string
-  // ): Promise<ApiResponse<any>> {
-  //   return this.restaurantsService.getRestaurantRatingsReviews(id);
-  // }
+  @Get(':id/ratings-reviews')
+  async getRestaurantRatingsReviews(@Param('id') id: string) {
+    return this.restaurantsService.getRestaurantRatingsReviews(id);
+  }
 
   @Patch(':id')
   update(

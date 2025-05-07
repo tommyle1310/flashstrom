@@ -65,6 +65,7 @@ const redis_1 = require("redis");
 const typeorm_1 = require("typeorm");
 const dotenv = __importStar(require("dotenv"));
 const order_entity_2 = require("../orders/entities/order.entity");
+const ratings_reviews_repository_1 = require("../ratings_reviews/ratings_reviews.repository");
 dotenv.config();
 const logger = new common_1.Logger('RestaurantsService');
 const redis = (0, redis_1.createClient)({
@@ -72,7 +73,7 @@ const redis = (0, redis_1.createClient)({
 });
 redis.connect().catch(err => logger.error('Redis connection error:', err));
 let RestaurantsService = class RestaurantsService {
-    constructor(restaurantsRepository, userRepository, promotionRepository, addressRepository, ordersRepository, menuItemRepository, menuItemsService, menuItemVariantsService, transactionsService, restaurantsGateway, foodCategoryRepository, fWalletsRepository, dataSource) {
+    constructor(restaurantsRepository, userRepository, promotionRepository, addressRepository, ordersRepository, menuItemRepository, menuItemsService, menuItemVariantsService, transactionsService, restaurantsGateway, foodCategoryRepository, fWalletsRepository, dataSource, ratingsReviewsRepository) {
         this.restaurantsRepository = restaurantsRepository;
         this.userRepository = userRepository;
         this.promotionRepository = promotionRepository;
@@ -86,6 +87,7 @@ let RestaurantsService = class RestaurantsService {
         this.foodCategoryRepository = foodCategoryRepository;
         this.fWalletsRepository = fWalletsRepository;
         this.dataSource = dataSource;
+        this.ratingsReviewsRepository = ratingsReviewsRepository;
     }
     async onModuleInit() {
         try {
@@ -886,6 +888,51 @@ let RestaurantsService = class RestaurantsService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while fetching restaurant orders');
         }
     }
+    async getRestaurantRatingsReviews(restaurantId) {
+        try {
+            const restaurant = await this.restaurantsRepository.findById(restaurantId);
+            if (!restaurant) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant not found');
+            }
+            const ratingsReviews = await this.ratingsReviewsRepository.findAll({
+                where: {
+                    rr_recipient_restaurant_id: restaurantId,
+                    recipient_type: 'restaurant'
+                },
+                relations: ['reviewer_customer', 'reviewer_driver', 'order']
+            });
+            const totalReviews = ratingsReviews.length;
+            const totalFoodRating = ratingsReviews.reduce((sum, review) => sum + review.food_rating, 0);
+            const totalDeliveryRating = ratingsReviews.reduce((sum, review) => sum + review.delivery_rating, 0);
+            const averageFoodRating = totalReviews > 0 ? totalFoodRating / totalReviews : 0;
+            const averageDeliveryRating = totalReviews > 0 ? totalDeliveryRating / totalReviews : 0;
+            const response = {
+                restaurant_id: restaurantId,
+                total_reviews: totalReviews,
+                average_food_rating: averageFoodRating,
+                average_delivery_rating: averageDeliveryRating,
+                reviews: ratingsReviews.map(review => ({
+                    id: review.id,
+                    reviewer_type: review.reviewer_type,
+                    reviewer: review.reviewer_type === 'customer'
+                        ? review.reviewer_customer
+                        : review.reviewer_driver,
+                    food_rating: review.food_rating,
+                    delivery_rating: review.delivery_rating,
+                    food_review: review.food_review,
+                    delivery_review: review.delivery_review,
+                    images: review.images,
+                    created_at: review.created_at,
+                    order_id: review.order_id
+                }))
+            };
+            return (0, createResponse_1.createResponse)('OK', response, 'Restaurant ratings and reviews retrieved successfully');
+        }
+        catch (error) {
+            console.error('Error getting restaurant ratings and reviews:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error retrieving restaurant ratings and reviews');
+        }
+    }
 };
 exports.RestaurantsService = RestaurantsService;
 exports.RestaurantsService = RestaurantsService = __decorate([
@@ -902,6 +949,7 @@ exports.RestaurantsService = RestaurantsService = __decorate([
         restaurants_gateway_1.RestaurantsGateway,
         food_categories_repository_1.FoodCategoriesRepository,
         fwallets_repository_1.FWalletsRepository,
-        typeorm_1.DataSource])
+        typeorm_1.DataSource,
+        ratings_reviews_repository_1.RatingsReviewsRepository])
 ], RestaurantsService);
 //# sourceMappingURL=restaurants.service.js.map
