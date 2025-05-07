@@ -134,7 +134,8 @@ export class TransactionService {
       await this.handleDestinationWalletTransaction(
         destination,
         amount,
-        manager
+        manager,
+        transaction_type
       );
     }
 
@@ -265,24 +266,54 @@ export class TransactionService {
   private async handleDestinationWalletTransaction(
     destination: string,
     amount: number,
-    manager: EntityManager
+    manager: EntityManager,
+    transaction_type?: string
   ): Promise<void> {
     const maxRetries = 3;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const destinationWallet = await manager
-          .createQueryBuilder(FWallet, 'wallet')
-          .where('wallet.id = :id', { id: destination })
-          .select([
-            'wallet.id',
-            'wallet.balance',
-            'wallet.version',
-            'wallet.user_id'
-          ])
-          .getOne();
-        if (!destinationWallet) {
-          throw new Error(`Destination wallet ${destination} not found`);
+        let destinationWallet;
+
+        // For PURCHASE transactions, find wallet by user_id
+        if (transaction_type === 'PURCHASE') {
+          destinationWallet = await manager
+            .createQueryBuilder(FWallet, 'wallet')
+            .where('wallet.user_id = :userId', { userId: destination })
+            .select([
+              'wallet.id',
+              'wallet.balance',
+              'wallet.version',
+              'wallet.user_id'
+            ])
+            .getOne();
+        } else {
+          // For other transactions (like DEPOSIT), find wallet by wallet.id
+          destinationWallet = await manager
+            .createQueryBuilder(FWallet, 'wallet')
+            .where('wallet.id = :id', { id: destination })
+            .select([
+              'wallet.id',
+              'wallet.balance',
+              'wallet.version',
+              'wallet.user_id'
+            ])
+            .getOne();
         }
+
+        if (!destinationWallet) {
+          const errorMessage =
+            transaction_type === 'PURCHASE'
+              ? `Destination wallet for user ${destination} not found`
+              : `Destination wallet ${destination} not found`;
+          throw new Error(errorMessage);
+        }
+
+        logger.log('Found destination wallet:', {
+          id: destinationWallet.id,
+          user_id: destinationWallet.user_id,
+          balance: destinationWallet.balance,
+          version: destinationWallet.version
+        });
 
         const currentBalance = Number(destinationWallet.balance);
         const newBalance = Number((currentBalance + amount).toFixed(2));

@@ -323,7 +323,7 @@ let DriversService = class DriversService {
             if (!restaurantLocation) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant location not found');
             }
-            const specificDriver = listAvailableDrivers.find(driver => driver.id === harded_code_test_1.HARDED_CODE_TEST.prioritised_drivers[0]);
+            const specificDriver = listAvailableDrivers.find(driver => driver.id === harded_code_test_1.HARDED_CODE_TEST.prioritised_drivers_neon_test_branch[0]);
             if (!specificDriver) {
                 return (0, createResponse_1.createResponse)('NotFound', [], 'Prioritized driver not found in available list');
             }

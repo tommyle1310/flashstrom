@@ -771,7 +771,7 @@ let RestaurantsService = class RestaurantsService {
                     +promotion.promotion_cost_price,
                 status: 'PENDING',
                 source: 'FWALLET',
-                destination: constants_1.FLASHFOOD_FINANCE.id,
+                destination: constants_1.FLASHFOOD_FINANCE_neon_test_branch.id,
                 destination_type: 'FWALLET'
             };
             const transactionResponse = await this.transactionsService.create(transactionDto);
@@ -844,6 +844,7 @@ let RestaurantsService = class RestaurantsService {
                     .leftJoinAndSelect('order.driver', 'driver')
                     .leftJoinAndSelect('order.customerAddress', 'customerAddress')
                     .leftJoinAndSelect('order.restaurantAddress', 'restaurantAddress')
+                    .leftJoinAndSelect('order.promotions_applied', 'promotions')
                     .where('order.restaurant_id = :restaurantId', { restaurantId })
                     .andWhere('order.status = :status', { status: order_entity_1.OrderStatus.CANCELLED })
                     .orderBy('order.created_at', 'DESC')
@@ -854,6 +855,7 @@ let RestaurantsService = class RestaurantsService {
                     .leftJoinAndSelect('order.driver', 'driver')
                     .leftJoinAndSelect('order.customerAddress', 'customerAddress')
                     .leftJoinAndSelect('order.restaurantAddress', 'restaurantAddress')
+                    .leftJoinAndSelect('order.promotions_applied', 'promotions')
                     .where('order.restaurant_id = :restaurantId', { restaurantId })
                     .andWhere('order.status != :status', {
                     status: order_entity_1.OrderStatus.CANCELLED

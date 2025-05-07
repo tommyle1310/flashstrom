@@ -699,13 +699,13 @@ let DriversGateway = class DriversGateway {
                     console.log('[DriversGateway] check total earns', dps.total_earns, 'check driver wallet', driverWallet.id);
                     if (dps.total_earns > 0) {
                         console.log('[DriversGateway] Processing earnings transaction for driver', driver.id, 'amount:', dps.total_earns);
-                        let flashfoodWallet = await this.fWalletsRepository.findByUserId(constants_1.FLASHFOOD_FINANCE.user_id, transactionalEntityManager);
+                        let flashfoodWallet = await this.fWalletsRepository.findByUserId(constants_1.FLASHFOOD_FINANCE_neon_test_branch.user_id, transactionalEntityManager);
                         if (!flashfoodWallet) {
                             console.log('[DriversGateway] FlashFood finance wallet not found, creating it');
                             flashfoodWallet = await this.fWalletsRepository.create({
-                                user_id: constants_1.FLASHFOOD_FINANCE.user_id,
+                                user_id: constants_1.FLASHFOOD_FINANCE_neon_test_branch.user_id,
                                 balance: 1000000,
-                                email: constants_1.FLASHFOOD_FINANCE.email,
+                                email: constants_1.FLASHFOOD_FINANCE_neon_test_branch.email,
                                 password: 'dummy',
                                 first_name: 'FlashFood',
                                 last_name: 'Finance'

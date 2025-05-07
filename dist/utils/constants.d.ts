@@ -71,7 +71,12 @@ export declare const ResponseStatus: {
     };
 };
 export declare const FIXED_DELIVERY_DRIVER_WAGE = 20;
-export declare const FLASHFOOD_FINANCE: {
+export declare const FLASHFOOD_FINANCE_neon_test_branch: {
+    id: string;
+    user_id: string;
+    email: string;
+};
+export declare const FLASHFOOD_FINANCE_neon_test_branch_neon_test_branch: {
     id: string;
     user_id: string;
     email: string;

@@ -380,7 +380,8 @@ export class DriversService {
 
       // Tìm driver ưu tiên từ danh sách
       const specificDriver = listAvailableDrivers.find(
-        driver => driver.id === HARDED_CODE_TEST.prioritised_drivers[0]
+        driver =>
+          driver.id === HARDED_CODE_TEST.prioritised_drivers_neon_test_branch[0]
       );
       if (!specificDriver) {
         return createResponse(

@@ -34,7 +34,7 @@ import { CreateTransactionDto } from 'src/transactions/dto/create-transaction.dt
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionService } from 'src/transactions/transactions.service';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
-import { FLASHFOOD_FINANCE } from 'src/utils/constants';
+import { FLASHFOOD_FINANCE_neon_test_branch } from 'src/utils/constants';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { RedisService } from 'src/redis/redis.service';
 
@@ -980,7 +980,7 @@ export class DriversGateway
               );
 
               let flashfoodWallet = await this.fWalletsRepository.findByUserId(
-                FLASHFOOD_FINANCE.user_id,
+                FLASHFOOD_FINANCE_neon_test_branch.user_id,
                 transactionalEntityManager
               );
 
@@ -990,9 +990,9 @@ export class DriversGateway
                 );
                 flashfoodWallet = await this.fWalletsRepository.create(
                   {
-                    user_id: FLASHFOOD_FINANCE.user_id,
+                    user_id: FLASHFOOD_FINANCE_neon_test_branch.user_id,
                     balance: 1000000, // Initial balance for FlashFood finance wallet
-                    email: FLASHFOOD_FINANCE.email,
+                    email: FLASHFOOD_FINANCE_neon_test_branch.email,
                     password: 'dummy', // This is a system wallet, no need for real password
                     first_name: 'FlashFood',
                     last_name: 'Finance'

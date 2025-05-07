@@ -127,14 +127,16 @@ let OrdersService = class OrdersService {
                 (async () => {
                     const start = Date.now();
                     const cacheKey = `restaurant:${createOrderDto.restaurant_id}`;
-                    const cached = await redis.get(cacheKey);
-                    if (cached) {
-                        logger.log(`Fetch restaurant (cache) took ${Date.now() - start}ms`);
-                        return JSON.parse(cached);
-                    }
+                    await redis.del(cacheKey);
                     const result = await this.restaurantsRepository.findById(createOrderDto.restaurant_id);
-                    if (result)
+                    if (result) {
+                        logger.log('Restaurant from DB:', {
+                            id: result.id,
+                            owner_id: result.owner_id,
+                            owner: result.owner
+                        });
                         await redis.setEx(cacheKey, 7200, JSON.stringify(result));
+                    }
                     logger.log(`Fetch restaurant took ${Date.now() - start}ms`);
                     return result;
                 })(),
@@ -341,22 +343,6 @@ let OrdersService = class OrdersService {
                 if (customerWallet.balance < createOrderDto.total_amount) {
                     return (0, createResponse_1.createResponse)('InsufficientBalance', null, 'Insufficient balance');
                 }
-                const transactionDto = {
-                    user_id: customer.user_id,
-                    fwallet_id: customerWallet.id,
-                    transaction_type: 'WITHDRAW',
-                    amount: createOrderDto.total_amount,
-                    balance_after: customerWallet.balance - createOrderDto.total_amount,
-                    status: 'PENDING',
-                    version: 0,
-                    source: 'FWALLET',
-                    destination: restaurant.owner_id,
-                    destination_type: 'FWALLET'
-                };
-                const transactionResult = await this.transactionService.create(transactionDto);
-                if (transactionResult.EC !== 0) {
-                    return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to process payment');
-                }
                 createOrderDto.payment_status = 'PAID';
             }
             else {
@@ -378,6 +364,10 @@ let OrdersService = class OrdersService {
                 };
                 if (createOrderDto.payment_method === 'FWallet') {
                     const txServiceStart = Date.now();
+                    if (!restaurant.owner_id) {
+                        logger.error('Restaurant owner_id not found');
+                        return (0, createResponse_1.createResponse)('ServerError', null, 'Restaurant owner not found');
+                    }
                     const transactionDto = {
                         user_id: customer.user_id,
                         fwallet_id: customerWallet.id,
@@ -386,7 +376,7 @@ let OrdersService = class OrdersService {
                         balance_after: Number(customerWallet.balance) - totalAmount,
                         status: 'PENDING',
                         source: 'FWALLET',
-                        destination: restaurantWallet.id,
+                        destination: restaurant.owner_id,
                         destination_type: 'FWALLET',
                         version: customerWallet.version || 0
                     };
@@ -906,10 +896,6 @@ let OrdersService = class OrdersService {
             logger.log(`Validation failed: Restaurant not found (${Date.now() - validationStart}ms)`);
             return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant not found');
         }
-        if (!fetchedData.restaurant.status.is_accepted_orders) {
-            logger.log(`Validation failed: Restaurant not accepting orders (${Date.now() - validationStart}ms)`);
-            return (0, createResponse_1.createResponse)('NotAcceptingOrders', null, 'Restaurant is not accepting orders');
-        }
         if (!fetchedData.customerAddress) {
             logger.log(`Validation failed: Customer address not found (${Date.now() - validationStart}ms)`);
             return (0, createResponse_1.createResponse)('NotFound', null, 'Customer address not found');
@@ -918,105 +904,35 @@ let OrdersService = class OrdersService {
             logger.log(`Validation failed: Restaurant address not found (${Date.now() - validationStart}ms)`);
             return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant address not found');
         }
-        const itemValidation = await this.validateOrderItems(order_items, fetchedData.menuItems, fetchedData.variants);
-        logger.log(`Item validation took ${Date.now() - validationStart}ms`);
-        if (itemValidation !== true) {
-            return itemValidation;
+        if (!order_items || order_items.length === 0) {
+            logger.log(`Validation failed: No order items (${Date.now() - validationStart}ms)`);
+            return (0, createResponse_1.createResponse)('MissingInput', null, 'Order items are required');
+        }
+        const menuItemMap = new Map(fetchedData.menuItems.map(item => [item.id, item]));
+        const variantMap = new Map(fetchedData.variants.map(variant => [variant.id, variant]));
+        for (const item of order_items) {
+            if (!menuItemMap.has(item.item_id)) {
+                logger.log(`Validation failed: Menu item ${item.item_id} not found (${Date.now() - validationStart}ms)`);
+                return (0, createResponse_1.createResponse)('NotFound', null, `Menu item ${item.item_id} not found`);
+            }
+            if (item.variant_id && !variantMap.has(item.variant_id)) {
+                logger.log(`Validation failed: Variant ${item.variant_id} not found (${Date.now() - validationStart}ms)`);
+                return (0, createResponse_1.createResponse)('NotFound', null, `Variant ${item.variant_id} not found for item ${item.item_id}`);
+            }
         }
         logger.log(`Validation passed (${Date.now() - validationStart}ms)`);
         return true;
     }
-    async validateOrderItems(orderItems, menuItems, variants) {
-        const validationStart = Date.now();
-        const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
-        const variantMap = new Map(variants.map(variant => [variant.id, variant]));
-        for (const item of orderItems) {
-            if (!menuItemMap.has(item.item_id)) {
-                logger.warn(`Menu item ${item.item_id} not in cache, trying direct fetch`);
-                const menuItem = await this.menuItemsRepository.findById(item.item_id);
-                if (!menuItem) {
-                    logger.log(`Item validation failed: Menu item ${item.item_id} not found (${Date.now() - validationStart}ms)`);
-                    return (0, createResponse_1.createResponse)('NotFound', null, `Menu item ${item.item_id} not found`);
-                }
-                menuItemMap.set(item.item_id, menuItem);
-            }
-            if (item.variant_id && !variantMap.has(item.variant_id)) {
-                logger.log(`Item validation failed: Variant ${item.variant_id} not found (${Date.now() - validationStart}ms)`);
-                return (0, createResponse_1.createResponse)('NotFound', null, `Variant ${item.variant_id} not found for item ${item.item_id}`);
-            }
-        }
-        logger.log(`Item validation passed (${Date.now() - validationStart}ms)`);
-        return true;
-    }
-    handleOrderResponse(order) {
-        if (!order) {
-            return (0, createResponse_1.createResponse)('NotFound', null, 'Order not found');
-        }
-        return (0, createResponse_1.createResponse)('OK', order, 'Order retrieved successfully');
-    }
-    handleError(message, error) {
-        logger.error(message, error);
-        return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while processing your request');
-    }
-    async findAllPaginated(page = 1, limit = 10) {
-        try {
-            const skip = (page - 1) * limit;
-            const [orders, total] = await this.orderRepository.findAllPaginated(skip, limit);
-            const totalPages = Math.ceil(total / limit);
-            return (0, createResponse_1.createResponse)('OK', {
-                totalPages,
-                currentPage: page,
-                totalItems: total,
-                items: orders
-            }, 'Fetched paginated orders');
-        }
-        catch (error) {
-            console.error('Error fetching paginated orders:', error);
-            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching paginated orders');
-        }
-    }
     async updateOrderPaymentStatus(orderId, paymentStatus, transactionalEntityManager) {
         try {
-            const manager = transactionalEntityManager || this.dataSource.createEntityManager();
-            const order = await this.ordersRepository.findOne({
-                where: { id: orderId },
-                relations: ['restaurant']
-            });
+            const manager = transactionalEntityManager || this.dataSource.manager;
+            const order = await manager.findOne(order_entity_1.Order, { where: { id: orderId } });
             if (!order) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Order not found');
             }
             order.payment_status = paymentStatus;
             order.updated_at = Math.floor(Date.now() / 1000);
-            if (paymentStatus === 'PAID') {
-                if (order.payment_method === 'COD' &&
-                    order.status === order_entity_1.OrderStatus.DELIVERED) {
-                    const restaurant = order.restaurant;
-                    if (!restaurant) {
-                        return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant not found');
-                    }
-                    const restaurantWallet = await this.fWalletsRepository.findByUserId(restaurant.owner_id, manager);
-                    if (!restaurantWallet) {
-                        return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant wallet not found');
-                    }
-                    const transactionDto = {
-                        user_id: restaurant.owner_id,
-                        fwallet_id: restaurantWallet.id,
-                        transaction_type: 'DEPOSIT',
-                        amount: order.total_amount,
-                        balance_after: restaurantWallet.balance + order.total_amount,
-                        status: 'PENDING',
-                        version: 0,
-                        source: 'FWALLET',
-                        destination: restaurantWallet.id,
-                        destination_type: 'FWALLET'
-                    };
-                    const transactionResult = await this.transactionService.create(transactionDto, manager);
-                    if (transactionResult.EC !== 0) {
-                        return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to process restaurant payment');
-                    }
-                }
-            }
-            else if (paymentStatus === 'FAILED') {
+            if (paymentStatus === 'FAILED') {
                 order.status = order_entity_1.OrderStatus.CANCELLED;
                 order.cancellation_reason = order_entity_1.OrderCancellationReason.OTHER;
                 order.cancellation_title = 'Payment Failed';
@@ -1025,23 +941,71 @@ let OrdersService = class OrdersService {
                 order.cancelled_at = Math.floor(Date.now() / 1000);
             }
             const updatedOrder = await manager.save(order_entity_1.Order, order);
-            await redis.del(`order:${orderId}`);
-            this.eventEmitter.emit('notifyOrderStatus', {
-                room: `customer_${order.customer_id}`,
-                type: paymentStatus === 'PAID' ? 'PAYMENT_SUCCESS' : 'PAYMENT_FAILED',
-                message: paymentStatus === 'PAID'
-                    ? 'Payment successful for your order'
-                    : 'Payment failed for your order',
-                orderId: orderId,
-                status: order.status,
-                payment_status: paymentStatus
-            });
+            await this.notifyOrderStatus(updatedOrder);
             return (0, createResponse_1.createResponse)('OK', updatedOrder, 'Order payment status updated successfully');
         }
         catch (error) {
             logger.error('Error updating order payment status:', error);
             return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to update order payment status');
         }
+    }
+    async findAllPaginated(page = 1, limit = 10) {
+        try {
+            const skip = (page - 1) * limit;
+            const [orders, total] = await this.ordersRepository.findAndCount({
+                skip,
+                take: limit,
+                relations: [
+                    'restaurant',
+                    'driver',
+                    'customer',
+                    'restaurantAddress',
+                    'customerAddress'
+                ],
+                order: {
+                    created_at: 'DESC'
+                }
+            });
+            const totalPages = Math.ceil(total / limit);
+            const menuItemIds = new Set();
+            orders.forEach(order => {
+                if (order.order_items) {
+                    order.order_items.forEach(item => {
+                        if (item.item_id) {
+                            menuItemIds.add(item.item_id);
+                        }
+                    });
+                }
+            });
+            if (menuItemIds.size > 0) {
+                const menuItems = await this.menuItemsRepository.findByIds([
+                    ...menuItemIds
+                ]);
+                const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
+                orders.forEach(order => {
+                    if (order.order_items) {
+                        order.order_items = order.order_items.map(item => ({
+                            ...item,
+                            item: menuItemMap.get(item.item_id)
+                        }));
+                    }
+                });
+            }
+            return (0, createResponse_1.createResponse)('OK', {
+                totalPages,
+                currentPage: page,
+                totalItems: total,
+                items: orders
+            }, 'Fetched paginated orders successfully');
+        }
+        catch (error) {
+            logger.error('Error fetching paginated orders:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching paginated orders');
+        }
+    }
+    handleError(message, error) {
+        logger.error(message, error);
+        return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while processing your request');
     }
 };
 exports.OrdersService = OrdersService;

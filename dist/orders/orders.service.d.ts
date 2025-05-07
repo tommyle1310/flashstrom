@@ -51,14 +51,12 @@ export declare class OrdersService {
     cancelOrder(orderId: string, cancelledBy: 'customer' | 'restaurant' | 'driver', cancelledById: string, reason: OrderCancellationReason, title: string, description: string): Promise<ApiResponse<Order>>;
     private canOrderBeCancelled;
     private validateOrderData;
-    private validateOrderItems;
-    private handleOrderResponse;
-    private handleError;
+    updateOrderPaymentStatus(orderId: string, paymentStatus: 'PENDING' | 'PAID' | 'FAILED', transactionalEntityManager?: EntityManager): Promise<ApiResponse<Order>>;
     findAllPaginated(page?: number, limit?: number): Promise<ApiResponse<{
         totalPages: number;
         currentPage: number;
         totalItems: number;
         items: Order[];
     }>>;
-    updateOrderPaymentStatus(orderId: string, paymentStatus: 'PENDING' | 'PAID' | 'FAILED', transactionalEntityManager?: EntityManager): Promise<ApiResponse<Order>>;
+    private handleError;
 }

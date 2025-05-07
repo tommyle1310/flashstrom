@@ -23,10 +23,12 @@ const users_repository_1 = require("../users/users.repository");
 const address_book_repository_1 = require("../address_book/address_book.repository");
 const promotion_entity_1 = require("../promotions/entities/promotion.entity");
 const redis_1 = require("redis");
+const common_2 = require("@nestjs/common");
 const redis = (0, redis_1.createClient)({
     url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
 redis.connect().catch(err => console.error('Redis connection error:', err));
+const logger = new common_2.Logger('RestaurantsRepository');
 let RestaurantsRepository = class RestaurantsRepository {
     constructor(repository, foodCategoryRepository, userRepository, addressRepository) {
         this.repository = repository;
@@ -99,20 +101,29 @@ let RestaurantsRepository = class RestaurantsRepository {
         });
     }
     async findById(id) {
-        const result = await this.repository
-            .createQueryBuilder('restaurant')
-            .leftJoin('banned_accounts', 'ban', 'ban.entity_id = restaurant.id AND ban.entity_type = :entityType', {
-            entityType: 'Restaurant'
-        })
-            .addSelect('CASE WHEN ban.id IS NOT NULL THEN true ELSE false END', 'restaurant_is_banned')
-            .leftJoinAndSelect('restaurant.promotions', 'promotions')
-            .leftJoinAndSelect('promotions.food_categories', 'food_categories')
-            .where('restaurant.id = :id', { id })
-            .getRawAndEntities();
-        const restaurant = result.entities[0];
+        const restaurant = await this.repository.findOne({
+            where: { id },
+            relations: ['owner', 'promotions']
+        });
         if (restaurant) {
+            logger.log('Restaurant found:', {
+                id: restaurant.id,
+                owner_id: restaurant.owner_id,
+                owner: restaurant.owner
+            });
+            const bannedResult = await this.repository
+                .createQueryBuilder('restaurant')
+                .leftJoin('banned_accounts', 'ban', 'ban.entity_id = restaurant.id AND ban.entity_type = :entityType', {
+                entityType: 'Restaurant'
+            })
+                .addSelect('CASE WHEN ban.id IS NOT NULL THEN true ELSE false END', 'restaurant_is_banned')
+                .where('restaurant.id = :id', { id })
+                .getRawOne();
             restaurant.is_banned =
-                result.raw[0]?.restaurant_is_banned || false;
+                bannedResult?.restaurant_is_banned || false;
+        }
+        else {
+            logger.warn(`No restaurant found with id: ${id}`);
         }
         return restaurant || null;
     }

@@ -118,15 +118,21 @@ export class OrdersService {
         (async () => {
           const start = Date.now();
           const cacheKey = `restaurant:${createOrderDto.restaurant_id}`;
-          const cached = await redis.get(cacheKey);
-          if (cached) {
-            logger.log(`Fetch restaurant (cache) took ${Date.now() - start}ms`);
-            return JSON.parse(cached);
-          }
+
+          // Clear the cache for this restaurant to get fresh data
+          await redis.del(cacheKey);
+
           const result = await this.restaurantsRepository.findById(
             createOrderDto.restaurant_id
           );
-          if (result) await redis.setEx(cacheKey, 7200, JSON.stringify(result));
+          if (result) {
+            logger.log('Restaurant from DB:', {
+              id: result.id,
+              owner_id: result.owner_id,
+              owner: result.owner
+            });
+            await redis.setEx(cacheKey, 7200, JSON.stringify(result));
+          }
           logger.log(`Fetch restaurant took ${Date.now() - start}ms`);
           return result;
         })(),
@@ -403,30 +409,6 @@ export class OrdersService {
           );
         }
 
-        // Create transaction for customer payment
-        const transactionDto: CreateTransactionDto = {
-          user_id: customer.user_id,
-          fwallet_id: customerWallet.id,
-          transaction_type: 'WITHDRAW',
-          amount: createOrderDto.total_amount,
-          balance_after: customerWallet.balance - createOrderDto.total_amount,
-          status: 'PENDING',
-          version: 0,
-          source: 'FWALLET',
-          destination: restaurant.owner_id,
-          destination_type: 'FWALLET'
-        };
-
-        const transactionResult =
-          await this.transactionService.create(transactionDto);
-        if (transactionResult.EC !== 0) {
-          return createResponse(
-            'ServerError',
-            null,
-            'Failed to process payment'
-          );
-        }
-
         // Set payment status to PAID since FWallet payment is immediate
         createOrderDto.payment_status = 'PAID';
       } else {
@@ -454,9 +436,19 @@ export class OrdersService {
             updated_at: Math.floor(Date.now() / 1000)
           };
 
-          // Xử lý thanh toán FWallet
+          // Handle FWallet payment
           if (createOrderDto.payment_method === 'FWallet') {
             const txServiceStart = Date.now();
+            // Make sure we have the owner_id from the restaurant
+            if (!restaurant.owner_id) {
+              logger.error('Restaurant owner_id not found');
+              return createResponse(
+                'ServerError',
+                null,
+                'Restaurant owner not found'
+              );
+            }
+
             const transactionDto = {
               user_id: customer.user_id,
               fwallet_id: customerWallet!.id,
@@ -465,7 +457,7 @@ export class OrdersService {
               balance_after: Number(customerWallet!.balance) - totalAmount,
               status: 'PENDING',
               source: 'FWALLET',
-              destination: restaurantWallet!.id,
+              destination: restaurant.owner_id,
               destination_type: 'FWALLET',
               version: customerWallet!.version || 0
             } as CreateTransactionDto;
@@ -1212,17 +1204,6 @@ export class OrdersService {
       return createResponse('NotFound', null, 'Restaurant not found');
     }
 
-    if (!fetchedData.restaurant.status.is_accepted_orders) {
-      logger.log(
-        `Validation failed: Restaurant not accepting orders (${Date.now() - validationStart}ms)`
-      );
-      return createResponse(
-        'NotAcceptingOrders',
-        null,
-        'Restaurant is not accepting orders'
-      );
-    }
-
     if (!fetchedData.customerAddress) {
       logger.log(
         `Validation failed: Customer address not found (${Date.now() - validationStart}ms)`
@@ -1237,51 +1218,36 @@ export class OrdersService {
       return createResponse('NotFound', null, 'Restaurant address not found');
     }
 
-    const itemValidation = await this.validateOrderItems(
-      order_items,
-      fetchedData.menuItems,
-      fetchedData.variants
-    );
-    logger.log(`Item validation took ${Date.now() - validationStart}ms`);
-    if (itemValidation !== true) {
-      return itemValidation;
+    // Validate order items
+    if (!order_items || order_items.length === 0) {
+      logger.log(
+        `Validation failed: No order items (${Date.now() - validationStart}ms)`
+      );
+      return createResponse('MissingInput', null, 'Order items are required');
     }
 
-    logger.log(`Validation passed (${Date.now() - validationStart}ms)`);
-    return true;
-  }
+    const menuItemMap = new Map(
+      fetchedData.menuItems.map(item => [item.id, item])
+    );
+    const variantMap = new Map(
+      fetchedData.variants.map(variant => [variant.id, variant])
+    );
 
-  private async validateOrderItems(
-    orderItems: any[],
-    menuItems: any[],
-    variants: any[]
-  ): Promise<true | ApiResponse<null>> {
-    const validationStart = Date.now();
-    const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
-    const variantMap = new Map(variants.map(variant => [variant.id, variant]));
-
-    for (const item of orderItems) {
+    for (const item of order_items) {
       if (!menuItemMap.has(item.item_id)) {
-        logger.warn(
-          `Menu item ${item.item_id} not in cache, trying direct fetch`
+        logger.log(
+          `Validation failed: Menu item ${item.item_id} not found (${Date.now() - validationStart}ms)`
         );
-        const menuItem = await this.menuItemsRepository.findById(item.item_id);
-        if (!menuItem) {
-          logger.log(
-            `Item validation failed: Menu item ${item.item_id} not found (${Date.now() - validationStart}ms)`
-          );
-          return createResponse(
-            'NotFound',
-            null,
-            `Menu item ${item.item_id} not found`
-          );
-        }
-        menuItemMap.set(item.item_id, menuItem);
+        return createResponse(
+          'NotFound',
+          null,
+          `Menu item ${item.item_id} not found`
+        );
       }
 
       if (item.variant_id && !variantMap.has(item.variant_id)) {
         logger.log(
-          `Item validation failed: Variant ${item.variant_id} not found (${Date.now() - validationStart}ms)`
+          `Validation failed: Variant ${item.variant_id} not found (${Date.now() - validationStart}ms)`
         );
         return createResponse(
           'NotFound',
@@ -1291,24 +1257,52 @@ export class OrdersService {
       }
     }
 
-    logger.log(`Item validation passed (${Date.now() - validationStart}ms)`);
+    logger.log(`Validation passed (${Date.now() - validationStart}ms)`);
     return true;
   }
 
-  private handleOrderResponse(order: Order | null): ApiResponse<Order> {
-    if (!order) {
-      return createResponse('NotFound', null, 'Order not found');
-    }
-    return createResponse('OK', order, 'Order retrieved successfully');
-  }
+  async updateOrderPaymentStatus(
+    orderId: string,
+    paymentStatus: 'PENDING' | 'PAID' | 'FAILED',
+    transactionalEntityManager?: EntityManager
+  ): Promise<ApiResponse<Order>> {
+    try {
+      const manager = transactionalEntityManager || this.dataSource.manager;
+      const order = await manager.findOne(Order, { where: { id: orderId } });
 
-  private handleError(message: string, error: any): ApiResponse<null> {
-    logger.error(message, error);
-    return createResponse(
-      'ServerError',
-      null,
-      'An error occurred while processing your request'
-    );
+      if (!order) {
+        return createResponse('NotFound', null, 'Order not found');
+      }
+
+      order.payment_status = paymentStatus;
+      order.updated_at = Math.floor(Date.now() / 1000);
+
+      // If payment failed, cancel the order
+      if (paymentStatus === 'FAILED') {
+        order.status = OrderStatus.CANCELLED;
+        order.cancellation_reason = OrderCancellationReason.OTHER;
+        order.cancellation_title = 'Payment Failed';
+        order.cancellation_description =
+          'Order cancelled due to payment failure';
+        order.cancelled_at = Math.floor(Date.now() / 1000);
+      }
+
+      const updatedOrder = await manager.save(Order, order);
+      await this.notifyOrderStatus(updatedOrder);
+
+      return createResponse(
+        'OK',
+        updatedOrder,
+        'Order payment status updated successfully'
+      );
+    } catch (error) {
+      logger.error('Error updating order payment status:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Failed to update order payment status'
+      );
+    }
   }
 
   async findAllPaginated(
@@ -1324,11 +1318,52 @@ export class OrdersService {
   > {
     try {
       const skip = (page - 1) * limit;
-      const [orders, total] = await this.orderRepository.findAllPaginated(
+      const [orders, total] = await this.ordersRepository.findAndCount({
         skip,
-        limit
-      );
+        take: limit,
+        relations: [
+          'restaurant',
+          'driver',
+          'customer',
+          'restaurantAddress',
+          'customerAddress'
+        ],
+        order: {
+          created_at: 'DESC'
+        }
+      });
+
       const totalPages = Math.ceil(total / limit);
+
+      // Collect all unique menu item IDs
+      const menuItemIds = new Set<string>();
+      orders.forEach(order => {
+        if (order.order_items) {
+          order.order_items.forEach(item => {
+            if (item.item_id) {
+              menuItemIds.add(item.item_id);
+            }
+          });
+        }
+      });
+
+      // Fetch all menu items in one query if there are any IDs
+      if (menuItemIds.size > 0) {
+        const menuItems = await this.menuItemsRepository.findByIds([
+          ...menuItemIds
+        ]);
+        const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
+
+        // Map menu items to orders
+        orders.forEach(order => {
+          if (order.order_items) {
+            order.order_items = order.order_items.map(item => ({
+              ...item,
+              item: menuItemMap.get(item.item_id)
+            }));
+          }
+        });
+      }
 
       return createResponse(
         'OK',
@@ -1338,10 +1373,10 @@ export class OrdersService {
           totalItems: total,
           items: orders
         },
-        'Fetched paginated orders'
+        'Fetched paginated orders successfully'
       );
     } catch (error: any) {
-      console.error('Error fetching paginated orders:', error);
+      logger.error('Error fetching paginated orders:', error);
       return createResponse(
         'ServerError',
         null,
@@ -1350,120 +1385,12 @@ export class OrdersService {
     }
   }
 
-  async updateOrderPaymentStatus(
-    orderId: string,
-    paymentStatus: 'PENDING' | 'PAID' | 'FAILED',
-    transactionalEntityManager?: EntityManager
-  ): Promise<ApiResponse<Order>> {
-    try {
-      const manager =
-        transactionalEntityManager || this.dataSource.createEntityManager();
-
-      const order = await this.ordersRepository.findOne({
-        where: { id: orderId },
-        relations: ['restaurant']
-      });
-
-      if (!order) {
-        return createResponse('NotFound', null, 'Order not found');
-      }
-
-      // Update payment status
-      order.payment_status = paymentStatus;
-      order.updated_at = Math.floor(Date.now() / 1000);
-
-      // Handle payment status changes
-      if (paymentStatus === 'PAID') {
-        // For COD orders, ensure the restaurant receives the payment
-        if (
-          order.payment_method === 'COD' &&
-          order.status === OrderStatus.DELIVERED
-        ) {
-          const restaurant = order.restaurant;
-          if (!restaurant) {
-            return createResponse('NotFound', null, 'Restaurant not found');
-          }
-
-          const restaurantWallet = await this.fWalletsRepository.findByUserId(
-            restaurant.owner_id,
-            manager
-          );
-
-          if (!restaurantWallet) {
-            return createResponse(
-              'NotFound',
-              null,
-              'Restaurant wallet not found'
-            );
-          }
-
-          // Create transaction for restaurant payment
-          const transactionDto: CreateTransactionDto = {
-            user_id: restaurant.owner_id,
-            fwallet_id: restaurantWallet.id,
-            transaction_type: 'DEPOSIT',
-            amount: order.total_amount,
-            balance_after: restaurantWallet.balance + order.total_amount,
-            status: 'PENDING',
-            version: 0,
-            source: 'FWALLET',
-            destination: restaurantWallet.id,
-            destination_type: 'FWALLET'
-          };
-
-          const transactionResult = await this.transactionService.create(
-            transactionDto,
-            manager
-          );
-
-          if (transactionResult.EC !== 0) {
-            return createResponse(
-              'ServerError',
-              null,
-              'Failed to process restaurant payment'
-            );
-          }
-        }
-      } else if (paymentStatus === 'FAILED') {
-        order.status = OrderStatus.CANCELLED;
-        order.cancellation_reason = OrderCancellationReason.OTHER;
-        order.cancellation_title = 'Payment Failed';
-        order.cancellation_description =
-          'Order cancelled due to payment failure';
-        order.cancelled_at = Math.floor(Date.now() / 1000);
-      }
-
-      // Save the order
-      const updatedOrder = await manager.save(Order, order);
-
-      // Clear cache
-      await redis.del(`order:${orderId}`);
-
-      // Notify relevant parties about the payment status change
-      this.eventEmitter.emit('notifyOrderStatus', {
-        room: `customer_${order.customer_id}`,
-        type: paymentStatus === 'PAID' ? 'PAYMENT_SUCCESS' : 'PAYMENT_FAILED',
-        message:
-          paymentStatus === 'PAID'
-            ? 'Payment successful for your order'
-            : 'Payment failed for your order',
-        orderId: orderId,
-        status: order.status,
-        payment_status: paymentStatus
-      });
-
-      return createResponse(
-        'OK',
-        updatedOrder,
-        'Order payment status updated successfully'
-      );
-    } catch (error) {
-      logger.error('Error updating order payment status:', error);
-      return createResponse(
-        'ServerError',
-        null,
-        'Failed to update order payment status'
-      );
-    }
+  private handleError(message: string, error: any): ApiResponse<null> {
+    logger.error(message, error);
+    return createResponse(
+      'ServerError',
+      null,
+      'An error occurred while processing your request'
+    );
   }
 }

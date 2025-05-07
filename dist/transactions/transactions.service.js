@@ -97,7 +97,7 @@ let TransactionService = class TransactionService {
             await this.handleSourceWalletTransaction(sourceWallet, amount, manager);
         }
         if (transaction_type === 'DEPOSIT' || transaction_type === 'PURCHASE') {
-            await this.handleDestinationWalletTransaction(destination, amount, manager);
+            await this.handleDestinationWalletTransaction(destination, amount, manager, transaction_type);
         }
         const newTransaction = await this.transactionsRepository.create(createTransactionDto, manager);
         logger.log('Transaction created:', {
@@ -194,23 +194,47 @@ let TransactionService = class TransactionService {
         }
         throw new Error(`Failed to update source wallet ${sourceWallet.id} after ${maxRetries} retries`);
     }
-    async handleDestinationWalletTransaction(destination, amount, manager) {
+    async handleDestinationWalletTransaction(destination, amount, manager, transaction_type) {
         const maxRetries = 3;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                const destinationWallet = await manager
-                    .createQueryBuilder(fwallet_entity_1.FWallet, 'wallet')
-                    .where('wallet.id = :id', { id: destination })
-                    .select([
-                    'wallet.id',
-                    'wallet.balance',
-                    'wallet.version',
-                    'wallet.user_id'
-                ])
-                    .getOne();
-                if (!destinationWallet) {
-                    throw new Error(`Destination wallet ${destination} not found`);
+                let destinationWallet;
+                if (transaction_type === 'PURCHASE') {
+                    destinationWallet = await manager
+                        .createQueryBuilder(fwallet_entity_1.FWallet, 'wallet')
+                        .where('wallet.user_id = :userId', { userId: destination })
+                        .select([
+                        'wallet.id',
+                        'wallet.balance',
+                        'wallet.version',
+                        'wallet.user_id'
+                    ])
+                        .getOne();
                 }
+                else {
+                    destinationWallet = await manager
+                        .createQueryBuilder(fwallet_entity_1.FWallet, 'wallet')
+                        .where('wallet.id = :id', { id: destination })
+                        .select([
+                        'wallet.id',
+                        'wallet.balance',
+                        'wallet.version',
+                        'wallet.user_id'
+                    ])
+                        .getOne();
+                }
+                if (!destinationWallet) {
+                    const errorMessage = transaction_type === 'PURCHASE'
+                        ? `Destination wallet for user ${destination} not found`
+                        : `Destination wallet ${destination} not found`;
+                    throw new Error(errorMessage);
+                }
+                logger.log('Found destination wallet:', {
+                    id: destinationWallet.id,
+                    user_id: destinationWallet.user_id,
+                    balance: destinationWallet.balance,
+                    version: destinationWallet.version
+                });
                 const currentBalance = Number(destinationWallet.balance);
                 const newBalance = Number((currentBalance + amount).toFixed(2));
                 const updateResult = await manager
