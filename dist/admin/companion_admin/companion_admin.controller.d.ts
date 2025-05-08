@@ -1,0 +1,36 @@
+import { AdminService } from '../admin.service';
+import { RestaurantsService } from '../../restaurants/restaurants.service';
+import { CreateAdminDto } from '../dto/create-admin.dto';
+import { UpdateAdminDto } from '../dto/update-admin.dto';
+import { UpdateRestaurantDto } from '../../restaurants/dto/update-restaurant.dto';
+import { CustomersService } from 'src/customers/customers.service';
+import { DriversService } from 'src/drivers/drivers.service';
+import { CustomerCareService } from 'src/customer_cares/customer_cares.service';
+import { AuthService } from 'src/auth/auth.service';
+import { AddressBookService } from 'src/address_book/address_book.service';
+export declare class CompanionAdminController {
+    private readonly adminService;
+    private readonly restaurantService;
+    private readonly customerService;
+    private readonly driverService;
+    private readonly customerCareService;
+    private readonly authService;
+    private readonly addressBookService;
+    constructor(adminService: AdminService, restaurantService: RestaurantsService, customerService: CustomersService, driverService: DriversService, customerCareService: CustomerCareService, authService: AuthService, addressBookService: AddressBookService);
+    createCompanionAdmin(createAdminDto: CreateAdminDto): Promise<import("../../utils/createResponse").ApiResponse<import("../entities/admin.entity").Admin>>;
+    findAllCompanionAdmins(): Promise<import("../../utils/createResponse").ApiResponse<import("../entities/admin.entity").Admin[]>>;
+    findAllRestaurants(): Promise<import("../../utils/createResponse").ApiResponse<any>>;
+    createRestaurant(): Promise<any>;
+    findAllCustomers(): Promise<import("../../utils/createResponse").ApiResponse<import("../../customers/entities/customer.entity").Customer[]>>;
+    createCustomer(): Promise<any>;
+    findAllDrivers(): Promise<import("../../utils/createResponse").ApiResponse<any>>;
+    createDriver(): Promise<any>;
+    findAllCustomerCare(): Promise<import("../../utils/createResponse").ApiResponse<any>>;
+    createCustomerCare(): Promise<any>;
+    findOneCompanionAdmin(id: string): Promise<import("../../utils/createResponse").ApiResponse<import("../entities/admin.entity").Admin>>;
+    updateCompanionAdmin(id: string, updateAdminDto: UpdateAdminDto): Promise<import("../../utils/createResponse").ApiResponse<import("../entities/admin.entity").Admin>>;
+    removeCompanionAdmin(id: string): Promise<import("../../utils/createResponse").ApiResponse<null>>;
+    findOneRestaurant(id: string): Promise<import("../../utils/createResponse").ApiResponse<any>>;
+    updateRestaurant(id: string, updateRestaurantDto: UpdateRestaurantDto): Promise<import("../../utils/createResponse").ApiResponse<import("../../restaurants/entities/restaurant.entity").Restaurant>>;
+    removeRestaurant(id: string): Promise<import("../../utils/createResponse").ApiResponse<boolean>>;
+}
