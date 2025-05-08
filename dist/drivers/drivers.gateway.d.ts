@@ -16,6 +16,7 @@ import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionService } from 'src/transactions/transactions.service';
 import { RedisService } from 'src/redis/redis.service';
+import { UserRepository } from 'src/users/users.repository';
 export declare class DriversGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
     private socketServer;
     private readonly restaurantsService;
@@ -32,6 +33,7 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
     private readonly addressBookRepository;
     private readonly jwtService;
     private readonly redisService;
+    private readonly userRepository;
     private server;
     private driverSockets;
     private notificationLock;
@@ -41,7 +43,7 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
     private processedEvents;
     private isListenerRegistered;
     private redisClient;
-    constructor(socketServer: any, restaurantsService: RestaurantsService, driverService: DriversService, driverRepository: DriversRepository, driverStatsService: DriverStatsService, eventEmitter: EventEmitter2, ordersService: OrdersService, financeRulesService: FinanceRulesService, fWalletsRepository: FWalletsRepository, transactionsService: TransactionService, driverProgressStageService: DriverProgressStagesService, dataSource: DataSource, addressBookRepository: AddressBookRepository, jwtService: JwtService, redisService: RedisService);
+    constructor(socketServer: any, restaurantsService: RestaurantsService, driverService: DriversService, driverRepository: DriversRepository, driverStatsService: DriverStatsService, eventEmitter: EventEmitter2, ordersService: OrdersService, financeRulesService: FinanceRulesService, fWalletsRepository: FWalletsRepository, transactionsService: TransactionService, driverProgressStageService: DriverProgressStagesService, dataSource: DataSource, addressBookRepository: AddressBookRepository, jwtService: JwtService, redisService: RedisService, userRepository: UserRepository);
     afterInit(): void;
     private registerEventListeners;
     onModuleDestroy(): Promise<void>;
@@ -86,4 +88,5 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
     private prepareAddressData;
     private prepareDriverDetails;
     private formatFullAddress;
+    private handleDeliveryCompletion;
 }

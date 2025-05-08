@@ -1,10 +1,43 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
@@ -37,8 +70,13 @@ const restaurant_entity_1 = require("../restaurants/entities/restaurant.entity")
 const constants_1 = require("../utils/constants");
 const redis_adapter_1 = require("@socket.io/redis-adapter");
 const redis_service_1 = require("../redis/redis.service");
+const common_2 = require("@nestjs/common");
+const users_repository_1 = require("../users/users.repository");
+const bcrypt = __importStar(require("bcryptjs"));
+const Payload_1 = require("../types/Payload");
+const logger = new common_2.Logger('DriversGateway');
 let DriversGateway = class DriversGateway {
-    constructor(socketServer, restaurantsService, driverService, driverRepository, driverStatsService, eventEmitter, ordersService, financeRulesService, fWalletsRepository, transactionsService, driverProgressStageService, dataSource, addressBookRepository, jwtService, redisService) {
+    constructor(socketServer, restaurantsService, driverService, driverRepository, driverStatsService, eventEmitter, ordersService, financeRulesService, fWalletsRepository, transactionsService, driverProgressStageService, dataSource, addressBookRepository, jwtService, redisService, userRepository) {
         this.socketServer = socketServer;
         this.restaurantsService = restaurantsService;
         this.driverService = driverService;
@@ -54,6 +92,7 @@ let DriversGateway = class DriversGateway {
         this.addressBookRepository = addressBookRepository;
         this.jwtService = jwtService;
         this.redisService = redisService;
+        this.userRepository = userRepository;
         this.driverSockets = new Map();
         this.notificationLock = new Map();
         this.activeConnections = new Map();
@@ -61,7 +100,14 @@ let DriversGateway = class DriversGateway {
         this.processingOrders = new Set();
         this.processedEvents = new Map();
         this.isListenerRegistered = false;
-        console.log('[DriversGateway] Constructor called, instance ID:', Math.random());
+        logger.log('DriversGateway constructor called');
+        logger.log('Checking injected dependencies:');
+        logger.log('- driverProgressStageRepository:', !!this.driverProgressStageService);
+        logger.log('- driverProgressStageService:', !!this.driverProgressStageService);
+        logger.log('- transactionsService:', !!this.transactionsService);
+        logger.log('- ordersService:', !!this.ordersService);
+        logger.log('- fWalletsRepository:', !!this.fWalletsRepository);
+        logger.log('- server:', !!this.server);
         this.redisClient = this.redisService.getClient();
     }
     afterInit() {
@@ -405,8 +451,10 @@ let DriversGateway = class DriversGateway {
         }
     }
     async handleDriverProgressUpdate(data) {
+        logger.log('Received updateDriverProgress event:', data);
         try {
             const result = await this.dataSource.transaction(async (transactionalEntityManager) => {
+                logger.log('Starting transaction for driver progress update');
                 const dps = await transactionalEntityManager
                     .getRepository(driver_progress_stage_entity_1.DriverProgressStage)
                     .findOne({
@@ -421,6 +469,11 @@ let DriversGateway = class DriversGateway {
                     ]
                 });
                 if (!dps || !dps.orders || dps.orders.length === 0) {
+                    logger.warn('Stage or orders not found:', {
+                        stageId: data.stageId,
+                        dpsExists: !!dps,
+                        ordersExist: dps?.orders?.length > 0
+                    });
                     return {
                         success: false,
                         message: !dps
@@ -428,6 +481,10 @@ let DriversGateway = class DriversGateway {
                             : 'No orders associated with this stage'
                     };
                 }
+                logger.log('Found driver progress stage:', {
+                    id: dps.id,
+                    ordersCount: dps.orders.length
+                });
                 const oldStagesString = JSON.stringify(dps.stages);
                 const oldCurrentState = dps.current_state;
                 const oldPreviousState = dps.previous_state;
@@ -491,6 +548,15 @@ let DriversGateway = class DriversGateway {
                             const nextState = nextStateBase
                                 ? `${nextStateBase}_${orderSuffix}`
                                 : null;
+                            if (nextStateBase === 'delivery_complete') {
+                                try {
+                                    await this.handleDeliveryCompletion(order, dps, transactionalEntityManager);
+                                }
+                                catch (error) {
+                                    logger.error('Error completing delivery:', error);
+                                    throw error;
+                                }
+                            }
                             updatedStages = updatedStages.map((stage) => {
                                 if (stage.state === currentState &&
                                     stage.status === 'in_progress') {
@@ -528,30 +594,12 @@ let DriversGateway = class DriversGateway {
                             if (nextStateBase && nextStateBase in stageToStatusMap) {
                                 const newStatus = stageToStatusMap[nextStateBase];
                                 const newTrackingInfo = stageToTrackingMap[nextStateBase];
+                                logger.log(`Updating order ${order.id} status from ${order.status} to ${newStatus}`);
                                 await transactionalEntityManager.update(order_entity_1.Order, { id: order.id }, {
                                     status: newStatus,
                                     tracking_info: newTrackingInfo,
                                     updated_at: Math.floor(Date.now() / 1000)
                                 });
-                                if (nextStateBase === 'delivery_complete') {
-                                    if (order.payment_method === 'COD') {
-                                        await this.ordersService.updateOrderPaymentStatus(order.id, 'PAID', transactionalEntityManager);
-                                    }
-                                    dps.total_tips =
-                                        (dps.total_tips || 0) + (order.driver_tips || 0);
-                                    dps.total_distance_travelled =
-                                        Number(dps.total_distance_travelled || 0) +
-                                            Number(order.distance || 0);
-                                    await transactionalEntityManager
-                                        .createQueryBuilder()
-                                        .delete()
-                                        .from('driver_current_orders')
-                                        .where('driver_id = :driverId', {
-                                        driverId: dps.driver_id
-                                    })
-                                        .andWhere('order_id = :orderId', { orderId: order.id })
-                                        .execute();
-                                }
                             }
                         }
                         else if (currentStageIndex < stageOrder.length - 1) {
@@ -658,24 +706,44 @@ let DriversGateway = class DriversGateway {
                 if (allDeliveryCompleteDone &&
                     allDeliveryCompleteStages.length > 0 &&
                     !updateResult.data.transactions_processed) {
+                    logger.log('Processing COD transactions for completed deliveries');
                     const driver = await transactionalEntityManager
                         .getRepository(driver_entity_1.Driver)
                         .findOne({ where: { id: dps.driver_id } });
-                    if (!driver)
+                    if (!driver) {
+                        logger.error(`Driver ${dps.driver_id} not found`);
                         throw new Error(`Driver ${dps.driver_id} not found`);
+                    }
+                    logger.log('Found driver:', driver);
                     const driverWallet = await this.fWalletsRepository.findByUserId(driver.user_id, transactionalEntityManager);
-                    if (!driverWallet)
+                    if (!driverWallet) {
+                        logger.error(`Wallet not found for driver ${dps.driver_id}`);
                         throw new Error(`Wallet not found for driver ${dps.driver_id}`);
+                    }
+                    logger.log('Found driver wallet:', {
+                        id: driverWallet.id,
+                        balance: driverWallet.balance
+                    });
                     for (const order of dps.orders) {
                         if (order.payment_method === 'COD') {
+                            logger.log('Processing COD transaction for order:', order.id);
                             const restaurant = await transactionalEntityManager
                                 .getRepository(restaurant_entity_1.Restaurant)
                                 .findOne({ where: { id: order.restaurant_id } });
-                            if (!restaurant)
+                            if (!restaurant) {
+                                logger.error(`Restaurant ${order.restaurant_id} not found`);
                                 throw new Error(`Restaurant ${order.restaurant_id} not found`);
+                            }
+                            logger.log('Found restaurant:', restaurant);
                             const restaurantWallet = await this.fWalletsRepository.findByUserId(restaurant.owner_id, transactionalEntityManager);
-                            if (!restaurantWallet)
+                            if (!restaurantWallet) {
+                                logger.error(`Wallet not found for restaurant ${order.restaurant_id}`);
                                 throw new Error(`Wallet not found for restaurant ${order.restaurant_id}`);
+                            }
+                            logger.log('Found restaurant wallet:', {
+                                id: restaurantWallet.id,
+                                balance: restaurantWallet.balance
+                            });
                             const codTransactionDto = {
                                 user_id: driver.user_id,
                                 fwallet_id: driverWallet.id,
@@ -688,29 +756,50 @@ let DriversGateway = class DriversGateway {
                                 destination: restaurantWallet.id,
                                 destination_type: 'FWALLET'
                             };
+                            logger.log('Creating COD transaction with DTO:', codTransactionDto);
                             const codTransactionResponse = await this.transactionsService.create(codTransactionDto, transactionalEntityManager);
                             if (codTransactionResponse.EC !== 0) {
+                                logger.error('COD Transaction failed:', codTransactionResponse);
                                 throw new Error(`COD Transaction failed: ${codTransactionResponse.EM}`);
                             }
-                            console.log('[DriversGateway] COD transaction from driver to restaurant succeeded:', codTransactionResponse.data);
-                            await this.ordersService.updateOrderPaymentStatus(order.id, 'PAID', transactionalEntityManager);
+                            logger.log('COD transaction created successfully:', codTransactionResponse.data);
+                            logger.log('Updating order payment status to PAID');
+                            const orderUpdateResult = await this.ordersService.updateOrderPaymentStatus(order.id, 'PAID', transactionalEntityManager);
+                            logger.log('Order payment status update result:', orderUpdateResult);
                         }
                     }
-                    console.log('[DriversGateway] check total earns', dps.total_earns, 'check driver wallet', driverWallet.id);
                     if (dps.total_earns > 0) {
-                        console.log('[DriversGateway] Processing earnings transaction for driver', driver.id, 'amount:', dps.total_earns);
-                        let flashfoodWallet = await this.fWalletsRepository.findByUserId(constants_1.FLASHFOOD_FINANCE_neon_test_branch.user_id, transactionalEntityManager);
-                        if (!flashfoodWallet) {
-                            console.log('[DriversGateway] FlashFood finance wallet not found, creating it');
-                            flashfoodWallet = await this.fWalletsRepository.create({
-                                user_id: constants_1.FLASHFOOD_FINANCE_neon_test_branch.user_id,
-                                balance: 1000000,
+                        logger.log('Processing driver earnings transaction:', {
+                            driverId: driver.id,
+                            amount: dps.total_earns
+                        });
+                        let flashfoodUser = await this.userRepository.findById(constants_1.FLASHFOOD_FINANCE_neon_test_branch.user_id, transactionalEntityManager);
+                        if (!flashfoodUser) {
+                            logger.log('Creating FlashFood finance user');
+                            flashfoodUser = await this.userRepository.create({
+                                id: constants_1.FLASHFOOD_FINANCE_neon_test_branch.user_id,
                                 email: constants_1.FLASHFOOD_FINANCE_neon_test_branch.email,
-                                password: 'dummy',
+                                password: await bcrypt.hash('flashfood123', 10),
                                 first_name: 'FlashFood',
-                                last_name: 'Finance'
+                                last_name: 'Finance',
+                                user_type: [Payload_1.Enum_UserType.F_WALLET],
+                                is_verified: true
+                            });
+                            logger.log('Created FlashFood finance user:', flashfoodUser);
+                        }
+                        let flashfoodWallet = await this.fWalletsRepository.findById(constants_1.FLASHFOOD_FINANCE_neon_test_branch.id, transactionalEntityManager);
+                        console.log('check flas wall', flashfoodWallet);
+                        if (!flashfoodWallet) {
+                            logger.log('Creating FlashFood finance wallet');
+                            flashfoodWallet = await this.fWalletsRepository.create({
+                                user_id: flashfoodUser.id,
+                                balance: 1000000,
+                                email: flashfoodUser.email,
+                                password: 'dummy',
+                                first_name: flashfoodUser.first_name,
+                                last_name: flashfoodUser.last_name
                             }, transactionalEntityManager);
-                            console.log('[DriversGateway] Created FlashFood finance wallet:', flashfoodWallet.id);
+                            logger.log('Created FlashFood finance wallet:', flashfoodWallet);
                         }
                         const earningsTransactionDto = {
                             user_id: driver.user_id,
@@ -720,20 +809,23 @@ let DriversGateway = class DriversGateway {
                             balance_after: parseFloat(flashfoodWallet.balance.toString()) -
                                 dps.total_earns,
                             status: 'PENDING',
-                            version: 0,
+                            version: flashfoodWallet.version || 0,
                             source: 'FWALLET',
                             destination: driverWallet.id,
                             destination_type: 'FWALLET'
                         };
-                        console.log('[DriversGateway] Creating earnings transaction:', earningsTransactionDto);
+                        logger.log('Creating earnings transaction with DTO:', earningsTransactionDto);
                         const earningsTransactionResponse = await this.transactionsService.create(earningsTransactionDto, transactionalEntityManager);
+                        console.log('chekc ưtfwtf reéesponse', earningsTransactionResponse);
                         if (earningsTransactionResponse.EC !== 0) {
-                            throw new Error(`Earnings Transaction failed: ${earningsTransactionResponse.EM}`);
+                            logger.error('Earnings transaction failed:', earningsTransactionResponse);
+                            throw new Error(`Earnings transaction failed: ${earningsTransactionResponse.EM}`);
                         }
-                        console.log('[DriversGateway] Earnings transaction for driver succeeded:', earningsTransactionResponse.data);
-                        dps.transactions_processed = true;
-                        await transactionalEntityManager.save(driver_progress_stage_entity_1.DriverProgressStage, dps);
+                        logger.log('Earnings transaction created successfully:', earningsTransactionResponse.data);
                     }
+                    dps.transactions_processed = true;
+                    await transactionalEntityManager.save(driver_progress_stage_entity_1.DriverProgressStage, dps);
+                    logger.log('Updated driver progress stage transactions_processed flag');
                 }
                 const newStagesString = JSON.stringify(updateResult.data.stages);
                 const hasChanges = oldStagesString !== newStagesString ||
@@ -743,17 +835,18 @@ let DriversGateway = class DriversGateway {
                 const allStagesCompleted = updateResult.data.stages.every(stage => stage.status === 'completed');
                 if (updateResult.EC === 0 && hasChanges) {
                     if (this.server) {
+                        logger.log('Emitting driverStagesUpdated event');
                         await this.server
                             .to(`driver_${dps.driver_id}`)
                             .emit('driverStagesUpdated', updateResult.data);
-                        console.log('[DriversGateway] Emitted driverStagesUpdated:', updateResult.data);
+                        logger.log('Successfully emitted driverStagesUpdated event');
                     }
                     else {
-                        console.error('[DriversGateway] WebSocket server is null, cannot emit driverStagesUpdated');
+                        logger.error('WebSocket server is null, cannot emit driverStagesUpdated');
                     }
                 }
                 else {
-                    console.log('[DriversGateway] Skipped emitting driverStagesUpdated:', {
+                    logger.log('Skipped emitting driverStagesUpdated:', {
                         reason: !hasChanges ? 'No changes detected' : 'Update failed',
                         oldStagesString,
                         newStagesString,
@@ -794,8 +887,8 @@ let DriversGateway = class DriversGateway {
             return result;
         }
         catch (error) {
-            console.error('[DriversGateway] Error in handleDriverProgressUpdate:', error);
-            return { success: false, message: 'Internal server error' };
+            logger.error('Error in handleDriverProgressUpdate:', error);
+            throw error;
         }
     }
     async handleDriverAcceptOrder(data) {
@@ -1200,6 +1293,170 @@ let DriversGateway = class DriversGateway {
             return 'N/A';
         return `${address.street}, ${address.city}, ${address.nationality}`;
     }
+    async handleDeliveryCompletion(order, dps, transactionalEntityManager) {
+        if (order.payment_method === 'COD') {
+            await this.ordersService.updateOrderPaymentStatus(order.id, 'PAID', transactionalEntityManager);
+            logger.log('Processing COD transaction for order:', order.id);
+            const driver = await transactionalEntityManager
+                .getRepository(driver_entity_1.Driver)
+                .findOne({ where: { id: dps.driver_id } });
+            if (!driver) {
+                logger.error(`Driver ${dps.driver_id} not found`);
+                throw new Error(`Driver ${dps.driver_id} not found`);
+            }
+            const driverWallet = await this.fWalletsRepository.findByUserId(driver.user_id, transactionalEntityManager);
+            if (!driverWallet) {
+                logger.error(`Wallet not found for driver ${dps.driver_id}`);
+                throw new Error(`Wallet not found for driver ${dps.driver_id}`);
+            }
+            const restaurant = await transactionalEntityManager
+                .getRepository(restaurant_entity_1.Restaurant)
+                .findOne({ where: { id: order.restaurant_id } });
+            if (!restaurant) {
+                logger.error(`Restaurant ${order.restaurant_id} not found`);
+                throw new Error(`Restaurant ${order.restaurant_id} not found`);
+            }
+            const restaurantWallet = await this.fWalletsRepository.findByUserId(restaurant.owner_id, transactionalEntityManager);
+            if (!restaurantWallet) {
+                logger.error(`Wallet not found for restaurant ${order.restaurant_id}`);
+                throw new Error(`Wallet not found for restaurant ${order.restaurant_id}`);
+            }
+            const codTransactionDto = {
+                user_id: driver.user_id,
+                fwallet_id: driverWallet.id,
+                transaction_type: 'WITHDRAW',
+                amount: Number(order.total_amount),
+                balance_after: 0,
+                version: driverWallet.version || 0,
+                status: 'PENDING',
+                source: 'FWALLET',
+                destination: restaurantWallet.id,
+                destination_type: 'FWALLET'
+            };
+            const codTransactionResponse = await this.transactionsService.create(codTransactionDto, transactionalEntityManager);
+            if (codTransactionResponse.EC !== 0) {
+                logger.error('COD Transaction failed:', codTransactionResponse);
+                throw new Error(`COD Transaction failed: ${codTransactionResponse.EM}`);
+            }
+            logger.log('COD transaction created successfully:', codTransactionResponse.data);
+        }
+        const rawDistance = order.distance || 0;
+        const distance = typeof rawDistance === 'string'
+            ? parseFloat(rawDistance)
+            : Number(rawDistance);
+        if (isNaN(distance)) {
+            logger.error(`Invalid distance value for order ${order.id}: ${rawDistance}`);
+            throw new Error('Invalid distance value in order');
+        }
+        const latestFinanceRuleResponse = await this.financeRulesService.findOneLatest();
+        const { EC, EM, data: financeRules } = latestFinanceRuleResponse;
+        if (EC !== 0)
+            throw new Error(EM);
+        let driver_wage;
+        if (distance >= 0 && distance <= 1) {
+            driver_wage = Number(financeRules.driver_fixed_wage['0-1km']);
+        }
+        else if (distance > 1 && distance <= 2) {
+            driver_wage = Number(financeRules.driver_fixed_wage['1-2km']);
+        }
+        else if (distance > 2 && distance <= 3) {
+            driver_wage = Number(financeRules.driver_fixed_wage['2-3km']);
+        }
+        else if (distance > 4 && distance <= 5) {
+            driver_wage = Number(financeRules.driver_fixed_wage['4-5km']);
+        }
+        else if (distance > 5) {
+            const formula = financeRules.driver_fixed_wage['>5km'];
+            try {
+                driver_wage = (0, mathjs_1.evaluate)(formula.replace('km', distance.toString()));
+            }
+            catch (error) {
+                logger.error('Error evaluating wage formula:', error);
+                throw new Error('Invalid wage formula');
+            }
+        }
+        else {
+            logger.error(`Invalid distance range for order ${order.id}: ${distance}`);
+            throw new Error('Invalid distance value');
+        }
+        const driver = await transactionalEntityManager
+            .getRepository(driver_entity_1.Driver)
+            .findOne({ where: { id: dps.driver_id } });
+        if (!driver) {
+            logger.error(`Driver ${dps.driver_id} not found`);
+            throw new Error(`Driver ${dps.driver_id} not found`);
+        }
+        const driverWallet = await this.fWalletsRepository.findByUserId(driver.user_id, transactionalEntityManager);
+        if (!driverWallet) {
+            logger.error(`Wallet not found for driver ${dps.driver_id}`);
+            throw new Error(`Wallet not found for driver ${dps.driver_id}`);
+        }
+        let flashfoodUser = await this.userRepository.findById(constants_1.FLASHFOOD_FINANCE_neon_test_branch.user_id, transactionalEntityManager);
+        if (!flashfoodUser) {
+            flashfoodUser = await this.userRepository.create({
+                id: constants_1.FLASHFOOD_FINANCE_neon_test_branch.user_id,
+                email: constants_1.FLASHFOOD_FINANCE_neon_test_branch.email,
+                password: await bcrypt.hash('flashfood123', 10),
+                first_name: 'FlashFood',
+                last_name: 'Finance',
+                user_type: [Payload_1.Enum_UserType.F_WALLET],
+                is_verified: true
+            });
+        }
+        let flashfoodWallet = await this.fWalletsRepository.findById(constants_1.FLASHFOOD_FINANCE_neon_test_branch.id, transactionalEntityManager);
+        if (!flashfoodWallet) {
+            flashfoodWallet = await this.fWalletsRepository.create({
+                user_id: flashfoodUser.id,
+                balance: 1000000,
+                email: flashfoodUser.email,
+                password: 'dummy',
+                first_name: flashfoodUser.first_name,
+                last_name: flashfoodUser.last_name
+            }, transactionalEntityManager);
+        }
+        const totalEarnings = Number(driver_wage) + Number(order.driver_tips || 0);
+        logger.log(`Processing driver earnings for order ${order.id}:`, {
+            base_wage: driver_wage,
+            tips: order.driver_tips,
+            total: totalEarnings
+        });
+        const earningsTransactionDto = {
+            user_id: driver.user_id,
+            fwallet_id: flashfoodWallet.id,
+            transaction_type: 'PURCHASE',
+            amount: totalEarnings,
+            balance_after: Number(flashfoodWallet.balance) - totalEarnings,
+            status: 'PENDING',
+            version: flashfoodWallet.version || 0,
+            source: 'FWALLET',
+            destination: driverWallet.id,
+            destination_type: 'FWALLET'
+        };
+        const earningsTransactionResponse = await this.transactionsService.create(earningsTransactionDto, transactionalEntityManager);
+        if (earningsTransactionResponse.EC !== 0) {
+            logger.error('Driver earnings transaction failed:', earningsTransactionResponse);
+            throw new Error(`Earnings transaction failed: ${earningsTransactionResponse.EM}`);
+        }
+        logger.log('Driver earnings transaction created successfully:', earningsTransactionResponse.data);
+        await transactionalEntityManager.update(order_entity_1.Order, { id: order.id }, {
+            driver_wage,
+            status: order_entity_1.OrderStatus.DELIVERED,
+            tracking_info: order_entity_1.OrderTrackingInfo.DELIVERED,
+            updated_at: Math.floor(Date.now() / 1000)
+        });
+        dps.total_tips =
+            Number(dps.total_tips || 0) + Number(order.driver_tips || 0);
+        dps.total_earns = Number(dps.total_earns || 0) + totalEarnings;
+        dps.total_distance_travelled =
+            Number(dps.total_distance_travelled || 0) + Number(distance);
+        await transactionalEntityManager
+            .createQueryBuilder()
+            .delete()
+            .from('driver_current_orders')
+            .where('driver_id = :driverId', { driverId: dps.driver_id })
+            .andWhere('order_id = :orderId', { orderId: order.id })
+            .execute();
+    }
 };
 exports.DriversGateway = DriversGateway;
 __decorate([
@@ -1257,6 +1514,7 @@ exports.DriversGateway = DriversGateway = __decorate([
     __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => restaurants_service_1.RestaurantsService))),
     __param(2, (0, common_1.Inject)((0, common_1.forwardRef)(() => drivers_service_1.DriversService))),
     __param(6, (0, common_1.Inject)((0, common_1.forwardRef)(() => orders_service_1.OrdersService))),
+    __param(15, (0, common_1.Inject)((0, common_1.forwardRef)(() => users_repository_1.UserRepository))),
     __metadata("design:paramtypes", [Object, restaurants_service_1.RestaurantsService,
         drivers_service_1.DriversService,
         drivers_repository_1.DriversRepository,
@@ -1270,6 +1528,7 @@ exports.DriversGateway = DriversGateway = __decorate([
         typeorm_1.DataSource,
         address_book_repository_1.AddressBookRepository,
         jwt_1.JwtService,
-        redis_service_1.RedisService])
+        redis_service_1.RedisService,
+        users_repository_1.UserRepository])
 ], DriversGateway);
 //# sourceMappingURL=drivers.gateway.js.map

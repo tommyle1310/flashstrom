@@ -12,6 +12,7 @@ export declare class TransactionService {
     private readonly dataSource;
     private readonly ordersService;
     constructor(transactionsRepository: TransactionsRepository, fWalletsRepository: FWalletsRepository, dataSource: DataSource, ordersService: OrdersService);
+    private handleError;
     create(createTransactionDto: CreateTransactionDto, manager?: EntityManager): Promise<ApiResponse<Transaction>>;
     private processTransaction;
     private handleSourceWalletTransaction;
@@ -28,6 +29,5 @@ export declare class TransactionService {
         items: Transaction[];
     }>>;
     private handleTransactionResponse;
-    private handleError;
     updateTransactionStatus(transactionId: string, newStatus: 'PENDING' | 'CANCELLED' | 'FAILED' | 'COMPLETED', orderId?: string, manager?: EntityManager): Promise<ApiResponse<Transaction>>;
 }

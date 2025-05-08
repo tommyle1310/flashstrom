@@ -67,7 +67,6 @@ const restaurant_entity_1 = require("../restaurants/entities/restaurant.entity")
 const driver_stats_records_service_1 = require("../driver_stats_records/driver_stats_records.service");
 const driver_progress_stage_entity_1 = require("../driver_progress_stages/entities/driver_progress_stage.entity");
 const event_emitter_1 = require("@nestjs/event-emitter");
-const common_2 = require("@nestjs/common");
 const drivers_service_1 = require("../drivers/drivers.service");
 const redis_1 = require("redis");
 const dotenv = __importStar(require("dotenv"));
@@ -75,7 +74,7 @@ const typeorm_2 = require("@nestjs/typeorm");
 const redis_service_1 = require("../redis/redis.service");
 const orders_repository_1 = require("./orders.repository");
 dotenv.config();
-const logger = new common_2.Logger('OrdersService');
+const logger = new common_1.Logger('OrdersService');
 const redis = (0, redis_1.createClient)({
     url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
@@ -99,6 +98,25 @@ let OrdersService = class OrdersService {
         this.eventEmitter = eventEmitter;
         this.driverService = driverService;
         this.redisService = redisService;
+        logger.log('OrdersService constructor called');
+        logger.log('Checking injected dependencies:');
+        logger.log('- ordersRepository:', !!this.ordersRepository);
+        logger.log('- menuItemsRepository:', !!this.menuItemsRepository);
+        logger.log('- menuItemVariantsRepository:', !!this.menuItemVariantsRepository);
+        logger.log('- addressBookRepository:', !!this.addressBookRepository);
+        logger.log('- customersRepository:', !!this.customersRepository);
+        logger.log('- driverStatsService:', !!this.driverStatsService);
+        logger.log('- restaurantsRepository:', !!this.restaurantsRepository);
+        logger.log('- dataSource:', !!this.dataSource);
+        logger.log('- cartItemsRepository:', !!this.cartItemsRepository);
+        logger.log('- orderRepository:', !!this.orderRepository);
+        logger.log('- customersGateway:', !!this.customersGateway);
+        logger.log('- driversGateway:', !!this.driversGateway);
+        logger.log('- transactionService:', !!this.transactionService);
+        logger.log('- fWalletsRepository:', !!this.fWalletsRepository);
+        logger.log('- eventEmitter:', !!this.eventEmitter);
+        logger.log('- driverService:', !!this.driverService);
+        logger.log('- redisService:', !!this.redisService);
     }
     async createOrder(createOrderDto) {
         const start = Date.now();
@@ -376,7 +394,7 @@ let OrdersService = class OrdersService {
                         balance_after: Number(customerWallet.balance) - totalAmount,
                         status: 'PENDING',
                         source: 'FWALLET',
-                        destination: restaurant.owner_id,
+                        destination: restaurantWallet.id,
                         destination_type: 'FWALLET',
                         version: customerWallet.version || 0
                     };
@@ -924,24 +942,43 @@ let OrdersService = class OrdersService {
         return true;
     }
     async updateOrderPaymentStatus(orderId, paymentStatus, transactionalEntityManager) {
+        logger.log(`Updating order ${orderId} payment status to ${paymentStatus}`);
         try {
             const manager = transactionalEntityManager || this.dataSource.manager;
+            logger.log('Using entity manager:', !!transactionalEntityManager ? 'provided' : 'new');
             const order = await manager.findOne(order_entity_1.Order, { where: { id: orderId } });
             if (!order) {
+                logger.warn(`Order ${orderId} not found`);
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Order not found');
             }
+            logger.log('Found order:', order);
             order.payment_status = paymentStatus;
             order.updated_at = Math.floor(Date.now() / 1000);
+            logger.log('Updated order fields:', {
+                payment_status: order.payment_status,
+                updated_at: order.updated_at
+            });
             if (paymentStatus === 'FAILED') {
+                logger.log('Payment failed, cancelling order');
                 order.status = order_entity_1.OrderStatus.CANCELLED;
                 order.cancellation_reason = order_entity_1.OrderCancellationReason.OTHER;
                 order.cancellation_title = 'Payment Failed';
                 order.cancellation_description =
                     'Order cancelled due to payment failure';
                 order.cancelled_at = Math.floor(Date.now() / 1000);
+                logger.log('Updated order cancellation details:', {
+                    status: order.status,
+                    reason: order.cancellation_reason,
+                    title: order.cancellation_title,
+                    cancelled_at: order.cancelled_at
+                });
             }
+            logger.log('Saving updated order');
             const updatedOrder = await manager.save(order_entity_1.Order, order);
+            logger.log('Order saved successfully:', updatedOrder);
+            logger.log('Notifying order status update');
             await this.notifyOrderStatus(updatedOrder);
+            logger.log('Order status notification sent');
             return (0, createResponse_1.createResponse)('OK', updatedOrder, 'Order payment status updated successfully');
         }
         catch (error) {

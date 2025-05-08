@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TransactionService = void 0;
 const common_1 = require("@nestjs/common");
+const transaction_entity_1 = require("./entities/transaction.entity");
 const createResponse_1 = require("../utils/createResponse");
 const fwallets_repository_1 = require("../fwallets/fwallets.repository");
 const transactions_repository_1 = require("./transactions.repository");
@@ -32,95 +33,162 @@ let TransactionService = class TransactionService {
         this.fWalletsRepository = fWalletsRepository;
         this.dataSource = dataSource;
         this.ordersService = ordersService;
+        logger.log('TransactionService constructor called');
+        logger.log('Checking injected dependencies:');
+        logger.log('- transactionsRepository:', !!this.transactionsRepository);
+        logger.log('- fWalletsRepository:', !!this.fWalletsRepository);
+        logger.log('- dataSource:', !!this.dataSource);
+        logger.log('- ordersService:', !!this.ordersService);
+    }
+    handleError(message, error) {
+        logger.error(`${message}:`, error);
+        return (0, createResponse_1.createResponse)('ServerError', null, error.message || message);
     }
     async create(createTransactionDto, manager) {
-        const start = Date.now();
-        const maxRetries = 3;
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                logger.log(`Attempt ${attempt}: Creating transaction`, createTransactionDto);
-                const txManager = manager || this.dataSource.createEntityManager();
-                const isExternalManager = !!manager;
-                const result = isExternalManager
-                    ? await this.processTransaction(createTransactionDto, txManager)
-                    : await this.dataSource.transaction(async (txManager) => this.processTransaction(createTransactionDto, txManager));
-                logger.log(`Transaction service took ${Date.now() - start}ms`);
-                return result;
-            }
-            catch (error) {
-                if (error.name === 'OptimisticLockVersionMismatchError' &&
-                    attempt < maxRetries) {
-                    logger.warn(`Optimistic lock failed on attempt ${attempt}, retrying...`, error);
-                    const wallet = await this.fWalletsRepository.findById(createTransactionDto.fwallet_id);
-                    if (wallet) {
-                        createTransactionDto.version = wallet.version || 0;
-                        createTransactionDto.balance_after =
-                            Number(wallet.balance) - createTransactionDto.amount;
-                        await redis.del(`fwallet:${createTransactionDto.user_id}`);
+        logger.log('Creating transaction with DTO:', createTransactionDto);
+        try {
+            const txManager = manager || this.dataSource.createEntityManager();
+            logger.log('Using transaction manager:', !!manager ? 'provided' : 'new');
+            const start = Date.now();
+            const maxRetries = 3;
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    logger.log(`Attempt ${attempt}: Creating transaction`, createTransactionDto);
+                    const isExternalManager = !!manager;
+                    const result = isExternalManager
+                        ? await this.processTransaction(createTransactionDto, txManager)
+                        : await this.dataSource.transaction(async (txManager) => this.processTransaction(createTransactionDto, txManager));
+                    logger.log(`Transaction service took ${Date.now() - start}ms`);
+                    return result;
+                }
+                catch (error) {
+                    if (error.name === 'OptimisticLockVersionMismatchError' &&
+                        attempt < maxRetries) {
+                        logger.warn(`Optimistic lock failed on attempt ${attempt}, retrying...`, error);
+                        const wallet = await this.fWalletsRepository.findById(createTransactionDto.fwallet_id);
+                        if (wallet) {
+                            createTransactionDto.version = wallet.version || 0;
+                            createTransactionDto.balance_after =
+                                Number(wallet.balance) - createTransactionDto.amount;
+                            await redis.del(`fwallet:${createTransactionDto.user_id}`);
+                        }
+                        else {
+                            logger.error('Wallet not found for retry', createTransactionDto);
+                            return (0, createResponse_1.createResponse)('NotFound', null, 'Wallet not found');
+                        }
                     }
                     else {
-                        logger.error('Wallet not found for retry', createTransactionDto);
-                        return (0, createResponse_1.createResponse)('NotFound', null, 'Wallet not found');
+                        logger.error(`Error creating transaction on attempt ${attempt}:`, error);
+                        return (0, createResponse_1.createResponse)('ServerError', null, 'Error creating transaction');
                     }
                 }
-                else {
-                    logger.error(`Error creating transaction on attempt ${attempt}:`, error);
-                    return (0, createResponse_1.createResponse)('ServerError', null, 'Error creating transaction');
-                }
             }
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to create transaction after retries');
         }
-        return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to create transaction after retries');
+        catch (error) {
+            return this.handleError('Error creating transaction:', error);
+        }
     }
     async processTransaction(createTransactionDto, manager) {
         const { transaction_type, amount, fwallet_id, destination } = createTransactionDto;
         logger.log('Processing transaction:', createTransactionDto);
-        if (transaction_type === 'WITHDRAW' || transaction_type === 'PURCHASE') {
-            const sourceWallet = await manager
-                .createQueryBuilder(fwallet_entity_1.FWallet, 'wallet')
-                .where('wallet.id = :id', { id: fwallet_id })
-                .andWhere('wallet.version = :version', {
-                version: createTransactionDto.version || 0
-            })
-                .select([
-                'wallet.id',
-                'wallet.balance',
-                'wallet.version',
-                'wallet.user_id'
-            ])
-                .getOne();
-            if (!sourceWallet) {
-                return (0, createResponse_1.createResponse)('NotFound', null, 'Source wallet not found');
+        let newTransaction;
+        try {
+            newTransaction = await this.transactionsRepository.create({
+                ...createTransactionDto,
+                status: 'PENDING'
+            }, manager);
+            logger.log('Created initial transaction with PENDING status:', {
+                id: newTransaction.id,
+                status: newTransaction.status
+            });
+            if (transaction_type === 'WITHDRAW' || transaction_type === 'PURCHASE') {
+                const sourceWallet = await manager
+                    .createQueryBuilder(fwallet_entity_1.FWallet, 'wallet')
+                    .where('wallet.id = :id', { id: fwallet_id })
+                    .select([
+                    'wallet.id',
+                    'wallet.balance',
+                    'wallet.version',
+                    'wallet.user_id'
+                ])
+                    .getOne();
+                logger.log('Found source wallet:', sourceWallet);
+                if (!sourceWallet) {
+                    return (0, createResponse_1.createResponse)('NotFound', null, 'Source wallet not found');
+                }
+                if (createTransactionDto.version !== undefined &&
+                    sourceWallet.version !== createTransactionDto.version) {
+                    logger.warn('Wallet version mismatch:', {
+                        expected: createTransactionDto.version,
+                        actual: sourceWallet.version
+                    });
+                    return (0, createResponse_1.createResponse)('InvalidFormatInput', null, 'Wallet version mismatch');
+                }
+                if (Number(sourceWallet.balance) < amount) {
+                    return (0, createResponse_1.createResponse)('InsufficientBalance', null, 'Insufficient balance in the source wallet');
+                }
+                await this.handleSourceWalletTransaction(sourceWallet, amount, manager);
+                logger.log('Successfully deducted from source wallet');
             }
-            if (Number(sourceWallet.balance) < amount) {
-                return (0, createResponse_1.createResponse)('InsufficientBalance', null, 'Insufficient balance in the source wallet');
+            if (transaction_type === 'DEPOSIT' || transaction_type === 'PURCHASE') {
+                await this.handleDestinationWalletTransaction(destination, amount, manager, transaction_type);
+                logger.log('Successfully added to destination wallet');
             }
-            await this.handleSourceWalletTransaction(sourceWallet, amount, manager);
-        }
-        if (transaction_type === 'DEPOSIT' || transaction_type === 'PURCHASE') {
-            await this.handleDestinationWalletTransaction(destination, amount, manager, transaction_type);
-        }
-        const newTransaction = await this.transactionsRepository.create(createTransactionDto, manager);
-        logger.log('Transaction created:', {
-            id: newTransaction.id,
-            amount: newTransaction.amount,
-            status: newTransaction.status
-        });
-        if (transaction_type === 'WITHDRAW' || transaction_type === 'PURCHASE') {
-            const sourceWallet = await manager
-                .createQueryBuilder(fwallet_entity_1.FWallet, 'wallet')
-                .where('wallet.id = :id', { id: fwallet_id })
-                .select([
-                'wallet.id',
-                'wallet.balance',
-                'wallet.version',
-                'wallet.user_id'
-            ])
-                .getOne();
-            if (sourceWallet) {
-                await redis.setEx(`fwallet:${sourceWallet.user_id}`, 7200, JSON.stringify(sourceWallet));
+            if (transaction_type === 'PURCHASE' ||
+                transaction_type === 'DEPOSIT' ||
+                transaction_type === 'WITHDRAW') {
+                logger.log('Both wallets updated successfully, marking transaction as COMPLETED');
+                const updateData = {
+                    status: 'COMPLETED',
+                    updated_at: Math.floor(Date.now() / 1000)
+                };
+                await manager.update(transaction_entity_1.Transaction, { id: newTransaction.id }, updateData);
+                logger.log('Transaction status updated to COMPLETED');
             }
+            if (transaction_type === 'WITHDRAW' || transaction_type === 'PURCHASE') {
+                const sourceWallet = await manager
+                    .createQueryBuilder(fwallet_entity_1.FWallet, 'wallet')
+                    .where('wallet.id = :id', { id: fwallet_id })
+                    .select([
+                    'wallet.id',
+                    'wallet.balance',
+                    'wallet.version',
+                    'wallet.user_id'
+                ])
+                    .getOne();
+                if (sourceWallet) {
+                    await redis.setEx(`fwallet:${sourceWallet.user_id}`, 7200, JSON.stringify(sourceWallet));
+                    logger.log('Updated Redis cache for source wallet');
+                }
+            }
+            const updatedTransaction = await manager.findOne(transaction_entity_1.Transaction, {
+                where: { id: newTransaction.id }
+            });
+            logger.log('Final transaction state:', {
+                id: updatedTransaction.id,
+                status: updatedTransaction.status,
+                amount: updatedTransaction.amount
+            });
+            return (0, createResponse_1.createResponse)('OK', updatedTransaction, 'Transaction processed successfully');
         }
-        return (0, createResponse_1.createResponse)('OK', newTransaction, 'Transaction created successfully');
+        catch (error) {
+            logger.error('Error in processTransaction:', error);
+            if (newTransaction?.id) {
+                try {
+                    const updateData = {
+                        status: 'FAILED',
+                        updated_at: Math.floor(Date.now() / 1000)
+                    };
+                    await manager.update(transaction_entity_1.Transaction, { id: newTransaction.id }, updateData);
+                    logger.log('Marked transaction as FAILED due to error');
+                }
+                catch (updateError) {
+                    logger.error('Error updating transaction status to FAILED:', updateError);
+                }
+            }
+            throw error;
+        }
     }
     async handleSourceWalletTransaction(sourceWallet, amount, manager) {
         const maxRetries = 3;
@@ -196,13 +264,14 @@ let TransactionService = class TransactionService {
     }
     async handleDestinationWalletTransaction(destination, amount, manager, transaction_type) {
         const maxRetries = 3;
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        let destinationWallet;
+        let attempt = 1;
+        while (attempt <= maxRetries) {
             try {
-                let destinationWallet;
                 if (transaction_type === 'PURCHASE') {
                     destinationWallet = await manager
                         .createQueryBuilder(fwallet_entity_1.FWallet, 'wallet')
-                        .where('wallet.user_id = :userId', { userId: destination })
+                        .where('wallet.id = :id', { id: destination })
                         .select([
                         'wallet.id',
                         'wallet.balance',
@@ -224,9 +293,8 @@ let TransactionService = class TransactionService {
                         .getOne();
                 }
                 if (!destinationWallet) {
-                    const errorMessage = transaction_type === 'PURCHASE'
-                        ? `Destination wallet for user ${destination} not found`
-                        : `Destination wallet ${destination} not found`;
+                    const errorMessage = `Destination wallet ${destination} not found`;
+                    logger.error(errorMessage);
                     throw new Error(errorMessage);
                 }
                 logger.log('Found destination wallet:', {
@@ -235,8 +303,14 @@ let TransactionService = class TransactionService {
                     balance: destinationWallet.balance,
                     version: destinationWallet.version
                 });
-                const currentBalance = Number(destinationWallet.balance);
-                const newBalance = Number((currentBalance + amount).toFixed(2));
+                const currentBalance = parseFloat(destinationWallet.balance.toString());
+                const amountNumber = parseFloat(amount.toString());
+                const newBalance = Number((currentBalance + amountNumber).toFixed(2));
+                logger.log('Calculating new balance:', {
+                    currentBalance,
+                    amountToAdd: amountNumber,
+                    newBalance
+                });
                 const updateResult = await manager
                     .createQueryBuilder()
                     .update(fwallet_entity_1.FWallet)
@@ -255,7 +329,9 @@ let TransactionService = class TransactionService {
                     raw: updateResult.raw
                 });
                 if (updateResult.affected === 0) {
-                    throw new Error(`Failed to update destination wallet ${destinationWallet.id} due to version conflict`);
+                    logger.warn(`Optimistic lock failed on destination wallet attempt ${attempt}, retrying...`);
+                    attempt++;
+                    continue;
                 }
                 destinationWallet.balance = newBalance;
                 destinationWallet.updated_at = Math.floor(Date.now() / 1000);
@@ -265,16 +341,13 @@ let TransactionService = class TransactionService {
                 return;
             }
             catch (error) {
-                if (error.message.includes('version conflict') &&
-                    attempt < maxRetries) {
-                    logger.warn(`Optimistic lock failed on destination wallet attempt ${attempt}, retrying...`, error);
+                logger.error(`Error on attempt ${attempt}:`, error);
+                if (attempt < maxRetries) {
+                    attempt++;
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    continue;
                 }
-                else if (error.message.includes('not found')) {
-                    throw error;
-                }
-                else {
-                    throw new Error(`Failed to update destination wallet ${destination}`);
-                }
+                throw new Error(`Failed to update destination wallet ${destination} after ${maxRetries} retries`);
             }
         }
         throw new Error(`Failed to update destination wallet ${destination} after ${maxRetries} retries`);
@@ -350,20 +423,26 @@ let TransactionService = class TransactionService {
         }
         return (0, createResponse_1.createResponse)('OK', transaction, 'Transaction retrieved successfully');
     }
-    handleError(message, error) {
-        logger.error(message, error);
-        return (0, createResponse_1.createResponse)('ServerError', null, 'An error occurred while processing your request');
-    }
     async updateTransactionStatus(transactionId, newStatus, orderId, manager) {
+        logger.log(`Updating transaction ${transactionId} status to ${newStatus}`);
+        logger.log('OrderId provided:', orderId);
         const txManager = manager || this.dataSource.createEntityManager();
+        logger.log('Using transaction manager:', !!manager ? 'provided' : 'new');
         try {
             const transaction = await this.transactionsRepository.findById(transactionId);
             if (!transaction) {
+                logger.warn(`Transaction ${transactionId} not found`);
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Transaction not found');
             }
+            logger.log('Found transaction:', transaction);
             transaction.status = newStatus;
             transaction.updated_at = Math.floor(Date.now() / 1000);
+            logger.log('Updated transaction fields:', {
+                status: transaction.status,
+                updated_at: transaction.updated_at
+            });
             if (transaction.transaction_type === 'PURCHASE' && orderId) {
+                logger.log('Syncing order payment status for PURCHASE transaction');
                 let orderPaymentStatus;
                 switch (newStatus) {
                     case 'COMPLETED':
@@ -378,27 +457,43 @@ let TransactionService = class TransactionService {
                     default:
                         orderPaymentStatus = 'PENDING';
                 }
-                await this.ordersService.updateOrderPaymentStatus(orderId, orderPaymentStatus, txManager);
+                logger.log('Mapped transaction status to order payment status:', {
+                    transactionStatus: newStatus,
+                    orderPaymentStatus
+                });
+                logger.log('Calling ordersService.updateOrderPaymentStatus');
+                const orderUpdateResult = await this.ordersService.updateOrderPaymentStatus(orderId, orderPaymentStatus, txManager);
+                logger.log('Order payment status update result:', orderUpdateResult);
             }
             if (newStatus === 'COMPLETED' && !transaction.balance_after) {
+                logger.log('Updating wallet balance for completed transaction');
                 const wallet = await this.fWalletsRepository.findById(transaction.fwallet_id);
                 if (wallet) {
+                    logger.log('Found wallet:', wallet);
                     const currentBalance = Number(wallet.balance);
                     transaction.balance_after =
                         transaction.transaction_type === 'WITHDRAW' ||
                             transaction.transaction_type === 'PURCHASE'
                             ? currentBalance - transaction.amount
                             : currentBalance + transaction.amount;
+                    logger.log('Calculated new balance:', transaction.balance_after);
+                }
+                else {
+                    logger.warn(`Wallet ${transaction.fwallet_id} not found`);
                 }
             }
+            logger.log('Saving updated transaction');
             await this.transactionsRepository.update(transactionId, {
                 status: newStatus,
                 balance_after: transaction.balance_after,
                 updated_at: transaction.updated_at
             });
             const updatedTransaction = await this.transactionsRepository.findById(transactionId);
+            logger.log('Retrieved updated transaction:', updatedTransaction);
+            logger.log('Clearing Redis cache');
             await redis.del(`transaction:${transactionId}`);
             await redis.del(`fwallet:${transaction.user_id}`);
+            logger.log('Redis cache cleared');
             return (0, createResponse_1.createResponse)('OK', updatedTransaction, 'Transaction status updated successfully');
         }
         catch (error) {

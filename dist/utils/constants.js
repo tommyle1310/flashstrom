@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FLASHFOOD_FINANCE_neon_test_branch_neon_test_branch = exports.FLASHFOOD_FINANCE_neon_test_branch = exports.FIXED_DELIVERY_DRIVER_WAGE = exports.ResponseStatus = void 0;
+exports.FLASHFOOD_FINANCE_neon_test_branch = exports.FLASHFOOD_FINANCE = exports.FIXED_DELIVERY_DRIVER_WAGE = exports.ResponseStatus = void 0;
 exports.ResponseStatus = {
     OK: { httpCode: 200, message: 'Success', code: 0 },
     MissingInput: { httpCode: 400, message: 'Missing Input', code: 1 },
@@ -46,12 +46,12 @@ exports.ResponseStatus = {
     }
 };
 exports.FIXED_DELIVERY_DRIVER_WAGE = 20;
-exports.FLASHFOOD_FINANCE_neon_test_branch = {
+exports.FLASHFOOD_FINANCE = {
     id: 'F_WALLET_06f81c5e-8ef5-4072-85b2-dc3f19f91ef3',
     user_id: 'USR_ee0f6d15-f7bf-4b97-a903-fa0406a43847',
     email: 'flashfood.finance@gmail.com'
 };
-exports.FLASHFOOD_FINANCE_neon_test_branch_neon_test_branch = {
+exports.FLASHFOOD_FINANCE_neon_test_branch = {
     id: 'F_WALLET_3e5b3793-363d-4912-a80b-ecfd5d78b1ec',
     user_id: 'USR_bf7f348e-3c6e-4d30-a143-0bb50f6fed91',
     email: 'superadmin@gmail.com'
