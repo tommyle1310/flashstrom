@@ -102,7 +102,11 @@ export class CustomerCaresRepository {
     return await this.repository.findAndCount({
       skip,
       take: limit,
+<<<<<<< HEAD
+      relations: ['user_id']
+=======
       relations: ['user']
+>>>>>>> d472b5f2d4a15452368a4da85205d6839bcd1d02
     });
   }
 }
