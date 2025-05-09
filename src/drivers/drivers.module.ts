@@ -38,7 +38,18 @@ import { Customer } from 'src/customers/entities/customer.entity';
 import { TransactionsRepository } from 'src/transactions/transactions.repository';
 import { UserRepository } from 'src/users/users.repository';
 import { User } from 'src/users/entities/user.entity';
+import { Server } from 'socket.io';
 import { RedisService } from 'src/redis/redis.service';
+import { RestaurantsService } from 'src/restaurants/restaurants.service';
+import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
+import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
+import { MenuItemsService } from 'src/menu_items/menu_items.service';
+import { MenuItemVariantsRepository } from 'src/menu_item_variants/menu_item_variants.repository';
+import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_variants.service';
+import { MenuItemVariant } from 'src/menu_item_variants/entities/menu_item_variant.entity';
+import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
+import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
+import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 
 @Module({
   imports: [
@@ -48,6 +59,7 @@ import { RedisService } from 'src/redis/redis.service';
       Order,
       Promotion,
       DriverProgressStage,
+      MenuItem,
       Admin,
       OnlineSession,
       Transaction,
@@ -55,8 +67,10 @@ import { RedisService } from 'src/redis/redis.service';
       Customer,
       FinanceRule,
       User,
+      FoodCategory,
       FWallet,
       DriverStatsRecord,
+      MenuItemVariant,
       RatingsReview
     ]),
     forwardRef(() => RestaurantsModule),
@@ -69,12 +83,19 @@ import { RedisService } from 'src/redis/redis.service';
     DriversService,
     OrdersRepository,
     FWalletsRepository,
+    RestaurantsGateway,
     TransactionService,
+    RestaurantsService,
+    FoodCategoriesRepository,
     DriversRepository,
     TransactionsRepository,
     UserRepository,
     OnlineSessionsService,
     RatingsReviewsRepository,
+    MenuItemsRepository,
+    MenuItemsService,
+    MenuItemVariantsRepository,
+    MenuItemVariantsService,
     OnlineSessionsRepository,
     FinanceRulesRepository,
     FinanceRulesService,
@@ -83,7 +104,22 @@ import { RedisService } from 'src/redis/redis.service';
     DriverProgressStagesRepository,
     PromotionsRepository,
     JwtService,
-    DriverStatsService
+    DriverStatsService,
+    {
+      provide: 'SOCKET_SERVER',
+      useFactory: () => {
+        const io = new Server({
+          cors: {
+            origin: ['http://localhost:3000', 'http://localhost:1310'],
+            methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+            credentials: true,
+            allowedHeaders: ['Authorization', 'auth', 'Content-Type']
+          },
+          transports: ['websocket', 'polling']
+        });
+        return io;
+      }
+    }
   ],
   exports: [DriversService, DriversRepository, DriverStatsService]
 })

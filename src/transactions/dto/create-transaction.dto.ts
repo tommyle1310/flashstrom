@@ -46,4 +46,8 @@ export class CreateTransactionDto {
   @IsEnum(['FWALLET', 'TEMPORARY_WALLET_BALANCE'])
   @IsNotEmpty()
   destination_type: 'FWALLET' | 'TEMPORARY_WALLET_BALANCE';
+
+  @IsString()
+  @IsOptional()
+  order_id?: string;
 }

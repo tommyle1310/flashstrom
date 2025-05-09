@@ -9,4 +9,5 @@ export declare class CreateTransactionDto {
     source: 'MOMO' | 'FWALLET';
     destination: string;
     destination_type: 'FWALLET' | 'TEMPORARY_WALLET_BALANCE';
+    order_id?: string;
 }

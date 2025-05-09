@@ -67,6 +67,9 @@ export class Transaction {
   })
   destination_type: 'FWALLET' | 'TEMPORARY_WALLET_BALANCE';
 
+  @Column({ nullable: true })
+  order_id: string;
+
   @Column()
   created_at: number;
 

@@ -14,6 +14,7 @@ export declare class Transaction {
     source: 'MOMO' | 'FWALLET';
     destination: string;
     destination_type: 'FWALLET' | 'TEMPORARY_WALLET_BALANCE';
+    order_id: string;
     created_at: number;
     updated_at: number;
     generateId(): void;

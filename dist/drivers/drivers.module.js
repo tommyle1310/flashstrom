@@ -46,7 +46,18 @@ const customer_entity_1 = require("../customers/entities/customer.entity");
 const transactions_repository_1 = require("../transactions/transactions.repository");
 const users_repository_1 = require("../users/users.repository");
 const user_entity_1 = require("../users/entities/user.entity");
+const socket_io_1 = require("socket.io");
 const redis_service_1 = require("../redis/redis.service");
+const restaurants_service_1 = require("../restaurants/restaurants.service");
+const menu_item_entity_1 = require("../menu_items/entities/menu_item.entity");
+const menu_items_repository_1 = require("../menu_items/menu_items.repository");
+const menu_items_service_1 = require("../menu_items/menu_items.service");
+const menu_item_variants_repository_1 = require("../menu_item_variants/menu_item_variants.repository");
+const menu_item_variants_service_1 = require("../menu_item_variants/menu_item_variants.service");
+const menu_item_variant_entity_1 = require("../menu_item_variants/entities/menu_item_variant.entity");
+const restaurants_gateway_1 = require("../restaurants/restaurants.gateway");
+const food_category_entity_1 = require("../food_categories/entities/food_category.entity");
+const food_categories_repository_1 = require("../food_categories/food_categories.repository");
 let DriversModule = class DriversModule {
 };
 exports.DriversModule = DriversModule;
@@ -59,6 +70,7 @@ exports.DriversModule = DriversModule = __decorate([
                 order_entity_1.Order,
                 promotion_entity_1.Promotion,
                 driver_progress_stage_entity_1.DriverProgressStage,
+                menu_item_entity_1.MenuItem,
                 admin_entity_1.Admin,
                 online_session_entity_1.OnlineSession,
                 transaction_entity_1.Transaction,
@@ -66,8 +78,10 @@ exports.DriversModule = DriversModule = __decorate([
                 customer_entity_1.Customer,
                 finance_rule_entity_1.FinanceRule,
                 user_entity_1.User,
+                food_category_entity_1.FoodCategory,
                 fwallet_entity_1.FWallet,
                 driver_stats_record_entity_1.DriverStatsRecord,
+                menu_item_variant_entity_1.MenuItemVariant,
                 ratings_review_entity_1.RatingsReview
             ]),
             (0, common_1.forwardRef)(() => restaurants_module_1.RestaurantsModule),
@@ -80,12 +94,19 @@ exports.DriversModule = DriversModule = __decorate([
             drivers_service_1.DriversService,
             orders_repository_1.OrdersRepository,
             fwallets_repository_1.FWalletsRepository,
+            restaurants_gateway_1.RestaurantsGateway,
             transactions_service_1.TransactionService,
+            restaurants_service_1.RestaurantsService,
+            food_categories_repository_1.FoodCategoriesRepository,
             drivers_repository_1.DriversRepository,
             transactions_repository_1.TransactionsRepository,
             users_repository_1.UserRepository,
             online_sessions_service_1.OnlineSessionsService,
             ratings_reviews_repository_1.RatingsReviewsRepository,
+            menu_items_repository_1.MenuItemsRepository,
+            menu_items_service_1.MenuItemsService,
+            menu_item_variants_repository_1.MenuItemVariantsRepository,
+            menu_item_variants_service_1.MenuItemVariantsService,
             online_session_repository_1.OnlineSessionsRepository,
             finance_rules_repository_1.FinanceRulesRepository,
             finance_rules_service_1.FinanceRulesService,
@@ -94,7 +115,22 @@ exports.DriversModule = DriversModule = __decorate([
             driver_progress_stages_repository_1.DriverProgressStagesRepository,
             promotions_repository_1.PromotionsRepository,
             jwt_1.JwtService,
-            driver_stats_records_service_1.DriverStatsService
+            driver_stats_records_service_1.DriverStatsService,
+            {
+                provide: 'SOCKET_SERVER',
+                useFactory: () => {
+                    const io = new socket_io_1.Server({
+                        cors: {
+                            origin: ['http://localhost:3000', 'http://localhost:1310'],
+                            methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+                            credentials: true,
+                            allowedHeaders: ['Authorization', 'auth', 'Content-Type']
+                        },
+                        transports: ['websocket', 'polling']
+                    });
+                    return io;
+                }
+            }
         ],
         exports: [drivers_service_1.DriversService, drivers_repository_1.DriversRepository, driver_stats_records_service_1.DriverStatsService]
     })
