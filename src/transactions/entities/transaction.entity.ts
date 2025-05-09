@@ -70,6 +70,9 @@ export class Transaction {
   @Column({ nullable: true })
   order_id: string;
 
+  @Column({ nullable: true })
+  reference_order_id: string;
+
   @Column()
   created_at: number;
 

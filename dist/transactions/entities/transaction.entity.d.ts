@@ -15,6 +15,7 @@ export declare class Transaction {
     destination: string;
     destination_type: 'FWALLET' | 'TEMPORARY_WALLET_BALANCE';
     order_id: string;
+    reference_order_id: string;
     created_at: number;
     updated_at: number;
     generateId(): void;

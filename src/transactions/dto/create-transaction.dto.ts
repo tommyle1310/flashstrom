@@ -50,4 +50,8 @@ export class CreateTransactionDto {
   @IsString()
   @IsOptional()
   order_id?: string;
+
+  @IsString()
+  @IsOptional()
+  reference_order_id?: string;
 }

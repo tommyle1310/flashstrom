@@ -10,4 +10,5 @@ export declare class CreateTransactionDto {
     destination: string;
     destination_type: 'FWALLET' | 'TEMPORARY_WALLET_BALANCE';
     order_id?: string;
+    reference_order_id?: string;
 }

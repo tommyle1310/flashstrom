@@ -96,7 +96,7 @@ __decorate([
     __metadata("design:type", String)
 ], Order.prototype, "driver_id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true, type: 'decimal' }),
+    (0, typeorm_1.Column)('decimal', { precision: 10, scale: 4, nullable: true }),
     __metadata("design:type", Number)
 ], Order.prototype, "distance", void 0);
 __decorate([

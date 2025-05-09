@@ -84,7 +84,7 @@ export class Order {
   @Column({ nullable: true })
   driver_id: string;
 
-  @Column({ nullable: true, type: 'decimal' })
+  @Column('decimal', { precision: 10, scale: 4, nullable: true })
   distance: number;
 
   @Column({ nullable: true, type: 'decimal' })

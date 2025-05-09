@@ -68,4 +68,9 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateTransactionDto.prototype, "order_id", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateTransactionDto.prototype, "reference_order_id", void 0);
 //# sourceMappingURL=create-transaction.dto.js.map

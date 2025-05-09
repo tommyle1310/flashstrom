@@ -99,6 +99,10 @@ __decorate([
     __metadata("design:type", String)
 ], Transaction.prototype, "order_id", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Transaction.prototype, "reference_order_id", void 0);
+__decorate([
     (0, typeorm_1.Column)(),
     __metadata("design:type", Number)
 ], Transaction.prototype, "created_at", void 0);

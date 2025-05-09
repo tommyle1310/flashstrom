@@ -70,12 +70,13 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
         orderId: string;
     }): Promise<{
         success: boolean;
-        order: Order;
-        dps: DriverProgressStage;
-    } | {
-        success: boolean;
-        message: any;
+        data: {
+            order: Order;
+            dps: DriverProgressStage;
+        };
     }>;
+    private calculateDistance;
+    private deg2rad;
     private calculateEstimatedTime;
     private getStageDetails;
     handleOrderAssignedToDriver(orderAssignment: any): Promise<{
