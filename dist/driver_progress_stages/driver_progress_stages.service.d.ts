@@ -1,5 +1,5 @@
 import { DriverProgressStagesRepository } from './driver_progress_stages.repository';
-import { CreateDriverProgressStageDto } from './dto/create-driver-progress-stage.dto';
+import { CreateDriverProgressStageDto, StageDto } from './dto/create-driver-progress-stage.dto';
 import { UpdateDriverProgressStageDto } from './dto/update-driver-progress-stage.dto';
 import { ApiResponse } from 'src/utils/createResponse';
 import { DriverProgressStage } from './entities/driver_progress_stage.entity';
@@ -13,6 +13,10 @@ export declare class DriverProgressStagesService {
     private readonly ordersRepository;
     private readonly dataSource;
     constructor(driverProgressStagesRepository: DriverProgressStagesRepository, driversRepository: DriversRepository, ordersRepository: OrdersRepository, dataSource: DataSource);
+    private calculateTotalEarns;
+    private calculateTotalDistance;
+    private calculateTimeSpent;
+    private getAddressLocation;
     create(createDto: CreateDriverProgressStageDto & {
         estimated_time_remaining?: number;
         total_distance_travelled?: number;
@@ -28,11 +32,11 @@ export declare class DriverProgressStagesService {
         total_tips?: number;
         total_earns?: number;
     }, transactionalEntityManager?: EntityManager): Promise<ApiResponse<DriverProgressStage>>;
+    generateStagesForOrders(orders: Order[], orderIndex?: number, completed?: boolean): StageDto[];
     addOrderToExistingDPS(dpsId: string, order: Order, transactionalEntityManager: EntityManager): Promise<ApiResponse<DriverProgressStage>>;
-    private generateStagesForOrders;
     getActiveStageByDriver(driverId: string): Promise<ApiResponse<DriverProgressStage>>;
     findAll(): Promise<ApiResponse<DriverProgressStage[]>>;
     findById(id: string): Promise<ApiResponse<DriverProgressStage>>;
     remove(id: string): Promise<ApiResponse<any>>;
-    updateStages(stageId: string, updatedStages: any[]): Promise<ApiResponse<DriverProgressStage>>;
+    updateStages(stageId: string, updatedStages: StageDto[]): Promise<ApiResponse<DriverProgressStage>>;
 }

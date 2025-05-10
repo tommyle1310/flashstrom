@@ -295,8 +295,21 @@ export class TransactionService {
           user_id: sourceWallet.user_id,
           version: sourceWallet.version
         });
-        const currentBalance = Number(sourceWallet.balance);
-        const newBalance = Number((currentBalance - amount).toFixed(2));
+
+        // Convert to numbers with 2 decimal places
+        const currentBalance = Number(
+          parseFloat(sourceWallet.balance.toString()).toFixed(2)
+        );
+        const amountToDeduct = Number(parseFloat(amount.toString()).toFixed(2));
+        const newBalance = Number((currentBalance - amountToDeduct).toFixed(2));
+
+        logger.log('Calculating new balance:', {
+          currentBalance,
+          amountToDeduct,
+          newBalance,
+          originalBalance: sourceWallet.balance,
+          originalAmount: amount
+        });
 
         const updateResult = await manager
           .createQueryBuilder()
@@ -306,17 +319,35 @@ export class TransactionService {
             updated_at: Math.floor(Date.now() / 1000),
             version: (sourceWallet.version || 0) + 1
           })
-          .where('id = :id AND version = :version', {
+          .where('id = :id AND version = :version AND balance >= :amount', {
             id: sourceWallet.id,
-            version: sourceWallet.version || 0
+            version: sourceWallet.version || 0,
+            amount: amountToDeduct
           })
           .execute();
+
         logger.log('Source wallet update result:', {
           affected: updateResult.affected,
           raw: updateResult.raw
         });
 
         if (updateResult.affected === 0) {
+          // Check if it's a version mismatch or insufficient balance
+          const currentWallet = await manager.findOne(FWallet, {
+            where: { id: sourceWallet.id }
+          });
+
+          if (!currentWallet) {
+            throw new Error(`Source wallet ${sourceWallet.id} not found`);
+          }
+
+          const currentWalletBalance = Number(
+            parseFloat(currentWallet.balance.toString()).toFixed(2)
+          );
+          if (currentWalletBalance < amountToDeduct) {
+            throw new Error('Insufficient balance');
+          }
+
           throw new Error(
             `Failed to update source wallet ${sourceWallet.id} due to version conflict`
           );
@@ -325,6 +356,7 @@ export class TransactionService {
         sourceWallet.balance = newBalance;
         sourceWallet.updated_at = Math.floor(Date.now() / 1000);
         sourceWallet.version = (sourceWallet.version || 0) + 1;
+
         logger.log('Source wallet after update:', {
           id: sourceWallet.id,
           balance: sourceWallet.balance,
@@ -335,37 +367,19 @@ export class TransactionService {
         await redis.del(`fwallet:${sourceWallet.user_id}`);
         return;
       } catch (error: any) {
-        if (
-          error.message.includes('version conflict') &&
-          attempt < maxRetries
-        ) {
-          logger.warn(
-            `Optimistic lock failed on source wallet attempt ${attempt}, retrying...`,
-            error
-          );
-          const updatedWallet = await manager
-            .createQueryBuilder(FWallet, 'wallet')
-            .where('wallet.id = :id', { id: sourceWallet.id })
-            .select([
-              'wallet.id',
-              'wallet.balance',
-              'wallet.version',
-              'wallet.user_id'
-            ])
-            .getOne();
-          if (updatedWallet) {
-            sourceWallet = updatedWallet;
-          } else {
-            throw new Error(`Source wallet ${sourceWallet.id} not found`);
-          }
-        } else {
+        logger.error(`Error on attempt ${attempt}:`, error);
+
+        if (error.message === 'Insufficient balance') {
+          throw error; // Don't retry if it's an insufficient balance error
+        }
+
+        if (attempt === maxRetries) {
           throw error;
         }
+        // Small delay before retry
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
-    throw new Error(
-      `Failed to update source wallet ${sourceWallet.id} after ${maxRetries} retries`
-    );
   }
 
   private async handleDestinationWalletTransaction(
@@ -419,15 +433,19 @@ export class TransactionService {
           version: destinationWallet.version
         });
 
-        // Convert string values to numbers before arithmetic
-        const currentBalance = parseFloat(destinationWallet.balance.toString());
-        const amountNumber = parseFloat(amount.toString());
-        const newBalance = Number((currentBalance + amountNumber).toFixed(2));
+        // Convert values to numbers with 2 decimal places
+        const currentBalance = Number(
+          parseFloat(destinationWallet.balance.toString()).toFixed(2)
+        );
+        const amountToAdd = Number(parseFloat(amount.toString()).toFixed(2));
+        const newBalance = Number((currentBalance + amountToAdd).toFixed(2));
 
         logger.log('Calculating new balance:', {
           currentBalance,
-          amountToAdd: amountNumber,
-          newBalance
+          amountToAdd,
+          newBalance,
+          originalBalance: destinationWallet.balance,
+          originalAmount: amount
         });
 
         const updateResult = await manager

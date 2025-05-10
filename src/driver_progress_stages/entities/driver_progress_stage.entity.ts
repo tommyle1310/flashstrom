@@ -12,8 +12,8 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { Driver } from 'src/drivers/entities/driver.entity';
 import { Order } from 'src/orders/entities/order.entity';
-import { Customer } from 'src/customers/entities/customer.entity'; // Import Customer
-import { Restaurant } from 'src/restaurants/entities/restaurant.entity'; // Import Restaurant
+// import { Customer } from 'src/customers/entities/customer.entity'; // Import Customer
+// import { Restaurant } from 'src/restaurants/entities/restaurant.entity'; // Import Restaurant
 import { ContactPhone } from 'src/restaurants/dto/create-restaurant.dto';
 
 @Entity('driver_progress_stages')

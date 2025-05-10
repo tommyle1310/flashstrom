@@ -435,7 +435,22 @@ export class OrdersService {
           return createResponse('NotFound', null, 'Customer wallet not found');
         }
 
-        if (customerWallet.balance < createOrderDto.total_amount) {
+        // Convert both values to numbers with 2 decimal places for accurate comparison
+        const walletBalance = Number(
+          parseFloat(customerWallet.balance.toString()).toFixed(2)
+        );
+        const orderAmount = Number(
+          parseFloat(createOrderDto.total_amount.toString()).toFixed(2)
+        );
+
+        logger.log('Checking wallet balance:', {
+          walletBalance,
+          orderAmount,
+          originalBalance: customerWallet.balance,
+          originalAmount: createOrderDto.total_amount
+        });
+
+        if (walletBalance < orderAmount) {
           return createResponse(
             'InsufficientBalance',
             null,
@@ -484,17 +499,35 @@ export class OrdersService {
               );
             }
 
+            // Convert amounts to numbers with 2 decimal places
+            const amount = Number(
+              parseFloat(totalAmount.toString()).toFixed(2)
+            );
+            const currentBalance = Number(
+              parseFloat(customerWallet!.balance.toString()).toFixed(2)
+            );
+            const balanceAfter = Number((currentBalance - amount).toFixed(2));
+
+            logger.log('Creating transaction with amounts:', {
+              amount,
+              currentBalance,
+              balanceAfter,
+              originalAmount: totalAmount,
+              originalBalance: customerWallet!.balance
+            });
+
             const transactionDto = {
               user_id: customer.user_id,
               fwallet_id: customerWallet!.id,
               transaction_type: 'PURCHASE',
-              amount: totalAmount,
-              balance_after: Number(customerWallet!.balance) - totalAmount,
+              amount,
+              balance_after: balanceAfter,
               status: 'PENDING',
               source: 'FWALLET',
               destination: restaurantWallet!.id,
               destination_type: 'FWALLET',
-              version: customerWallet!.version || 0
+              version: customerWallet!.version || 0,
+              order_id: orderData.id
             } as CreateTransactionDto;
 
             const transactionResponse = await this.transactionService.create(
@@ -502,7 +535,8 @@ export class OrdersService {
               transactionalEntityManager
             );
             logger.log(
-              `Transaction service took ${Date.now() - txServiceStart}ms`
+              `Transaction service took ${Date.now() - txServiceStart}ms`,
+              transactionResponse
             );
             if (transactionResponse.EC !== 0) {
               logger.error(

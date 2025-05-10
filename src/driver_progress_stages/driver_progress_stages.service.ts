@@ -12,6 +12,7 @@ import { DriversRepository } from 'src/drivers/drivers.repository';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { DataSource, EntityManager } from 'typeorm';
 import { Order } from 'src/orders/entities/order.entity';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class DriverProgressStagesService {
@@ -21,6 +22,35 @@ export class DriverProgressStagesService {
     private readonly ordersRepository: OrdersRepository,
     private readonly dataSource: DataSource
   ) {}
+
+  private calculateTotalEarns(stages: StageDto[]): number {
+    return stages.reduce((total, stage) => {
+      const tip = stage.details?.tip || 0;
+      return total + tip;
+    }, 0);
+  }
+
+  private calculateTotalDistance(orders: Order[]): number {
+    return orders.reduce((total, order) => {
+      const distance = Number(order.distance || '0');
+      return total + distance;
+    }, 0);
+  }
+
+  private calculateTimeSpent(stages: StageDto[]): number {
+    return stages.reduce((total, stage) => {
+      return total + (stage.duration || 0);
+    }, 0);
+  }
+
+  private getAddressLocation(address: any): { lat: number; lng: number } {
+    if (!address) return { lat: 0, lng: 0 };
+    if (Array.isArray(address)) {
+      const defaultAddress = address.find(a => a.is_default) || address[0];
+      return defaultAddress?.location || { lat: 0, lng: 0 };
+    }
+    return address.location || { lat: 0, lng: 0 };
+  }
 
   async create(
     createDto: CreateDriverProgressStageDto & {
@@ -35,22 +65,36 @@ export class DriverProgressStagesService {
 
     try {
       const initialStages = this.generateStagesForOrders(createDto.orders);
+      const totalDistance = this.calculateTotalDistance(createDto.orders);
+      const totalEarns = createDto.total_earns || 0;
+      const estimatedTime = createDto.estimated_time_remaining || 0;
+      const now = Math.floor(Date.now() / 1000);
+
+      // Ensure arrays are initialized properly
+      const stages = initialStages || [];
+      const events = [];
+      const orders = createDto.orders || [];
 
       const dps = manager.create(DriverProgressStage, {
-        ...createDto,
-        stages: initialStages,
-        events: [],
-        estimated_time_remaining: createDto.estimated_time_remaining || 0,
-        total_distance_travelled: createDto.total_distance_travelled || 0,
-        total_tips: createDto.total_tips || 0,
-        total_earns: createDto.total_earns || 0,
-        created_at: Math.floor(Date.now() / 1000),
-        updated_at: Math.floor(Date.now() / 1000),
-        orders: createDto.orders
+        id: `FF_DPS_${uuidv4()}`,
+        driver_id: createDto.driver_id,
+        stages,
+        events,
+        estimated_time_remaining: estimatedTime,
+        total_distance_travelled: totalDistance,
+        total_tips: 0,
+        total_earns: totalEarns,
+        created_at: now,
+        updated_at: now,
+        orders,
+        current_state: createDto.current_state || 'driver_ready_order_1',
+        previous_state: null,
+        next_state: null,
+        actual_time_spent: 0,
+        transactions_processed: false
       });
 
       const savedStage = await manager.save(DriverProgressStage, dps);
-      // Quan hệ orders như hiện tại...
 
       return createResponse(
         'OK',
@@ -85,32 +129,67 @@ export class DriverProgressStagesService {
 
       const existingStage = await manager
         .getRepository(DriverProgressStage)
-        .findOne({ where: { id: stageId } });
+        .findOne({
+          where: { id: stageId },
+          relations: ['orders']
+        });
+
       if (!existingStage) {
         return createResponse('NotFound', null, 'Progress stage not found');
+      }
+
+      // Calculate values based on stages and orders
+      const stages = updateData.stages || existingStage.stages || [];
+      const orders = updateData.orders || existingStage.orders || [];
+      const events = existingStage.events || [];
+
+      const totalEarns = updateData.stages
+        ? this.calculateTotalEarns(stages)
+        : existingStage.total_earns || 0;
+
+      const totalDistance = updateData.orders
+        ? this.calculateTotalDistance(orders)
+        : existingStage.total_distance_travelled || 0;
+
+      const actualTimeSpent = updateData.stages
+        ? this.calculateTimeSpent(stages)
+        : existingStage.actual_time_spent || 0;
+
+      // Determine the current state based on stages
+      let currentState =
+        updateData.current_state || existingStage.current_state;
+      const lastCompletedStage = stages
+        .filter(s => s.status === 'completed')
+        .pop();
+
+      if (lastCompletedStage) {
+        currentState = lastCompletedStage.state;
+        // If all stages are complete, set state to the last stage
+        if (stages.every(s => s.status === 'completed')) {
+          currentState = stages[stages.length - 1].state;
+        }
       }
 
       const updatedStage = await manager
         .getRepository(DriverProgressStage)
         .save({
           ...existingStage,
-          current_state: updateData.current_state,
-          orders: updateData.orders,
+          current_state: currentState,
+          orders,
           previous_state:
-            updateData.previous_state ?? existingStage.previous_state,
-          next_state: updateData.next_state ?? existingStage.next_state,
-          stages: updateData.stages,
+            updateData.previous_state ?? existingStage.previous_state ?? null,
+          next_state: updateData.next_state ?? existingStage.next_state ?? null,
+          stages,
+          events,
           estimated_time_remaining:
             updateData.estimated_time_remaining ??
-            existingStage.estimated_time_remaining,
-          actual_time_spent:
-            updateData.actual_time_spent ?? existingStage.actual_time_spent,
-          total_distance_travelled:
-            updateData.total_distance_travelled ??
-            existingStage.total_distance_travelled,
-          total_tips: updateData.total_tips ?? existingStage.total_tips,
-          total_earns: updateData.total_earns ?? existingStage.total_earns,
-          updated_at: Math.floor(Date.now() / 1000)
+            (existingStage.estimated_time_remaining || 0),
+          actual_time_spent: actualTimeSpent,
+          total_distance_travelled: Number(totalDistance.toFixed(4)),
+          total_tips: updateData.total_tips ?? (existingStage.total_tips || 0),
+          total_earns: totalEarns,
+          updated_at: Math.floor(Date.now() / 1000),
+          transactions_processed: existingStage.transactions_processed || false
         });
 
       return createResponse(
@@ -128,6 +207,123 @@ export class DriverProgressStagesService {
     }
   }
 
+  generateStagesForOrders(
+    orders: Order[],
+    orderIndex = 0,
+    completed = false
+  ): StageDto[] {
+    const stages: StageDto[] = [];
+    const now = Math.floor(Date.now() / 1000);
+
+    orders.forEach((order, index) => {
+      const orderNum = orderIndex + index + 1;
+      const restaurantLocation = this.getAddressLocation(
+        order.restaurant?.address
+      );
+      const customerLocation = this.getAddressLocation(order.customer?.address);
+
+      const baseStages = [
+        {
+          state: `driver_ready_order_${orderNum}`,
+          status: completed ? ('completed' as const) : ('pending' as const),
+          timestamp: now,
+          duration: 0,
+          details: {
+            location: { lat: 0, lng: 0 },
+            estimated_time: Number(order.distance || '0') * 2,
+            actual_time: 0,
+            tip: 0,
+            notes: ''
+          }
+        },
+        {
+          state: `waiting_for_pickup_order_${orderNum}`,
+          status: 'pending' as const,
+          timestamp: now,
+          duration: 0,
+          details: {
+            location: restaurantLocation,
+            estimated_time: Number(order.distance || '0') * 2,
+            actual_time: 0,
+            tip: 0,
+            notes: '',
+            restaurantDetails: {
+              id: order.restaurant?.id || '',
+              restaurant_name: order.restaurant?.restaurant_name || '',
+              address: order.restaurant?.address || null,
+              avatar: order.restaurant?.avatar || { url: '', key: '' },
+              contact_phone: order.restaurant?.contact_phone || []
+            }
+          }
+        },
+        {
+          state: `restaurant_pickup_order_${orderNum}`,
+          status: 'pending' as const,
+          timestamp: now,
+          duration: 0,
+          details: {
+            location: restaurantLocation,
+            estimated_time: Number(order.distance || '0') * 2,
+            actual_time: 0,
+            tip: 0,
+            notes: '',
+            restaurantDetails: {
+              id: order.restaurant?.id || '',
+              restaurant_name: order.restaurant?.restaurant_name || '',
+              address: order.restaurant?.address || null,
+              avatar: order.restaurant?.avatar || { url: '', key: '' },
+              contact_phone: order.restaurant?.contact_phone || []
+            }
+          }
+        },
+        {
+          state: `en_route_to_customer_order_${orderNum}`,
+          status: 'pending' as const,
+          timestamp: now,
+          duration: 0,
+          details: {
+            location: customerLocation,
+            estimated_time: Number(order.distance || '0') * 2,
+            actual_time: 0,
+            tip: 0,
+            notes: '',
+            customerDetails: {
+              id: order.customer?.id || '',
+              first_name: order.customer?.first_name || '',
+              last_name: order.customer?.last_name || '',
+              address: order.customer?.address || null,
+              avatar: order.customer?.avatar || null
+            }
+          }
+        },
+        {
+          state: `delivery_complete_order_${orderNum}`,
+          status: 'pending' as const,
+          timestamp: now,
+          duration: 0,
+          details: {
+            location: customerLocation,
+            estimated_time: Number(order.distance || '0') * 2,
+            actual_time: 0,
+            tip: Number(order.driver_tips || '0'),
+            notes: '',
+            customerDetails: {
+              id: order.customer?.id || '',
+              first_name: order.customer?.first_name || '',
+              last_name: order.customer?.last_name || '',
+              address: order.customer?.address || null,
+              avatar: order.customer?.avatar || null
+            }
+          }
+        }
+      ];
+
+      stages.push(...baseStages);
+    });
+
+    return stages;
+  }
+
   async addOrderToExistingDPS(
     dpsId: string,
     order: Order,
@@ -141,10 +337,12 @@ export class DriverProgressStagesService {
           where: { id: dpsId },
           relations: ['orders']
         });
+
       if (!dps) {
         console.log('❌ DPS not found:', dpsId);
         throw new Error('DPS not found');
       }
+
       console.log('✅ DPS found:', dps.id, 'with orders:', dps.orders?.length);
 
       dps.orders = dps.orders || [];
@@ -155,22 +353,28 @@ export class DriverProgressStagesService {
         console.log('⚠️ Order already exists in DPS:', order.id);
       }
 
-      // Tạo stages mới, tất cả đều pending
+      // Generate new stages for the added order
       const newStages = this.generateStagesForOrders(
         [order],
-        dps.orders.length,
+        dps.orders.length - 1,
         false
       );
+
+      // Update DPS fields
       dps.stages = [...dps.stages, ...newStages];
+      dps.total_distance_travelled = this.calculateTotalDistance(dps.orders);
       dps.updated_at = Math.floor(Date.now() / 1000);
+
       console.log('📋 New stages added:', JSON.stringify(newStages, null, 2));
 
       const updatedDPS = await transactionalEntityManager.save(
         DriverProgressStage,
         dps
       );
+
       console.log(`Updated DPS with new order: ${updatedDPS.id}`);
 
+      // Ensure order relation is saved
       const exists = await transactionalEntityManager
         .createQueryBuilder()
         .select('1')
@@ -205,39 +409,6 @@ export class DriverProgressStagesService {
       console.error('Error adding order to DPS:', err);
       throw err;
     }
-  }
-
-  private generateStagesForOrders(
-    orders: Order[],
-    startIndex = 1,
-    setFirstInProgress: boolean = true // Thêm tham số để kiểm soát
-  ): StageDto[] {
-    const baseStates = [
-      'driver_ready',
-      'waiting_for_pickup',
-      'restaurant_pickup',
-      'en_route_to_customer',
-      'delivery_complete'
-    ];
-
-    const stages: StageDto[] = [];
-    orders.forEach((order, index) => {
-      const orderIndex = startIndex + index;
-      baseStates.forEach((state, stateIndex) => {
-        const isFirstStageOfFirstOrder = stateIndex === 0 && index === 0;
-        stages.push({
-          state: `${state}_order_${orderIndex}`,
-          status:
-            isFirstStageOfFirstOrder && setFirstInProgress
-              ? 'in_progress'
-              : 'pending',
-          timestamp: Math.floor(Date.now() / 1000),
-          duration: 0,
-          details: null
-        });
-      });
-    });
-    return stages;
   }
 
   async getActiveStageByDriver(
@@ -324,14 +495,28 @@ export class DriverProgressStagesService {
 
   async updateStages(
     stageId: string,
-    updatedStages: any[]
+    updatedStages: StageDto[]
   ): Promise<ApiResponse<DriverProgressStage>> {
     try {
-      const updatedStage =
-        await this.driverProgressStagesRepository.updateStages(
-          stageId,
-          updatedStages
-        );
+      const stage = await this.driverProgressStagesRepository.findById(stageId);
+      if (!stage) {
+        return createResponse('NotFound', null, 'Stage not found');
+      }
+
+      // Recalculate totals based on updated stages
+      const totalEarns = this.calculateTotalEarns(updatedStages);
+      const actualTimeSpent = this.calculateTimeSpent(updatedStages);
+
+      const updatedStage = await this.driverProgressStagesRepository.update(
+        stageId,
+        {
+          stages: updatedStages,
+          total_earns: totalEarns,
+          actual_time_spent: actualTimeSpent,
+          updated_at: Math.floor(Date.now() / 1000)
+        }
+      );
+
       return createResponse('OK', updatedStage, 'Stages updated successfully');
     } catch (err) {
       console.error('Error updating stages:', err);

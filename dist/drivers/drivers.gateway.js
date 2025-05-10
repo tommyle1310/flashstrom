@@ -71,8 +71,6 @@ const redis_adapter_1 = require("@socket.io/redis-adapter");
 const redis_service_1 = require("../redis/redis.service");
 const common_2 = require("@nestjs/common");
 const users_repository_1 = require("../users/users.repository");
-const bcrypt = __importStar(require("bcryptjs"));
-const Payload_1 = require("../types/Payload");
 const transaction_entity_1 = require("../transactions/entities/transaction.entity");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
@@ -701,10 +699,54 @@ let DriversGateway = class DriversGateway {
                 }
                 const allDeliveryCompleteStages = updatedStages.filter(stage => stage.state.startsWith('delivery_complete_'));
                 const allDeliveryCompleteDone = allDeliveryCompleteStages.every(stage => stage.status === 'completed');
+                const orderIndex = dps.orders.findIndex(o => o.id === targetOrderId) + 1;
+                const orderSuffix = `order_${orderIndex}`;
+                const enRouteState = `en_route_to_customer_${orderSuffix}`;
+                const deliveryCompleteState = `delivery_complete_${orderSuffix}`;
+                const enRouteStage = updatedStages.find(s => s.state === enRouteState);
+                const deliveryCompleteStage = updatedStages.find(s => s.state === deliveryCompleteState);
+                const targetOrder = dps.orders.find(o => o.id === targetOrderId);
+                if (!targetOrder) {
+                    throw new Error(`Order ${targetOrderId} not found in DPS ${dps.id}`);
+                }
+                if (targetOrder.status === order_entity_1.OrderStatus.DELIVERED) {
+                    logToFile('Order is delivered, forcing stage completion', {
+                        orderId: targetOrder.id,
+                        enRouteState,
+                        deliveryCompleteState
+                    });
+                    if (enRouteStage && enRouteStage.status !== 'completed') {
+                        enRouteStage.status = 'completed';
+                        enRouteStage.duration = timestamp - enRouteStage.timestamp;
+                        logToFile('Completed en_route stage', {
+                            state: enRouteState,
+                            duration: enRouteStage.duration
+                        });
+                    }
+                    if (deliveryCompleteStage) {
+                        deliveryCompleteStage.status = 'completed';
+                        deliveryCompleteStage.timestamp = timestamp;
+                        deliveryCompleteStage.duration = 0;
+                        logToFile('Completed delivery stage', {
+                            state: deliveryCompleteState
+                        });
+                        dps.previous_state = dps.current_state;
+                        dps.current_state = deliveryCompleteState;
+                        dps.next_state = null;
+                    }
+                    if (!dps.total_distance_travelled ||
+                        dps.total_distance_travelled === 0) {
+                        dps.total_distance_travelled = Number(targetOrder.distance || 0);
+                        logToFile('Updated DPS total distance', {
+                            dpsId: dps.id,
+                            distance: dps.total_distance_travelled
+                        });
+                    }
+                }
                 const updateResult = await this.driverProgressStageService.updateStage(data.stageId, {
-                    current_state: newCurrentState,
-                    previous_state: newPreviousState,
-                    next_state: newNextState,
+                    current_state: dps.current_state,
+                    previous_state: dps.previous_state,
+                    next_state: dps.next_state,
                     stages: updatedStages,
                     orders: dps.orders,
                     estimated_time_remaining: dps.estimated_time_remaining,
@@ -712,93 +754,22 @@ let DriversGateway = class DriversGateway {
                     total_distance_travelled: Number(Number(dps.total_distance_travelled || 0).toFixed(4)),
                     total_tips: dps.total_tips,
                     total_earns: dps.total_earns,
-                    transactions_processed: dps.transactions_processed ||
-                        (allDeliveryCompleteDone ? false : undefined)
+                    transactions_processed: dps.transactions_processed
                 }, transactionalEntityManager);
-                if (allDeliveryCompleteDone &&
-                    allDeliveryCompleteStages.length > 0 &&
-                    !updateResult.data.transactions_processed) {
-                    let anyOrderHasTransaction = false;
-                    for (const order of dps.orders) {
-                        const existingTx = await transactionalEntityManager
-                            .getRepository(transaction_entity_1.Transaction)
-                            .findOne({
-                            where: {
-                                source: 'FWALLET',
-                                destination_type: 'FWALLET',
-                                reference_order_id: order.id,
-                                transaction_type: 'PURCHASE'
-                            }
-                        });
-                        if (existingTx) {
-                            anyOrderHasTransaction = true;
-                            break;
-                        }
-                    }
-                    if (!anyOrderHasTransaction) {
-                        logger.log('Processing driver earnings for completed deliveries (DPS-level, no per-order tx exists)');
-                        const driver = await transactionalEntityManager
-                            .getRepository(driver_entity_1.Driver)
-                            .findOne({ where: { id: dps.driver_id } });
-                        if (!driver) {
-                            logger.error(`Driver ${dps.driver_id} not found`);
-                            throw new Error(`Driver ${dps.driver_id} not found`);
-                        }
-                        const driverWallet = await this.fWalletsRepository.findByUserId(driver.user_id, transactionalEntityManager);
-                        if (!driverWallet) {
-                            logger.error(`Wallet not found for driver ${dps.driver_id}`);
-                            throw new Error(`Wallet not found for driver ${dps.driver_id}`);
-                        }
-                        let flashfoodWallet = await this.fWalletsRepository.findById(constants_1.FLASHFOOD_FINANCE_neon_test_branch.id, transactionalEntityManager);
-                        if (!flashfoodWallet) {
-                            let flashfoodUser = await this.userRepository.findById(constants_1.FLASHFOOD_FINANCE_neon_test_branch.user_id);
-                            if (!flashfoodUser) {
-                                flashfoodUser = await this.userRepository.create({
-                                    id: constants_1.FLASHFOOD_FINANCE_neon_test_branch.user_id,
-                                    email: constants_1.FLASHFOOD_FINANCE_neon_test_branch.email,
-                                    password: await bcrypt.hash('flashfood123', 10),
-                                    first_name: 'FlashFood',
-                                    last_name: 'Finance',
-                                    user_type: [Payload_1.Enum_UserType.F_WALLET],
-                                    is_verified: true
-                                });
-                            }
-                            flashfoodWallet = await this.fWalletsRepository.create({
-                                user_id: flashfoodUser.id,
-                                balance: 1000000,
-                                email: flashfoodUser.email,
-                                password: 'dummy',
-                                first_name: flashfoodUser.first_name,
-                                last_name: flashfoodUser.last_name
-                            }, transactionalEntityManager);
-                        }
-                        const earningsTransactionDto = {
-                            user_id: driver.user_id,
-                            fwallet_id: flashfoodWallet.id,
-                            transaction_type: 'PURCHASE',
-                            amount: dps.total_earns,
-                            balance_after: Number(flashfoodWallet.balance) - dps.total_earns,
-                            status: 'PENDING',
-                            version: flashfoodWallet.version || 0,
-                            source: 'FWALLET',
-                            destination: driverWallet.id,
-                            destination_type: 'FWALLET'
-                        };
-                        const earningsTransactionResponse = await this.transactionsService.create(earningsTransactionDto, transactionalEntityManager);
-                        if (earningsTransactionResponse.EC !== 0) {
-                            logger.error('Driver earnings transaction failed:', earningsTransactionResponse);
-                            throw new Error(`Earnings transaction failed: ${earningsTransactionResponse.EM}`);
-                        }
-                        logger.log('Driver earnings transaction created successfully:', earningsTransactionResponse.data);
-                        dps.transactions_processed = true;
-                        await transactionalEntityManager.save(driver_progress_stage_entity_1.DriverProgressStage, dps);
-                        logger.log('Updated driver progress stage transactions_processed flag');
-                    }
-                    else {
-                        logger.log('Skipped DPS-level transaction: at least one per-order transaction exists');
-                        dps.transactions_processed = true;
-                        await transactionalEntityManager.save(driver_progress_stage_entity_1.DriverProgressStage, dps);
-                    }
+                if (targetOrder.status === order_entity_1.OrderStatus.DELIVERED) {
+                    await transactionalEntityManager
+                        .createQueryBuilder()
+                        .delete()
+                        .from('driver_current_orders')
+                        .where('driver_id = :driverId AND order_id = :orderId', {
+                        driverId: dps.driver_id,
+                        orderId: targetOrder.id
+                    })
+                        .execute();
+                    logToFile('Removed order from driver_current_orders', {
+                        driverId: dps.driver_id,
+                        orderId: targetOrder.id
+                    });
                 }
                 const newStagesString = JSON.stringify(updateResult.data.stages);
                 const hasChanges = oldStagesString !== newStagesString ||
@@ -930,11 +901,23 @@ let DriversGateway = class DriversGateway {
                 const existingDPS = await transactionalEntityManager
                     .getRepository(driver_progress_stage_entity_1.DriverProgressStage)
                     .createQueryBuilder('dps')
+                    .leftJoinAndSelect('dps.orders', 'orders')
                     .where('dps.driver_id = :driverId', { driverId })
-                    .andWhere('dps.current_state NOT LIKE :completedState', {
-                    completedState: 'delivery_complete_%'
-                })
                     .getOne();
+                let shouldCreateNewDPS = true;
+                if (existingDPS) {
+                    const allOrdersCompleted = existingDPS.orders?.every(order => order.status === order_entity_1.OrderStatus.DELIVERED);
+                    const allStagesCompleted = existingDPS.stages?.every(stage => stage.status === 'completed');
+                    shouldCreateNewDPS = !allOrdersCompleted || !allStagesCompleted;
+                    logToFile('DPS Status Check', {
+                        dpsId: existingDPS.id,
+                        allOrdersCompleted,
+                        allStagesCompleted,
+                        shouldCreateNewDPS,
+                        orderStatuses: existingDPS.orders?.map(o => o.status),
+                        stageStatuses: existingDPS.stages?.map(s => s.status)
+                    });
+                }
                 const timestamp = Math.floor(Date.now() / 1000);
                 const estimatedTime = this.calculateEstimatedTime(distance);
                 const totalTips = orderWithRelations.driver_tips || 0;
@@ -970,7 +953,7 @@ let DriversGateway = class DriversGateway {
                 }
                 const totalEarns = driver_wage + totalTips;
                 let dps;
-                if (!existingDPS) {
+                if (shouldCreateNewDPS) {
                     console.log(`[DriversGateway] Creating new DPS for driver ${driverId}`);
                     const dpsResponse = await this.driverProgressStageService.create({
                         driver_id: driverId,
@@ -1230,6 +1213,32 @@ let DriversGateway = class DriversGateway {
             orderId: order.id,
             dpsId: dps.id
         });
+        const driver = await transactionalEntityManager
+            .getRepository(driver_entity_1.Driver)
+            .findOne({
+            where: { id: order.driver_id },
+            relations: ['current_orders']
+        });
+        if (!driver) {
+            throw new Error(`Driver ${order.driver_id} not found`);
+        }
+        logToFile('Found driver', {
+            driverId: driver.id,
+            currentOrders: driver.current_orders?.length
+        });
+        await transactionalEntityManager
+            .createQueryBuilder()
+            .delete()
+            .from('driver_current_orders')
+            .where('driver_id = :driverId AND order_id = :orderId', {
+            driverId: driver.id,
+            orderId: order.id
+        })
+            .execute();
+        logToFile('Removed order from driver_current_orders', {
+            driverId: driver.id,
+            orderId: order.id
+        });
         const rawDistance = order.distance || 0;
         logToFile('Raw distance from order', { orderId: order.id, rawDistance });
         const addressInfo = {
@@ -1294,9 +1303,9 @@ let DriversGateway = class DriversGateway {
                 });
                 return;
             }
-            const driverWallet = await this.fWalletsRepository.findByUserId(order.driver.user_id, transactionalEntityManager);
+            const driverWallet = await this.fWalletsRepository.findByUserId(driver.user_id, transactionalEntityManager);
             if (!driverWallet) {
-                throw new Error(`Wallet not found for driver ${order.driver.id}`);
+                throw new Error(`Wallet not found for driver ${driver.id}`);
             }
             let financeWallet = await this.fWalletsRepository.findById(constants_1.FLASHFOOD_FINANCE_neon_test_branch.id, transactionalEntityManager);
             if (!financeWallet) {
@@ -1307,7 +1316,7 @@ let DriversGateway = class DriversGateway {
             let lastError;
             while (attempt < 3) {
                 transactionResponse = await this.transactionsService.create({
-                    user_id: order.driver.user_id,
+                    user_id: driver.user_id,
                     fwallet_id: financeWallet.id,
                     transaction_type: 'PURCHASE',
                     amount: order.delivery_fee,

@@ -363,7 +363,7 @@ let RestaurantsGateway = class RestaurantsGateway {
             else if (distance > 2 && distance <= 3) {
                 return data.driver_fixed_wage['2-3km'];
             }
-            else if (distance > 4 && distance <= 5) {
+            else if (distance > 3 && distance <= 5) {
                 return data.driver_fixed_wage['4-5km'];
             }
             else if (distance > 5) {
