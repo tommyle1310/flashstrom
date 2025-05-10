@@ -1,10 +1,4 @@
-import {
-  IsString,
-  IsNumber,
-  IsBoolean,
-  IsArray,
-  IsObject
-} from 'class-validator';
+import { IsString, IsNumber, IsBoolean, IsObject } from 'class-validator';
 
 export class CreateAddressBookDto {
   @IsString()

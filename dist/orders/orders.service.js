@@ -73,6 +73,7 @@ const dotenv = __importStar(require("dotenv"));
 const typeorm_2 = require("@nestjs/typeorm");
 const redis_service_1 = require("../redis/redis.service");
 const orders_repository_1 = require("./orders.repository");
+const commonFunctions_1 = require("../utils/commonFunctions");
 dotenv.config();
 const logger = new common_1.Logger('OrdersService');
 const redis = (0, redis_1.createClient)({
@@ -335,6 +336,10 @@ let OrdersService = class OrdersService {
             const calcStart = Date.now();
             let totalAmount = createOrderDto.total_amount;
             let appliedPromotion = null;
+            let distance = 0;
+            if (customerAddress?.location && restaurantAddress?.location) {
+                distance = (0, commonFunctions_1.calculateDistance)(customerAddress.location.lat, customerAddress.location.lng, restaurantAddress.location.lat, restaurantAddress.location.lng);
+            }
             const menuItemMap = new Map(menuItems.map(mi => [mi.id, mi]));
             if (promotion && createOrderDto.promotion_applied) {
                 const now = Math.floor(Date.now() / 1000);
@@ -378,7 +383,8 @@ let OrdersService = class OrdersService {
                     customerAddress: { id: customerAddress.id },
                     restaurantAddress: { id: restaurantAddress.id },
                     created_at: Math.floor(Date.now() / 1000),
-                    updated_at: Math.floor(Date.now() / 1000)
+                    updated_at: Math.floor(Date.now() / 1000),
+                    distance: Number(distance.toFixed(4))
                 };
                 if (createOrderDto.payment_method === 'FWallet') {
                     const txServiceStart = Date.now();

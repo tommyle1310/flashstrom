@@ -117,6 +117,12 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], Transaction.prototype, "generateId", null);
 exports.Transaction = Transaction = __decorate([
-    (0, typeorm_1.Entity)('transactions')
+    (0, typeorm_1.Entity)('transactions'),
+    (0, typeorm_1.Unique)([
+        'reference_order_id',
+        'transaction_type',
+        'source',
+        'destination_type'
+    ])
 ], Transaction);
 //# sourceMappingURL=transaction.entity.js.map

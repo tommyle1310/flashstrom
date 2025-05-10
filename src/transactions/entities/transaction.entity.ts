@@ -4,13 +4,20 @@ import {
   PrimaryColumn,
   BeforeInsert,
   ManyToOne,
-  JoinColumn
+  JoinColumn,
+  Unique
 } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { User } from 'src/users/entities/user.entity';
 import { FWallet } from 'src/fwallets/entities/fwallet.entity';
 
 @Entity('transactions')
+@Unique([
+  'reference_order_id',
+  'transaction_type',
+  'source',
+  'destination_type'
+])
 export class Transaction {
   @PrimaryColumn()
   id: string;

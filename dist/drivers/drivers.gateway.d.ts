@@ -74,6 +74,9 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
             order: Order;
             dps: DriverProgressStage;
         };
+    } | {
+        success: boolean;
+        message: string;
     }>;
     private calculateDistance;
     private deg2rad;

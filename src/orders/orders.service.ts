@@ -35,6 +35,7 @@ import * as dotenv from 'dotenv';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { RedisService } from 'src/redis/redis.service';
 import { OrdersRepository } from './orders.repository';
+import { calculateDistance } from 'src/utils/commonFunctions';
 
 dotenv.config();
 
@@ -395,6 +396,17 @@ export class OrdersService {
       let totalAmount = createOrderDto.total_amount;
       let appliedPromotion: Promotion | null = null;
 
+      // Calculate distance between customer and restaurant
+      let distance = 0;
+      if (customerAddress?.location && restaurantAddress?.location) {
+        distance = calculateDistance(
+          customerAddress.location.lat,
+          customerAddress.location.lng,
+          restaurantAddress.location.lat,
+          restaurantAddress.location.lng
+        );
+      }
+
       const menuItemMap = new Map(menuItems.map(mi => [mi.id, mi]));
       if (promotion && createOrderDto.promotion_applied) {
         const now = Math.floor(Date.now() / 1000);
@@ -455,7 +467,8 @@ export class OrdersService {
             customerAddress: { id: customerAddress.id },
             restaurantAddress: { id: restaurantAddress.id },
             created_at: Math.floor(Date.now() / 1000),
-            updated_at: Math.floor(Date.now() / 1000)
+            updated_at: Math.floor(Date.now() / 1000),
+            distance: Number(distance.toFixed(4))
           };
 
           // Handle FWallet payment
