@@ -962,17 +962,18 @@ export class DriversGateway
               dps.next_state = null;
             }
 
-            // Update total distance travelled if not already set
-            if (
-              !dps.total_distance_travelled ||
-              dps.total_distance_travelled === 0
-            ) {
-              dps.total_distance_travelled = Number(targetOrder.distance || 0);
-              logToFile('Updated DPS total distance', {
-                dpsId: dps.id,
-                distance: dps.total_distance_travelled
-              });
-            }
+            // Update DPS total distance
+            dps.total_distance_travelled = Number(
+              (
+                Number(dps.total_distance_travelled || 0) +
+                  targetOrder.distance || 0
+              ).toFixed(4)
+            );
+            await transactionalEntityManager.save(DriverProgressStage, dps);
+            logToFile('Updated DPS total distance', {
+              dpsId: dps.id,
+              totalDistance: dps.total_distance_travelled
+            });
           }
 
           // Save the updated DPS
@@ -985,35 +986,63 @@ export class DriversGateway
                 next_state: dps.next_state,
                 stages: updatedStages,
                 orders: dps.orders,
-                estimated_time_remaining: dps.estimated_time_remaining,
-                actual_time_spent: dps.actual_time_spent,
+                estimated_time_remaining: Number(
+                  dps.estimated_time_remaining || 0
+                ),
+                actual_time_spent: Number(dps.actual_time_spent || 0),
                 total_distance_travelled: Number(
                   Number(dps.total_distance_travelled || 0).toFixed(4)
                 ),
-                total_tips: dps.total_tips,
-                total_earns: dps.total_earns,
-                transactions_processed: dps.transactions_processed
+                total_tips: Number(Number(dps.total_tips || 0).toFixed(2)),
+                total_earns: Number(Number(dps.total_earns || 0).toFixed(2)),
+                transactions_processed: dps.transactions_processed || false
               },
               transactionalEntityManager
             );
 
-          // Remove delivered orders from driver's current_orders
-          if (targetOrder.status === OrderStatus.DELIVERED) {
-            await transactionalEntityManager
-              .createQueryBuilder()
-              .delete()
-              .from('driver_current_orders')
-              .where('driver_id = :driverId AND order_id = :orderId', {
-                driverId: dps.driver_id,
-                orderId: targetOrder.id
-              })
-              .execute();
+          // Log values before update for debugging
+          logToFile('DPS values before update', {
+            dpsId: data.stageId,
+            raw_total_earns: dps.total_earns,
+            formatted_total_earns: parseFloat(
+              Number(dps.total_earns || 0).toFixed(2)
+            ),
+            raw_total_tips: dps.total_tips,
+            formatted_total_tips: parseFloat(
+              Number(dps.total_tips || 0).toFixed(2)
+            ),
+            raw_distance: dps.total_distance_travelled,
+            formatted_distance: parseFloat(
+              Number(dps.total_distance_travelled || 0).toFixed(4)
+            )
+          });
 
-            logToFile('Removed order from driver_current_orders', {
-              driverId: dps.driver_id,
-              orderId: targetOrder.id
+          if (!updateResult?.data) {
+            logToFile('Failed to update DPS', {
+              dpsId: data.stageId,
+              error: updateResult?.EM || 'Unknown error',
+              currentValues: {
+                total_earns: parseFloat(
+                  Number(dps.total_earns || 0).toFixed(2)
+                ),
+                total_tips: parseFloat(Number(dps.total_tips || 0).toFixed(2)),
+                total_distance: parseFloat(
+                  Number(dps.total_distance_travelled || 0).toFixed(4)
+                )
+              }
             });
+            throw new Error(updateResult?.EM || 'Failed to update DPS');
           }
+
+          // Log successful update
+          logToFile('Successfully updated DPS', {
+            dpsId: data.stageId,
+            total_earns: parseFloat(Number(dps.total_earns || 0).toFixed(2)),
+            total_tips: parseFloat(Number(dps.total_tips || 0).toFixed(2)),
+            total_distance: parseFloat(
+              Number(dps.total_distance_travelled || 0).toFixed(4)
+            )
+          });
 
           const newStagesString = JSON.stringify(updateResult.data.stages);
           const hasChanges =
@@ -1021,9 +1050,6 @@ export class DriversGateway
             oldCurrentState !== updateResult.data.current_state ||
             oldPreviousState !== updateResult.data.previous_state ||
             oldNextState !== updateResult.data.next_state;
-          const allStagesCompleted = updateResult.data.stages.every(
-            stage => stage.status === 'completed'
-          );
 
           if (updateResult.EC === 0 && hasChanges) {
             if (this.server) {
@@ -1037,15 +1063,6 @@ export class DriversGateway
                 'WebSocket server is null, cannot emit driverStagesUpdated'
               );
             }
-          } else {
-            logger.log('Skipped emitting driverStagesUpdated:', {
-              reason: !hasChanges ? 'No changes detected' : 'Update failed',
-              oldStagesString,
-              newStagesString,
-              oldCurrentState,
-              newCurrentState: updateResult.data.current_state,
-              allStagesCompleted
-            });
           }
 
           const updatedOrder = await transactionalEntityManager
@@ -1068,24 +1085,6 @@ export class DriversGateway
             return { success: false, message: 'Order not found' };
           }
 
-          if (!updatedOrder.driver && updatedOrder.driver_id) {
-            console.warn(
-              `[DriversGateway] updatedOrder.driver is null, fetching driver with id: ${updatedOrder.driver_id}`
-            );
-            updatedOrder.driver = await transactionalEntityManager
-              .getRepository(Driver)
-              .findOne({ where: { id: updatedOrder.driver_id } });
-            if (!updatedOrder.driver) {
-              console.error(
-                `[DriversGateway] Driver ${updatedOrder.driver_id} not found`
-              );
-            }
-          }
-
-          console.log(
-            '[DriversGateway] handleDriverProgressUpdate - updatedOrder.driver:',
-            updatedOrder.driver
-          );
           await this.notifyPartiesOnce(updatedOrder);
 
           return { success: true, stage: updateResult.data };
@@ -1209,26 +1208,23 @@ export class DriversGateway
 
           let shouldCreateNewDPS = true;
           if (existingDPS) {
-            // Check if ALL orders in the DPS are completed
-            const allOrdersCompleted = existingDPS.orders?.every(
-              order => order.status === OrderStatus.DELIVERED
+            // Check if there are any orders still in progress (not DELIVERED)
+            const hasActiveOrders = existingDPS.orders?.some(
+              order => order.status !== OrderStatus.DELIVERED
             );
 
-            // Check if ALL stages in the DPS are completed
-            const allStagesCompleted = existingDPS.stages?.every(
-              stage => stage.status === 'completed'
-            );
+            // If we have any active orders, we should add to this DPS
+            shouldCreateNewDPS = !hasActiveOrders;
 
-            // Only reuse DPS if both orders and stages are completed
-            shouldCreateNewDPS = !allOrdersCompleted || !allStagesCompleted;
-
+            // Log DPS status for debugging
             logToFile('DPS Status Check', {
               dpsId: existingDPS.id,
-              allOrdersCompleted,
-              allStagesCompleted,
+              hasActiveOrders,
               shouldCreateNewDPS,
-              orderStatuses: existingDPS.orders?.map(o => o.status),
-              stageStatuses: existingDPS.stages?.map(s => s.status)
+              orderStatuses: existingDPS.orders?.map(o => ({
+                id: o.id,
+                status: o.status
+              }))
             });
           }
 
@@ -1271,7 +1267,7 @@ export class DriversGateway
           let dps: DriverProgressStage;
           if (shouldCreateNewDPS) {
             console.log(
-              `[DriversGateway] Creating new DPS for driver ${driverId}`
+              `[DriversGateway] Creating new DPS for driver ${driverId} - all existing orders are delivered`
             );
             const dpsResponse = await this.driverProgressStageService.create(
               {
@@ -1305,7 +1301,7 @@ export class DriversGateway
             await transactionalEntityManager.save(DriverProgressStage, dps);
           } else {
             console.log(
-              `[DriversGateway] Adding order to existing DPS ${existingDPS.id}`
+              `[DriversGateway] Adding order to existing DPS ${existingDPS.id} - has active orders`
             );
             const dpsResponse =
               await this.driverProgressStageService.addOrderToExistingDPS(
