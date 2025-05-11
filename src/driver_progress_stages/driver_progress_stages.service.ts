@@ -143,10 +143,6 @@ export class DriverProgressStagesService {
       const orders = updateData.orders || existingStage.orders || [];
       const events = existingStage.events || [];
 
-      const totalEarns = updateData.stages
-        ? this.calculateTotalEarns(stages)
-        : existingStage.total_earns || 0;
-
       const totalDistance = updateData.orders
         ? this.calculateTotalDistance(orders)
         : existingStage.total_distance_travelled || 0;
@@ -181,13 +177,22 @@ export class DriverProgressStagesService {
           next_state: updateData.next_state ?? existingStage.next_state ?? null,
           stages,
           events,
-          estimated_time_remaining:
+          estimated_time_remaining: Number(
             updateData.estimated_time_remaining ??
-            (existingStage.estimated_time_remaining || 0),
-          actual_time_spent: actualTimeSpent,
+              (existingStage.estimated_time_remaining || 0)
+          ),
+          actual_time_spent: Number(actualTimeSpent),
           total_distance_travelled: Number(totalDistance.toFixed(4)),
-          total_tips: updateData.total_tips ?? (existingStage.total_tips || 0),
-          total_earns: totalEarns,
+          total_tips: Number(
+            (updateData.total_tips ?? (existingStage.total_tips || 0))
+              .toString()
+              .replace(/[^\d.-]/g, '')
+          ),
+          total_earns: Number(
+            (updateData.total_earns ?? (existingStage.total_earns || 0))
+              .toString()
+              .replace(/[^\d.-]/g, '')
+          ),
           updated_at: Math.floor(Date.now() / 1000),
           transactions_processed: existingStage.transactions_processed || false
         });

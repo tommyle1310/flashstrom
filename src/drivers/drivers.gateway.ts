@@ -963,11 +963,10 @@ export class DriversGateway
             }
 
             // Update DPS total distance
+            const currentDistance = Number(dps.total_distance_travelled || 0);
+            const orderDistance = Number(targetOrder.distance || 0);
             dps.total_distance_travelled = Number(
-              (
-                Number(dps.total_distance_travelled || 0) +
-                  targetOrder.distance || 0
-              ).toFixed(4)
+              (currentDistance + orderDistance).toFixed(4)
             );
             await transactionalEntityManager.save(DriverProgressStage, dps);
             logToFile('Updated DPS total distance', {
@@ -1697,8 +1696,11 @@ export class DriversGateway
     logToFile('Updated order distance', { orderId: order.id, distance });
 
     // Update DPS total distance
-    dps.total_distance_travelled =
-      (dps.total_distance_travelled || 0) + distance;
+    const currentDistance = Number(dps.total_distance_travelled || 0);
+    const orderDistance = Number(distance);
+    dps.total_distance_travelled = Number(
+      (currentDistance + orderDistance).toFixed(4)
+    );
     await transactionalEntityManager.save(DriverProgressStage, dps);
     logToFile('Updated DPS total distance', {
       dpsId: dps.id,
