@@ -729,6 +729,144 @@ export class AuthService {
       let fWallet;
 
       switch (type) {
+        case Enum_UserType.CUSTOMER:
+          console.log('=== Starting Customer Registration ===');
+          try {
+            // Create FWallet first
+            const customerFWalletData: CreateFWalletDto = {
+              user_id: newUser.id,
+              email: newUser.email,
+              password: newUserData.password,
+              first_name: userData.first_name,
+              last_name: userData.last_name,
+              balance: 0
+            };
+
+            console.log('Creating FWallet with data:', customerFWalletData);
+            fWallet = await this.fWalletsRepository.create(customerFWalletData);
+            console.log('FWallet created successfully:', fWallet);
+
+            // Create customer record
+            const customerData = {
+              user_id: newUser.id,
+              first_name: userData.first_name,
+              last_name: userData.last_name,
+              phone: userData.phone,
+              address: userData.address,
+              created_at: Math.floor(Date.now() / 1000),
+              updated_at: Math.floor(Date.now() / 1000)
+            };
+
+            console.log('Creating customer with data:', customerData);
+            newUserWithRole =
+              await this.customersRepository.create(customerData);
+            console.log('Customer created successfully:', newUserWithRole);
+
+            // Update user type to include F_WALLET
+            if (newUserWithRole && fWallet) {
+              console.log(
+                'Both FWallet and Customer created, updating user type'
+              );
+              const updatedUserTypes = [...newUser.user_type];
+              if (!updatedUserTypes.includes(Enum_UserType.F_WALLET)) {
+                updatedUserTypes.push(Enum_UserType.F_WALLET);
+              }
+
+              await this.userRepository.update(newUser.id, {
+                user_type: updatedUserTypes,
+                verification_code: newUser.verification_code?.toString()
+              });
+
+              newUser.user_type = updatedUserTypes;
+            }
+          } catch (error) {
+            console.error('Error in customer registration:', error);
+            if (fWallet) {
+              await this.fWalletsRepository.delete(fWallet.id);
+            }
+            await this.userRepository.delete(newUser.id);
+            throw error;
+          }
+          break;
+
+        case Enum_UserType.DRIVER:
+          console.log('=== Starting Driver Registration ===');
+          try {
+            // Create FWallet first
+            const driverFWalletData: CreateFWalletDto = {
+              user_id: newUser.id,
+              email: newUser.email,
+              password: newUserData.password,
+              first_name: userData.first_name,
+              last_name: userData.last_name,
+              balance: 0
+            };
+
+            console.log('Creating FWallet with data:', driverFWalletData);
+            fWallet = await this.fWalletsRepository.create(driverFWalletData);
+            console.log('FWallet created successfully:', fWallet);
+
+            // Create driver record
+            const driverData = {
+              user_id: newUser.id,
+              first_name: userData.first_name,
+              last_name: userData.last_name,
+              contact_email: [
+                { title: 'Primary', is_default: true, email: userData.email }
+              ],
+              contact_phone: [
+                { title: 'Primary', is_default: true, number: userData.phone }
+              ],
+              available_for_work: false,
+              is_on_delivery: false,
+              active_points: 0,
+              current_order_id: [],
+              vehicle: {
+                license_plate: '',
+                model: '',
+                color: ''
+              },
+              current_location: {
+                lat: 0,
+                lng: 0
+              },
+              rating: {
+                average_rating: 0,
+                review_count: 0
+              }
+            };
+
+            console.log('Creating driver with data:', driverData);
+            newUserWithRole = await this.driverRepository.create(driverData);
+            console.log('Driver created successfully:', newUserWithRole);
+
+            // Update user type to include F_WALLET
+            if (newUserWithRole && fWallet) {
+              console.log(
+                'Both FWallet and Driver created, updating user type'
+              );
+              const updatedUserTypes = [...newUser.user_type];
+              if (!updatedUserTypes.includes(Enum_UserType.F_WALLET)) {
+                updatedUserTypes.push(Enum_UserType.F_WALLET);
+              }
+
+              await this.userRepository.update(newUser.id, {
+                user_type: updatedUserTypes,
+                verification_code: newUser.verification_code?.toString()
+              });
+
+              newUser.user_type = updatedUserTypes;
+            }
+          } catch (error) {
+            console.error('Error in driver registration:', error);
+            if (fWallet) {
+              await this.fWalletsRepository.delete(fWallet.id);
+            }
+            await this.userRepository.delete(newUser.id);
+            throw error;
+          }
+          break;
+
         case Enum_UserType.RESTAURANT_OWNER:
           console.log('=== Starting Restaurant Owner Registration ===');
           try {
@@ -826,7 +964,66 @@ export class AuthService {
           }
           break;
 
-        // ... rest of the cases ...
+        case Enum_UserType.F_WALLET:
+          newUserWithRole = await this.fWalletsRepository.create({
+            ...userData,
+            password: newUserData.password,
+            user_id: newUser.id,
+            balance: 0
+          });
+          break;
+
+        case Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
+          newUserWithRole = await this.customerCareRepository.create({
+            user_id: newUser.id as unknown as User,
+            first_name: userData.first_name,
+            last_name: userData.last_name,
+            contact_email: [
+              { title: 'Primary', is_default: true, email: userData.email }
+            ],
+            contact_phone: [
+              { title: 'Primary', is_default: true, number: userData.phone }
+            ],
+            assigned_tickets: [],
+            available_for_work: false,
+            is_assigned: false,
+            created_at: Math.floor(Date.now() / 1000),
+            updated_at: Math.floor(Date.now() / 1000),
+            last_login: Math.floor(Date.now() / 1000)
+          });
+          break;
+
+        case Enum_UserType.SUPER_ADMIN:
+        case Enum_UserType.FINANCE_ADMIN:
+        case Enum_UserType.COMPANION_ADMIN:
+          const roleMap = {
+            [Enum_UserType.SUPER_ADMIN]: AdminRole.SUPER_ADMIN,
+            [Enum_UserType.FINANCE_ADMIN]: AdminRole.FINANCE_ADMIN,
+            [Enum_UserType.COMPANION_ADMIN]: AdminRole.COMPANION_ADMIN
+          };
+          const role = roleMap[type];
+          newUserWithRole = await this.adminService.create({
+            user_id: newUser.id,
+            role,
+            first_name: userData.first_name,
+            last_name: userData.last_name,
+            permissions: [], // Gán permissions mặc định, có thể tùy chỉnh sau
+            status: AdminStatus.ACTIVE,
+            created_at: new Date(),
+            updated_at: new Date()
+          });
+          if (newUserWithRole.EC !== 'OK') {
+            return newUserWithRole;
+          }
+          newUserWithRole = newUserWithRole.data;
+          break;
+
+        default:
+          return createResponse(
+            'Unauthorized',
+            null,
+            'Invalid user type provided'
+          );
       }
 
       console.log('=== Registration Complete ===');
