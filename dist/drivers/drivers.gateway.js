@@ -673,13 +673,14 @@ let DriversGateway = class DriversGateway {
                     }
                 }
                 const inProgressStage = updatedStages.find(stage => stage.status === 'in_progress');
-                let newCurrentState;
-                let newPreviousState = dps.current_state;
-                let newNextState = null;
+                const currentState = inProgressStage
+                    ? inProgressStage.state
+                    : dps.current_state;
+                const previousState = dps.current_state;
+                let nextState = null;
                 if (inProgressStage) {
-                    newCurrentState = inProgressStage.state;
                     const currentIndex = stageOrder.findIndex(base => inProgressStage.state.startsWith(base));
-                    newNextState =
+                    nextState =
                         currentIndex < stageOrder.length - 1
                             ? `${stageOrder[currentIndex + 1]}_${inProgressStage.state.split('_order_')[1]}`
                             : null;
@@ -689,59 +690,19 @@ let DriversGateway = class DriversGateway {
                         .filter(stage => stage.state.startsWith('delivery_complete_') &&
                         stage.status === 'completed')
                         .sort((a, b) => b.timestamp - a.timestamp)[0];
-                    newCurrentState = lastCompletedDelivery
-                        ? lastCompletedDelivery.state
-                        : dps.current_state;
-                    newPreviousState = lastCompletedDelivery
-                        ? dps.current_state
-                        : newPreviousState;
-                    newNextState = lastCompletedDelivery ? null : newNextState;
+                    if (lastCompletedDelivery) {
+                        nextState = null;
+                    }
                 }
+                dps.current_state = currentState;
+                dps.previous_state = previousState;
+                dps.next_state = nextState;
                 const allDeliveryCompleteStages = updatedStages.filter(stage => stage.state.startsWith('delivery_complete_'));
-                const allDeliveryCompleteDone = allDeliveryCompleteStages.every(stage => stage.status === 'completed');
-                const orderIndex = dps.orders.findIndex(o => o.id === targetOrderId) + 1;
-                const orderSuffix = `order_${orderIndex}`;
-                const enRouteState = `en_route_to_customer_${orderSuffix}`;
-                const deliveryCompleteState = `delivery_complete_${orderSuffix}`;
-                const enRouteStage = updatedStages.find(s => s.state === enRouteState);
-                const deliveryCompleteStage = updatedStages.find(s => s.state === deliveryCompleteState);
-                const targetOrder = dps.orders.find(o => o.id === targetOrderId);
-                if (!targetOrder) {
-                    throw new Error(`Order ${targetOrderId} not found in DPS ${dps.id}`);
-                }
-                if (targetOrder.status === order_entity_1.OrderStatus.DELIVERED) {
-                    logToFile('Order is delivered, forcing stage completion', {
-                        orderId: targetOrder.id,
-                        enRouteState,
-                        deliveryCompleteState
-                    });
-                    if (enRouteStage && enRouteStage.status !== 'completed') {
-                        enRouteStage.status = 'completed';
-                        enRouteStage.duration = timestamp - enRouteStage.timestamp;
-                        logToFile('Completed en_route stage', {
-                            state: enRouteState,
-                            duration: enRouteStage.duration
-                        });
-                    }
-                    if (deliveryCompleteStage) {
-                        deliveryCompleteStage.status = 'completed';
-                        deliveryCompleteStage.timestamp = timestamp;
-                        deliveryCompleteStage.duration = 0;
-                        logToFile('Completed delivery stage', {
-                            state: deliveryCompleteState
-                        });
-                        dps.previous_state = dps.current_state;
-                        dps.current_state = deliveryCompleteState;
-                        dps.next_state = null;
-                    }
-                    const currentDistance = Number(dps.total_distance_travelled || 0);
-                    const orderDistance = Number(targetOrder.distance || 0);
-                    dps.total_distance_travelled = Number((currentDistance + orderDistance).toFixed(4));
-                    await transactionalEntityManager.save(driver_progress_stage_entity_1.DriverProgressStage, dps);
-                    logToFile('Updated DPS total distance', {
-                        dpsId: dps.id,
-                        totalDistance: dps.total_distance_travelled
-                    });
+                const isAllCompleted = allDeliveryCompleteStages.every(stage => stage.status === 'completed');
+                if (isAllCompleted) {
+                    dps.current_state =
+                        allDeliveryCompleteStages[allDeliveryCompleteStages.length - 1].state;
+                    dps.next_state = null;
                 }
                 const updateResult = await this.driverProgressStageService.updateStage(data.stageId, {
                     current_state: dps.current_state,
@@ -894,6 +855,7 @@ let DriversGateway = class DriversGateway {
                     .createQueryBuilder('dps')
                     .leftJoinAndSelect('dps.orders', 'orders')
                     .where('dps.driver_id = :driverId', { driverId })
+                    .orderBy('dps.created_at', 'DESC')
                     .getOne();
                 let shouldCreateNewDPS = true;
                 if (existingDPS) {
@@ -967,23 +929,29 @@ let DriversGateway = class DriversGateway {
                 }
                 else {
                     console.log(`[DriversGateway] Adding order to existing DPS ${existingDPS.id} - has active orders`);
+                    if (existingDPS.orders?.some(o => o.id === orderId)) {
+                        throw new websockets_1.WsException('Order already exists in DPS');
+                    }
                     const dpsResponse = await this.driverProgressStageService.addOrderToExistingDPS(existingDPS.id, orderWithRelations, transactionalEntityManager);
                     if (dpsResponse.EC !== 0 || !dpsResponse.data) {
                         throw new websockets_1.WsException('Failed to update DPS');
                     }
                     dps = dpsResponse.data;
-                    if (!dps.orders?.some(o => o.id === orderId)) {
-                        dps.total_distance_travelled = Number((Number(dps.total_distance_travelled || 0) + distance).toFixed(4));
-                        dps.estimated_time_remaining =
-                            (dps.estimated_time_remaining || 0) + estimatedTime;
-                        dps.total_tips = Number(dps.total_tips || 0) + Number(totalTips);
-                        dps.total_earns =
-                            Number(dps.total_earns || 0) + Number(totalEarns);
-                    }
+                    dps.total_distance_travelled = Number((Number(dps.total_distance_travelled || 0) + distance).toFixed(4));
+                    dps.estimated_time_remaining =
+                        (dps.estimated_time_remaining || 0) + estimatedTime;
+                    dps.total_tips = Number(dps.total_tips || 0) + Number(totalTips);
+                    dps.total_earns = Number(dps.total_earns || 0) + Number(totalEarns);
                     dps.stages = dps.stages.map(stage => ({
                         ...stage,
                         details: this.getStageDetails(stage.state, orderWithRelations, driverWithRelations, estimatedTime, totalTips)
                     }));
+                    const orderIndex = dps.orders.length;
+                    const orderSuffix = `order_${orderIndex}`;
+                    const nextState = `driver_ready_${orderSuffix}`;
+                    dps.current_state = nextState;
+                    dps.previous_state = dps.current_state;
+                    dps.next_state = `waiting_for_pickup_${orderSuffix}`;
                     await transactionalEntityManager.save(driver_progress_stage_entity_1.DriverProgressStage, dps);
                 }
                 orderWithRelations.driver_id = driverId;
