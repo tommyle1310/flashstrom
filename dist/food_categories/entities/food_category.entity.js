@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FoodCategory = void 0;
 const typeorm_1 = require("typeorm");
+const promotion_entity_1 = require("../../promotions/entities/promotion.entity");
 let FoodCategory = class FoodCategory {
 };
 exports.FoodCategory = FoodCategory;
@@ -38,6 +39,10 @@ __decorate([
     (0, typeorm_1.Column)(),
     __metadata("design:type", Number)
 ], FoodCategory.prototype, "updated_at", void 0);
+__decorate([
+    (0, typeorm_1.ManyToMany)(() => promotion_entity_1.Promotion, promotion => promotion.food_categories),
+    __metadata("design:type", Array)
+], FoodCategory.prototype, "promotions", void 0);
 exports.FoodCategory = FoodCategory = __decorate([
     (0, typeorm_1.Entity)('food_categories')
 ], FoodCategory);

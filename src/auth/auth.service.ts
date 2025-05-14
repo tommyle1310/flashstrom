@@ -236,7 +236,10 @@ export class AuthService {
     const accessToken = this.jwtService.sign(customerPayload);
     return createResponse(
       'OK',
-      { access_token: accessToken },
+      {
+        access_token: accessToken,
+        user_data: userWithRole
+      },
       'Login successful'
     );
   }

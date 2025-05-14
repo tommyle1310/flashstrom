@@ -209,7 +209,10 @@ let AuthService = class AuthService {
             cart_items: cartItems.data
         };
         const accessToken = this.jwtService.sign(customerPayload);
-        return (0, createResponse_1.createResponse)('OK', { access_token: accessToken }, 'Login successful');
+        return (0, createResponse_1.createResponse)('OK', {
+            access_token: accessToken,
+            user_data: userWithRole
+        }, 'Login successful');
     }
     async handleFWalletLogin(user, basePayload) {
         const userWithRole = await this.fWalletsRepository.findByUserId(user.id);

@@ -3,9 +3,11 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToMany
+  ManyToMany,
+  JoinTable
 } from 'typeorm';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 
 export enum PromotionStatus {
   ACTIVE = 'ACTIVE',
@@ -80,4 +82,12 @@ export class Promotion {
 
   @ManyToMany(() => Restaurant, restaurant => restaurant.promotions)
   restaurants: Restaurant[];
+
+  @ManyToMany(() => FoodCategory)
+  @JoinTable({
+    name: 'promotion_food_categories',
+    joinColumn: { name: 'promotion_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'food_category_id', referencedColumnName: 'id' }
+  })
+  food_categories: FoodCategory[];
 }

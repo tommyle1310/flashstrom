@@ -1,4 +1,5 @@
-import { Entity, Column } from 'typeorm';
+import { Entity, Column, ManyToMany } from 'typeorm';
+import { Promotion } from 'src/promotions/entities/promotion.entity';
 
 @Entity('food_categories')
 export class FoodCategory {
@@ -19,4 +20,7 @@ export class FoodCategory {
 
   @Column()
   updated_at: number;
+
+  @ManyToMany(() => Promotion, promotion => promotion.food_categories)
+  promotions: Promotion[];
 }

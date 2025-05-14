@@ -1,4 +1,5 @@
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 export declare enum PromotionStatus {
     ACTIVE = "ACTIVE",
     EXPIRED = "EXPIRED",
@@ -34,4 +35,5 @@ export declare class Promotion {
     created_at: Date;
     updated_at: Date;
     restaurants: Restaurant[];
+    food_categories: FoodCategory[];
 }

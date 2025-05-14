@@ -685,13 +685,27 @@ export class DriversGateway
               return stage && stage.status === 'in_progress';
             });
 
+            // Fix: Handle first emit for single order case
             if (currentStageIndex === -1) {
-              for (let i = stageOrder.length - 1; i >= 0; i--) {
-                const state = `${stageOrder[i]}_${orderSuffix}`;
-                const stage = updatedStages.find(s => s.state === state);
-                if (stage && stage.status === 'completed') {
-                  currentStageIndex = i;
-                  break;
+              // Check if we're in the initial state
+              const isInitialState = updatedStages.every(
+                stage =>
+                  stage.status === 'pending' ||
+                  (stage.state.startsWith('driver_ready_') &&
+                    stage.status === 'in_progress')
+              );
+
+              if (isInitialState && order.id === targetOrderId) {
+                currentStageIndex = 0; // Start with driver_ready
+              } else {
+                // Find the last completed stage
+                for (let i = stageOrder.length - 1; i >= 0; i--) {
+                  const state = `${stageOrder[i]}_${orderSuffix}`;
+                  const stage = updatedStages.find(s => s.state === state);
+                  if (stage && stage.status === 'completed') {
+                    currentStageIndex = i;
+                    break;
+                  }
                 }
               }
             }
@@ -723,11 +737,11 @@ export class DriversGateway
 
                 // Update stages
                 updatedStages = updatedStages.map((stage): StageDto => {
-                  if (
-                    stage.state === currentState &&
-                    stage.status === 'in_progress'
-                  ) {
-                    const actualTime = timestamp - stage.timestamp;
+                  if (stage.state === currentState) {
+                    const actualTime =
+                      stage.status === 'in_progress'
+                        ? timestamp - stage.timestamp
+                        : 0;
                     dps.actual_time_spent =
                       (dps.actual_time_spent || 0) + actualTime;
                     stage.details.actual_time = actualTime;
@@ -754,7 +768,7 @@ export class DriversGateway
                         timestamp,
                         duration: 0
                       };
-                    } else if (stage.status === 'pending') {
+                    } else {
                       return { ...stage, status: 'in_progress', timestamp };
                     }
                   }
@@ -780,33 +794,6 @@ export class DriversGateway
                     }
                   );
                 }
-              } else if (currentStageIndex < stageOrder.length - 1) {
-                allCompleted = false;
-                const nextState = `driver_ready_${orderSuffix}`;
-                updatedStages = updatedStages.map((stage): StageDto => {
-                  if (stage.state === nextState && stage.status === 'pending') {
-                    const estimatedTime = this.calculateEstimatedTime(
-                      order.distance || 0
-                    );
-                    dps.estimated_time_remaining =
-                      (dps.estimated_time_remaining || 0) + estimatedTime;
-                    stage.details.estimated_time = estimatedTime;
-                    return { ...stage, status: 'in_progress', timestamp };
-                  }
-                  return stage;
-                });
-
-                const newStatus = stageToStatusMap['driver_ready'];
-                const newTrackingInfo = stageToTrackingMap['driver_ready'];
-                await transactionalEntityManager.update(
-                  Order,
-                  { id: order.id },
-                  {
-                    status: newStatus,
-                    tracking_info: newTrackingInfo,
-                    updated_at: Math.floor(Date.now() / 1000)
-                  }
-                );
               }
             }
 
@@ -1203,7 +1190,8 @@ export class DriversGateway
             driver_wage = Number(financeRules.driver_fixed_wage['0-1km']);
           }
 
-          const totalEarns = driver_wage + totalTips;
+          // Fix: Ensure proper number formatting for totalEarns
+          const totalEarns = Number(driver_wage) + Number(totalTips);
 
           let dps: DriverProgressStage;
           if (shouldCreateNewDPS) {
@@ -1217,8 +1205,8 @@ export class DriversGateway
                 current_state: 'driver_ready_order_1',
                 estimated_time_remaining: estimatedTime,
                 total_distance_travelled: Number(distance.toFixed(4)),
-                total_tips: totalTips,
-                total_earns: totalEarns
+                total_tips: Number(totalTips),
+                total_earns: Number(totalEarns.toFixed(2)) // Fix: Format to 2 decimal places
               },
               transactionalEntityManager
             );
@@ -1270,8 +1258,12 @@ export class DriversGateway
             );
             dps.estimated_time_remaining =
               (dps.estimated_time_remaining || 0) + estimatedTime;
-            dps.total_tips = Number(dps.total_tips || 0) + Number(totalTips);
-            dps.total_earns = Number(dps.total_earns || 0) + Number(totalEarns);
+            dps.total_tips = Number(
+              (Number(dps.total_tips || 0) + Number(totalTips)).toFixed(2)
+            );
+            dps.total_earns = Number(
+              (Number(dps.total_earns || 0) + Number(totalEarns)).toFixed(2)
+            );
 
             // Update stages with correct details
             dps.stages = dps.stages.map(stage => ({

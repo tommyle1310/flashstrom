@@ -1,3 +1,4 @@
+import { Promotion } from 'src/promotions/entities/promotion.entity';
 export declare class FoodCategory {
     id: string;
     name: string;
@@ -8,4 +9,5 @@ export declare class FoodCategory {
     };
     created_at: number;
     updated_at: number;
+    promotions: Promotion[];
 }

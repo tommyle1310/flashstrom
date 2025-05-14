@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Promotion = exports.DiscountType = exports.PromotionStatus = void 0;
 const typeorm_1 = require("typeorm");
 const restaurant_entity_1 = require("../../restaurants/entities/restaurant.entity");
+const food_category_entity_1 = require("../../food_categories/entities/food_category.entity");
 var PromotionStatus;
 (function (PromotionStatus) {
     PromotionStatus["ACTIVE"] = "ACTIVE";
@@ -99,6 +100,15 @@ __decorate([
     (0, typeorm_1.ManyToMany)(() => restaurant_entity_1.Restaurant, restaurant => restaurant.promotions),
     __metadata("design:type", Array)
 ], Promotion.prototype, "restaurants", void 0);
+__decorate([
+    (0, typeorm_1.ManyToMany)(() => food_category_entity_1.FoodCategory),
+    (0, typeorm_1.JoinTable)({
+        name: 'promotion_food_categories',
+        joinColumn: { name: 'promotion_id', referencedColumnName: 'id' },
+        inverseJoinColumn: { name: 'food_category_id', referencedColumnName: 'id' }
+    }),
+    __metadata("design:type", Array)
+], Promotion.prototype, "food_categories", void 0);
 exports.Promotion = Promotion = __decorate([
     (0, typeorm_1.Entity)('promotions')
 ], Promotion);
