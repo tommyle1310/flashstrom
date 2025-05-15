@@ -181,38 +181,47 @@ let AuthService = class AuthService {
         }, 'Login successful');
     }
     async handleCustomerLogin(user, basePayload) {
-        const userWithRole = await this.customersRepository.findByUserId(user.id);
-        if (!userWithRole) {
-            return (0, createResponse_1.createResponse)('NotFound', null, 'Customer not found');
+        try {
+            const userWithRole = await this.customersRepository.findByUserId(user.id);
+            if (!userWithRole) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Customer not found');
+            }
+            const fwallet = await this.fWalletsRepository.findByUserId(user.id);
+            if (!fwallet) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Wallet not found for customer');
+            }
+            const cartItems = await this.cartItemService.findAll({
+                customer_id: userWithRole.id
+            });
+            await this.customersRepository.update(userWithRole.id, {
+                last_login: Math.floor(Date.now() / 1000)
+            });
+            console.log('check customer data', userWithRole, 'check address', userWithRole.address);
+            const customerPayload = {
+                ...basePayload,
+                id: userWithRole.id,
+                logged_in_as: Payload_1.Enum_UserType.CUSTOMER,
+                fWallet_id: fwallet.id,
+                fWallet_balance: fwallet.balance,
+                preferred_category: userWithRole.preferred_category,
+                favorite_restaurants: userWithRole.favorite_restaurants,
+                favorite_items: userWithRole.favorite_items,
+                user_id: user.id,
+                avatar: userWithRole.avatar,
+                support_tickets: userWithRole.support_tickets,
+                address: userWithRole.address,
+                cart_items: cartItems.data
+            };
+            const accessToken = this.jwtService.sign(customerPayload);
+            return (0, createResponse_1.createResponse)('OK', {
+                access_token: accessToken,
+                user_data: userWithRole
+            }, 'Login successful');
         }
-        const cartItems = await this.cartItemService.findAll({
-            customer_id: userWithRole.id
-        });
-        const fwallet = await this.fWalletsRepository.findByUserId(user.id);
-        console.log('cehck custeomr data', userWithRole, 'check address ', userWithRole.address);
-        await this.customersRepository.update(userWithRole.id, {
-            last_login: Math.floor(Date.now() / 1000)
-        });
-        const customerPayload = {
-            ...basePayload,
-            id: userWithRole.id,
-            logged_in_as: Payload_1.Enum_UserType.CUSTOMER,
-            fWallet_id: fwallet?.id,
-            fWallet_balance: fwallet?.balance,
-            preferred_category: userWithRole.preferred_category,
-            favorite_restaurants: userWithRole.favorite_restaurants,
-            favorite_items: userWithRole.favorite_items,
-            user_id: user.id,
-            avatar: userWithRole?.avatar,
-            support_tickets: userWithRole.support_tickets,
-            address: userWithRole?.address,
-            cart_items: cartItems.data
-        };
-        const accessToken = this.jwtService.sign(customerPayload);
-        return (0, createResponse_1.createResponse)('OK', {
-            access_token: accessToken,
-            user_data: userWithRole
-        }, 'Login successful');
+        catch (error) {
+            console.error('Error in handleCustomerLogin:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Login failed due to server error');
+        }
     }
     async handleFWalletLogin(user, basePayload) {
         const userWithRole = await this.fWalletsRepository.findByUserId(user.id);
