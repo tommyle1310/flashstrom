@@ -18,6 +18,7 @@ const driver_progress_stage_entity_1 = require("../driver_progress_stages/entiti
 const driver_progress_stages_repository_1 = require("../driver_progress_stages/driver_progress_stages.repository");
 const ratings_reviews_repository_1 = require("../ratings_reviews/ratings_reviews.repository");
 const ratings_review_entity_1 = require("../ratings_reviews/entities/ratings_review.entity");
+const order_entity_1 = require("../orders/entities/order.entity");
 let DriverStatsRecordsModule = class DriverStatsRecordsModule {
 };
 exports.DriverStatsRecordsModule = DriverStatsRecordsModule;
@@ -28,7 +29,8 @@ exports.DriverStatsRecordsModule = DriverStatsRecordsModule = __decorate([
                 driver_stats_record_entity_1.DriverStatsRecord,
                 online_session_entity_1.OnlineSession,
                 driver_progress_stage_entity_1.DriverProgressStage,
-                ratings_review_entity_1.RatingsReview
+                ratings_review_entity_1.RatingsReview,
+                order_entity_1.Order
             ])
         ],
         controllers: [driver_stats_records_controller_1.DriverStatsController],

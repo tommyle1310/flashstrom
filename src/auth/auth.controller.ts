@@ -101,27 +101,31 @@ export class AuthController {
     @Body()
     userData: CreateRestaurantSignup
   ) {
-    const fullUserData = {
-      ...userData,
-      email: userData.contact_email[0].email,
-      phone: userData.contact_phone[0].number
-    };
     // Step 1: Register the customer with the provided data
     const registrationResponse = await this.authService.register(
       userData,
       Enum_UserType.RESTAURANT_OWNER
     );
 
-    // If registration is successful
-    if (registrationResponse?.data?.data) {
+    console.log(
+      'check regist resposne',
+      // registrationResponse?.data,
+      registrationResponse
+    );
+    // If registration is successful - handle both response structures
+    if (
+      registrationResponse?.data?.data ||
+      (registrationResponse?.EC === 0 && registrationResponse?.data)
+    ) {
+      const userId =
+        registrationResponse?.data?.data?.user_id ??
+        registrationResponse?.data?.id;
+
       const code = await this.emailService.sendVerificationEmail(
-        fullUserData.email
-      ); // Send email to the user's email
-      await this.usersService.update(
-        registrationResponse.data.data.user_id ??
-          registrationResponse.data.data.owner_id,
-        { verification_code: code }
-      );
+        userData?.email
+      ); // Send email to the restaurant's primary contact email
+
+      await this.usersService.update(userId, { verification_code: code });
 
       return createResponse(
         'OK',

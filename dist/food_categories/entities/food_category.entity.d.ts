@@ -10,4 +10,5 @@ export declare class FoodCategory {
     created_at: number;
     updated_at: number;
     promotions: Promotion[];
+    generateId(): void;
 }

@@ -55,16 +55,14 @@ let AuthController = class AuthController {
         }
     }
     async registerRestaurant(userData) {
-        const fullUserData = {
-            ...userData,
-            email: userData.contact_email[0].email,
-            phone: userData.contact_phone[0].number
-        };
         const registrationResponse = await this.authService.register(userData, Payload_1.Enum_UserType.RESTAURANT_OWNER);
-        if (registrationResponse?.data?.data) {
-            const code = await this.emailService.sendVerificationEmail(fullUserData.email);
-            await this.usersService.update(registrationResponse.data.data.user_id ??
-                registrationResponse.data.data.owner_id, { verification_code: code });
+        console.log('check regist resposne', registrationResponse);
+        if (registrationResponse?.data?.data ||
+            (registrationResponse?.EC === 0 && registrationResponse?.data)) {
+            const userId = registrationResponse?.data?.data?.user_id ??
+                registrationResponse?.data?.id;
+            const code = await this.emailService.sendVerificationEmail(userData?.email);
+            await this.usersService.update(userId, { verification_code: code });
             return (0, createResponse_1.createResponse)('OK', null, 'Registration successful, verification email sent');
         }
         else {

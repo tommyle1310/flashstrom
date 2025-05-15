@@ -38,11 +38,23 @@ export class RestaurantStatsRecord {
   @Column('float', { default: 0 })
   total_tips: number;
 
+  @Column('float', { default: 0 })
+  total_online_hours: number;
+
   @Column('jsonb', { default: {} })
   rating_summary: {
     average_food_rating: number;
     average_service_rating: number;
+    average_overall_rating: number;
+    total_ratings: number;
     review_count: number;
+    rating_distribution: {
+      '1': number;
+      '2': number;
+      '3': number;
+      '4': number;
+      '5': number;
+    };
   };
 
   @Column('jsonb', { default: {} })

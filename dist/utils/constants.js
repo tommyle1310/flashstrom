@@ -52,8 +52,8 @@ exports.FLASHFOOD_FINANCE = {
     email: 'flashfood.finance@gmail.com'
 };
 exports.FLASHFOOD_FINANCE_neon_test_branch = {
-    id: 'F_WALLET_3e5b3793-363d-4912-a80b-ecfd5d78b1ec',
-    user_id: 'USR_bf7f348e-3c6e-4d30-a143-0bb50f6fed91',
-    email: 'superadmin@gmail.com'
+    id: 'F_WALLET_4806aa8e-6651-4568-a676-eae9b04ddcff',
+    user_id: 'USR_e1c8bab3-385e-4aca-98da-c13be8cf9dfa',
+    email: 'finance.flashfood@gmail.com'
 };
 //# sourceMappingURL=constants.js.map

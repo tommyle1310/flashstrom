@@ -22,7 +22,9 @@ let FoodCategoriesRepository = class FoodCategoriesRepository {
         this.repository = repository;
     }
     async create(createDto) {
-        const category = this.repository.create(createDto);
+        const category = this.repository.create({
+            ...createDto
+        });
         return await this.repository.save(category);
     }
     async findAll() {

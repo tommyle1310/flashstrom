@@ -13,7 +13,9 @@ export class FoodCategoriesRepository {
   ) {}
 
   async create(createDto: CreateFoodCategoryDto): Promise<FoodCategory> {
-    const category = this.repository.create(createDto);
+    const category = this.repository.create({
+      ...createDto
+    });
     return await this.repository.save(category);
   }
 

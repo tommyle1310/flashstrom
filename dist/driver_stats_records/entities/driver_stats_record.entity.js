@@ -60,6 +60,10 @@ __decorate([
     __metadata("design:type", Number)
 ], DriverStatsRecord.prototype, "total_tips", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'integer', default: 0 }),
+    __metadata("design:type", Number)
+], DriverStatsRecord.prototype, "total_orders", void 0);
+__decorate([
     (0, typeorm_1.Column)('jsonb', { nullable: true }),
     __metadata("design:type", Object)
 ], DriverStatsRecord.prototype, "rating_summary", void 0);

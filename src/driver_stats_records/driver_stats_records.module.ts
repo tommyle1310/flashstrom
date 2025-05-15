@@ -9,6 +9,7 @@ import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_
 import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
 import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
+import { Order } from 'src/orders/entities/order.entity';
 
 @Module({
   imports: [
@@ -16,7 +17,8 @@ import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entit
       DriverStatsRecord,
       OnlineSession,
       DriverProgressStage,
-      RatingsReview
+      RatingsReview,
+      Order
     ])
   ],
   controllers: [DriverStatsController],

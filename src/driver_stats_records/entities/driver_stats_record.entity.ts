@@ -39,11 +39,23 @@ export class DriverStatsRecord {
   @Column({ type: 'float', default: 0 })
   total_tips: number; // Tổng tips trong khoảng thời gian
 
+  @Column({ type: 'integer', default: 0 })
+  total_orders: number; // Total number of orders completed in the period
+
   @Column('jsonb', { nullable: true })
   rating_summary: {
     average_food_rating: number;
     average_delivery_rating: number;
+    average_overall_rating: number; // Average of all ratings
+    total_ratings: number; // Total number of ratings received
     review_count: number;
+    rating_distribution: {
+      '1': number;
+      '2': number;
+      '3': number;
+      '4': number;
+      '5': number;
+    }; // Distribution of ratings
   }; // Tổng hợp rating/review trong khoảng thời gian
 
   @Column({ type: 'bigint' })
