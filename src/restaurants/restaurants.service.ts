@@ -183,7 +183,7 @@ export class RestaurantsService {
   ): Promise<ApiResponse<Restaurant>> {
     const start = Date.now();
     try {
-      const { owner_id, promotions, address_id, food_category_ids } =
+      const { owner_id, promotions, address_id, specialize_in } =
         updateRestaurantDto;
 
       // Lấy restaurant từ cache hoặc DB
@@ -280,12 +280,12 @@ export class RestaurantsService {
       }
 
       // Validate food categories
-      let specializeIn: FoodCategory[] = [];
-      if (food_category_ids && food_category_ids.length > 0) {
+      let foodCategories: FoodCategory[] = [];
+      if (specialize_in && specialize_in.length > 0) {
         const categoryFetchStart = Date.now();
-        specializeIn =
-          await this.foodCategoryRepository.findByIds(food_category_ids);
-        if (specializeIn.length !== food_category_ids.length) {
+        foodCategories =
+          await this.foodCategoryRepository.findByIds(specialize_in);
+        if (foodCategories.length !== specialize_in.length) {
           return createResponse(
             'NotFound',
             null,
@@ -297,18 +297,19 @@ export class RestaurantsService {
         );
       }
 
-      // Cập nhật restaurant
+      // Update restaurant
       const updateStart = Date.now();
-      const updatedDto: Partial<UpdateRestaurantDto> & {
-        specialize_in?: FoodCategory[];
-      } = {
+
+      // Prepare update data with correct types
+      const updateData = {
         ...updateRestaurantDto,
-        specialize_in: specializeIn.length > 0 ? specializeIn : undefined
+        specialize_in: foodCategories
       };
+      delete updateData.food_category_ids; // Remove the DTO property if it exists
 
       const updatedRestaurant = await this.restaurantsRepository.update(
         id,
-        updatedDto
+        updateData as any // Type assertion needed due to mismatch between DTO and entity
       );
       await redis.setEx(cacheKey, 7200, JSON.stringify(updatedRestaurant));
       logger.log(`Update restaurant took ${Date.now() - updateStart}ms`);

@@ -146,7 +146,7 @@ let RestaurantsService = class RestaurantsService {
     async update(id, updateRestaurantDto) {
         const start = Date.now();
         try {
-            const { owner_id, promotions, address_id, food_category_ids } = updateRestaurantDto;
+            const { owner_id, promotions, address_id, specialize_in } = updateRestaurantDto;
             const cacheKey = `restaurant:${id}`;
             let restaurant = null;
             const fetchStart = Date.now();
@@ -217,22 +217,23 @@ let RestaurantsService = class RestaurantsService {
                 }
                 logger.log(`Fetch promotions took ${Date.now() - promotionFetchStart}ms`);
             }
-            let specializeIn = [];
-            if (food_category_ids && food_category_ids.length > 0) {
+            let foodCategories = [];
+            if (specialize_in && specialize_in.length > 0) {
                 const categoryFetchStart = Date.now();
-                specializeIn =
-                    await this.foodCategoryRepository.findByIds(food_category_ids);
-                if (specializeIn.length !== food_category_ids.length) {
+                foodCategories =
+                    await this.foodCategoryRepository.findByIds(specialize_in);
+                if (foodCategories.length !== specialize_in.length) {
                     return (0, createResponse_1.createResponse)('NotFound', null, 'One or more food categories not found');
                 }
                 logger.log(`Fetch food categories took ${Date.now() - categoryFetchStart}ms`);
             }
             const updateStart = Date.now();
-            const updatedDto = {
+            const updateData = {
                 ...updateRestaurantDto,
-                specialize_in: specializeIn.length > 0 ? specializeIn : undefined
+                specialize_in: foodCategories
             };
-            const updatedRestaurant = await this.restaurantsRepository.update(id, updatedDto);
+            delete updateData.food_category_ids;
+            const updatedRestaurant = await this.restaurantsRepository.update(id, updateData);
             await redis.setEx(cacheKey, 7200, JSON.stringify(updatedRestaurant));
             logger.log(`Update restaurant took ${Date.now() - updateStart}ms`);
             logger.log(`Update restaurant took ${Date.now() - start}ms`);

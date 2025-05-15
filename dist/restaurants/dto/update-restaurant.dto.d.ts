@@ -35,7 +35,7 @@ export declare class UpdateRestaurantDto extends UpdateRestaurantDto_base {
         average_rating: number;
         review_count: number;
     };
-    food_category_ids?: string[];
+    specialize_in?: string[];
     opening_hours?: {
         mon: {
             from: number;

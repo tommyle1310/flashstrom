@@ -103,7 +103,7 @@ let RestaurantsRepository = class RestaurantsRepository {
     async findById(id) {
         const restaurant = await this.repository.findOne({
             where: { id },
-            relations: ['owner', 'promotions']
+            relations: ['owner', 'promotions', 'specialize_in']
         });
         if (restaurant) {
             logger.log('Restaurant found:', {

@@ -84,8 +84,8 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true }) // Sửa specialize_in thành food_category_ids cho đồng bộ
-  food_category_ids?: string[];
+  @IsString({ each: true }) // Validate each element as string
+  specialize_in?: string[]; // Changed from food_category_ids to specialize_in
 
   @IsOptional()
   @IsObject()
