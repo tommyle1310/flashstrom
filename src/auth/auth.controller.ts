@@ -88,7 +88,7 @@ export class AuthController {
 
       return createResponse(
         'OK',
-        null,
+        registrationResponse?.data?.data,
         'Registration successful, verification email sent'
       );
     } else {

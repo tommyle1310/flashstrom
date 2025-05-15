@@ -377,7 +377,34 @@ let AuthService = class AuthService {
                         review_count: 0
                     }
                 });
-                break;
+                const createdDriver = await this.driverRepository.findOne({
+                    where: { id: newUserWithRole.id },
+                    relations: ['current_orders']
+                });
+                if (!createdDriver) {
+                    throw new Error('Failed to retrieve created driver');
+                }
+                if (!existingUser.user_type.includes(Payload_1.Enum_UserType.F_WALLET)) {
+                    const updatedUserTypes = [
+                        ...existingUser.user_type,
+                        Payload_1.Enum_UserType.F_WALLET
+                    ];
+                    await this.userRepository.update(existingUser.id, {
+                        user_type: updatedUserTypes,
+                        verification_code: existingUser.verification_code?.toString()
+                    });
+                    existingUser.user_type = updatedUserTypes;
+                }
+                return (0, createResponse_1.createResponse)('OK', {
+                    id: existingUser.id,
+                    user_id: existingUser.id,
+                    email: existingUser.email,
+                    first_name: existingUser.first_name,
+                    last_name: existingUser.last_name,
+                    user_type: existingUser.user_type,
+                    data: createdDriver,
+                    fWallet: fWallet
+                }, 'Driver registered successfully');
             case Payload_1.Enum_UserType.RESTAURANT_OWNER:
                 console.log('=== Starting Restaurant Owner Registration ===');
                 try {
@@ -539,7 +566,9 @@ let AuthService = class AuthService {
             user_type: existingUser.user_type,
             data: newUserWithRole
         };
-        if (fWallet && (type === 'DRIVER' || type === 'RESTAURANT_OWNER')) {
+        if (fWallet &&
+            (type === Payload_1.Enum_UserType.DRIVER ||
+                type === Payload_1.Enum_UserType.RESTAURANT_OWNER)) {
             responseData['fWallet'] = fWallet;
         }
         return (0, createResponse_1.createResponse)('OK', responseData, `${type} created successfully with existing user`);
@@ -686,13 +715,20 @@ let AuthService = class AuthService {
                             });
                             newUser.user_type = updatedUserTypes;
                         }
+                        return (0, createResponse_1.createResponse)('OK', {
+                            id: newUser.id,
+                            user_id: newUser.id,
+                            phone,
+                            email: newUser.email,
+                            first_name: newUser.first_name,
+                            last_name: newUser.last_name,
+                            user_type: newUser.user_type,
+                            data: newUserWithRole,
+                            fWallet: fWallet
+                        }, 'Driver registered successfully');
                     }
                     catch (error) {
                         console.error('Error in driver registration:', error);
-                        if (fWallet) {
-                            await this.fWalletsRepository.delete(fWallet.id);
-                        }
-                        await this.userRepository.delete(newUser.id);
                         throw error;
                     }
                     break;

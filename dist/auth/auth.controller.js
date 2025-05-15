@@ -48,7 +48,7 @@ let AuthController = class AuthController {
             await this.usersService.update(registrationResponse.data.data.user_id, {
                 verification_code: code
             });
-            return (0, createResponse_1.createResponse)('OK', null, 'Registration successful, verification email sent');
+            return (0, createResponse_1.createResponse)('OK', registrationResponse?.data?.data, 'Registration successful, verification email sent');
         }
         else {
             return registrationResponse?.data;

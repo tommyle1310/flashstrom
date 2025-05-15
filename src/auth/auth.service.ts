@@ -414,7 +414,7 @@ export class AuthService {
     let newUserWithRole;
     let fWallet;
 
-    switch (type) {
+    switch (type as Enum_UserType) {
       case Enum_UserType.CUSTOMER:
         newUserWithRole = await this.customersRepository.create({
           ...userData,
@@ -465,7 +465,45 @@ export class AuthService {
             review_count: 0
           }
         });
-        break;
+
+        // Get complete driver data
+        const createdDriver = await this.driverRepository.findOne({
+          where: { id: newUserWithRole.id },
+          relations: ['current_orders'] // Include any necessary relations
+        });
+
+        if (!createdDriver) {
+          throw new Error('Failed to retrieve created driver');
+        }
+
+        // Update user type to include F_WALLET if needed
+        if (!existingUser.user_type.includes(Enum_UserType.F_WALLET)) {
+          const updatedUserTypes = [
+            ...existingUser.user_type,
+            Enum_UserType.F_WALLET
+          ];
+          await this.userRepository.update(existingUser.id, {
+            user_type: updatedUserTypes,
+            verification_code: existingUser.verification_code?.toString()
+          });
+          existingUser.user_type = updatedUserTypes;
+        }
+
+        // Return both driver and fwallet data
+        return createResponse(
+          'OK',
+          {
+            id: existingUser.id,
+            user_id: existingUser.id,
+            email: existingUser.email,
+            first_name: existingUser.first_name,
+            last_name: existingUser.last_name,
+            user_type: existingUser.user_type,
+            data: createdDriver, // Use complete driver data
+            fWallet: fWallet
+          },
+          'Driver registered successfully'
+        );
 
       case Enum_UserType.RESTAURANT_OWNER:
         console.log('=== Starting Restaurant Owner Registration ===');
@@ -626,7 +664,7 @@ export class AuthService {
         );
     }
 
-    switch (type) {
+    switch (type as Enum_UserType) {
       case Enum_UserType.CUSTOMER:
         await this.customersRepository.update(
           newUserWithRole.id,
@@ -669,7 +707,11 @@ export class AuthService {
       data: newUserWithRole
     };
 
-    if (fWallet && (type === 'DRIVER' || type === 'RESTAURANT_OWNER')) {
+    if (
+      fWallet &&
+      ((type as Enum_UserType) === Enum_UserType.DRIVER ||
+        (type as Enum_UserType) === Enum_UserType.RESTAURANT_OWNER)
+    ) {
       responseData['fWallet'] = fWallet;
     }
 
@@ -731,7 +773,7 @@ export class AuthService {
       let newUserWithRole;
       let fWallet;
 
-      switch (type) {
+      switch (type as Enum_UserType) {
         case Enum_UserType.CUSTOMER:
           console.log('=== Starting Customer Registration ===');
           try {
@@ -860,12 +902,25 @@ export class AuthService {
 
               newUser.user_type = updatedUserTypes;
             }
+
+            // Return complete response with driver and fwallet data
+            return createResponse(
+              'OK',
+              {
+                id: newUser.id,
+                user_id: newUser.id,
+                phone,
+                email: newUser.email,
+                first_name: newUser.first_name,
+                last_name: newUser.last_name,
+                user_type: newUser.user_type,
+                data: newUserWithRole,
+                fWallet: fWallet
+              },
+              'Driver registered successfully'
+            );
           } catch (error) {
             console.error('Error in driver registration:', error);
-            if (fWallet) {
-              await this.fWalletsRepository.delete(fWallet.id);
-            }
-            await this.userRepository.delete(newUser.id);
             throw error;
           }
           break;
@@ -1047,8 +1102,8 @@ export class AuthService {
 
       if (
         fWallet &&
-        (type === Enum_UserType.DRIVER ||
-          type === Enum_UserType.RESTAURANT_OWNER)
+        ((type as Enum_UserType) === Enum_UserType.DRIVER ||
+          (type as Enum_UserType) === Enum_UserType.RESTAURANT_OWNER)
       ) {
         responseData['fWallet'] = fWallet;
       }
