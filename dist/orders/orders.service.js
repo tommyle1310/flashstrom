@@ -322,6 +322,9 @@ let OrdersService = class OrdersService {
             if (!restaurant) {
                 return (0, createResponse_1.createResponse)('NotFound', null, `Restaurant ${createOrderDto.restaurant_id} not found`);
             }
+            if (restaurant.status.is_open === false) {
+                return (0, createResponse_1.createResponse)('NotAcceptingOrders', null, 'Restaurant is not available at the moment');
+            }
             if (!customerAddress) {
                 return (0, createResponse_1.createResponse)('NotFound', null, `Customer address ${createOrderDto.customer_location} not found`);
             }

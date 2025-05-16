@@ -364,6 +364,14 @@ export class OrdersService {
           `Restaurant ${createOrderDto.restaurant_id} not found`
         );
       }
+
+      if (restaurant.status.is_open === false) {
+        return createResponse(
+          'NotAcceptingOrders',
+          null,
+          'Restaurant is not available at the moment'
+        );
+      }
       if (!customerAddress) {
         return createResponse(
           'NotFound',
