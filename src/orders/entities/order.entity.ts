@@ -62,6 +62,15 @@ export enum OrderCancellationReason {
   OTHER = 'OTHER'
 }
 
+export interface OrderItem {
+  item_id: string;
+  variant_id: string;
+  name: string;
+  quantity: number;
+  price_at_time_of_order: number;
+  item?: MenuItem;
+}
+
 @Entity('orders')
 export class Order {
   @PrimaryColumn({ type: 'varchar' })
@@ -139,13 +148,7 @@ export class Order {
   restaurantAddress: AddressBook;
 
   @Column('jsonb')
-  order_items: Array<{
-    item_id: string;
-    variant_id: string;
-    name: string;
-    quantity: number;
-    price_at_time_of_order: number;
-  }>;
+  order_items: OrderItem[];
 
   menu_items?: MenuItem[];
 

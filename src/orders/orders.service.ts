@@ -8,8 +8,6 @@ import {
   OrderCancellationReason
 } from './entities/order.entity';
 import { createResponse, ApiResponse } from 'src/utils/createResponse';
-// import { OrdersRepository } from './orders.repository';
-// import { RestaurantsGateway } from '../restaurants/restaurants.gateway';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { CustomersRepository } from 'src/customers/customers.repository';
@@ -36,6 +34,9 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { RedisService } from 'src/redis/redis.service';
 import { OrdersRepository } from './orders.repository';
 import { calculateDistance } from 'src/utils/commonFunctions';
+import { FLASHFOOD_FINANCE_neon_test_branch } from 'src/utils/constants';
+import { FinanceRule } from 'src/finance_rules/entities/finance_rule.entity';
+import { MenuItemVariant } from 'src/menu_item_variants/entities/menu_item_variant.entity';
 
 dotenv.config();
 
@@ -46,19 +47,10 @@ const redis = createClient({
 });
 redis.connect().catch(err => logger.error('Redis connection error:', err));
 
-// interface OrderItem {
-//   item_id: string;
-//   variant_id: string;
-//   name: string;
-//   quantity: number;
-//   price_at_time_of_order: number;
-//   item: MenuItem; // Populated menu item
-// }
-
 @Injectable()
 export class OrdersService {
   constructor(
-    @InjectRepository(Order) // Sử dụng Repository<Order> thay vì OrdersRepository
+    @InjectRepository(Order)
     private readonly ordersRepository: Repository<Order>,
     private readonly menuItemsRepository: MenuItemsRepository,
     private readonly menuItemVariantsRepository: MenuItemVariantsRepository,
@@ -104,9 +96,50 @@ export class OrdersService {
     logger.log('- redisService:', !!this.redisService);
   }
 
+  private async getLatestFinanceRule(
+    transactionalEntityManager?: EntityManager
+  ): Promise<FinanceRule | null> {
+    const cacheKey = 'latest_finance_rule';
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      logger.log(`Fetch finance rule (cache)`);
+      return JSON.parse(cached);
+    }
+    const manager = transactionalEntityManager || this.dataSource.manager;
+    const rule = await manager
+      .getRepository(FinanceRule)
+      .createQueryBuilder('finance_rule')
+      .orderBy(
+        'COALESCE(finance_rule.updated_at, finance_rule.created_at)',
+        'DESC'
+      )
+      .getOne();
+    if (rule) {
+      await redis.setEx(cacheKey, 7200, JSON.stringify(rule));
+      logger.log(`Stored finance rule in Redis: ${cacheKey}`);
+    }
+    return rule;
+  }
+
   async createOrder(createOrderDto: CreateOrderDto): Promise<ApiResponse<any>> {
     const start = Date.now();
     try {
+      // Kiểm tra trùng lặp đơn hàng
+      const orderHash = `${createOrderDto.customer_id}:${createOrderDto.order_time}:${createOrderDto.order_items
+        .map(item => item.item_id)
+        .sort()
+        .join(',')}`;
+      const cacheKey = `order_lock:${orderHash}`;
+      const lockAcquired = await redis.set(cacheKey, '1', { NX: true, EX: 60 });
+      if (!lockAcquired) {
+        logger.warn(`Duplicate order detected: ${orderHash}`);
+        return createResponse(
+          'DuplicatedRecord',
+          null,
+          'Order already processed'
+        );
+      }
+
       // 1. Batch fetch dữ liệu song song
       const fetchStart = Date.now();
       const [
@@ -141,10 +174,7 @@ export class OrdersService {
         (async () => {
           const start = Date.now();
           const cacheKey = `restaurant:${createOrderDto.restaurant_id}`;
-
-          // Clear the cache for this restaurant to get fresh data
           await redis.del(cacheKey);
-
           const result = await this.restaurantsRepository.findById(
             createOrderDto.restaurant_id
           );
@@ -198,7 +228,7 @@ export class OrdersService {
         (async () => {
           const start = Date.now();
           const itemIds = createOrderDto.order_items.map(item => item.item_id);
-          const cacheKey = `menu_items:${itemIds.sort().join(',')}`; // Sử dụng danh sách item_id làm key
+          const cacheKey = `menu_items:${itemIds.sort().join(',')}`;
           const cached = await redis.get(cacheKey);
           if (cached) {
             logger.log(`Fetch menu items (cache) took ${Date.now() - start}ms`);
@@ -251,47 +281,20 @@ export class OrdersService {
               logger.log(`Fetch promotion took ${Date.now() - start}ms`);
               return promo;
             })()
-          : Promise.resolve(null),
-        (async () => {
-          const start = Date.now();
-          // Skip cart items nếu order_items đã đủ thông tin
-          if (createOrderDto.order_items?.length > 0) {
-            logger.log(`Skipping cart items fetch, using order_items`);
-            return [];
-          }
-          const cacheKey = `cart_items:${createOrderDto.customer_id}`;
-          const cached = await redis.get(cacheKey);
-          if (cached) {
-            logger.log(`Fetch cart items (cache) took ${Date.now() - start}ms`);
-            return JSON.parse(cached);
-          }
-          const items = await this.cartItemsRepository.findByCustomerId(
-            createOrderDto.customer_id,
-            { take: 50 }
-          );
-          if (items.length > 0) {
-            await redis.setEx(cacheKey, 600, JSON.stringify(items));
-            logger.log(`Stored cart items in Redis: ${cacheKey}`);
-          } else {
-            logger.warn(
-              `No cart items found for customer: ${createOrderDto.customer_id}`
-            );
-          }
-          logger.log(`Fetch cart items took ${Date.now() - start}ms`);
-          return items;
-        })()
+          : Promise.resolve(null)
       ]);
 
       // Fetch wallets song song
       let customerWallet = null;
       let restaurantWallet = null;
+      let adminWallet = null;
       if (
         createOrderDto.payment_method === 'FWallet' &&
         customer &&
         restaurant
       ) {
         const walletStart = Date.now();
-        [customerWallet, restaurantWallet] = await Promise.all([
+        [customerWallet, restaurantWallet, adminWallet] = await Promise.all([
           (async () => {
             const cacheKey = `fwallet:${customer.user_id}`;
             const cached = await redis.get(cacheKey);
@@ -329,6 +332,23 @@ export class OrdersService {
               `Fetch restaurant wallet took ${Date.now() - walletStart}ms`
             );
             return wallet;
+          })(),
+          (async () => {
+            const cacheKey = `fwallet:admin`;
+            const cached = await redis.get(cacheKey);
+            if (cached) {
+              logger.log(
+                `Fetch admin wallet (cache) took ${Date.now() - walletStart}ms`
+              );
+              return JSON.parse(cached);
+            }
+            const wallet = await this.fWalletsRepository.findById(
+              FLASHFOOD_FINANCE_neon_test_branch.id
+            );
+            if (wallet)
+              await redis.setEx(cacheKey, 7200, JSON.stringify(wallet));
+            logger.log(`Fetch admin wallet took ${Date.now() - walletStart}ms`);
+            return wallet;
           })()
         ]);
       }
@@ -364,7 +384,6 @@ export class OrdersService {
           `Restaurant ${createOrderDto.restaurant_id} not found`
         );
       }
-
       if (restaurant.status.is_open === false) {
         return createResponse(
           'NotAcceptingOrders',
@@ -388,23 +407,22 @@ export class OrdersService {
       }
       if (
         createOrderDto.payment_method === 'FWallet' &&
-        (!customerWallet || !restaurantWallet)
+        (!customerWallet || !restaurantWallet || !adminWallet)
       ) {
-        logger.log(
-          'Check customer wallet:',
+        logger.log('Check wallets:', {
           customerWallet,
-          'restaurant wallet:',
-          restaurantWallet
-        );
+          restaurantWallet,
+          adminWallet
+        });
         return createResponse('NotFound', null, `Wallet not found`);
       }
 
-      // 4. Tính total_amount và promotion
-      const calcStart = Date.now();
-      let totalAmount = createOrderDto.total_amount;
+      // 4. Tính giá và áp dụng promotion
+      // const calcStart = Date.now();
+      let customerSubTotal = 0;
+      let restaurantSubTotal = 0;
       let appliedPromotion: Promotion | null = null;
 
-      // Calculate distance between customer and restaurant
       let distance = 0;
       if (customerAddress?.location && restaurantAddress?.location) {
         distance = calculateDistance(
@@ -416,77 +434,144 @@ export class OrdersService {
       }
 
       const menuItemMap = new Map(menuItems.map(mi => [mi.id, mi]));
-      if (promotion && createOrderDto.promotion_applied) {
-        const now = Math.floor(Date.now() / 1000);
-        if (
-          promotion.start_date <= now &&
-          promotion.end_date >= now &&
-          promotion.status === 'ACTIVE'
-        ) {
-          appliedPromotion = promotion;
-          totalAmount = createOrderDto.order_items.reduce((sum, orderItem) => {
-            const menuItem = menuItemMap.get(orderItem.item_id);
-            if (!menuItem) return sum;
-            const priceToUse =
-              orderItem.price_after_applied_promotion ??
-              orderItem.price_at_time_of_order;
-            orderItem.price_at_time_of_order = priceToUse;
-            return sum + priceToUse * orderItem.quantity;
-          }, 0);
-        }
-      }
-      logger.log(`Calculation took ${Date.now() - calcStart}ms`);
-
-      // Handle FWallet payment
-      if (createOrderDto.payment_method === 'FWallet') {
-        if (!customerWallet) {
-          return createResponse('NotFound', null, 'Customer wallet not found');
+      const variantMap = new Map(variants.map(v => [v.id, v]));
+      const updatedOrderItems = createOrderDto.order_items.map(item => {
+        const menuItem = menuItemMap.get(item.item_id);
+        if (!menuItem) {
+          throw new Error(`Menu item ${item.item_id} not found`);
         }
 
-        // Convert both values to numbers with 2 decimal places for accurate comparison
-        const walletBalance = Number(
-          parseFloat(customerWallet.balance.toString()).toFixed(2)
-        );
-        const orderAmount = Number(
-          parseFloat(createOrderDto.total_amount.toString()).toFixed(2)
-        );
-
-        logger.log('Checking wallet balance:', {
-          walletBalance,
-          orderAmount,
-          originalBalance: customerWallet.balance,
-          originalAmount: createOrderDto.total_amount
-        });
-
-        if (walletBalance < orderAmount) {
-          return createResponse(
-            'InsufficientBalance',
-            null,
-            'Insufficient balance'
+        // Lấy giá từ variant mới nhất trong CSDL
+        let originalPrice = item.price_at_time_of_order;
+        if (item.variant_id) {
+          const variant = variantMap.get(item.variant_id) as MenuItemVariant;
+          if (!variant) {
+            throw new Error(`Variant ${item.variant_id} not found`);
+          }
+          originalPrice = variant.price; // Giá mới nhất từ CSDL
+          logger.log(`Using variant price for ${item.name}: ${originalPrice}`);
+        } else {
+          logger.warn(
+            `No variant for item ${item.item_id}, using DTO price: ${originalPrice}`
           );
         }
+        restaurantSubTotal += originalPrice * item.quantity;
 
-        // Set payment status to PAID since FWallet payment is immediate
-        createOrderDto.payment_status = 'PAID';
-      } else {
-        // For COD orders, set payment status to PENDING
-        createOrderDto.payment_status = 'PENDING';
+        // Áp dụng khuyến mãi cho customerSubTotal
+        let discountedPrice = originalPrice;
+        if (
+          promotion &&
+          createOrderDto.promotion_applied &&
+          (menuItem as MenuItem & { category: string[] }).category?.some(cat =>
+            promotion.food_category_ids.includes(cat)
+          )
+        ) {
+          const now = Math.floor(Date.now() / 1000);
+          if (
+            promotion.start_date <= now &&
+            promotion.end_date >= now &&
+            promotion.status === 'ACTIVE'
+          ) {
+            appliedPromotion = promotion;
+            if (promotion.discount_type === 'PERCENTAGE') {
+              discountedPrice =
+                originalPrice * (1 - promotion.discount_value / 100);
+            } else if (promotion.discount_type === 'FIXED') {
+              discountedPrice = Math.max(
+                0,
+                originalPrice - promotion.discount_value
+              );
+            }
+            discountedPrice = Number(discountedPrice.toFixed(2));
+          }
+        }
+
+        customerSubTotal += discountedPrice * item.quantity;
+
+        return {
+          ...item,
+          price_after_applied_promotion: discountedPrice,
+          price_at_time_of_order: originalPrice // Lưu giá CSDL vào đơn hàng
+        };
+      });
+
+      customerSubTotal +=
+        createOrderDto.delivery_fee + createOrderDto.service_fee;
+      customerSubTotal = Number(customerSubTotal.toFixed(2));
+      restaurantSubTotal = Number(restaurantSubTotal.toFixed(2));
+
+      // Kiểm tra customerSubTotal khớp với DTO
+      if (Math.abs(customerSubTotal - createOrderDto.total_amount) > 0.01) {
+        logger.warn(
+          `Total amount mismatch: expected ${customerSubTotal}, got ${createOrderDto.total_amount}`
+        );
+        return createResponse(
+          'InvalidFormatInput',
+          null,
+          `Total amount mismatch: expected ${customerSubTotal}, got ${createOrderDto.total_amount}`
+        );
       }
 
       // 5. Transaction
       const txStart = Date.now();
       const result = await this.dataSource.transaction(
         async transactionalEntityManager => {
-          // Tạo order với minimal relations
+          // Calculate commissions
+          const latestFinanceRule = await this.getLatestFinanceRule(
+            transactionalEntityManager
+          );
+          let commissionRate =
+            latestFinanceRule &&
+            typeof latestFinanceRule.restaurant_commission === 'number'
+              ? latestFinanceRule.restaurant_commission
+              : 0.1;
+          if (commissionRate < 0 || commissionRate > 1) {
+            logger.warn(
+              `Invalid commission rate ${commissionRate}, using default 0.1`
+            );
+            commissionRate = 0.1;
+          }
+          const adminCommission = Number(
+            (restaurantSubTotal * commissionRate).toFixed(2)
+          );
+          const restaurantRevenue = Number(
+            (restaurantSubTotal * (1 - commissionRate)).toFixed(2)
+          );
+
+          logger.log(`Price calculation:`, {
+            customerSubTotal,
+            restaurantSubTotal,
+            adminCommission,
+            restaurantRevenue,
+            deliveryFee: createOrderDto.delivery_fee,
+            serviceFee: createOrderDto.service_fee
+          });
+
+          if (createOrderDto.payment_method === 'FWallet') {
+            const walletBalance = Number(
+              parseFloat(customerWallet!.balance.toString()).toFixed(2)
+            );
+            if (walletBalance < customerSubTotal) {
+              return createResponse(
+                'InsufficientBalance',
+                null,
+                'Insufficient balance'
+              );
+            }
+            createOrderDto.payment_status = 'PAID';
+          } else {
+            createOrderDto.payment_status = 'PENDING';
+          }
+
           const orderData: DeepPartial<Order> = {
             ...createOrderDto,
-            total_amount: totalAmount,
+            total_amount: customerSubTotal,
+            order_items: updatedOrderItems,
             promotions_applied: appliedPromotion ? [appliedPromotion] : [],
-            status:
-              (createOrderDto.status as OrderStatus) || OrderStatus.PENDING,
-            tracking_info:
-              (createOrderDto.tracking_info as OrderTrackingInfo) ||
-              OrderTrackingInfo.ORDER_PLACED,
+            status: (createOrderDto.status ||
+              OrderStatus.PENDING) as OrderStatus,
+            tracking_info: (createOrderDto.tracking_info ||
+              OrderTrackingInfo.ORDER_PLACED) as OrderTrackingInfo,
             customerAddress: { id: customerAddress.id },
             restaurantAddress: { id: restaurantAddress.id },
             created_at: Math.floor(Date.now() / 1000),
@@ -494,10 +579,17 @@ export class OrdersService {
             distance: Number(distance.toFixed(4))
           };
 
-          // Handle FWallet payment
+          // Lưu đơn hàng trước để có order_id
+          logger.log('Saving order...');
+          const newOrder = this.ordersRepository.create(orderData as any);
+          const savedOrder = await transactionalEntityManager.save(
+            Order,
+            newOrder as any
+          );
+          logger.log(`Order saved with id: ${savedOrder.id}`);
+          orderData.id = savedOrder.id;
+
           if (createOrderDto.payment_method === 'FWallet') {
-            const txServiceStart = Date.now();
-            // Make sure we have the owner_id from the restaurant
             if (!restaurant.owner_id) {
               logger.error('Restaurant owner_id not found');
               return createResponse(
@@ -507,63 +599,132 @@ export class OrdersService {
               );
             }
 
-            // Convert amounts to numbers with 2 decimal places
-            const amount = Number(
-              parseFloat(totalAmount.toString()).toFixed(2)
-            );
-            const currentBalance = Number(
-              parseFloat(customerWallet!.balance.toString()).toFixed(2)
-            );
-            const balanceAfter = Number((currentBalance - amount).toFixed(2));
-
-            logger.log('Creating transaction with amounts:', {
-              amount,
-              currentBalance,
-              balanceAfter,
-              originalAmount: totalAmount,
-              originalBalance: customerWallet!.balance
-            });
-
-            const transactionDto = {
+            // Transaction 1: Khách trả admin (dto.total_amount)
+            const customerTxDto = {
               user_id: customer.user_id,
               fwallet_id: customerWallet!.id,
               transaction_type: 'PURCHASE',
-              amount,
-              balance_after: balanceAfter,
+              amount: customerSubTotal,
+              balance_after: Number(
+                (customerWallet!.balance - customerSubTotal).toFixed(2)
+              ),
               status: 'PENDING',
               source: 'FWALLET',
-              destination: restaurantWallet!.id,
+              destination: adminWallet!.id,
               destination_type: 'FWALLET',
               version: customerWallet!.version || 0,
               order_id: orderData.id
             } as CreateTransactionDto;
 
-            const transactionResponse = await this.transactionService.create(
-              transactionDto,
+            logger.log(
+              `Creating customer transaction: ${JSON.stringify(customerTxDto)}`
+            );
+            const customerTxResponse = await this.transactionService.create(
+              customerTxDto,
               transactionalEntityManager
             );
-            logger.log(
-              `Transaction service took ${Date.now() - txServiceStart}ms`,
-              transactionResponse
-            );
-            if (transactionResponse.EC !== 0) {
+            if (customerTxResponse.EC !== 0) {
               logger.error(
-                `Transaction failed: ${JSON.stringify(transactionResponse)}`
+                `Customer transaction failed: ${JSON.stringify(customerTxResponse)}`
               );
-              return transactionResponse;
+              return customerTxResponse;
+            }
+
+            // Cập nhật ví admin
+            const updatedAdminWallet = await this.fWalletsRepository.findById(
+              FLASHFOOD_FINANCE_neon_test_branch.id,
+              transactionalEntityManager
+            );
+            if (!updatedAdminWallet) {
+              logger.error('Failed to get updated admin wallet');
+              return createResponse(
+                'ServerError',
+                null,
+                'Failed to get updated admin wallet'
+              );
+            }
+
+            // Transaction 2: Admin trả nhà hàng (restaurantSubTotal)
+            const adminToRestaurantTxDto = {
+              user_id: FLASHFOOD_FINANCE_neon_test_branch.id,
+              fwallet_id: updatedAdminWallet.id,
+              transaction_type: 'PURCHASE',
+              amount: restaurantSubTotal,
+              balance_after: Number(
+                (updatedAdminWallet.balance - restaurantSubTotal).toFixed(2)
+              ),
+              status: 'PENDING',
+              source: 'FWALLET',
+              destination: restaurantWallet!.id,
+              destination_type: 'FWALLET',
+              version: updatedAdminWallet.version || 0,
+              order_id: orderData.id
+            } as CreateTransactionDto;
+
+            logger.log(
+              `Creating admin to restaurant transaction: ${JSON.stringify(adminToRestaurantTxDto)}`
+            );
+            const adminToRestaurantTxResponse =
+              await this.transactionService.create(
+                adminToRestaurantTxDto,
+                transactionalEntityManager
+              );
+            if (adminToRestaurantTxResponse.EC !== 0) {
+              logger.error(
+                `Admin to restaurant transaction failed: ${JSON.stringify(adminToRestaurantTxResponse)}`
+              );
+              return adminToRestaurantTxResponse;
+            }
+
+            // Cập nhật ví nhà hàng
+            const updatedRestaurantWallet =
+              await this.fWalletsRepository.findByUserId(
+                restaurant.owner_id,
+                transactionalEntityManager
+              );
+            if (!updatedRestaurantWallet) {
+              logger.error('Failed to get updated restaurant wallet');
+              return createResponse(
+                'ServerError',
+                null,
+                'Failed to get updated restaurant wallet'
+              );
+            }
+
+            // Transaction 3: Nhà hàng trả admin (adminCommission)
+            const restaurantToAdminTxDto = {
+              user_id: restaurant.owner_id,
+              fwallet_id: updatedRestaurantWallet.id,
+              transaction_type: 'PURCHASE',
+              amount: adminCommission,
+              balance_after: Number(
+                (updatedRestaurantWallet.balance - adminCommission).toFixed(2)
+              ),
+              status: 'PENDING',
+              source: 'FWALLET',
+              destination: adminWallet!.id,
+              destination_type: 'FWALLET',
+              version: updatedRestaurantWallet.version || 0,
+              order_id: orderData.id
+            } as CreateTransactionDto;
+
+            logger.log(
+              `Creating restaurant to admin transaction: ${JSON.stringify(restaurantToAdminTxDto)}`
+            );
+            const restaurantToAdminTxResponse =
+              await this.transactionService.create(
+                restaurantToAdminTxDto,
+                transactionalEntityManager
+              );
+            if (restaurantToAdminTxResponse.EC !== 0) {
+              logger.error(
+                `Restaurant to admin transaction failed: ${JSON.stringify(restaurantToAdminTxResponse)}`
+              );
+              return restaurantToAdminTxResponse;
             }
           }
 
-          // Lưu order
-          logger.log('Saving order...');
-          const newOrder = this.ordersRepository.create(orderData as any);
-          const savedOrder = await transactionalEntityManager.save(
-            Order,
-            newOrder as any
-          );
-          logger.log(`Order saved with id: ${savedOrder.id}`);
-
-          // Cập nhật restaurant total_orders
+          // Cập nhật total_orders của nhà hàng
           logger.log('Updating restaurant total_orders...');
           await transactionalEntityManager
             .createQueryBuilder()
@@ -576,7 +737,7 @@ export class OrdersService {
             .execute();
           logger.log('Restaurant total_orders updated');
 
-          // Kiểm tra và xóa CartItem
+          // Xóa cart items
           logger.log(
             `Checking cart items for customer_id: ${createOrderDto.customer_id}`
           );
@@ -609,21 +770,15 @@ export class OrdersService {
             logger.log(
               `Deleted ${deleteResult.affected} cart items for customer ${createOrderDto.customer_id}`
             );
-
             if (deleteResult.affected === 0) {
               logger.warn(
                 `No cart items were deleted for customer ${createOrderDto.customer_id}`
               );
             } else {
-              // Xóa cache Redis
               const cacheKey = `cart_items:${createOrderDto.customer_id}`;
               await this.redisService.del(cacheKey);
               logger.log(`Cleared Redis cache: ${cacheKey}`);
             }
-          } else {
-            logger.log(
-              `No cart items found to delete for customer ${createOrderDto.customer_id}`
-            );
           }
 
           logger.log('Transaction completed successfully');
@@ -642,12 +797,13 @@ export class OrdersService {
       }
       const savedOrder = result.data as Order;
 
-      // Cập nhật menu item purchase count bất đồng bộ
+      // Cập nhật purchase count không đồng bộ
       logger.log('Updating menu item purchase count...');
       this.updateMenuItemPurchaseCount(createOrderDto.order_items).catch(err =>
         logger.error('Error updating menu item purchase count:', err)
       );
-      // 6. Emit event
+
+      // 6. Gửi sự kiện
       const emitStart = Date.now();
       const eventId = `${savedOrder.id}-${Date.now()}`;
       const trackingUpdate = {
@@ -658,9 +814,9 @@ export class OrdersService {
         customer_id: savedOrder.customer_id,
         driver_id: savedOrder.driver_id,
         restaurant_id: savedOrder.restaurant_id,
-        restaurantAddress: restaurantAddress, // Use the full restaurantAddress from Promise.all
-        customerAddress: customerAddress, // Use the full customerAddress from Promise.all
-        order_items: createOrderDto.order_items,
+        restaurantAddress,
+        customerAddress,
+        order_items: savedOrder.order_items,
         total_amount: savedOrder.total_amount,
         delivery_fee: savedOrder.delivery_fee,
         service_fee: savedOrder.service_fee,
@@ -669,13 +825,11 @@ export class OrdersService {
         eventId
       };
 
-      // Emit chỉ 1 lần, dùng Redis để deduplicate
       const redisResult = await redis.set(`event:${eventId}`, '1', {
         NX: true,
         EX: 60
       });
       logger.log(`Emitting event ${eventId} with redisResult: ${redisResult}`);
-      console.log('ceẹccejck redsi', redisResult);
       if (redisResult === 'OK') {
         this.notifyOrderStatus(trackingUpdate as any);
         this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
@@ -703,7 +857,7 @@ export class OrdersService {
       lockKey,
       driverId,
       300000
-    ); // TTL 5 phút
+    );
     if (!lockAcquired) {
       console.log(
         `[OrdersService] Skipping duplicated assignDriver for order ${orderId}`
@@ -723,7 +877,7 @@ export class OrdersService {
 
       order.driver_id = driverId;
       order.status = OrderStatus.DISPATCHED;
-      await this.ordersRepository.save(order); // Sử dụng save của Repository<Order>
+      await this.ordersRepository.save(order);
 
       this.eventEmitter.emit('order.assignedToDriver', { orderId, driverId });
       await this.notifyOrderStatus(order);
@@ -738,7 +892,7 @@ export class OrdersService {
       lockKey,
       'notified',
       60000
-    ); // TTL 1 phút
+    );
     if (!lockAcquired) {
       console.log(
         `[OrdersService] Skipping notify due to existing lock: ${order.id}`
@@ -1019,7 +1173,6 @@ export class OrdersService {
     const cacheKey = 'orders:all';
 
     try {
-      // Try to get from Redis cache first
       const cachedOrders = await redis.get(cacheKey);
       if (cachedOrders) {
         logger.log('Cache hit for all orders');
@@ -1032,7 +1185,6 @@ export class OrdersService {
 
       logger.log('Cache miss for all orders');
 
-      // Fetch orders from database
       const orders = await this.ordersRepository.find({
         relations: [
           'restaurant',
@@ -1043,7 +1195,6 @@ export class OrdersService {
         ]
       });
 
-      // Collect all unique menu item IDs
       const menuItemIds = new Set<string>();
       orders.forEach(order => {
         if (order.order_items) {
@@ -1055,13 +1206,11 @@ export class OrdersService {
         }
       });
 
-      // Fetch all menu items in one query
       const menuItems = await this.menuItemsRepository.findByIds([
         ...menuItemIds
       ]);
       const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
 
-      // Map menu items to orders
       orders.forEach(order => {
         if (order.order_items) {
           order.order_items = order.order_items.map(item => ({
@@ -1071,7 +1220,6 @@ export class OrdersService {
         }
       });
 
-      // Cache the results for 5 minutes (300 seconds)
       await redis.setEx(cacheKey, 300, JSON.stringify(orders));
 
       logger.log(`Fetched all orders in ${Date.now() - start}ms`);
@@ -1087,7 +1235,6 @@ export class OrdersService {
     const cacheKey = `order:${id}`;
 
     try {
-      // Try to get from Redis cache first
       const cachedOrder = await redis.get(cacheKey);
       if (cachedOrder) {
         logger.log(`Cache hit for order ${id}`);
@@ -1100,7 +1247,6 @@ export class OrdersService {
 
       logger.log(`Cache miss for order ${id}`);
 
-      // Fetch order from database
       const order = await this.ordersRepository.findOne({
         where: { id },
         relations: [
@@ -1116,14 +1262,10 @@ export class OrdersService {
         return createResponse('NotFound', null, 'Order not found');
       }
 
-      // Collect menu item IDs from this order
       const menuItemIds = order.order_items?.map(item => item.item_id) || [];
-
-      // Fetch menu items in one query
       const menuItems = await this.menuItemsRepository.findByIds(menuItemIds);
       const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
 
-      // Map menu items to order items
       if (order.order_items) {
         order.order_items = order.order_items.map(item => ({
           ...item,
@@ -1131,7 +1273,6 @@ export class OrdersService {
         }));
       }
 
-      // Cache the result for 5 minutes (300 seconds)
       await redis.setEx(cacheKey, 300, JSON.stringify(order));
 
       logger.log(`Fetched order ${id} in ${Date.now() - start}ms`);
@@ -1170,7 +1311,6 @@ export class OrdersService {
         return createResponse('NotFound', null, 'Order not found');
       }
 
-      // Validate the cancelling entity exists
       let entityExists = false;
       switch (cancelledBy) {
         case 'customer':
@@ -1197,7 +1337,6 @@ export class OrdersService {
         );
       }
 
-      // Check if order can be cancelled based on its current status
       if (!this.canOrderBeCancelled(order.status)) {
         return createResponse(
           'Forbidden',
@@ -1295,7 +1434,6 @@ export class OrdersService {
       return createResponse('NotFound', null, 'Restaurant address not found');
     }
 
-    // Validate order items
     if (!order_items || order_items.length === 0) {
       logger.log(
         `Validation failed: No order items (${Date.now() - validationStart}ms)`
@@ -1365,7 +1503,6 @@ export class OrdersService {
         updated_at: order.updated_at
       });
 
-      // If payment failed, cancel the order
       if (paymentStatus === 'FAILED') {
         logger.log('Payment failed, cancelling order');
         order.status = OrderStatus.CANCELLED;
@@ -1435,7 +1572,6 @@ export class OrdersService {
 
       const totalPages = Math.ceil(total / limit);
 
-      // Collect all unique menu item IDs
       const menuItemIds = new Set<string>();
       orders.forEach(order => {
         if (order.order_items) {
@@ -1447,14 +1583,12 @@ export class OrdersService {
         }
       });
 
-      // Fetch all menu items in one query if there are any IDs
       if (menuItemIds.size > 0) {
         const menuItems = await this.menuItemsRepository.findByIds([
           ...menuItemIds
         ]);
         const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
 
-        // Map menu items to orders
         orders.forEach(order => {
           if (order.order_items) {
             order.order_items = order.order_items.map(item => ({

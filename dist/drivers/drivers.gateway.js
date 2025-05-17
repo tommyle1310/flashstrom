@@ -955,6 +955,31 @@ let DriversGateway = class DriversGateway {
                     ];
                     await transactionalEntityManager.save(driver_entity_1.Driver, driverWithRelations);
                 }
+                this.eventEmitter.emit('listenUpdateOrderTracking', {
+                    orderId: orderWithRelations.id,
+                    status: orderWithRelations.status,
+                    tracking_info: orderWithRelations.tracking_info,
+                    updated_at: orderWithRelations.updated_at,
+                    customer_id: orderWithRelations.customer_id,
+                    driver_id: orderWithRelations.driver_id,
+                    restaurant_id: orderWithRelations.restaurant_id,
+                    restaurant_avatar: orderWithRelations.restaurant?.avatar || null,
+                    driver_avatar: driverWithRelations.avatar || null,
+                    restaurantAddress: orderWithRelations.restaurantAddress,
+                    customerAddress: orderWithRelations.customerAddress,
+                    driverDetails: {
+                        id: driverWithRelations.id,
+                        first_name: driverWithRelations.first_name || 'N/A',
+                        last_name: driverWithRelations.last_name || 'N/A',
+                        avatar: driverWithRelations.avatar,
+                        rating: driverWithRelations.rating || { average_rating: '4.8' },
+                        vehicle: driverWithRelations.vehicle || {
+                            color: 'N/A',
+                            model: 'N/A',
+                            license_plate: 'N/A'
+                        }
+                    }
+                });
                 this.server.to(`driver_${driverId}`).emit('driverStagesUpdated', dps);
                 this.eventEmitter.emit('order.statusUpdated', {
                     orderId,

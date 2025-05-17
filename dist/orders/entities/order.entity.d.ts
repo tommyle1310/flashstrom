@@ -45,6 +45,14 @@ export declare enum OrderCancellationReason {
     CUSTOMER_UNAVAILABLE = "CUSTOMER_UNAVAILABLE",
     OTHER = "OTHER"
 }
+export interface OrderItem {
+    item_id: string;
+    variant_id: string;
+    name: string;
+    quantity: number;
+    price_at_time_of_order: number;
+    item?: MenuItem;
+}
 export declare class Order {
     id: string;
     customer_id: string;
@@ -65,13 +73,7 @@ export declare class Order {
     customerAddress: AddressBook;
     restaurant_location: string;
     restaurantAddress: AddressBook;
-    order_items: Array<{
-        item_id: string;
-        variant_id: string;
-        name: string;
-        quantity: number;
-        price_at_time_of_order: number;
-    }>;
+    order_items: OrderItem[];
     menu_items?: MenuItem[];
     customer_note: string;
     restaurant_note: string;

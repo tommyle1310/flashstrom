@@ -498,6 +498,21 @@ export class RestaurantsGateway
       await this.updateOrderWithMetrics(orderId, distance, driver_wage);
       const updatedOrder = await this.getUpdatedOrder(orderId);
 
+      // Notify customer about restaurant acceptance
+      this.eventEmitter.emit('listenUpdateOrderTracking', {
+        orderId: updatedOrder.id,
+        status: updatedOrder.status,
+        tracking_info: updatedOrder.tracking_info,
+        updated_at: updatedOrder.updated_at,
+        customer_id: updatedOrder.customer_id,
+        driver_id: updatedOrder.driver_id,
+        restaurant_id: updatedOrder.restaurant_id,
+        restaurant_avatar: updatedOrder.restaurant?.avatar || null,
+        driver_avatar: updatedOrder.driver?.avatar || null,
+        restaurantAddress: updatedOrder.restaurantAddress,
+        customerAddress: updatedOrder.customerAddress
+      });
+
       // Thông báo driver và các bên liên quan
       await this.notifyDriverAndParties(
         updatedOrder,

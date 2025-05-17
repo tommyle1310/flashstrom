@@ -37,6 +37,7 @@ export declare class OrdersService {
     private readonly driverService;
     private readonly redisService;
     constructor(ordersRepository: Repository<Order>, menuItemsRepository: MenuItemsRepository, menuItemVariantsRepository: MenuItemVariantsRepository, addressBookRepository: AddressBookRepository, customersRepository: CustomersRepository, driverStatsService: DriverStatsService, restaurantsRepository: RestaurantsRepository, dataSource: DataSource, cartItemsRepository: CartItemsRepository, orderRepository: OrdersRepository, customersGateway: CustomersGateway, driversGateway: DriversGateway, transactionService: TransactionService, fWalletsRepository: FWalletsRepository, eventEmitter: EventEmitter2, driverService: DriversService, redisService: RedisService);
+    private getLatestFinanceRule;
     createOrder(createOrderDto: CreateOrderDto): Promise<ApiResponse<any>>;
     assignDriver(orderId: string, driverId: string): Promise<void>;
     notifyOrderStatus(order: Order): Promise<void>;

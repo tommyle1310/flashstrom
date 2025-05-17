@@ -74,6 +74,8 @@ const typeorm_2 = require("@nestjs/typeorm");
 const redis_service_1 = require("../redis/redis.service");
 const orders_repository_1 = require("./orders.repository");
 const commonFunctions_1 = require("../utils/commonFunctions");
+const constants_1 = require("../utils/constants");
+const finance_rule_entity_1 = require("../finance_rules/entities/finance_rule.entity");
 dotenv.config();
 const logger = new common_1.Logger('OrdersService');
 const redis = (0, redis_1.createClient)({
@@ -119,9 +121,38 @@ let OrdersService = class OrdersService {
         logger.log('- driverService:', !!this.driverService);
         logger.log('- redisService:', !!this.redisService);
     }
+    async getLatestFinanceRule(transactionalEntityManager) {
+        const cacheKey = 'latest_finance_rule';
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+            logger.log(`Fetch finance rule (cache)`);
+            return JSON.parse(cached);
+        }
+        const manager = transactionalEntityManager || this.dataSource.manager;
+        const rule = await manager
+            .getRepository(finance_rule_entity_1.FinanceRule)
+            .createQueryBuilder('finance_rule')
+            .orderBy('COALESCE(finance_rule.updated_at, finance_rule.created_at)', 'DESC')
+            .getOne();
+        if (rule) {
+            await redis.setEx(cacheKey, 7200, JSON.stringify(rule));
+            logger.log(`Stored finance rule in Redis: ${cacheKey}`);
+        }
+        return rule;
+    }
     async createOrder(createOrderDto) {
         const start = Date.now();
         try {
+            const orderHash = `${createOrderDto.customer_id}:${createOrderDto.order_time}:${createOrderDto.order_items
+                .map(item => item.item_id)
+                .sort()
+                .join(',')}`;
+            const cacheKey = `order_lock:${orderHash}`;
+            const lockAcquired = await redis.set(cacheKey, '1', { NX: true, EX: 60 });
+            if (!lockAcquired) {
+                logger.warn(`Duplicate order detected: ${orderHash}`);
+                return (0, createResponse_1.createResponse)('DuplicatedRecord', null, 'Order already processed');
+            }
             const fetchStart = Date.now();
             const [customer, restaurant, customerAddress, restaurantAddress, menuItems, variants, promotion] = await Promise.all([
                 (async () => {
@@ -242,38 +273,16 @@ let OrdersService = class OrdersService {
                         logger.log(`Fetch promotion took ${Date.now() - start}ms`);
                         return promo;
                     })()
-                    : Promise.resolve(null),
-                (async () => {
-                    const start = Date.now();
-                    if (createOrderDto.order_items?.length > 0) {
-                        logger.log(`Skipping cart items fetch, using order_items`);
-                        return [];
-                    }
-                    const cacheKey = `cart_items:${createOrderDto.customer_id}`;
-                    const cached = await redis.get(cacheKey);
-                    if (cached) {
-                        logger.log(`Fetch cart items (cache) took ${Date.now() - start}ms`);
-                        return JSON.parse(cached);
-                    }
-                    const items = await this.cartItemsRepository.findByCustomerId(createOrderDto.customer_id, { take: 50 });
-                    if (items.length > 0) {
-                        await redis.setEx(cacheKey, 600, JSON.stringify(items));
-                        logger.log(`Stored cart items in Redis: ${cacheKey}`);
-                    }
-                    else {
-                        logger.warn(`No cart items found for customer: ${createOrderDto.customer_id}`);
-                    }
-                    logger.log(`Fetch cart items took ${Date.now() - start}ms`);
-                    return items;
-                })()
+                    : Promise.resolve(null)
             ]);
             let customerWallet = null;
             let restaurantWallet = null;
+            let adminWallet = null;
             if (createOrderDto.payment_method === 'FWallet' &&
                 customer &&
                 restaurant) {
                 const walletStart = Date.now();
-                [customerWallet, restaurantWallet] = await Promise.all([
+                [customerWallet, restaurantWallet, adminWallet] = await Promise.all([
                     (async () => {
                         const cacheKey = `fwallet:${customer.user_id}`;
                         const cached = await redis.get(cacheKey);
@@ -298,6 +307,19 @@ let OrdersService = class OrdersService {
                         if (wallet)
                             await redis.setEx(cacheKey, 7200, JSON.stringify(wallet));
                         logger.log(`Fetch restaurant wallet took ${Date.now() - walletStart}ms`);
+                        return wallet;
+                    })(),
+                    (async () => {
+                        const cacheKey = `fwallet:admin`;
+                        const cached = await redis.get(cacheKey);
+                        if (cached) {
+                            logger.log(`Fetch admin wallet (cache) took ${Date.now() - walletStart}ms`);
+                            return JSON.parse(cached);
+                        }
+                        const wallet = await this.fWalletsRepository.findById(constants_1.FLASHFOOD_FINANCE_neon_test_branch.id);
+                        if (wallet)
+                            await redis.setEx(cacheKey, 7200, JSON.stringify(wallet));
+                        logger.log(`Fetch admin wallet took ${Date.now() - walletStart}ms`);
                         return wallet;
                     })()
                 ]);
@@ -332,111 +354,199 @@ let OrdersService = class OrdersService {
                 return (0, createResponse_1.createResponse)('NotFound', null, `Restaurant address ${createOrderDto.restaurant_location} not found`);
             }
             if (createOrderDto.payment_method === 'FWallet' &&
-                (!customerWallet || !restaurantWallet)) {
-                logger.log('Check customer wallet:', customerWallet, 'restaurant wallet:', restaurantWallet);
+                (!customerWallet || !restaurantWallet || !adminWallet)) {
+                logger.log('Check wallets:', {
+                    customerWallet,
+                    restaurantWallet,
+                    adminWallet
+                });
                 return (0, createResponse_1.createResponse)('NotFound', null, `Wallet not found`);
             }
-            const calcStart = Date.now();
-            let totalAmount = createOrderDto.total_amount;
+            let customerSubTotal = 0;
+            let restaurantSubTotal = 0;
             let appliedPromotion = null;
             let distance = 0;
             if (customerAddress?.location && restaurantAddress?.location) {
                 distance = (0, commonFunctions_1.calculateDistance)(customerAddress.location.lat, customerAddress.location.lng, restaurantAddress.location.lat, restaurantAddress.location.lng);
             }
             const menuItemMap = new Map(menuItems.map(mi => [mi.id, mi]));
-            if (promotion && createOrderDto.promotion_applied) {
-                const now = Math.floor(Date.now() / 1000);
-                if (promotion.start_date <= now &&
-                    promotion.end_date >= now &&
-                    promotion.status === 'ACTIVE') {
-                    appliedPromotion = promotion;
-                    totalAmount = createOrderDto.order_items.reduce((sum, orderItem) => {
-                        const menuItem = menuItemMap.get(orderItem.item_id);
-                        if (!menuItem)
-                            return sum;
-                        const priceToUse = orderItem.price_after_applied_promotion ??
-                            orderItem.price_at_time_of_order;
-                        orderItem.price_at_time_of_order = priceToUse;
-                        return sum + priceToUse * orderItem.quantity;
-                    }, 0);
+            const variantMap = new Map(variants.map(v => [v.id, v]));
+            const updatedOrderItems = createOrderDto.order_items.map(item => {
+                const menuItem = menuItemMap.get(item.item_id);
+                if (!menuItem) {
+                    throw new Error(`Menu item ${item.item_id} not found`);
                 }
-            }
-            logger.log(`Calculation took ${Date.now() - calcStart}ms`);
-            if (createOrderDto.payment_method === 'FWallet') {
-                if (!customerWallet) {
-                    return (0, createResponse_1.createResponse)('NotFound', null, 'Customer wallet not found');
+                let originalPrice = item.price_at_time_of_order;
+                if (item.variant_id) {
+                    const variant = variantMap.get(item.variant_id);
+                    if (!variant) {
+                        throw new Error(`Variant ${item.variant_id} not found`);
+                    }
+                    originalPrice = variant.price;
+                    logger.log(`Using variant price for ${item.name}: ${originalPrice}`);
                 }
-                const walletBalance = Number(parseFloat(customerWallet.balance.toString()).toFixed(2));
-                const orderAmount = Number(parseFloat(createOrderDto.total_amount.toString()).toFixed(2));
-                logger.log('Checking wallet balance:', {
-                    walletBalance,
-                    orderAmount,
-                    originalBalance: customerWallet.balance,
-                    originalAmount: createOrderDto.total_amount
-                });
-                if (walletBalance < orderAmount) {
-                    return (0, createResponse_1.createResponse)('InsufficientBalance', null, 'Insufficient balance');
+                else {
+                    logger.warn(`No variant for item ${item.item_id}, using DTO price: ${originalPrice}`);
                 }
-                createOrderDto.payment_status = 'PAID';
-            }
-            else {
-                createOrderDto.payment_status = 'PENDING';
+                restaurantSubTotal += originalPrice * item.quantity;
+                let discountedPrice = originalPrice;
+                if (promotion &&
+                    createOrderDto.promotion_applied &&
+                    menuItem.category?.some(cat => promotion.food_category_ids.includes(cat))) {
+                    const now = Math.floor(Date.now() / 1000);
+                    if (promotion.start_date <= now &&
+                        promotion.end_date >= now &&
+                        promotion.status === 'ACTIVE') {
+                        appliedPromotion = promotion;
+                        if (promotion.discount_type === 'PERCENTAGE') {
+                            discountedPrice =
+                                originalPrice * (1 - promotion.discount_value / 100);
+                        }
+                        else if (promotion.discount_type === 'FIXED') {
+                            discountedPrice = Math.max(0, originalPrice - promotion.discount_value);
+                        }
+                        discountedPrice = Number(discountedPrice.toFixed(2));
+                    }
+                }
+                customerSubTotal += discountedPrice * item.quantity;
+                return {
+                    ...item,
+                    price_after_applied_promotion: discountedPrice,
+                    price_at_time_of_order: originalPrice
+                };
+            });
+            customerSubTotal +=
+                createOrderDto.delivery_fee + createOrderDto.service_fee;
+            customerSubTotal = Number(customerSubTotal.toFixed(2));
+            restaurantSubTotal = Number(restaurantSubTotal.toFixed(2));
+            if (Math.abs(customerSubTotal - createOrderDto.total_amount) > 0.01) {
+                logger.warn(`Total amount mismatch: expected ${customerSubTotal}, got ${createOrderDto.total_amount}`);
+                return (0, createResponse_1.createResponse)('InvalidFormatInput', null, `Total amount mismatch: expected ${customerSubTotal}, got ${createOrderDto.total_amount}`);
             }
             const txStart = Date.now();
             const result = await this.dataSource.transaction(async (transactionalEntityManager) => {
+                const latestFinanceRule = await this.getLatestFinanceRule(transactionalEntityManager);
+                let commissionRate = latestFinanceRule &&
+                    typeof latestFinanceRule.restaurant_commission === 'number'
+                    ? latestFinanceRule.restaurant_commission
+                    : 0.1;
+                if (commissionRate < 0 || commissionRate > 1) {
+                    logger.warn(`Invalid commission rate ${commissionRate}, using default 0.1`);
+                    commissionRate = 0.1;
+                }
+                const adminCommission = Number((restaurantSubTotal * commissionRate).toFixed(2));
+                const restaurantRevenue = Number((restaurantSubTotal * (1 - commissionRate)).toFixed(2));
+                logger.log(`Price calculation:`, {
+                    customerSubTotal,
+                    restaurantSubTotal,
+                    adminCommission,
+                    restaurantRevenue,
+                    deliveryFee: createOrderDto.delivery_fee,
+                    serviceFee: createOrderDto.service_fee
+                });
+                if (createOrderDto.payment_method === 'FWallet') {
+                    const walletBalance = Number(parseFloat(customerWallet.balance.toString()).toFixed(2));
+                    if (walletBalance < customerSubTotal) {
+                        return (0, createResponse_1.createResponse)('InsufficientBalance', null, 'Insufficient balance');
+                    }
+                    createOrderDto.payment_status = 'PAID';
+                }
+                else {
+                    createOrderDto.payment_status = 'PENDING';
+                }
                 const orderData = {
                     ...createOrderDto,
-                    total_amount: totalAmount,
+                    total_amount: customerSubTotal,
+                    order_items: updatedOrderItems,
                     promotions_applied: appliedPromotion ? [appliedPromotion] : [],
-                    status: createOrderDto.status || order_entity_1.OrderStatus.PENDING,
-                    tracking_info: createOrderDto.tracking_info ||
-                        order_entity_1.OrderTrackingInfo.ORDER_PLACED,
+                    status: (createOrderDto.status ||
+                        order_entity_1.OrderStatus.PENDING),
+                    tracking_info: (createOrderDto.tracking_info ||
+                        order_entity_1.OrderTrackingInfo.ORDER_PLACED),
                     customerAddress: { id: customerAddress.id },
                     restaurantAddress: { id: restaurantAddress.id },
                     created_at: Math.floor(Date.now() / 1000),
                     updated_at: Math.floor(Date.now() / 1000),
                     distance: Number(distance.toFixed(4))
                 };
-                if (createOrderDto.payment_method === 'FWallet') {
-                    const txServiceStart = Date.now();
-                    if (!restaurant.owner_id) {
-                        logger.error('Restaurant owner_id not found');
-                        return (0, createResponse_1.createResponse)('ServerError', null, 'Restaurant owner not found');
-                    }
-                    const amount = Number(parseFloat(totalAmount.toString()).toFixed(2));
-                    const currentBalance = Number(parseFloat(customerWallet.balance.toString()).toFixed(2));
-                    const balanceAfter = Number((currentBalance - amount).toFixed(2));
-                    logger.log('Creating transaction with amounts:', {
-                        amount,
-                        currentBalance,
-                        balanceAfter,
-                        originalAmount: totalAmount,
-                        originalBalance: customerWallet.balance
-                    });
-                    const transactionDto = {
-                        user_id: customer.user_id,
-                        fwallet_id: customerWallet.id,
-                        transaction_type: 'PURCHASE',
-                        amount,
-                        balance_after: balanceAfter,
-                        status: 'PENDING',
-                        source: 'FWALLET',
-                        destination: restaurantWallet.id,
-                        destination_type: 'FWALLET',
-                        version: customerWallet.version || 0,
-                        order_id: orderData.id
-                    };
-                    const transactionResponse = await this.transactionService.create(transactionDto, transactionalEntityManager);
-                    logger.log(`Transaction service took ${Date.now() - txServiceStart}ms`, transactionResponse);
-                    if (transactionResponse.EC !== 0) {
-                        logger.error(`Transaction failed: ${JSON.stringify(transactionResponse)}`);
-                        return transactionResponse;
-                    }
-                }
                 logger.log('Saving order...');
                 const newOrder = this.ordersRepository.create(orderData);
                 const savedOrder = await transactionalEntityManager.save(order_entity_1.Order, newOrder);
                 logger.log(`Order saved with id: ${savedOrder.id}`);
+                orderData.id = savedOrder.id;
+                if (createOrderDto.payment_method === 'FWallet') {
+                    if (!restaurant.owner_id) {
+                        logger.error('Restaurant owner_id not found');
+                        return (0, createResponse_1.createResponse)('ServerError', null, 'Restaurant owner not found');
+                    }
+                    const customerTxDto = {
+                        user_id: customer.user_id,
+                        fwallet_id: customerWallet.id,
+                        transaction_type: 'PURCHASE',
+                        amount: customerSubTotal,
+                        balance_after: Number((customerWallet.balance - customerSubTotal).toFixed(2)),
+                        status: 'PENDING',
+                        source: 'FWALLET',
+                        destination: adminWallet.id,
+                        destination_type: 'FWALLET',
+                        version: customerWallet.version || 0,
+                        order_id: orderData.id
+                    };
+                    logger.log(`Creating customer transaction: ${JSON.stringify(customerTxDto)}`);
+                    const customerTxResponse = await this.transactionService.create(customerTxDto, transactionalEntityManager);
+                    if (customerTxResponse.EC !== 0) {
+                        logger.error(`Customer transaction failed: ${JSON.stringify(customerTxResponse)}`);
+                        return customerTxResponse;
+                    }
+                    const updatedAdminWallet = await this.fWalletsRepository.findById(constants_1.FLASHFOOD_FINANCE_neon_test_branch.id, transactionalEntityManager);
+                    if (!updatedAdminWallet) {
+                        logger.error('Failed to get updated admin wallet');
+                        return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to get updated admin wallet');
+                    }
+                    const adminToRestaurantTxDto = {
+                        user_id: constants_1.FLASHFOOD_FINANCE_neon_test_branch.id,
+                        fwallet_id: updatedAdminWallet.id,
+                        transaction_type: 'PURCHASE',
+                        amount: restaurantSubTotal,
+                        balance_after: Number((updatedAdminWallet.balance - restaurantSubTotal).toFixed(2)),
+                        status: 'PENDING',
+                        source: 'FWALLET',
+                        destination: restaurantWallet.id,
+                        destination_type: 'FWALLET',
+                        version: updatedAdminWallet.version || 0,
+                        order_id: orderData.id
+                    };
+                    logger.log(`Creating admin to restaurant transaction: ${JSON.stringify(adminToRestaurantTxDto)}`);
+                    const adminToRestaurantTxResponse = await this.transactionService.create(adminToRestaurantTxDto, transactionalEntityManager);
+                    if (adminToRestaurantTxResponse.EC !== 0) {
+                        logger.error(`Admin to restaurant transaction failed: ${JSON.stringify(adminToRestaurantTxResponse)}`);
+                        return adminToRestaurantTxResponse;
+                    }
+                    const updatedRestaurantWallet = await this.fWalletsRepository.findByUserId(restaurant.owner_id, transactionalEntityManager);
+                    if (!updatedRestaurantWallet) {
+                        logger.error('Failed to get updated restaurant wallet');
+                        return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to get updated restaurant wallet');
+                    }
+                    const restaurantToAdminTxDto = {
+                        user_id: restaurant.owner_id,
+                        fwallet_id: updatedRestaurantWallet.id,
+                        transaction_type: 'PURCHASE',
+                        amount: adminCommission,
+                        balance_after: Number((updatedRestaurantWallet.balance - adminCommission).toFixed(2)),
+                        status: 'PENDING',
+                        source: 'FWALLET',
+                        destination: adminWallet.id,
+                        destination_type: 'FWALLET',
+                        version: updatedRestaurantWallet.version || 0,
+                        order_id: orderData.id
+                    };
+                    logger.log(`Creating restaurant to admin transaction: ${JSON.stringify(restaurantToAdminTxDto)}`);
+                    const restaurantToAdminTxResponse = await this.transactionService.create(restaurantToAdminTxDto, transactionalEntityManager);
+                    if (restaurantToAdminTxResponse.EC !== 0) {
+                        logger.error(`Restaurant to admin transaction failed: ${JSON.stringify(restaurantToAdminTxResponse)}`);
+                        return restaurantToAdminTxResponse;
+                    }
+                }
                 logger.log('Updating restaurant total_orders...');
                 await transactionalEntityManager
                     .createQueryBuilder()
@@ -479,9 +589,6 @@ let OrdersService = class OrdersService {
                         logger.log(`Cleared Redis cache: ${cacheKey}`);
                     }
                 }
-                else {
-                    logger.log(`No cart items found to delete for customer ${createOrderDto.customer_id}`);
-                }
                 logger.log('Transaction completed successfully');
                 return (0, createResponse_1.createResponse)('OK', savedOrder, 'Order created in transaction');
             });
@@ -503,9 +610,9 @@ let OrdersService = class OrdersService {
                 customer_id: savedOrder.customer_id,
                 driver_id: savedOrder.driver_id,
                 restaurant_id: savedOrder.restaurant_id,
-                restaurantAddress: restaurantAddress,
-                customerAddress: customerAddress,
-                order_items: createOrderDto.order_items,
+                restaurantAddress,
+                customerAddress,
+                order_items: savedOrder.order_items,
                 total_amount: savedOrder.total_amount,
                 delivery_fee: savedOrder.delivery_fee,
                 service_fee: savedOrder.service_fee,
@@ -518,7 +625,6 @@ let OrdersService = class OrdersService {
                 EX: 60
             });
             logger.log(`Emitting event ${eventId} with redisResult: ${redisResult}`);
-            console.log('ceẹccejck redsi', redisResult);
             if (redisResult === 'OK') {
                 this.notifyOrderStatus(trackingUpdate);
                 this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
