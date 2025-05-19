@@ -203,7 +203,7 @@ __decorate([
     __metadata("design:type", Number)
 ], Order.prototype, "updated_at", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => driver_progress_stage_entity_1.DriverProgressStage, driverProgressStage => driverProgressStage.orders),
+    (0, typeorm_1.ManyToMany)(() => driver_progress_stage_entity_1.DriverProgressStage, driverProgressStage => driverProgressStage.orders),
     __metadata("design:type", Array)
 ], Order.prototype, "driver_progress_stages", void 0);
 __decorate([

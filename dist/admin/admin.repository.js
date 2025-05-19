@@ -29,14 +29,28 @@ let AdminRepository = class AdminRepository {
         return this.adminRepository.find();
     }
     async findById(id) {
-        return this.adminRepository.findOne({ where: { id } });
+        return this.adminRepository.findOne({
+            where: { id },
+            relations: ['user_id']
+        });
     }
     async findByUserId(userId) {
-        return this.adminRepository.findOne({
-            where: {
-                user_id: { id: userId }
-            }
-        });
+        try {
+            return this.adminRepository.findOne({
+                where: {
+                    user_id: { id: userId }
+                },
+                relations: ['user_id']
+            });
+        }
+        catch (error) {
+            console.error('Error in findByUserId:', error);
+            return this.adminRepository
+                .createQueryBuilder('admin')
+                .leftJoinAndSelect('admin.user_id', 'user')
+                .where('user.id = :userId', { userId })
+                .getOne();
+        }
     }
     async update(id, updateData) {
         const { user_id, ...rest } = updateData;

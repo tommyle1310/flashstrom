@@ -12,6 +12,7 @@ import { User } from 'src/users/entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BannedAccount } from 'src/banned-account/entities/banned-account.entity';
 import { Repository } from 'typeorm';
+import { AdminStatus } from 'src/utils/types/admin';
 
 @Injectable()
 export class AdminService {
@@ -61,16 +62,27 @@ export class AdminService {
       // Create a partial User object for the relation
       const user = { id: user_id } as User; // Type assertion to satisfy TypeScript
 
-      const savedAdmin = await this.adminRepository.create({
-        ...createAdminDto,
+      // Create admin with simplified data to avoid type issues
+      const adminData = {
         id: `FF_ADMIN_${uuidv4()}`,
-        user_id: user // Assign the User object instead of the string
-      } as any);
+        user_id: user,
+        role,
+        permissions,
+        first_name: createAdminDto.first_name,
+        last_name: createAdminDto.last_name,
+        status: createAdminDto.status || AdminStatus.ACTIVE
+      };
+
+      const savedAdmin = await this.adminRepository.create(adminData);
 
       return createResponse('OK', savedAdmin, 'Admin created successfully');
     } catch (error: any) {
       console.log('error', error);
-      return createResponse('ServerError', null, 'Error creating admin');
+      return createResponse(
+        'ServerError',
+        null,
+        `Error creating admin: ${error.message}`
+      );
     }
   }
 

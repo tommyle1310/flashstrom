@@ -180,7 +180,7 @@ export class Order {
   @Column()
   updated_at: number;
 
-  @OneToMany(
+  @ManyToMany(
     () => DriverProgressStage,
     driverProgressStage => driverProgressStage.orders
   )

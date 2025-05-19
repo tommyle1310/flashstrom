@@ -116,22 +116,23 @@ export class CustomersRepository {
   }
 
   async findByUserId(userId: string): Promise<Customer> {
-    const cacheKey = `customer:user:${userId}`;
-    const cached = await redis.get(cacheKey);
-    console.log('echck cached', cached);
-    if (cached) {
-      return JSON.parse(cached);
-    }
-    const customer = await this.customerRepository.findOne({
-      where: { user_id: userId },
-      relations: ['address']
-      // select: ['id', 'user_id']
-    });
+    try {
+      // Bypass Redis cache to avoid potential connection issues
+      // Redis will be re-enabled after confirming login works properly
 
-    if (customer) {
-      await redis.setEx(cacheKey, 3600, JSON.stringify(customer));
+      const customer = await this.customerRepository.findOne({
+        where: { user_id: userId },
+        relations: ['address']
+      });
+
+      return customer;
+    } catch (error: any) {
+      logger.error(`Error in findByUserId: ${error.message}`, error.stack);
+      // Fall back to a simple query if there's an error
+      return await this.customerRepository.findOne({
+        where: { user_id: userId }
+      });
     }
-    return customer;
   }
 
   async update(

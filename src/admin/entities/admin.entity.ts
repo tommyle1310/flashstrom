@@ -63,7 +63,8 @@ export class Admin {
   @UpdateDateColumn()
   updated_at: number;
 
-  @ManyToOne(() => Admin, admin => admin.id)
+  @ManyToOne(() => Admin, admin => admin.id, { nullable: true })
+  @JoinColumn({ name: 'created_by' })
   created_by: Admin;
 
   @Column({ nullable: true })

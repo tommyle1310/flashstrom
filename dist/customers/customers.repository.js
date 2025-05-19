@@ -104,20 +104,19 @@ let CustomersRepository = class CustomersRepository {
             .getOne();
     }
     async findByUserId(userId) {
-        const cacheKey = `customer:user:${userId}`;
-        const cached = await redis.get(cacheKey);
-        console.log('echck cached', cached);
-        if (cached) {
-            return JSON.parse(cached);
+        try {
+            const customer = await this.customerRepository.findOne({
+                where: { user_id: userId },
+                relations: ['address']
+            });
+            return customer;
         }
-        const customer = await this.customerRepository.findOne({
-            where: { user_id: userId },
-            relations: ['address']
-        });
-        if (customer) {
-            await redis.setEx(cacheKey, 3600, JSON.stringify(customer));
+        catch (error) {
+            logger.error(`Error in findByUserId: ${error.message}`, error.stack);
+            return await this.customerRepository.findOne({
+                where: { user_id: userId }
+            });
         }
-        return customer;
     }
     async update(id, updateCustomerDto) {
         const customer = await this.findById(id);

@@ -182,45 +182,41 @@ let AuthService = class AuthService {
     }
     async handleCustomerLogin(user, basePayload) {
         try {
-            const userWithRole = await this.customersRepository.findByUserId(user.id);
-            if (!userWithRole) {
-                return (0, createResponse_1.createResponse)('NotFound', null, 'Customer not found');
-            }
-            const fwallet = await this.fWalletsRepository.findByUserId(user.id);
-            if (!fwallet) {
-                return (0, createResponse_1.createResponse)('NotFound', null, 'Wallet not found for customer');
-            }
-            const cartItems = await this.cartItemService.findAll({
-                customer_id: userWithRole.id
-            });
-            await this.customersRepository.update(userWithRole.id, {
-                last_login: Math.floor(Date.now() / 1000)
-            });
-            console.log('check customer data', userWithRole, 'check address', userWithRole.address);
-            const customerPayload = {
-                ...basePayload,
-                id: userWithRole.id,
-                logged_in_as: Payload_1.Enum_UserType.CUSTOMER,
-                fWallet_id: fwallet.id,
-                fWallet_balance: fwallet.balance,
-                preferred_category: userWithRole.preferred_category,
-                favorite_restaurants: userWithRole.favorite_restaurants,
-                favorite_items: userWithRole.favorite_items,
-                user_id: user.id,
-                avatar: userWithRole.avatar,
-                support_tickets: userWithRole.support_tickets,
-                address: userWithRole.address,
-                cart_items: cartItems.data
-            };
-            const accessToken = this.jwtService.sign(customerPayload);
-            return (0, createResponse_1.createResponse)('OK', {
-                access_token: accessToken,
-                user_data: userWithRole
-            }, 'Login successful');
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Customer login timed out')), 5000));
+            const loginPromise = (async () => {
+                const userWithRole = await this.customersRepository.findByUserId(user.id);
+                if (!userWithRole) {
+                    return (0, createResponse_1.createResponse)('NotFound', null, 'Customer not found');
+                }
+                const fwallet = await this.fWalletsRepository.findByUserId(user.id);
+                if (!fwallet) {
+                    return (0, createResponse_1.createResponse)('NotFound', null, 'Wallet not found for customer');
+                }
+                const customerPayload = {
+                    ...basePayload,
+                    id: userWithRole.id,
+                    logged_in_as: Payload_1.Enum_UserType.CUSTOMER,
+                    fWallet_id: fwallet.id,
+                    fWallet_balance: fwallet.balance,
+                    preferred_category: userWithRole.preferred_category,
+                    favorite_restaurants: userWithRole.favorite_restaurants,
+                    favorite_items: userWithRole.favorite_items,
+                    user_id: user.id,
+                    avatar: userWithRole.avatar,
+                    support_tickets: userWithRole.support_tickets,
+                    address: userWithRole.address
+                };
+                const accessToken = this.jwtService.sign(customerPayload);
+                return (0, createResponse_1.createResponse)('OK', {
+                    access_token: accessToken,
+                    user_data: userWithRole
+                }, 'Login successful');
+            })();
+            return await Promise.race([loginPromise, timeoutPromise]);
         }
         catch (error) {
-            console.error('Error in handleCustomerLogin:', error);
-            return (0, createResponse_1.createResponse)('ServerError', null, 'Login failed due to server error');
+            console.error('Error in customer login:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, `Login failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
     async handleFWalletLogin(user, basePayload) {
@@ -462,12 +458,7 @@ let AuthService = class AuthService {
                     console.log('Creating restaurant with data:', restaurantData);
                     const restaurantResult = await this.restaurantsRepository.create(restaurantData);
                     console.log('Restaurant creation result:', restaurantResult);
-                    if (restaurantResult.EC === -2) {
-                        await this.fWalletsRepository.delete(fWallet.id);
-                        await this.userRepository.delete(existingUser.id);
-                        return (0, createResponse_1.createResponse)('NotFound', null, restaurantResult.EM || 'Failed to create restaurant');
-                    }
-                    newUserWithRole = restaurantResult.data;
+                    newUserWithRole = restaurantResult;
                     if (newUserWithRole && fWallet) {
                         console.log('Both FWallet and Restaurant created, updating user type');
                         const updatedUserTypes = [...existingUser.user_type];

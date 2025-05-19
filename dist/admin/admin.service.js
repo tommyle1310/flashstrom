@@ -22,6 +22,7 @@ const admin_1 = require("../utils/types/admin");
 const typeorm_1 = require("@nestjs/typeorm");
 const banned_account_entity_1 = require("../banned-account/entities/banned-account.entity");
 const typeorm_2 = require("typeorm");
+const admin_2 = require("../utils/types/admin");
 let AdminService = class AdminService {
     constructor(adminRepository, usersService, bannedAccountRepository) {
         this.adminRepository = adminRepository;
@@ -47,16 +48,21 @@ let AdminService = class AdminService {
                 return (0, createResponse_1.createResponse)('DuplicatedRecord', null, 'Admin already exists for this user');
             }
             const user = { id: user_id };
-            const savedAdmin = await this.adminRepository.create({
-                ...createAdminDto,
+            const adminData = {
                 id: `FF_ADMIN_${(0, uuid_1.v4)()}`,
-                user_id: user
-            });
+                user_id: user,
+                role,
+                permissions,
+                first_name: createAdminDto.first_name,
+                last_name: createAdminDto.last_name,
+                status: createAdminDto.status || admin_2.AdminStatus.ACTIVE
+            };
+            const savedAdmin = await this.adminRepository.create(adminData);
             return (0, createResponse_1.createResponse)('OK', savedAdmin, 'Admin created successfully');
         }
         catch (error) {
             console.log('error', error);
-            return (0, createResponse_1.createResponse)('ServerError', null, 'Error creating admin');
+            return (0, createResponse_1.createResponse)('ServerError', null, `Error creating admin: ${error.message}`);
         }
     }
     async findAll() {

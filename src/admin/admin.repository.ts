@@ -23,15 +23,29 @@ export class AdminRepository {
   }
 
   async findById(id: string): Promise<Admin | null> {
-    return this.adminRepository.findOne({ where: { id } });
+    return this.adminRepository.findOne({
+      where: { id },
+      relations: ['user_id']
+    });
   }
 
   async findByUserId(userId: string): Promise<Admin | null> {
-    return this.adminRepository.findOne({
-      where: {
-        user_id: { id: userId } // Nested condition to match User.id
-      }
-    });
+    try {
+      return this.adminRepository.findOne({
+        where: {
+          user_id: { id: userId } // Nested condition to match User.id
+        },
+        relations: ['user_id']
+      });
+    } catch (error) {
+      console.error('Error in findByUserId:', error);
+      // Fallback query if the nested query fails
+      return this.adminRepository
+        .createQueryBuilder('admin')
+        .leftJoinAndSelect('admin.user_id', 'user')
+        .where('user.id = :userId', { userId })
+        .getOne();
+    }
   }
 
   async update(id: string, updateData: UpdateAdminDto): Promise<Admin> {
