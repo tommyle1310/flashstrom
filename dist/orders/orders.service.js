@@ -479,6 +479,20 @@ let OrdersService = class OrdersService {
                         logger.error('Restaurant owner_id not found');
                         return (0, createResponse_1.createResponse)('ServerError', null, 'Restaurant owner not found');
                     }
+                    logger.log('Debug user IDs:', {
+                        customer: {
+                            user_id: customer.user_id,
+                            wallet_id: customerWallet?.id
+                        },
+                        admin: {
+                            user_id: constants_1.FLASHFOOD_FINANCE_neon_test_branch.user_id,
+                            wallet_id: adminWallet?.id
+                        },
+                        restaurant: {
+                            user_id: restaurant.owner_id,
+                            wallet_id: restaurantWallet?.id
+                        }
+                    });
                     const customerTxDto = {
                         user_id: customer.user_id,
                         fwallet_id: customerWallet.id,
@@ -489,7 +503,7 @@ let OrdersService = class OrdersService {
                         source: 'FWALLET',
                         destination: adminWallet.id,
                         destination_type: 'FWALLET',
-                        version: customerWallet.version || 0,
+                        version: customerWallet.version,
                         order_id: orderData.id
                     };
                     logger.log(`Creating customer transaction: ${JSON.stringify(customerTxDto)}`);
@@ -504,16 +518,16 @@ let OrdersService = class OrdersService {
                         return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to get updated admin wallet');
                     }
                     const adminToRestaurantTxDto = {
-                        user_id: constants_1.FLASHFOOD_FINANCE_neon_test_branch.id,
+                        user_id: constants_1.FLASHFOOD_FINANCE_neon_test_branch.user_id,
                         fwallet_id: updatedAdminWallet.id,
-                        transaction_type: 'PURCHASE',
+                        transaction_type: 'DEPOSIT',
                         amount: restaurantSubTotal,
                         balance_after: Number((updatedAdminWallet.balance - restaurantSubTotal).toFixed(2)),
                         status: 'PENDING',
                         source: 'FWALLET',
                         destination: restaurantWallet.id,
                         destination_type: 'FWALLET',
-                        version: updatedAdminWallet.version || 0,
+                        version: updatedAdminWallet.version,
                         order_id: orderData.id
                     };
                     logger.log(`Creating admin to restaurant transaction: ${JSON.stringify(adminToRestaurantTxDto)}`);
@@ -530,14 +544,14 @@ let OrdersService = class OrdersService {
                     const restaurantToAdminTxDto = {
                         user_id: restaurant.owner_id,
                         fwallet_id: updatedRestaurantWallet.id,
-                        transaction_type: 'PURCHASE',
+                        transaction_type: 'WITHDRAW',
                         amount: adminCommission,
                         balance_after: Number((updatedRestaurantWallet.balance - adminCommission).toFixed(2)),
                         status: 'PENDING',
                         source: 'FWALLET',
                         destination: adminWallet.id,
                         destination_type: 'FWALLET',
-                        version: updatedRestaurantWallet.version || 0,
+                        version: updatedRestaurantWallet.version,
                         order_id: orderData.id
                     };
                     logger.log(`Creating restaurant to admin transaction: ${JSON.stringify(restaurantToAdminTxDto)}`);

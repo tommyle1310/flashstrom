@@ -350,6 +350,36 @@ let DriversGateway = class DriversGateway {
                 return;
             }
             this.notificationLock.set(notifyKey, true);
+            if (order.driver_id) {
+                try {
+                    const dps = await this.dataSource
+                        .getRepository(driver_progress_stage_entity_1.DriverProgressStage)
+                        .createQueryBuilder('dps')
+                        .leftJoinAndSelect('dps.orders', 'orders')
+                        .where('orders.id = :orderId', { orderId: order.id })
+                        .andWhere('dps.driver_id = :driverId', {
+                        driverId: order.driver_id
+                    })
+                        .getOne();
+                    if (dps &&
+                        dps.current_state &&
+                        dps.current_state.startsWith('delivery_complete_')) {
+                        console.log(`[DELIVERY COMPLETE FIX] Order ${order.id} delivery is complete, forcing DELIVERED status`);
+                        this.dataSource.getRepository(order_entity_1.Order).update({ id: order.id }, {
+                            status: order_entity_1.OrderStatus.DELIVERED,
+                            tracking_info: order_entity_1.OrderTrackingInfo.DELIVERED,
+                            updated_at: Math.floor(Date.now() / 1000)
+                        });
+                        order.status = order_entity_1.OrderStatus.DELIVERED;
+                        order.tracking_info = order_entity_1.OrderTrackingInfo.DELIVERED;
+                        order.updated_at = Math.floor(Date.now() / 1000);
+                        console.log(`[DELIVERY COMPLETE FIX] Updated order ${order.id} status to DELIVERED`);
+                    }
+                }
+                catch (err) {
+                    console.error('[DriversGateway] Error checking DPS for completed delivery:', err);
+                }
+            }
             let driver = order.driver;
             if (!driver && order.driver_id) {
                 console.warn(`[DriversGateway] order.driver is null, fetching driver with id: ${order.driver_id}`);
@@ -446,7 +476,11 @@ let DriversGateway = class DriversGateway {
                     ? `${order.restaurantAddress.street}, ${order.restaurantAddress.city}, ${order.restaurantAddress.nationality}`
                     : 'N/A'
             };
-            console.log('[DriversGateway] notifyPartiesOnce - trackingUpdate:', trackingUpdate);
+            console.log('[DriversGateway] notifyPartiesOnce - status check:', {
+                id: order.id,
+                status: order.status,
+                tracking_info: order.tracking_info
+            });
             this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
             console.log(`[DriversGateway] Emitted complete order status update for order ${order.id}`);
         }
@@ -559,12 +593,12 @@ let DriversGateway = class DriversGateway {
                     }
                     if (order.id === targetOrderId) {
                         if (currentStageIndex >= 0) {
-                            const currentState = `${stageOrder[currentStageIndex]}_${orderSuffix}`;
+                            const currentState = `${stageOrder[currentStageIndex]}_order_${orderIndex}`;
                             const nextStateBase = currentStageIndex < stageOrder.length - 1
                                 ? stageOrder[currentStageIndex + 1]
                                 : null;
                             const nextState = nextStateBase
-                                ? `${nextStateBase}_${orderSuffix}`
+                                ? `${nextStateBase}_order_${orderIndex}`
                                 : null;
                             if (nextStateBase === 'delivery_complete') {
                                 try {
@@ -597,6 +631,15 @@ let DriversGateway = class DriversGateway {
                                             estimatedTime;
                                     stage.details.estimated_time = estimatedTime;
                                     if (nextStateBase === 'delivery_complete') {
+                                        logger.log(`[CRITICAL FIX] Order ${order.id} has reached delivery_complete stage, forcing DELIVERED status`);
+                                        transactionalEntityManager.update(order_entity_1.Order, { id: order.id }, {
+                                            status: order_entity_1.OrderStatus.DELIVERED,
+                                            tracking_info: order_entity_1.OrderTrackingInfo.DELIVERED,
+                                            updated_at: Math.floor(Date.now() / 1000)
+                                        });
+                                        order.status = order_entity_1.OrderStatus.DELIVERED;
+                                        order.tracking_info = order_entity_1.OrderTrackingInfo.DELIVERED;
+                                        order.updated_at = Math.floor(Date.now() / 1000);
                                         return {
                                             ...stage,
                                             status: 'completed',
@@ -610,11 +653,37 @@ let DriversGateway = class DriversGateway {
                                 }
                                 return stage;
                             });
-                            if (nextStateBase && nextStateBase in stageToStatusMap) {
-                                const newStatus = stageToStatusMap[nextStateBase];
-                                const newTrackingInfo = stageToTrackingMap[nextStateBase];
-                                logger.log(`Updating order ${order.id} status from ${order.status} to ${newStatus}`);
-                                await transactionalEntityManager.update(order_entity_1.Order, { id: order.id }, {
+                            const completedStage = updatedStages.find(stage => stage.status === 'completed');
+                            const inProgressStage = updatedStages.find(stage => stage.status === 'in_progress');
+                            const currentStateValue = inProgressStage
+                                ? inProgressStage.state
+                                : 'waiting_for_pickup_order_1';
+                            const previousStateValue = completedStage
+                                ? completedStage.state
+                                : 'driver_ready_order_1';
+                            let nextStateValue = null;
+                            const parts = currentStateValue.split('_order_');
+                            const currentBaseState = parts[0];
+                            const currentIndex = stageOrder.findIndex(base => base === currentBaseState);
+                            if (currentIndex >= 0 && currentIndex < stageOrder.length - 1) {
+                                nextStateValue = `${stageOrder[currentIndex + 1]}_${parts[1]}`;
+                            }
+                            dps.current_state = currentStateValue;
+                            dps.previous_state = previousStateValue;
+                            dps.next_state = nextStateValue;
+                            console.log('FIXING STATE VALUES:');
+                            console.log(`- PREVIOUS STATE: ${dps.previous_state}`);
+                            console.log(`- CURRENT STATE: ${dps.current_state}`);
+                            console.log(`- NEXT STATE: ${dps.next_state}`);
+                            const currentStateBase = currentStateValue.split('_order_')[0];
+                            if (currentStateBase in stageToStatusMap) {
+                                const newStatus = stageToStatusMap[currentStateBase];
+                                const newTrackingInfo = stageToTrackingMap[currentStateBase];
+                                logger.log(`Updating order ${order.id} status from ${order.status} to ${newStatus} and tracking_info from ${order.tracking_info} to ${newTrackingInfo}`);
+                                order.status = newStatus;
+                                order.tracking_info = newTrackingInfo;
+                                order.updated_at = Math.floor(Date.now() / 1000);
+                                transactionalEntityManager.update(order_entity_1.Order, { id: order.id }, {
                                     status: newStatus,
                                     tracking_info: newTrackingInfo,
                                     updated_at: Math.floor(Date.now() / 1000)
@@ -653,7 +722,7 @@ let DriversGateway = class DriversGateway {
                         targetOrderId = nextIncompleteOrder.id;
                         const newStatus = stageToStatusMap['driver_ready'];
                         const newTrackingInfo = stageToTrackingMap['driver_ready'];
-                        await transactionalEntityManager.update(order_entity_1.Order, { id: targetOrderId }, {
+                        transactionalEntityManager.update(order_entity_1.Order, { id: targetOrderId }, {
                             status: newStatus,
                             tracking_info: newTrackingInfo,
                             updated_at: Math.floor(Date.now() / 1000)
@@ -765,7 +834,117 @@ let DriversGateway = class DriversGateway {
                     console.error(`[DriversGateway] Order ${targetOrderId} not found after update`);
                     return { success: false, message: 'Order not found' };
                 }
+                const actualCompleted = updatedStages
+                    .filter(stage => stage.status === 'completed')
+                    .sort((a, b) => b.timestamp - a.timestamp)[0];
+                const actualInProgress = updatedStages.find(stage => stage.status === 'in_progress');
+                const deliveryCompleteStages = updatedStages.filter(stage => stage.state.startsWith('delivery_complete_') &&
+                    stage.status === 'completed');
+                if (deliveryCompleteStages.length > 0) {
+                    const completedOrderIds = deliveryCompleteStages
+                        .map(stage => {
+                        const parts = stage.state.split('_');
+                        const orderIndex = parts[parts.length - 1];
+                        const matchingOrder = dps.orders[parseInt(orderIndex) - 1];
+                        return matchingOrder ? matchingOrder.id : null;
+                    })
+                        .filter(id => id !== null);
+                    console.log(`[DELIVERY COMPLETE] Found ${completedOrderIds.length} completed orders`);
+                    for (const orderId of completedOrderIds) {
+                        console.log(`[DELIVERY COMPLETE] Updating order ${orderId} to DELIVERED status`);
+                        transactionalEntityManager.update(order_entity_1.Order, { id: orderId }, {
+                            status: order_entity_1.OrderStatus.DELIVERED,
+                            tracking_info: order_entity_1.OrderTrackingInfo.DELIVERED,
+                            updated_at: Math.floor(Date.now() / 1000)
+                        });
+                        const orderToNotify = await transactionalEntityManager
+                            .getRepository(order_entity_1.Order)
+                            .findOne({
+                            where: { id: orderId },
+                            relations: [
+                                'restaurant',
+                                'driver',
+                                'customer',
+                                'restaurantAddress',
+                                'customerAddress'
+                            ]
+                        });
+                        if (orderToNotify) {
+                            console.log(`[DELIVERY COMPLETE] Notifying parties for order ${orderId}`);
+                            await this.notifyPartiesOnce(orderToNotify);
+                        }
+                    }
+                }
+                if (actualInProgress && actualCompleted) {
+                    const manualFix = await transactionalEntityManager.update(driver_progress_stage_entity_1.DriverProgressStage, { id: data.stageId }, {
+                        current_state: actualInProgress.state,
+                        previous_state: actualCompleted.state,
+                        updated_at: Math.floor(Date.now() / 1000)
+                    });
+                    console.log(`MANUAL FIX APPLIED: ${manualFix.affected} rows`);
+                    const baseState = actualInProgress.state.split('_order_')[0];
+                    if (baseState in stageToStatusMap) {
+                        const correctStatus = stageToStatusMap[baseState];
+                        const correctTracking = stageToTrackingMap[baseState];
+                        transactionalEntityManager.update(order_entity_1.Order, { id: updatedOrder.id }, {
+                            status: correctStatus,
+                            tracking_info: correctTracking,
+                            updated_at: Math.floor(Date.now() / 1000)
+                        });
+                        const reloadedOrder = await transactionalEntityManager
+                            .getRepository(order_entity_1.Order)
+                            .findOne({
+                            where: { id: targetOrderId },
+                            relations: [
+                                'restaurant',
+                                'driver',
+                                'customer',
+                                'restaurantAddress',
+                                'customerAddress'
+                            ]
+                        });
+                        if (reloadedOrder) {
+                            await this.notifyPartiesOnce(reloadedOrder);
+                        }
+                    }
+                }
                 await this.notifyPartiesOnce(updatedOrder);
+                if (dps.current_state &&
+                    dps.current_state.startsWith('delivery_complete_')) {
+                    logger.log(`[DELIVERY COMPLETE] DPS is in delivery_complete state, ensuring order is DELIVERED`);
+                    const stateNum = dps.current_state.split('_').pop();
+                    const orderIndex = parseInt(stateNum) - 1;
+                    const deliveredOrder = dps.orders[orderIndex];
+                    if (deliveredOrder) {
+                        const updatedOrderStatus = await transactionalEntityManager.findOne(order_entity_1.Order, {
+                            where: { id: deliveredOrder.id }
+                        });
+                        if (updatedOrderStatus &&
+                            updatedOrderStatus.status !== order_entity_1.OrderStatus.DELIVERED) {
+                            logger.log(`[DELIVERY COMPLETE] Force updating order ${deliveredOrder.id} to DELIVERED status`);
+                            transactionalEntityManager.update(order_entity_1.Order, { id: deliveredOrder.id }, {
+                                status: order_entity_1.OrderStatus.DELIVERED,
+                                tracking_info: order_entity_1.OrderTrackingInfo.DELIVERED,
+                                updated_at: Math.floor(Date.now() / 1000)
+                            });
+                            const orderToNotify = await transactionalEntityManager
+                                .getRepository(order_entity_1.Order)
+                                .findOne({
+                                where: { id: deliveredOrder.id },
+                                relations: [
+                                    'restaurant',
+                                    'driver',
+                                    'customer',
+                                    'restaurantAddress',
+                                    'customerAddress'
+                                ]
+                            });
+                            if (orderToNotify) {
+                                await this.notifyPartiesOnce(orderToNotify);
+                            }
+                        }
+                    }
+                }
                 return { success: true, stage: updateResult.data };
             });
             return result;
@@ -1184,6 +1363,15 @@ let DriversGateway = class DriversGateway {
         logToFile('Starting handleDeliveryCompletion', {
             orderId: order.id,
             dpsId: dps.id
+        });
+        logToFile('[CRITICAL FIX] Directly updating order status to DELIVERED', {
+            orderId: order.id,
+            status: order_entity_1.OrderStatus.DELIVERED
+        });
+        await transactionalEntityManager.update(order_entity_1.Order, { id: order.id }, {
+            status: order_entity_1.OrderStatus.DELIVERED,
+            tracking_info: order_entity_1.OrderTrackingInfo.DELIVERED,
+            updated_at: Math.floor(Date.now() / 1000)
         });
         const driver = await transactionalEntityManager
             .getRepository(driver_entity_1.Driver)

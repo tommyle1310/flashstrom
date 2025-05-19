@@ -109,23 +109,27 @@ let DriverProgressStagesService = class DriverProgressStagesService {
             const actualTimeSpent = updateData.stages
                 ? this.calculateTimeSpent(stages)
                 : existingStage.actual_time_spent || 0;
-            let currentState = updateData.current_state || existingStage.current_state;
-            const lastCompletedStage = stages
-                .filter(s => s.status === 'completed')
-                .pop();
-            if (lastCompletedStage) {
-                currentState = lastCompletedStage.state;
-                if (stages.every(s => s.status === 'completed')) {
-                    currentState = stages[stages.length - 1].state;
-                }
-            }
+            const inProgressStage = stages.find(stage => stage.status === 'in_progress');
+            const completedStages = stages.filter(stage => stage.status === 'completed');
+            const lastCompletedStage = completedStages.length > 0
+                ? completedStages.sort((a, b) => b.timestamp - a.timestamp)[0]
+                : null;
+            const currentState = inProgressStage
+                ? inProgressStage.state
+                : updateData.current_state || existingStage.current_state;
+            const previousState = lastCompletedStage
+                ? lastCompletedStage.state
+                : updateData.previous_state || existingStage.previous_state;
+            console.log('FIXED STATE VALUES IN SERVICE:');
+            console.log(`- CURRENT STATE: ${currentState} (from in-progress stage)`);
+            console.log(`- PREVIOUS STATE: ${previousState} (from completed stage)`);
             const updatedStage = await manager
                 .getRepository(driver_progress_stage_entity_1.DriverProgressStage)
                 .save({
                 ...existingStage,
                 current_state: currentState,
                 orders,
-                previous_state: updateData.previous_state ?? existingStage.previous_state ?? null,
+                previous_state: previousState,
                 next_state: updateData.next_state ?? existingStage.next_state ?? null,
                 stages,
                 events,

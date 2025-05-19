@@ -151,20 +151,32 @@ export class DriverProgressStagesService {
         ? this.calculateTimeSpent(stages)
         : existingStage.actual_time_spent || 0;
 
-      // Determine the current state based on stages
-      let currentState =
-        updateData.current_state || existingStage.current_state;
-      const lastCompletedStage = stages
-        .filter(s => s.status === 'completed')
-        .pop();
+      // CRITICAL FIX: Correctly determine stages and states
+      // Find in-progress stage for current_state and completed stage for previous_state
+      const inProgressStage = stages.find(
+        stage => stage.status === 'in_progress'
+      );
+      const completedStages = stages.filter(
+        stage => stage.status === 'completed'
+      );
+      const lastCompletedStage =
+        completedStages.length > 0
+          ? completedStages.sort((a, b) => b.timestamp - a.timestamp)[0]
+          : null;
 
-      if (lastCompletedStage) {
-        currentState = lastCompletedStage.state;
-        // If all stages are complete, set state to the last stage
-        if (stages.every(s => s.status === 'completed')) {
-          currentState = stages[stages.length - 1].state;
-        }
-      }
+      // Set current_state to the in-progress stage state
+      const currentState = inProgressStage
+        ? inProgressStage.state
+        : updateData.current_state || existingStage.current_state;
+
+      // Set previous_state to the last completed stage state
+      const previousState = lastCompletedStage
+        ? lastCompletedStage.state
+        : updateData.previous_state || existingStage.previous_state;
+
+      console.log('FIXED STATE VALUES IN SERVICE:');
+      console.log(`- CURRENT STATE: ${currentState} (from in-progress stage)`);
+      console.log(`- PREVIOUS STATE: ${previousState} (from completed stage)`);
 
       const updatedStage = await manager
         .getRepository(DriverProgressStage)
@@ -172,8 +184,7 @@ export class DriverProgressStagesService {
           ...existingStage,
           current_state: currentState,
           orders,
-          previous_state:
-            updateData.previous_state ?? existingStage.previous_state ?? null,
+          previous_state: previousState,
           next_state: updateData.next_state ?? existingStage.next_state ?? null,
           stages,
           events,

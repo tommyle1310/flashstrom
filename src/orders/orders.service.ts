@@ -599,6 +599,21 @@ export class OrdersService {
               );
             }
 
+            logger.log('Debug user IDs:', {
+              customer: {
+                user_id: customer.user_id,
+                wallet_id: customerWallet?.id
+              },
+              admin: {
+                user_id: FLASHFOOD_FINANCE_neon_test_branch.user_id,
+                wallet_id: adminWallet?.id
+              },
+              restaurant: {
+                user_id: restaurant.owner_id,
+                wallet_id: restaurantWallet?.id
+              }
+            });
+
             // Transaction 1: Khách trả admin (dto.total_amount)
             const customerTxDto = {
               user_id: customer.user_id,
@@ -612,7 +627,7 @@ export class OrdersService {
               source: 'FWALLET',
               destination: adminWallet!.id,
               destination_type: 'FWALLET',
-              version: customerWallet!.version || 0,
+              version: customerWallet!.version,
               order_id: orderData.id
             } as CreateTransactionDto;
 
@@ -646,9 +661,9 @@ export class OrdersService {
 
             // Transaction 2: Admin trả nhà hàng (restaurantSubTotal)
             const adminToRestaurantTxDto = {
-              user_id: FLASHFOOD_FINANCE_neon_test_branch.id,
+              user_id: FLASHFOOD_FINANCE_neon_test_branch.user_id,
               fwallet_id: updatedAdminWallet.id,
-              transaction_type: 'PURCHASE',
+              transaction_type: 'DEPOSIT',
               amount: restaurantSubTotal,
               balance_after: Number(
                 (updatedAdminWallet.balance - restaurantSubTotal).toFixed(2)
@@ -657,7 +672,7 @@ export class OrdersService {
               source: 'FWALLET',
               destination: restaurantWallet!.id,
               destination_type: 'FWALLET',
-              version: updatedAdminWallet.version || 0,
+              version: updatedAdminWallet.version,
               order_id: orderData.id
             } as CreateTransactionDto;
 
@@ -695,7 +710,7 @@ export class OrdersService {
             const restaurantToAdminTxDto = {
               user_id: restaurant.owner_id,
               fwallet_id: updatedRestaurantWallet.id,
-              transaction_type: 'PURCHASE',
+              transaction_type: 'WITHDRAW',
               amount: adminCommission,
               balance_after: Number(
                 (updatedRestaurantWallet.balance - adminCommission).toFixed(2)
@@ -704,7 +719,7 @@ export class OrdersService {
               source: 'FWALLET',
               destination: adminWallet!.id,
               destination_type: 'FWALLET',
-              version: updatedRestaurantWallet.version || 0,
+              version: updatedRestaurantWallet.version,
               order_id: orderData.id
             } as CreateTransactionDto;
 
