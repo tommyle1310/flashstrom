@@ -66,7 +66,9 @@ export class Restaurant {
     is_accepted_orders: boolean;
   };
 
-  @ManyToMany(() => Promotion, promotion => promotion.restaurants)
+  @ManyToMany(() => Promotion, promotion => promotion.restaurants, {
+    eager: false // Don't load promotions automatically
+  })
   @JoinTable({
     name: 'restaurant_promotions',
     joinColumn: { name: 'restaurant_id', referencedColumnName: 'id' },
@@ -114,7 +116,7 @@ export class Restaurant {
   @OneToMany(() => Order, order => order.restaurant)
   orders: Order[];
 
-  @OneToMany(() => MenuItem, menuItem => menuItem.restaurant) // Thêm quan hệ ngược
+  @OneToMany(() => MenuItem, menuItem => menuItem.restaurant)
   menuItems: MenuItem[];
 
   @BeforeInsert()

@@ -300,48 +300,65 @@ export class AuthService {
     user: User,
     basePayload: BasePayload
   ) {
-    const userWithRole = await this.restaurantsRepository.findByOwnerId(
-      user.id
-    );
-    if (!userWithRole) {
-      return createResponse('NotFound', null, 'Restaurant owner not found');
+    try {
+      // Find restaurant without loading problematic relations
+      const userWithRole = await this.restaurantsRepository.findByOwnerId(
+        user.id
+      );
+      if (!userWithRole) {
+        return createResponse('NotFound', null, 'Restaurant owner not found');
+      }
+
+      // Fetch wallet separately
+      const fwallet = await this.fWalletsRepository.findByUserId(user.id);
+
+      // Create payload with essential restaurant data
+      const restaurantPayload = {
+        ...basePayload,
+        id: userWithRole.id,
+        logged_in_as: Enum_UserType.RESTAURANT_OWNER,
+        owner_id: userWithRole.owner_id,
+        owner_name: userWithRole.owner_name,
+        restaurant_id: userWithRole.id ?? userWithRole.id,
+        address: userWithRole.address,
+        restaurant_name: userWithRole.restaurant_name,
+        contact_email: userWithRole.contact_email,
+        contact_phone: userWithRole.contact_phone,
+        created_at: userWithRole.created_at,
+        updated_at: userWithRole.updated_at,
+        avatar: userWithRole.avatar,
+        images_gallery: userWithRole.images_gallery,
+        status: userWithRole.status,
+        ratings: userWithRole.ratings,
+        opening_hours: userWithRole.opening_hours,
+        fWallet_id: fwallet?.id,
+        fWallet_balance: fwallet?.balance
+      };
+
+      // Add specialize_in only if it exists
+      if (userWithRole.specialize_in) {
+        restaurantPayload['specialize_in'] = userWithRole.specialize_in;
+      }
+
+      // We're no longer including promotions directly in the payload
+
+      const accessToken = this.jwtService.sign(restaurantPayload);
+      return createResponse(
+        'OK',
+        {
+          access_token: accessToken,
+          user_data: userWithRole
+        },
+        'Login successful'
+      );
+    } catch (error) {
+      console.error('Error in restaurant owner login:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Login failed due to server error'
+      );
     }
-
-    const fwallet = await this.fWalletsRepository.findByUserId(user.id);
-
-    const restaurantPayload = {
-      ...basePayload,
-      id: userWithRole.id,
-      logged_in_as: Enum_UserType.RESTAURANT_OWNER,
-      owner_id: userWithRole.owner_id,
-      owner_name: userWithRole.owner_name,
-      restaurant_id: userWithRole.id ?? userWithRole.id,
-      address: userWithRole.address,
-      restaurant_name: userWithRole.restaurant_name,
-      contact_email: userWithRole.contact_email,
-      contact_phone: userWithRole.contact_phone,
-      created_at: userWithRole.created_at,
-      updated_at: userWithRole.updated_at,
-      avatar: userWithRole.avatar,
-      images_gallery: userWithRole.images_gallery,
-      status: userWithRole.status,
-      promotions: userWithRole.promotions,
-      ratings: userWithRole.ratings,
-      specialize_in: userWithRole.specialize_in,
-      opening_hours: userWithRole.opening_hours,
-      fWallet_id: fwallet?.id,
-      fWallet_balance: fwallet?.balance
-    };
-
-    const accessToken = this.jwtService.sign(restaurantPayload);
-    return createResponse(
-      'OK',
-      {
-        access_token: accessToken,
-        user_data: userWithRole
-      },
-      'Login successful'
-    );
   }
 
   private async handleCustomerCareLogin(user: User, basePayload: BasePayload) {
@@ -581,7 +598,7 @@ export class AuthService {
               sun: { from: 8, to: 17 }
             },
             address_id: userData.address_id,
-            food_category_ids: userData.food_category_ids || []
+            food_category_ids: userData?.food_category_ids || []
           };
 
           console.log('Creating restaurant with data:', restaurantData);
@@ -1001,7 +1018,7 @@ export class AuthService {
                 sun: { from: 8, to: 17 }
               },
               address_id: userData.address_id,
-              food_category_ids: userData.food_category_ids || []
+              food_category_ids: userData?.food_category_ids || []
             };
 
             console.log('Creating restaurant with data:', restaurantData);

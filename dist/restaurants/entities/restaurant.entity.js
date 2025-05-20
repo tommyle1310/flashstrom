@@ -83,7 +83,9 @@ __decorate([
     __metadata("design:type", Object)
 ], Restaurant.prototype, "status", void 0);
 __decorate([
-    (0, typeorm_1.ManyToMany)(() => promotion_entity_1.Promotion, promotion => promotion.restaurants),
+    (0, typeorm_1.ManyToMany)(() => promotion_entity_1.Promotion, promotion => promotion.restaurants, {
+        eager: false
+    }),
     (0, typeorm_1.JoinTable)({
         name: 'restaurant_promotions',
         joinColumn: { name: 'restaurant_id', referencedColumnName: 'id' },

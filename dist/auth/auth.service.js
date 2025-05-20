@@ -240,39 +240,46 @@ let AuthService = class AuthService {
         return (0, createResponse_1.createResponse)('OK', { access_token: accessToken }, 'Login successful');
     }
     async handleRestaurantOwnerLogin(user, basePayload) {
-        const userWithRole = await this.restaurantsRepository.findByOwnerId(user.id);
-        if (!userWithRole) {
-            return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant owner not found');
+        try {
+            const userWithRole = await this.restaurantsRepository.findByOwnerId(user.id);
+            if (!userWithRole) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant owner not found');
+            }
+            const fwallet = await this.fWalletsRepository.findByUserId(user.id);
+            const restaurantPayload = {
+                ...basePayload,
+                id: userWithRole.id,
+                logged_in_as: Payload_1.Enum_UserType.RESTAURANT_OWNER,
+                owner_id: userWithRole.owner_id,
+                owner_name: userWithRole.owner_name,
+                restaurant_id: userWithRole.id ?? userWithRole.id,
+                address: userWithRole.address,
+                restaurant_name: userWithRole.restaurant_name,
+                contact_email: userWithRole.contact_email,
+                contact_phone: userWithRole.contact_phone,
+                created_at: userWithRole.created_at,
+                updated_at: userWithRole.updated_at,
+                avatar: userWithRole.avatar,
+                images_gallery: userWithRole.images_gallery,
+                status: userWithRole.status,
+                ratings: userWithRole.ratings,
+                opening_hours: userWithRole.opening_hours,
+                fWallet_id: fwallet?.id,
+                fWallet_balance: fwallet?.balance
+            };
+            if (userWithRole.specialize_in) {
+                restaurantPayload['specialize_in'] = userWithRole.specialize_in;
+            }
+            const accessToken = this.jwtService.sign(restaurantPayload);
+            return (0, createResponse_1.createResponse)('OK', {
+                access_token: accessToken,
+                user_data: userWithRole
+            }, 'Login successful');
         }
-        const fwallet = await this.fWalletsRepository.findByUserId(user.id);
-        const restaurantPayload = {
-            ...basePayload,
-            id: userWithRole.id,
-            logged_in_as: Payload_1.Enum_UserType.RESTAURANT_OWNER,
-            owner_id: userWithRole.owner_id,
-            owner_name: userWithRole.owner_name,
-            restaurant_id: userWithRole.id ?? userWithRole.id,
-            address: userWithRole.address,
-            restaurant_name: userWithRole.restaurant_name,
-            contact_email: userWithRole.contact_email,
-            contact_phone: userWithRole.contact_phone,
-            created_at: userWithRole.created_at,
-            updated_at: userWithRole.updated_at,
-            avatar: userWithRole.avatar,
-            images_gallery: userWithRole.images_gallery,
-            status: userWithRole.status,
-            promotions: userWithRole.promotions,
-            ratings: userWithRole.ratings,
-            specialize_in: userWithRole.specialize_in,
-            opening_hours: userWithRole.opening_hours,
-            fWallet_id: fwallet?.id,
-            fWallet_balance: fwallet?.balance
-        };
-        const accessToken = this.jwtService.sign(restaurantPayload);
-        return (0, createResponse_1.createResponse)('OK', {
-            access_token: accessToken,
-            user_data: userWithRole
-        }, 'Login successful');
+        catch (error) {
+            console.error('Error in restaurant owner login:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Login failed due to server error');
+        }
     }
     async handleCustomerCareLogin(user, basePayload) {
         const userWithRole = await this.customerCareRepository.findByUserId(user.id);
@@ -457,7 +464,7 @@ let AuthService = class AuthService {
                             sun: { from: 8, to: 17 }
                         },
                         address_id: userData.address_id,
-                        food_category_ids: userData.food_category_ids || []
+                        food_category_ids: userData?.food_category_ids || []
                     };
                     console.log('Creating restaurant with data:', restaurantData);
                     const restaurantResult = await this.restaurantsRepository.create(restaurantData);
@@ -784,7 +791,7 @@ let AuthService = class AuthService {
                                 sun: { from: 8, to: 17 }
                             },
                             address_id: userData.address_id,
-                            food_category_ids: userData.food_category_ids || []
+                            food_category_ids: userData?.food_category_ids || []
                         };
                         console.log('Creating restaurant with data:', restaurantData);
                         const restaurantResult = await this.restaurantsRepository.create(restaurantData);

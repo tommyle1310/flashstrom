@@ -155,10 +155,19 @@ export class RestaurantsRepository {
   }
 
   async findByOwnerId(ownerId: string): Promise<Restaurant> {
-    return await this.repository.findOne({
-      where: { owner_id: ownerId },
-      relations: ['owner', 'address', 'specialize_in', 'promotions']
-    });
+    try {
+      // First try with a simpler query without problematic relations
+      return await this.repository.findOne({
+        where: { owner_id: ownerId },
+        relations: ['owner', 'address', 'specialize_in']
+      });
+    } catch (error) {
+      console.error('Error in findByOwnerId:', error);
+      // Fallback with just the minimal data needed
+      return await this.repository.findOne({
+        where: { owner_id: ownerId }
+      });
+    }
   }
 
   async update(

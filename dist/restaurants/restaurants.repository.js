@@ -128,10 +128,18 @@ let RestaurantsRepository = class RestaurantsRepository {
         return restaurant || null;
     }
     async findByOwnerId(ownerId) {
-        return await this.repository.findOne({
-            where: { owner_id: ownerId },
-            relations: ['owner', 'address', 'specialize_in', 'promotions']
-        });
+        try {
+            return await this.repository.findOne({
+                where: { owner_id: ownerId },
+                relations: ['owner', 'address', 'specialize_in']
+            });
+        }
+        catch (error) {
+            console.error('Error in findByOwnerId:', error);
+            return await this.repository.findOne({
+                where: { owner_id: ownerId }
+            });
+        }
     }
     async update(id, updateDto) {
         const specialize_in = updateDto.specialize_in;
