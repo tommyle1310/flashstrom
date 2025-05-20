@@ -82,6 +82,7 @@ const customer_cares_inquires_module_1 = require("./customer_cares_inquires/cust
 const customer_care_inquiry_entity_1 = require("./customer_cares_inquires/entities/customer_care_inquiry.entity");
 const restaurant_stats_records_module_1 = require("./restaurant_stats_records/restaurant_stats_records.module");
 const orders_service_1 = require("./orders/orders.service");
+const admin_chart_module_1 = require("./admin_chart/admin_chart.module");
 let AppModule = class AppModule {
     constructor() {
         console.log('NEON_HOST:', process.env.NEON_HOST);
@@ -142,6 +143,7 @@ exports.AppModule = AppModule = __decorate([
             ratings_reviews_module_1.RatingsReviewsModule,
             admin_module_1.AdminModule,
             customer_cares_module_1.CustomerCaresModule,
+            admin_chart_module_1.AdminChartModule,
             finance_admin_module_1.FinanceAdminModule,
             driver_progress_stages_module_1.DriverProgressStagesModule,
             customer_cares_inquires_module_1.CustomerCareInquiriesModule,

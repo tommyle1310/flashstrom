@@ -19,11 +19,15 @@ let DriverStatsController = class DriverStatsController {
     constructor(driverStatsService) {
         this.driverStatsService = driverStatsService;
     }
-    async getStats(driverId, startDate, endDate, aggregate) {
+    async getStats(driverId, startDate, endDate, aggregate, forceRefresh) {
+        console.log(`Getting stats for driver ${driverId} from ${startDate} to ${endDate}`);
+        console.log(`Force refresh: ${forceRefresh}`);
         const start = Math.floor(new Date(startDate).getTime() / 1000);
         const end = Math.floor(new Date(endDate).getTime() / 1000);
         const isAggregate = aggregate === 'true';
-        return this.driverStatsService.getStatsForDriver(driverId, start, end, isAggregate);
+        const isForceRefresh = forceRefresh === 'true';
+        console.log(`Start timestamp: ${start}, End timestamp: ${end}`);
+        return this.driverStatsService.getStatsForDriver(driverId, start, end, isAggregate, isForceRefresh);
     }
 };
 exports.DriverStatsController = DriverStatsController;
@@ -33,8 +37,9 @@ __decorate([
     __param(1, (0, common_1.Query)('start_date')),
     __param(2, (0, common_1.Query)('end_date')),
     __param(3, (0, common_1.Query)('aggregate')),
+    __param(4, (0, common_1.Query)('force_refresh')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], DriverStatsController.prototype, "getStats", null);
 exports.DriverStatsController = DriverStatsController = __decorate([

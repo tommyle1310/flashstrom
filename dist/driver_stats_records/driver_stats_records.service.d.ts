@@ -11,7 +11,12 @@ export declare class DriverStatsService {
     private dpsRepo;
     private ratingsReviewRepo;
     private orderRepo;
+    private readonly redisClient;
     constructor(driverStatsRepo: Repository<DriverStatsRecord>, onlineSessionRepo: Repository<OnlineSession>, dpsRepo: Repository<DriverProgressStage>, ratingsReviewRepo: Repository<RatingsReview>, orderRepo: Repository<Order>);
+    private getCachedStats;
+    private setCachedStats;
     updateStatsForDriver(driverId: string, periodType: string): Promise<void>;
-    getStatsForDriver(driverId: string, startDate: number | string, endDate: number | string, aggregate?: boolean): Promise<ApiResponse<any>>;
+    getStatsForDriver(driverId: string, startDate: number | string, endDate: number | string, aggregate?: boolean, forceRefresh?: boolean): Promise<ApiResponse<any>>;
+    private generateDriverStats;
+    private aggregateRatings;
 }

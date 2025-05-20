@@ -102,7 +102,7 @@ export class CustomerCaresRepository {
     return await this.repository.findAndCount({
       skip,
       take: limit,
-      relations: ['user']
+      relations: ['user_id']
     });
   }
 }
