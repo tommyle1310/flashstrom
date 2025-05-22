@@ -50,8 +50,8 @@ export class RestaurantsRepository {
     const owner = await this.userRepository.findById(createDto.owner_id);
     if (!owner) return createResponse('NotFound', null, 'Owner not found');
 
-    const address = await this.addressRepository.findById(createDto.address_id);
-    if (!address) return createResponse('NotFound', null, 'Address not found');
+    // const address = await this.addressRepository.findById(createDto.address_id);
+    // if (!address) return createResponse('NotFound', null, 'Address not found');
 
     const specialize_in = createDto.specialize_in || [];
     const promotions =
@@ -64,7 +64,7 @@ export class RestaurantsRepository {
     const restaurantData: DeepPartial<Restaurant> = {
       owner_id: createDto.owner_id,
       owner_name: createDto.owner_name,
-      address_id: createDto.address_id,
+      // address_id: createDto?.address_id || undefined,
       restaurant_name: createDto.restaurant_name,
       description: createDto.description,
       contact_email: createDto.contact_email,
@@ -79,6 +79,7 @@ export class RestaurantsRepository {
       created_at: Math.floor(Date.now() / 1000),
       updated_at: Math.floor(Date.now() / 1000)
     };
+    console.log('restaurantData', restaurantData);
 
     const restaurant = this.repository.create(restaurantData);
     const savedRestaurant = await this.repository.save(restaurant, {

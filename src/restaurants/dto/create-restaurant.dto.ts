@@ -89,6 +89,7 @@ export class CreateRestaurantDto {
   owner_name: string;
 
   @IsString()
+  @IsOptional()
   address_id: string;
 
   @IsString()
