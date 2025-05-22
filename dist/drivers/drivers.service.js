@@ -316,14 +316,16 @@ let DriversService = class DriversService {
     }
     async prioritizeAndAssignDriver(listAvailableDrivers, orderDetails) {
         try {
+            console.log('check what here ', listAvailableDrivers, orderDetails);
             if (!listAvailableDrivers?.length) {
                 return (0, createResponse_1.createResponse)('NoDrivers', [], 'No available drivers found');
             }
             const restaurantLocation = await this.getRestaurantLocation(orderDetails.restaurant_location);
+            console.log('cehc k', restaurantLocation);
             if (!restaurantLocation) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant location not found');
             }
-            const specificDriver = listAvailableDrivers.find(driver => driver.id === harded_code_test_1.HARDED_CODE_TEST.prioritised_drivers_neon_test_branch[0]);
+            const specificDriver = listAvailableDrivers.find(driver => driver.id === harded_code_test_1.HARDED_CODE_TEST.prioritised_drivers[0]);
             if (!specificDriver) {
                 return (0, createResponse_1.createResponse)('NotFound', [], 'Prioritized driver not found in available list');
             }

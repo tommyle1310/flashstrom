@@ -1,6 +1,3 @@
 export const HARDED_CODE_TEST = {
-  prioritised_drivers: ['FF_DRI_b64aa8b7-3964-46a4-abf4-924c5515f57a'],
-  prioritised_drivers_neon_test_branch: [
-    'FF_DRI_1a431563-43e9-4195-af3b-ff897847ac31'
-  ]
+  prioritised_drivers: ['FF_DRI_63b92bcb-c9ce-4331-b87f-0919f71887a1']
 };

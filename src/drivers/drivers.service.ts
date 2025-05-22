@@ -363,6 +363,7 @@ export class DriversService {
     orderDetails: Type_Delivery_Order
   ): Promise<ApiResponse<any>> {
     try {
+      console.log('check what here ', listAvailableDrivers, orderDetails);
       if (!listAvailableDrivers?.length) {
         return createResponse('NoDrivers', [], 'No available drivers found');
       }
@@ -370,6 +371,7 @@ export class DriversService {
       const restaurantLocation = await this.getRestaurantLocation(
         orderDetails.restaurant_location
       );
+      console.log('cehc k', restaurantLocation);
       if (!restaurantLocation) {
         return createResponse(
           'NotFound',
@@ -380,8 +382,7 @@ export class DriversService {
 
       // Tìm driver ưu tiên từ danh sách
       const specificDriver = listAvailableDrivers.find(
-        driver =>
-          driver.id === HARDED_CODE_TEST.prioritised_drivers_neon_test_branch[0]
+        driver => driver.id === HARDED_CODE_TEST.prioritised_drivers[0]
       );
       if (!specificDriver) {
         return createResponse(

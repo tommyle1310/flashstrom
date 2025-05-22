@@ -95,20 +95,28 @@ let RestaurantsGateway = class RestaurantsGateway {
             console.warn('[RestaurantsGateway] Multiple listeners detected, removing all');
             this.eventEmitter.removeAllListeners('listenUpdateOrderTracking');
         }
+        const newOrderListenerCount = this.eventEmitter.listenerCount('newOrderForRestaurant');
+        console.log(`[RestaurantsGateway] Current newOrderForRestaurant listeners: ${newOrderListenerCount}`);
+        if (newOrderListenerCount > 1) {
+            console.warn('[RestaurantsGateway] Multiple newOrderForRestaurant listeners detected, removing all');
+            this.eventEmitter.removeAllListeners('newOrderForRestaurant');
+        }
         if (!this.isListenerRegistered) {
             this.eventEmitter.on('listenUpdateOrderTracking', this.handleOrderTrackingUpdate.bind(this));
+            this.eventEmitter.on('newOrderForRestaurant', this.handleNewOrder.bind(this));
             this.isListenerRegistered = true;
-            console.log('[RestaurantsGateway] Registered listener for listenUpdateOrderTracking');
+            console.log('[RestaurantsGateway] Registered listeners for listenUpdateOrderTracking and newOrderForRestaurant');
         }
         this.server.setMaxListeners(300);
     }
     async onModuleDestroy() {
         this.eventEmitter.removeListener('listenUpdateOrderTracking', this.handleOrderTrackingUpdate.bind(this));
+        this.eventEmitter.removeListener('newOrderForRestaurant', this.handleNewOrder.bind(this));
         this.isListenerRegistered = false;
         if (this.redisClient && this.redisClient.isOpen) {
             await this.redisClient.quit();
         }
-        console.log('[RestaurantsGateway] Removed listener and closed Redis connection');
+        console.log('[RestaurantsGateway] Removed listeners and closed Redis connection');
     }
     async validateToken(client) {
         try {
@@ -250,6 +258,8 @@ let RestaurantsGateway = class RestaurantsGateway {
         return restaurant;
     }
     async handleNewOrder(order) {
+        console.log('check order', order);
+        console.log('chekc order.order', order.order);
         await this.server
             .to(`restaurant_${order.restaurant_id}`)
             .emit('incomingOrderForRestaurant', {
@@ -258,6 +268,8 @@ let RestaurantsGateway = class RestaurantsGateway {
             tracking_info: order.order.tracking_info,
             updated_at: order.order.updated_at,
             customer_id: order.order.customer_id,
+            total_amount: order.order.total_amount,
+            order_items: order.order.order_items,
             driver_id: order.order.driver_id,
             restaurant_id: order.order.restaurant_id,
             restaurant_avatar: order.order.restaurant_avatar || null,
@@ -342,6 +354,7 @@ let RestaurantsGateway = class RestaurantsGateway {
         }
     }
     prepareDriverData(availableDrivers) {
+        console.log('check avai dri', availableDrivers);
         return availableDrivers.map(item => ({
             id: item.id,
             location: { lat: item.lat, lng: item.lng },

@@ -153,15 +153,33 @@ export class RestaurantsGateway
       this.eventEmitter.removeAllListeners('listenUpdateOrderTracking');
     }
 
+    // Check and cleanup newOrderForRestaurant listeners
+    const newOrderListenerCount = this.eventEmitter.listenerCount(
+      'newOrderForRestaurant'
+    );
+    console.log(
+      `[RestaurantsGateway] Current newOrderForRestaurant listeners: ${newOrderListenerCount}`
+    );
+    if (newOrderListenerCount > 1) {
+      console.warn(
+        '[RestaurantsGateway] Multiple newOrderForRestaurant listeners detected, removing all'
+      );
+      this.eventEmitter.removeAllListeners('newOrderForRestaurant');
+    }
+
     // Đăng ký listener chỉ 1 lần
     if (!this.isListenerRegistered) {
       this.eventEmitter.on(
         'listenUpdateOrderTracking',
         this.handleOrderTrackingUpdate.bind(this)
       );
+      this.eventEmitter.on(
+        'newOrderForRestaurant',
+        this.handleNewOrder.bind(this)
+      );
       this.isListenerRegistered = true;
       console.log(
-        '[RestaurantsGateway] Registered listener for listenUpdateOrderTracking'
+        '[RestaurantsGateway] Registered listeners for listenUpdateOrderTracking and newOrderForRestaurant'
       );
     }
 
@@ -174,12 +192,16 @@ export class RestaurantsGateway
       'listenUpdateOrderTracking',
       this.handleOrderTrackingUpdate.bind(this)
     );
+    this.eventEmitter.removeListener(
+      'newOrderForRestaurant',
+      this.handleNewOrder.bind(this)
+    );
     this.isListenerRegistered = false;
     if (this.redisClient && this.redisClient.isOpen) {
       await this.redisClient.quit();
     }
     console.log(
-      '[RestaurantsGateway] Removed listener and closed Redis connection'
+      '[RestaurantsGateway] Removed listeners and closed Redis connection'
     );
   }
 
@@ -396,6 +418,8 @@ export class RestaurantsGateway
 
   @OnEvent('newOrderForRestaurant')
   async handleNewOrder(@MessageBody() order: any) {
+    console.log('check order', order);
+    console.log('chekc order.order', order.order);
     await this.server
       .to(`restaurant_${order.restaurant_id}`)
       .emit('incomingOrderForRestaurant', {
@@ -404,6 +428,8 @@ export class RestaurantsGateway
         tracking_info: order.order.tracking_info,
         updated_at: order.order.updated_at,
         customer_id: order.order.customer_id,
+        total_amount: order.order.total_amount,
+        order_items: order.order.order_items,
         driver_id: order.order.driver_id,
         restaurant_id: order.order.restaurant_id,
         restaurant_avatar: order.order.restaurant_avatar || null,
@@ -435,7 +461,6 @@ export class RestaurantsGateway
     if (!restaurantId) {
       throw new WsException('Restaurant not authorized');
     }
-
     // Kiểm tra sự kiện trùng lặp với Redis
     const lockKey = `event:restaurant:accept:${orderId}`;
     const lockAcquired = await this.redisService.setNx(
@@ -540,6 +565,7 @@ export class RestaurantsGateway
   }
 
   private prepareDriverData(availableDrivers: AvailableDriver[]) {
+    console.log('check avai dri', availableDrivers);
     return availableDrivers.map(item => ({
       id: item.id,
       location: { lat: item.lat, lng: item.lng },
