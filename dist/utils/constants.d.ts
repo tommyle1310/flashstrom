@@ -14,6 +14,16 @@ export declare const ResponseStatus: {
         message: string;
         code: number;
     };
+    EmailNotFound: {
+        httpCode: number;
+        message: string;
+        code: number;
+    };
+    WrongPassword: {
+        httpCode: number;
+        message: string;
+        code: number;
+    };
     Unauthorized: {
         httpCode: number;
         message: string;
@@ -55,6 +65,11 @@ export declare const ResponseStatus: {
         code: number;
     };
     DRIVER_MAXIMUM_ORDER: {
+        httpCode: number;
+        message: string;
+        code: number;
+    };
+    PROMOTION_EXPIRED: {
         httpCode: number;
         message: string;
         code: number;

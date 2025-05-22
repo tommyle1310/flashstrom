@@ -9,6 +9,8 @@ exports.ResponseStatus = {
         message: 'Invalid Format Input',
         code: 2
     },
+    EmailNotFound: { httpCode: 401, message: 'Email not found', code: 3 },
+    WrongPassword: { httpCode: 401, message: 'Wrong password', code: 4 },
     Unauthorized: { httpCode: 401, message: 'Unauthorized', code: 3 },
     ServerError: { httpCode: 500, message: 'Server Error', code: -1 },
     NotFound: { httpCode: 404, message: 'Not Found', code: -2 },
@@ -34,6 +36,11 @@ exports.ResponseStatus = {
         message: 'Driver has reached maximum number of orders',
         code: -7
     },
+    PROMOTION_EXPIRED: {
+        httpCode: 400,
+        message: 'Expired',
+        code: -9
+    },
     EXPIRED: {
         httpCode: 400,
         message: 'Expired',
@@ -52,8 +59,8 @@ exports.FLASHFOOD_FINANCE = {
     email: 'flashfood.finance@gmail.com'
 };
 exports.FLASHFOOD_FINANCE_neon_test_branch = {
-    id: 'F_WALLET_4806aa8e-6651-4568-a676-eae9b04ddcff',
-    user_id: 'USR_e1c8bab3-385e-4aca-98da-c13be8cf9dfa',
+    id: 'F_WALLET_55c3eaa9-8b2a-48ae-8476-b329a8f3d99f',
+    user_id: 'USR_ba2e04fe-3281-4940-8aa3-37a56a3033c8',
     email: 'finance.flashfood@gmail.com'
 };
 //# sourceMappingURL=constants.js.map

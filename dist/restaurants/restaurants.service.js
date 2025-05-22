@@ -766,7 +766,7 @@ let RestaurantsService = class RestaurantsService {
                 user_id: restaurantDetails.owner_id,
                 fwallet_id: restaurantWallet.id,
                 transaction_type: 'PURCHASE',
-                version: 0,
+                version: restaurantWallet?.version,
                 amount: promotion.promotion_cost_price,
                 balance_after: parseFloat(restaurantWallet.balance.toString()) -
                     +promotion.promotion_cost_price,
