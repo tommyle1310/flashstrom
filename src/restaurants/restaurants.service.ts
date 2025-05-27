@@ -1394,13 +1394,20 @@ export class RestaurantsService {
         .flatMap(order => order.order_items.map(item => item.variant_id))
         .filter(id => id); // Filter out null/undefined variant_ids
 
-      // Fetch menu items and variants concurrently
+      // Fetch menu items and variants concurrently - but only if there are IDs to fetch
       const [menuItems, menuItemVariants] = await Promise.all([
-        this.menuItemRepository.findByIds(allItemIds),
-        this.dataSource
-          .createQueryBuilder(MenuItemVariant, 'variant')
-          .where('variant.id IN (:...ids)', { ids: allVariantIds })
-          .getMany()
+        // Only fetch menu items if we have item IDs
+        allItemIds.length > 0
+          ? this.menuItemRepository.findByIds(allItemIds)
+          : Promise.resolve([]),
+
+        // Only fetch variants if we have variant IDs
+        allVariantIds.length > 0
+          ? this.dataSource
+              .createQueryBuilder(MenuItemVariant, 'variant')
+              .where('variant.id IN (:...ids)', { ids: allVariantIds })
+              .getMany()
+          : Promise.resolve([])
       ]);
 
       const menuItemMap = new Map(menuItems.map(item => [item.id, item]));

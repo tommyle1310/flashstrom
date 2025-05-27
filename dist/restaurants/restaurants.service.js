@@ -874,11 +874,15 @@ let RestaurantsService = class RestaurantsService {
                 .flatMap(order => order.order_items.map(item => item.variant_id))
                 .filter(id => id);
             const [menuItems, menuItemVariants] = await Promise.all([
-                this.menuItemRepository.findByIds(allItemIds),
-                this.dataSource
-                    .createQueryBuilder(menu_item_variant_entity_1.MenuItemVariant, 'variant')
-                    .where('variant.id IN (:...ids)', { ids: allVariantIds })
-                    .getMany()
+                allItemIds.length > 0
+                    ? this.menuItemRepository.findByIds(allItemIds)
+                    : Promise.resolve([]),
+                allVariantIds.length > 0
+                    ? this.dataSource
+                        .createQueryBuilder(menu_item_variant_entity_1.MenuItemVariant, 'variant')
+                        .where('variant.id IN (:...ids)', { ids: allVariantIds })
+                        .getMany()
+                    : Promise.resolve([])
             ]);
             const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
             const variantMap = new Map(menuItemVariants.map(variant => [variant.id, variant]));
