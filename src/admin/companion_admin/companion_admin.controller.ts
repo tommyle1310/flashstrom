@@ -26,6 +26,12 @@ import { AuthService } from 'src/auth/auth.service';
 import { Enum_UserType } from 'src/types/Payload';
 import { User } from 'src/users/entities/user.entity';
 import { AddressBookService } from 'src/address_book/address_book.service';
+// import { createClient } from 'redis';
+import { RedisService } from 'src/redis/redis.service';
+
+// const redis = createClient({
+//   url: process.env.REDIS_URL || 'redis://localhost:6379'
+// });
 
 @Controller('companion-admin')
 export class CompanionAdminController {
@@ -36,7 +42,8 @@ export class CompanionAdminController {
     private readonly driverService: DriversService,
     private readonly customerCareService: CustomerCareService,
     private readonly authService: AuthService,
-    private readonly addressBookService: AddressBookService
+    private readonly addressBookService: AddressBookService,
+    private readonly redisService: RedisService // Thêm RedisService
   ) {}
 
   // Admin Management Endpoints
@@ -176,6 +183,7 @@ export class CompanionAdminController {
       createCustomerDto,
       Enum_UserType.CUSTOMER
     );
+    await this.redisService.del('customers:all'); // Xóa cache của getAllRestaurants
 
     return registrationResult;
   }
@@ -251,6 +259,8 @@ export class CompanionAdminController {
       createDriverDto,
       Enum_UserType.DRIVER
     );
+
+    // await this.redisService.del('drivers:all'); // Xóa cache của getAllRestaurants
 
     return registrationResult;
   }

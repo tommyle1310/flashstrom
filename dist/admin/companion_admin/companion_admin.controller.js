@@ -27,8 +27,9 @@ const commonFunctions_1 = require("../../utils/commonFunctions");
 const auth_service_1 = require("../../auth/auth.service");
 const Payload_1 = require("../../types/Payload");
 const address_book_service_1 = require("../../address_book/address_book.service");
+const redis_service_1 = require("../../redis/redis.service");
 let CompanionAdminController = class CompanionAdminController {
-    constructor(adminService, restaurantService, customerService, driverService, customerCareService, authService, addressBookService) {
+    constructor(adminService, restaurantService, customerService, driverService, customerCareService, authService, addressBookService, redisService) {
         this.adminService = adminService;
         this.restaurantService = restaurantService;
         this.customerService = customerService;
@@ -36,6 +37,7 @@ let CompanionAdminController = class CompanionAdminController {
         this.customerCareService = customerCareService;
         this.authService = authService;
         this.addressBookService = addressBookService;
+        this.redisService = redisService;
     }
     createCompanionAdmin(createAdminDto) {
         createAdminDto.role = admin_1.AdminRole.COMPANION_ADMIN;
@@ -140,6 +142,7 @@ let CompanionAdminController = class CompanionAdminController {
             user_id: '1234567890'
         };
         const registrationResult = await this.authService.register(createCustomerDto, Payload_1.Enum_UserType.CUSTOMER);
+        await this.redisService.del('customers:all');
         return registrationResult;
     }
     findAllDrivers() {
@@ -375,6 +378,7 @@ exports.CompanionAdminController = CompanionAdminController = __decorate([
         drivers_service_1.DriversService,
         customer_cares_service_1.CustomerCareService,
         auth_service_1.AuthService,
-        address_book_service_1.AddressBookService])
+        address_book_service_1.AddressBookService,
+        redis_service_1.RedisService])
 ], CompanionAdminController);
 //# sourceMappingURL=companion_admin.controller.js.map

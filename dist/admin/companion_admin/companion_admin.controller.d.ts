@@ -8,6 +8,7 @@ import { DriversService } from 'src/drivers/drivers.service';
 import { CustomerCareService } from 'src/customer_cares/customer_cares.service';
 import { AuthService } from 'src/auth/auth.service';
 import { AddressBookService } from 'src/address_book/address_book.service';
+import { RedisService } from 'src/redis/redis.service';
 export declare class CompanionAdminController {
     private readonly adminService;
     private readonly restaurantService;
@@ -16,7 +17,8 @@ export declare class CompanionAdminController {
     private readonly customerCareService;
     private readonly authService;
     private readonly addressBookService;
-    constructor(adminService: AdminService, restaurantService: RestaurantsService, customerService: CustomersService, driverService: DriversService, customerCareService: CustomerCareService, authService: AuthService, addressBookService: AddressBookService);
+    private readonly redisService;
+    constructor(adminService: AdminService, restaurantService: RestaurantsService, customerService: CustomersService, driverService: DriversService, customerCareService: CustomerCareService, authService: AuthService, addressBookService: AddressBookService, redisService: RedisService);
     createCompanionAdmin(createAdminDto: CreateAdminDto): Promise<import("../../utils/createResponse").ApiResponse<import("../entities/admin.entity").Admin>>;
     findAllCompanionAdmins(): Promise<import("../../utils/createResponse").ApiResponse<import("../entities/admin.entity").Admin[]>>;
     findAllRestaurants(): Promise<import("../../utils/createResponse").ApiResponse<any>>;
