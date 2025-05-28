@@ -12,10 +12,19 @@ import { Order } from 'src/orders/entities/order.entity';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { PromotionsRepository } from 'src/promotions/promotions.repository';
+import { UserRepository } from 'src/users/users.repository';
+import { User } from 'src/users/entities/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([FinanceRule, Driver, Admin, Order, Promotion])
+    TypeOrmModule.forFeature([
+      FinanceRule,
+      Driver,
+      Admin,
+      Order,
+      User,
+      Promotion
+    ])
   ],
   controllers: [FinanceRulesController],
   providers: [
@@ -24,7 +33,8 @@ import { PromotionsRepository } from 'src/promotions/promotions.repository';
     DriversRepository,
     OrdersRepository,
     PromotionsRepository,
-    AdminRepository
+    AdminRepository,
+    UserRepository
   ]
 })
 export class FinanceRulesModule {}

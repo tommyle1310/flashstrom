@@ -25,10 +25,14 @@ __decorate([
     __metadata("design:type", String)
 ], Admin.prototype, "id", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'varchar' }),
+    __metadata("design:type", String)
+], Admin.prototype, "user_id", void 0);
+__decorate([
     (0, typeorm_1.OneToOne)(() => user_entity_1.User),
     (0, typeorm_1.JoinColumn)({ name: 'user_id' }),
     __metadata("design:type", user_entity_1.User)
-], Admin.prototype, "user_id", void 0);
+], Admin.prototype, "user", void 0);
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
@@ -76,7 +80,12 @@ __decorate([
     __metadata("design:type", Number)
 ], Admin.prototype, "updated_at", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Admin, admin => admin.id),
+    (0, typeorm_1.Column)({ type: 'varchar', nullable: true }),
+    __metadata("design:type", String)
+], Admin.prototype, "created_by_id", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => Admin, { nullable: true }),
+    (0, typeorm_1.JoinColumn)({ name: 'created_by_id' }),
     __metadata("design:type", Admin)
 ], Admin.prototype, "created_by", void 0);
 __decorate([

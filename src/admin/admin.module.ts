@@ -31,6 +31,8 @@ import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { Order } from 'src/orders/entities/order.entity';
 import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
+import { User } from 'src/users/entities/user.entity';
+import { UserRepository } from 'src/users/users.repository';
 
 @Module({
   imports: [
@@ -48,6 +50,7 @@ import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
       AddressBook,
       Restaurant,
       Order,
+      User,
       CustomerCare
     ]),
     UsersModule
@@ -75,6 +78,7 @@ import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
     MenuItemsRepository,
     AddressBookRepository,
     MenuItemVariantsRepository,
+    UserRepository,
     AuthService,
     FWalletsRepository,
     RestaurantsRepository,

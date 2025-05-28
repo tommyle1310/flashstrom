@@ -28,7 +28,7 @@ export class CartItem {
   @Column()
   restaurant_id: string;
 
-  @ManyToOne(() => Customer)
+  @ManyToOne(() => Customer, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'customer_id' })
   customer: Customer;
 

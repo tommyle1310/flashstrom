@@ -17,6 +17,8 @@ import { CreateFWalletDto } from 'src/fwallets/dto/create-fwallet.dto';
 import { CreateRestaurantDto } from 'src/restaurants/dto/create-restaurant.dto';
 import { User } from 'src/users/entities/user.entity';
 import { CartItemsService } from 'src/cart_items/cart_items.service';
+import { Customer } from 'src/customers/entities/customer.entity';
+import { FWallet } from 'src/fwallets/entities/fwallet.entity';
 
 @Injectable()
 export class AuthService {
@@ -154,7 +156,6 @@ export class AuthService {
     return handler();
   }
 
-  // Login handlers for each user type
   private async handleDriverLogin(user: User, basePayload: BasePayload) {
     const userWithRole = await this.driverRepository.findOne({
       user_id: user.id
@@ -200,14 +201,26 @@ export class AuthService {
 
   private async handleCustomerLogin(user: User, basePayload: BasePayload) {
     try {
-      // Fetch customer data
-      const userWithRole = await this.customersRepository.findByUserId(user.id);
+      // Fetch customer data with timeout
+      const userWithRole = await (Promise.race([
+        this.customersRepository.findByUserId(user.id),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Customer lookup timeout')), 10000)
+        )
+      ]) as Promise<Customer>);
+
       if (!userWithRole) {
         return createResponse('NotFound', null, 'Customer not found');
       }
 
-      // Fetch wallet data
-      const fwallet = await this.fWalletsRepository.findByUserId(user.id);
+      // Fetch wallet data with timeout
+      const fwallet = await (Promise.race([
+        this.fWalletsRepository.findByUserId(user.id),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Wallet lookup timeout')), 5000)
+        )
+      ]) as Promise<FWallet>);
+
       if (!fwallet) {
         return createResponse(
           'NotFound',
@@ -216,23 +229,20 @@ export class AuthService {
         );
       }
 
-      // Fetch cart items
-      const cartItems = await this.cartItemService.findAll({
-        customer_id: userWithRole.id
-      });
+      // Fetch cart items with timeout
+      const cartItems = await Promise.race([
+        this.cartItemService.findAll({
+          customer_id: userWithRole.id
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Cart items lookup timeout')), 5000)
+        )
+      ]);
 
       // Update last login timestamp
       await this.customersRepository.update(userWithRole.id, {
         last_login: Math.floor(Date.now() / 1000)
       });
-
-      // Log for debugging (optional, can be removed in production)
-      console.log(
-        'check customer data',
-        userWithRole,
-        'check address',
-        userWithRole.address
-      );
 
       // Construct payload
       const customerPayload = {
@@ -242,13 +252,13 @@ export class AuthService {
         fWallet_id: fwallet.id,
         fWallet_balance: fwallet.balance,
         preferred_category: userWithRole.preferred_category,
-        favorite_restaurants: userWithRole.favorite_restaurants,
-        favorite_items: userWithRole.favorite_items,
+        favorite_restaurants: userWithRole.favorite_restaurants || [],
+        favorite_items: userWithRole.favorite_items || [],
         user_id: user.id,
         avatar: userWithRole.avatar,
-        support_tickets: userWithRole.support_tickets,
-        address: userWithRole.address,
-        cart_items: cartItems.data
+        support_tickets: userWithRole.support_tickets || [],
+        address: userWithRole.address || {},
+        cart_items: cartItems?.data || []
       };
 
       // Generate JWT token
@@ -340,8 +350,6 @@ export class AuthService {
         restaurantPayload['specialize_in'] = userWithRole.specialize_in;
       }
 
-      // We're no longer including promotions directly in the payload
-
       const accessToken = this.jwtService.sign(restaurantPayload);
       return createResponse(
         'OK',
@@ -399,7 +407,6 @@ export class AuthService {
     );
   }
 
-  // Thêm handler cho Admin login
   private async handleAdminLogin(
     user: User,
     basePayload: BasePayload,
@@ -440,7 +447,6 @@ export class AuthService {
     );
   }
 
-  // Registration handlers
   private async handleExistingUserRegistration(
     existingUser: User,
     userData: any,
@@ -515,14 +521,13 @@ export class AuthService {
         // Get complete driver data
         const createdDriver = await this.driverRepository.findOne({
           where: { id: newUserWithRole.id },
-          relations: ['current_orders'] // Include any necessary relations
+          relations: ['current_orders']
         });
 
         if (!createdDriver) {
           throw new Error('Failed to retrieve created driver');
         }
 
-        // Update user type to include F_WALLET if needed
         if (!existingUser.user_type.includes(Enum_UserType.F_WALLET)) {
           const updatedUserTypes = [
             ...existingUser.user_type,
@@ -535,7 +540,6 @@ export class AuthService {
           existingUser.user_type = updatedUserTypes;
         }
 
-        // Return both driver and fwallet data
         return createResponse(
           'OK',
           {
@@ -545,7 +549,7 @@ export class AuthService {
             first_name: existingUser.first_name,
             last_name: existingUser.last_name,
             user_type: existingUser.user_type,
-            data: createdDriver, // Use complete driver data
+            data: createdDriver,
             fWallet: fWallet
           },
           'Driver registered successfully'
@@ -554,7 +558,6 @@ export class AuthService {
       case Enum_UserType.RESTAURANT_OWNER:
         console.log('=== Starting Restaurant Owner Registration ===');
         try {
-          // Create FWallet first
           const fWalletData: CreateFWalletDto = {
             user_id: existingUser.id,
             email: existingUser.email,
@@ -568,7 +571,6 @@ export class AuthService {
           fWallet = await this.fWalletsRepository.create(fWalletData);
           console.log('FWallet created successfully:', fWallet);
 
-          // Create restaurant
           const restaurantData: CreateRestaurantDto = {
             owner_id: existingUser.id,
             owner_name: userData.owner_name,
@@ -607,7 +609,6 @@ export class AuthService {
           console.log('Restaurant creation result:', restaurantResult);
 
           if (restaurantResult.EC === -2) {
-            // If restaurant creation fails, we should clean up the FWallet and user
             await this.fWalletsRepository.delete(fWallet.id);
             await this.userRepository.delete(existingUser.id);
             return createResponse(
@@ -619,7 +620,6 @@ export class AuthService {
 
           newUserWithRole = restaurantResult.data;
 
-          // Only update user type after successful creation of both FWallet and Restaurant
           if (newUserWithRole && fWallet) {
             console.log(
               'Both FWallet and Restaurant created, updating user type'
@@ -634,12 +634,10 @@ export class AuthService {
               verification_code: existingUser.verification_code?.toString()
             });
 
-            // Update the newUser object to reflect changes
             existingUser.user_type = updatedUserTypes;
           }
         } catch (error) {
           console.error('Error in restaurant owner registration:', error);
-          // Clean up created resources in case of error
           if (fWallet) {
             await this.fWalletsRepository.delete(fWallet.id);
           }
@@ -691,7 +689,7 @@ export class AuthService {
           role,
           first_name: userData.first_name,
           last_name: userData.last_name,
-          permissions: [], // Gán permissions mặc định, có thể tùy chỉnh sau
+          permissions: [],
           status: AdminStatus.ACTIVE,
           created_at: new Date(),
           updated_at: new Date()
@@ -797,7 +795,6 @@ export class AuthService {
         type
       });
 
-      // Create new user with initial data
       const newUserData = {
         id: `USR_${uuidv4()}`,
         email,
@@ -823,7 +820,6 @@ export class AuthService {
         case Enum_UserType.CUSTOMER:
           console.log('=== Starting Customer Registration ===');
           try {
-            // Create FWallet first
             const customerFWalletData: CreateFWalletDto = {
               user_id: newUser.id,
               email: newUser.email,
@@ -837,13 +833,12 @@ export class AuthService {
             fWallet = await this.fWalletsRepository.create(customerFWalletData);
             console.log('FWallet created successfully:', fWallet);
 
-            // Create customer record
             const customerData = {
               user_id: newUser.id,
               first_name: userData.first_name,
               last_name: userData.last_name,
               phone: userData.phone,
-              address: userData.address,
+              address: userData.address || {},
               created_at: Math.floor(Date.now() / 1000),
               updated_at: Math.floor(Date.now() / 1000)
             };
@@ -853,7 +848,6 @@ export class AuthService {
               await this.customersRepository.create(customerData);
             console.log('Customer created successfully:', newUserWithRole);
 
-            // Update user type to include F_WALLET
             if (newUserWithRole && fWallet) {
               console.log(
                 'Both FWallet and Customer created, updating user type'
@@ -883,7 +877,6 @@ export class AuthService {
         case Enum_UserType.DRIVER:
           console.log('=== Starting Driver Registration ===');
           try {
-            // Create FWallet first
             const driverFWalletData: CreateFWalletDto = {
               user_id: newUser.id,
               email: newUser.email,
@@ -897,7 +890,6 @@ export class AuthService {
             fWallet = await this.fWalletsRepository.create(driverFWalletData);
             console.log('FWallet created successfully:', fWallet);
 
-            // Create driver record
             const driverData = {
               user_id: newUser.id,
               first_name: userData.first_name,
@@ -931,7 +923,6 @@ export class AuthService {
             newUserWithRole = await this.driverRepository.create(driverData);
             console.log('Driver created successfully:', newUserWithRole);
 
-            // Update user type to include F_WALLET
             if (newUserWithRole && fWallet) {
               console.log(
                 'Both FWallet and Driver created, updating user type'
@@ -949,7 +940,6 @@ export class AuthService {
               newUser.user_type = updatedUserTypes;
             }
 
-            // Return complete response with driver and fwallet data
             return createResponse(
               'OK',
               {
@@ -974,7 +964,6 @@ export class AuthService {
         case Enum_UserType.RESTAURANT_OWNER:
           console.log('=== Starting Restaurant Owner Registration ===');
           try {
-            // Create FWallet first
             const fWalletData: CreateFWalletDto = {
               user_id: newUser.id,
               email: newUser.email,
@@ -988,7 +977,6 @@ export class AuthService {
             fWallet = await this.fWalletsRepository.create(fWalletData);
             console.log('FWallet created successfully:', fWallet);
 
-            // Create restaurant
             const restaurantData: CreateRestaurantDto = {
               owner_id: newUser.id,
               owner_name: userData.owner_name,
@@ -1027,7 +1015,6 @@ export class AuthService {
             console.log('Restaurant creation result:', restaurantResult);
 
             if (restaurantResult.EC === -2) {
-              // If restaurant creation fails, we should clean up the FWallet and user
               await this.fWalletsRepository.delete(fWallet.id);
               await this.userRepository.delete(newUser.id);
               return createResponse(
@@ -1039,7 +1026,6 @@ export class AuthService {
 
             newUserWithRole = restaurantResult.data;
 
-            // Only update user type after successful creation of both FWallet and Restaurant
             if (newUserWithRole && fWallet) {
               console.log(
                 'Both FWallet and Restaurant created, updating user type'
@@ -1054,12 +1040,10 @@ export class AuthService {
                 verification_code: newUser.verification_code?.toString()
               });
 
-              // Update the newUser object to reflect changes
               newUser.user_type = updatedUserTypes;
             }
           } catch (error) {
             console.error('Error in restaurant owner registration:', error);
-            // Clean up created resources in case of error
             if (fWallet) {
               await this.fWalletsRepository.delete(fWallet.id);
             }
@@ -1111,7 +1095,7 @@ export class AuthService {
             role,
             first_name: userData.first_name,
             last_name: userData.last_name,
-            permissions: [], // Gán permissions mặc định, có thể tùy chỉnh sau
+            permissions: [],
             status: AdminStatus.ACTIVE,
             created_at: new Date(),
             updated_at: new Date()
@@ -1165,7 +1149,6 @@ export class AuthService {
     }
   }
 
-  // Utility methods
   async validateUser(payload: any): Promise<User> {
     return this.userRepository.findById(payload.userId);
   }

@@ -15,14 +15,21 @@ const notification_entity_1 = require("./entities/notification.entity");
 const notifications_repository_1 = require("./notifications.repository");
 const admin_entity_1 = require("../admin/entities/admin.entity");
 const admin_repository_1 = require("../admin/admin.repository");
+const user_entity_1 = require("../users/entities/user.entity");
+const users_repository_1 = require("../users/users.repository");
 let NotificationsModule = class NotificationsModule {
 };
 exports.NotificationsModule = NotificationsModule;
 exports.NotificationsModule = NotificationsModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([notification_entity_1.Notification, admin_entity_1.Admin])],
+        imports: [typeorm_1.TypeOrmModule.forFeature([notification_entity_1.Notification, admin_entity_1.Admin, user_entity_1.User])],
         controllers: [notifications_controller_1.NotificationsController],
-        providers: [notifications_service_1.NotificationsService, notifications_repository_1.NotificationsRepository, admin_repository_1.AdminRepository]
+        providers: [
+            notifications_service_1.NotificationsService,
+            notifications_repository_1.NotificationsRepository,
+            users_repository_1.UserRepository,
+            admin_repository_1.AdminRepository
+        ]
     })
 ], NotificationsModule);
 //# sourceMappingURL=notifications.module.js.map

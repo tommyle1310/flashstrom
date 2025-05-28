@@ -23,6 +23,8 @@ const order_entity_1 = require("../orders/entities/order.entity");
 const orders_repository_1 = require("../orders/orders.repository");
 const promotions_repository_1 = require("../promotions/promotions.repository");
 const promotion_entity_1 = require("../promotions/entities/promotion.entity");
+const user_entity_1 = require("../users/entities/user.entity");
+const users_repository_1 = require("../users/users.repository");
 let PenaltiesModule = class PenaltiesModule {
 };
 exports.PenaltiesModule = PenaltiesModule;
@@ -34,6 +36,7 @@ exports.PenaltiesModule = PenaltiesModule = __decorate([
                 admin_entity_1.Admin,
                 penalty_rule_entity_1.PenaltyRule,
                 driver_entity_1.Driver,
+                user_entity_1.User,
                 order_entity_1.Order,
                 promotion_entity_1.Promotion
             ])
@@ -46,7 +49,8 @@ exports.PenaltiesModule = PenaltiesModule = __decorate([
             penalty_rules_repository_1.PenaltyRulesRepository,
             drivers_repository_1.DriversRepository,
             promotions_repository_1.PromotionsRepository,
-            orders_repository_1.OrdersRepository
+            orders_repository_1.OrdersRepository,
+            users_repository_1.UserRepository
         ]
     })
 ], PenaltiesModule);

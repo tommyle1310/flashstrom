@@ -32,11 +32,11 @@ export class FinanceRule {
   @Column({ type: 'float' })
   restaurant_commission: number;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', nullable: true })
   created_by_id: string;
 
-  @ManyToOne(() => Admin, admin => admin.id, { nullable: false })
-  @JoinColumn({ name: 'created_by_id' })
+  @ManyToOne(() => Admin)
+  @JoinColumn({ name: 'created_by_id', referencedColumnName: 'id' })
   created_by: Admin;
 
   @Column({ type: 'text', nullable: true })

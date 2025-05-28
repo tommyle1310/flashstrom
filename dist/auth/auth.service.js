@@ -182,21 +182,29 @@ let AuthService = class AuthService {
     }
     async handleCustomerLogin(user, basePayload) {
         try {
-            const userWithRole = await this.customersRepository.findByUserId(user.id);
+            const userWithRole = await Promise.race([
+                this.customersRepository.findByUserId(user.id),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Customer lookup timeout')), 10000))
+            ]);
             if (!userWithRole) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Customer not found');
             }
-            const fwallet = await this.fWalletsRepository.findByUserId(user.id);
+            const fwallet = await Promise.race([
+                this.fWalletsRepository.findByUserId(user.id),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Wallet lookup timeout')), 5000))
+            ]);
             if (!fwallet) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Wallet not found for customer');
             }
-            const cartItems = await this.cartItemService.findAll({
-                customer_id: userWithRole.id
-            });
+            const cartItems = await Promise.race([
+                this.cartItemService.findAll({
+                    customer_id: userWithRole.id
+                }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Cart items lookup timeout')), 5000))
+            ]);
             await this.customersRepository.update(userWithRole.id, {
                 last_login: Math.floor(Date.now() / 1000)
             });
-            console.log('check customer data', userWithRole, 'check address', userWithRole.address);
             const customerPayload = {
                 ...basePayload,
                 id: userWithRole.id,
@@ -204,13 +212,13 @@ let AuthService = class AuthService {
                 fWallet_id: fwallet.id,
                 fWallet_balance: fwallet.balance,
                 preferred_category: userWithRole.preferred_category,
-                favorite_restaurants: userWithRole.favorite_restaurants,
-                favorite_items: userWithRole.favorite_items,
+                favorite_restaurants: userWithRole.favorite_restaurants || [],
+                favorite_items: userWithRole.favorite_items || [],
                 user_id: user.id,
                 avatar: userWithRole.avatar,
-                support_tickets: userWithRole.support_tickets,
-                address: userWithRole.address,
-                cart_items: cartItems.data
+                support_tickets: userWithRole.support_tickets || [],
+                address: userWithRole.address || {},
+                cart_items: cartItems?.data || []
             };
             const accessToken = this.jwtService.sign(customerPayload);
             return (0, createResponse_1.createResponse)('OK', {
@@ -644,7 +652,7 @@ let AuthService = class AuthService {
                             first_name: userData.first_name,
                             last_name: userData.last_name,
                             phone: userData.phone,
-                            address: userData.address,
+                            address: userData.address || {},
                             created_at: Math.floor(Date.now() / 1000),
                             updated_at: Math.floor(Date.now() / 1000)
                         };

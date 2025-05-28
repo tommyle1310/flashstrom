@@ -41,12 +41,12 @@ __decorate([
     __metadata("design:type", Number)
 ], FinanceRule.prototype, "restaurant_commission", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'varchar' }),
+    (0, typeorm_1.Column)({ type: 'varchar', nullable: true }),
     __metadata("design:type", String)
 ], FinanceRule.prototype, "created_by_id", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => admin_entity_1.Admin, admin => admin.id, { nullable: false }),
-    (0, typeorm_1.JoinColumn)({ name: 'created_by_id' }),
+    (0, typeorm_1.ManyToOne)(() => admin_entity_1.Admin),
+    (0, typeorm_1.JoinColumn)({ name: 'created_by_id', referencedColumnName: 'id' }),
     __metadata("design:type", admin_entity_1.Admin)
 ], FinanceRule.prototype, "created_by", void 0);
 __decorate([

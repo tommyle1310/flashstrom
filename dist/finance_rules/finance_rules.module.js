@@ -21,13 +21,22 @@ const order_entity_1 = require("../orders/entities/order.entity");
 const orders_repository_1 = require("../orders/orders.repository");
 const promotion_entity_1 = require("../promotions/entities/promotion.entity");
 const promotions_repository_1 = require("../promotions/promotions.repository");
+const users_repository_1 = require("../users/users.repository");
+const user_entity_1 = require("../users/entities/user.entity");
 let FinanceRulesModule = class FinanceRulesModule {
 };
 exports.FinanceRulesModule = FinanceRulesModule;
 exports.FinanceRulesModule = FinanceRulesModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            typeorm_1.TypeOrmModule.forFeature([finance_rule_entity_1.FinanceRule, driver_entity_1.Driver, admin_entity_1.Admin, order_entity_1.Order, promotion_entity_1.Promotion])
+            typeorm_1.TypeOrmModule.forFeature([
+                finance_rule_entity_1.FinanceRule,
+                driver_entity_1.Driver,
+                admin_entity_1.Admin,
+                order_entity_1.Order,
+                user_entity_1.User,
+                promotion_entity_1.Promotion
+            ])
         ],
         controllers: [finance_rules_controller_1.FinanceRulesController],
         providers: [
@@ -36,7 +45,8 @@ exports.FinanceRulesModule = FinanceRulesModule = __decorate([
             drivers_repository_1.DriversRepository,
             orders_repository_1.OrdersRepository,
             promotions_repository_1.PromotionsRepository,
-            admin_repository_1.AdminRepository
+            admin_repository_1.AdminRepository,
+            users_repository_1.UserRepository
         ]
     })
 ], FinanceRulesModule);

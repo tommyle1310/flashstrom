@@ -73,6 +73,8 @@ const address_book_entity_1 = require("../address_book/entities/address_book.ent
 const address_book_repository_1 = require("../address_book/address_book.repository");
 const order_entity_1 = require("../orders/entities/order.entity");
 const customer_care_entity_1 = require("../customer_cares/entities/customer_care.entity");
+const user_entity_1 = require("../users/entities/user.entity");
+const users_repository_1 = require("../users/users.repository");
 let AdminModule = class AdminModule {
 };
 exports.AdminModule = AdminModule;
@@ -93,6 +95,7 @@ exports.AdminModule = AdminModule = __decorate([
                 address_book_entity_1.AddressBook,
                 restaurant_entity_1.Restaurant,
                 order_entity_1.Order,
+                user_entity_1.User,
                 customer_care_entity_1.CustomerCare
             ]),
             users_module_1.UsersModule
@@ -120,6 +123,7 @@ exports.AdminModule = AdminModule = __decorate([
             menu_items_repository_1.MenuItemsRepository,
             address_book_repository_1.AddressBookRepository,
             menu_item_variants_repository_1.MenuItemVariantsRepository,
+            users_repository_1.UserRepository,
             auth_service_1.AuthService,
             fwallets_repository_1.FWalletsRepository,
             restaurants_repository_1.RestaurantsRepository,

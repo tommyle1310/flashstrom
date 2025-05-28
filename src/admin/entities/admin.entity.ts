@@ -23,9 +23,12 @@ export class Admin {
   @PrimaryColumn({ type: 'varchar' })
   id: string;
 
+  @Column({ type: 'varchar' })
+  user_id: string;
+
   @OneToOne(() => User)
   @JoinColumn({ name: 'user_id' })
-  user_id: User;
+  user: User;
 
   @Column({
     type: 'enum',
@@ -63,7 +66,11 @@ export class Admin {
   @UpdateDateColumn()
   updated_at: number;
 
-  @ManyToOne(() => Admin, admin => admin.id)
+  @Column({ type: 'varchar', nullable: true })
+  created_by_id: string;
+
+  @ManyToOne(() => Admin, { nullable: true })
+  @JoinColumn({ name: 'created_by_id' })
   created_by: Admin;
 
   @Column({ nullable: true })

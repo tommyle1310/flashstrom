@@ -19,75 +19,125 @@ const typeorm_2 = require("@nestjs/typeorm");
 const cart_item_entity_1 = require("./entities/cart_item.entity");
 const typeorm_3 = require("typeorm");
 const redis_1 = require("redis");
+const logger = new common_1.Logger('CartItemsRepository');
 const redis = (0, redis_1.createClient)({
     url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
-redis.connect().catch(err => console.error('Redis connection error:', err));
+redis.connect().catch(err => logger.error('Redis connection error:', err));
 let CartItemsRepository = class CartItemsRepository {
     constructor(repository, dataSource) {
         this.repository = repository;
         this.dataSource = dataSource;
     }
     async create(createDto) {
-        const cartItem = this.repository.create(createDto);
-        const savedItem = await this.repository.save(cartItem);
-        await redis.del(`cart_items:${createDto.customer_id}`);
-        return savedItem;
+        try {
+            const cartItem = this.repository.create(createDto);
+            const savedItem = await this.repository.save(cartItem);
+            await redis.del(`cart_items:${createDto.customer_id}`);
+            return savedItem;
+        }
+        catch (error) {
+            logger.error('Error creating cart item:', error);
+            throw error;
+        }
     }
     async findAll(query = {}) {
-        return await this.repository.find({
-            where: query,
-            select: ['id', 'customer_id', 'item_id', 'variants']
-        });
+        try {
+            return await this.repository.find({
+                where: query,
+                relations: ['customer', 'item', 'restaurant'],
+                select: ['id', 'customer_id', 'item_id', 'variants', 'restaurant_id']
+            });
+        }
+        catch (error) {
+            logger.error('Error finding all cart items:', error);
+            throw error;
+        }
     }
     async findById(id) {
-        return await this.repository.findOne({
-            where: { id: (0, typeorm_3.Equal)(id) },
-            select: ['id', 'customer_id', 'item_id', 'variants']
-        });
+        try {
+            return await this.repository.findOne({
+                where: { id: (0, typeorm_3.Equal)(id) },
+                relations: ['customer', 'item', 'restaurant'],
+                select: ['id', 'customer_id', 'item_id', 'variants', 'restaurant_id']
+            });
+        }
+        catch (error) {
+            logger.error('Error finding cart item by id:', error);
+            throw error;
+        }
     }
     async findByCustomerId(customerId, options) {
-        return this.dataSource
-            .createQueryBuilder(cart_item_entity_1.CartItem, 'cart_item')
-            .where('cart_item.customer_id = :customerId', { customerId })
-            .andWhere('cart_item.deleted_at IS NULL')
-            .select([
-            'cart_item.id',
-            'cart_item.customer_id',
-            'cart_item.item_id',
-            'cart_item.restaurant_id',
-            'cart_item.created_at',
-            'cart_item.updated_at'
-        ])
-            .take(options.take)
-            .useIndex('idx_cart_items_customer_id')
-            .getMany();
+        try {
+            return this.dataSource
+                .createQueryBuilder(cart_item_entity_1.CartItem, 'cart_item')
+                .leftJoinAndSelect('cart_item.customer', 'customer')
+                .leftJoinAndSelect('cart_item.item', 'item')
+                .leftJoinAndSelect('cart_item.restaurant', 'restaurant')
+                .where('cart_item.customer_id = :customerId', { customerId })
+                .andWhere('cart_item.deleted_at IS NULL')
+                .select([
+                'cart_item.id',
+                'cart_item.customer_id',
+                'cart_item.item_id',
+                'cart_item.restaurant_id',
+                'cart_item.variants',
+                'cart_item.created_at',
+                'cart_item.updated_at'
+            ])
+                .take(options.take)
+                .useIndex('idx_cart_items_customer_id')
+                .getMany();
+        }
+        catch (error) {
+            logger.error('Error finding cart items by customer id:', error);
+            throw error;
+        }
     }
     async findOne(query) {
-        const { where } = query;
-        return await this.repository.findOne({
-            where: where || query,
-            select: ['id', 'customer_id', 'item_id', 'variants']
-        });
+        try {
+            const { where } = query;
+            return await this.repository.findOne({
+                where: where || query,
+                relations: ['customer', 'item', 'restaurant'],
+                select: ['id', 'customer_id', 'item_id', 'variants', 'restaurant_id']
+            });
+        }
+        catch (error) {
+            logger.error('Error finding one cart item:', error);
+            throw error;
+        }
     }
     async update(id, updateDto) {
-        await this.repository.update(id, {
-            ...updateDto,
-            updated_at: Math.floor(Date.now() / 1000)
-        });
-        const updatedItem = await this.findById(id);
-        if (updatedItem) {
-            await redis.del(`cart_items:${updatedItem.customer_id}`);
+        try {
+            await this.repository.update(id, {
+                ...updateDto,
+                updated_at: Math.floor(Date.now() / 1000)
+            });
+            const updatedItem = await this.findById(id);
+            if (updatedItem) {
+                await redis.del(`cart_items:${updatedItem.customer_id}`);
+            }
+            return updatedItem;
         }
-        return updatedItem;
+        catch (error) {
+            logger.error('Error updating cart item:', error);
+            throw error;
+        }
     }
     async remove(id) {
-        const item = await this.findById(id);
-        const result = await this.repository.delete(id);
-        if (item) {
-            await redis.del(`cart_items:${item.customer_id}`);
+        try {
+            const item = await this.findById(id);
+            const result = await this.repository.delete(id);
+            if (item) {
+                await redis.del(`cart_items:${item.customer_id}`);
+            }
+            return result.affected > 0;
         }
-        return result.affected > 0;
+        catch (error) {
+            logger.error('Error removing cart item:', error);
+            throw error;
+        }
     }
 };
 exports.CartItemsRepository = CartItemsRepository;

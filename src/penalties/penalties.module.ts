@@ -14,6 +14,8 @@ import { Order } from 'src/orders/entities/order.entity';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { PromotionsRepository } from 'src/promotions/promotions.repository';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
+import { User } from 'src/users/entities/user.entity';
+import { UserRepository } from 'src/users/users.repository';
 
 @Module({
   imports: [
@@ -22,6 +24,7 @@ import { Promotion } from 'src/promotions/entities/promotion.entity';
       Admin,
       PenaltyRule,
       Driver,
+      User,
       Order,
       Promotion
     ])
@@ -34,7 +37,8 @@ import { Promotion } from 'src/promotions/entities/promotion.entity';
     PenaltyRulesRepository,
     DriversRepository,
     PromotionsRepository,
-    OrdersRepository
+    OrdersRepository,
+    UserRepository
   ]
 })
 export class PenaltiesModule {}
