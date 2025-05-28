@@ -2105,6 +2105,21 @@ export class DriversGateway
       if (lockAcquired) {
         await this.redisService.del(lockKey);
       }
+      // Delete the customer orders cache
+      const customerId = order.customer_id; // Assuming order has customer_id
+      if (customerId) {
+        const cacheKey = `orders:customer:${customerId}`;
+        await this.redisService.del(cacheKey);
+        logToFile('Deleted customer orders cache', {
+          orderId: order.id,
+          customerId,
+          cacheKey
+        });
+      } else {
+        logToFile('WARNING: No customerId found for cache deletion', {
+          orderId: order.id
+        });
+      }
     }
   }
 }

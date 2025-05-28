@@ -184,7 +184,7 @@ let AuthService = class AuthService {
         try {
             const userWithRole = await Promise.race([
                 this.customersRepository.findByUserId(user.id),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Customer lookup timeout')), 10000))
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Customer lookup timeout')), 30000))
             ]);
             if (!userWithRole) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Customer not found');

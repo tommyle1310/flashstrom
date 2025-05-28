@@ -1523,6 +1523,21 @@ let DriversGateway = class DriversGateway {
             if (lockAcquired) {
                 await this.redisService.del(lockKey);
             }
+            const customerId = order.customer_id;
+            if (customerId) {
+                const cacheKey = `orders:customer:${customerId}`;
+                await this.redisService.del(cacheKey);
+                logToFile('Deleted customer orders cache', {
+                    orderId: order.id,
+                    customerId,
+                    cacheKey
+                });
+            }
+            else {
+                logToFile('WARNING: No customerId found for cache deletion', {
+                    orderId: order.id
+                });
+            }
         }
     }
 };
