@@ -36,6 +36,7 @@ export declare class RestaurantsGateway implements OnGatewayConnection, OnGatewa
     private restaurantSockets;
     private redisClient;
     private isListenerRegistered;
+    private readonly logger;
     constructor(socketServer: any, restaurantsService: RestaurantsService, driverService: DriversService, eventEmitter: EventEmitter2, ordersRepository: OrdersRepository, jwtService: JwtService, driverStatsService: DriverStatsService, financeRulesService: FinanceRulesService, redisService: RedisService, ordersService: OrdersService);
     afterInit(): void;
     onModuleDestroy(): Promise<void>;
@@ -54,7 +55,6 @@ export declare class RestaurantsGateway implements OnGatewayConnection, OnGatewa
     private isValidDriverResponse;
     private calculateOrderMetrics;
     private calculateDriverWage;
-    private updateOrderStatus;
     private updateOrderWithMetrics;
     private getUpdatedOrder;
     private notifyDriverAndParties;
@@ -70,6 +70,23 @@ export declare class RestaurantsGateway implements OnGatewayConnection, OnGatewa
         };
     }>;
     notifyPartiesOnce(order: any): Promise<void>;
-    handleOrderTrackingUpdate(payload: any): void;
+    handleOrderTrackingUpdate(order: any): Promise<{
+        event: string;
+        data: {
+            orderId: any;
+            status: any;
+            tracking_info: any;
+            updated_at: any;
+            customer_id: any;
+            driver_id: any;
+            restaurant_id: any;
+            restaurant_avatar: any;
+            driver_avatar: any;
+            restaurantAddress: any;
+            customerAddress: any;
+            driverDetails: any;
+        };
+        message: string;
+    }>;
 }
 export {};

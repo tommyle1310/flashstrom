@@ -66,6 +66,7 @@ const typeorm_1 = require("typeorm");
 const dotenv = __importStar(require("dotenv"));
 const order_entity_2 = require("../orders/entities/order.entity");
 const ratings_reviews_repository_1 = require("../ratings_reviews/ratings_reviews.repository");
+const redis_service_1 = require("../redis/redis.service");
 dotenv.config();
 const logger = new common_1.Logger('RestaurantsService');
 const redis = (0, redis_1.createClient)({
@@ -73,7 +74,7 @@ const redis = (0, redis_1.createClient)({
 });
 redis.connect().catch(err => logger.error('Redis connection error:', err));
 let RestaurantsService = class RestaurantsService {
-    constructor(restaurantsRepository, userRepository, promotionRepository, addressRepository, ordersRepository, menuItemRepository, menuItemsService, menuItemVariantsService, transactionsService, restaurantsGateway, foodCategoryRepository, fWalletsRepository, dataSource, ratingsReviewsRepository) {
+    constructor(restaurantsRepository, userRepository, promotionRepository, addressRepository, ordersRepository, menuItemRepository, menuItemsService, menuItemVariantsService, transactionsService, restaurantsGateway, foodCategoryRepository, fWalletsRepository, dataSource, ratingsReviewsRepository, redisService) {
         this.restaurantsRepository = restaurantsRepository;
         this.userRepository = userRepository;
         this.promotionRepository = promotionRepository;
@@ -88,6 +89,8 @@ let RestaurantsService = class RestaurantsService {
         this.fWalletsRepository = fWalletsRepository;
         this.dataSource = dataSource;
         this.ratingsReviewsRepository = ratingsReviewsRepository;
+        this.redisService = redisService;
+        this.restaurantsValidPromotionsCacheKey = 'promotions:valid_with_restaurants';
     }
     async onModuleInit() {
         try {
@@ -789,6 +792,7 @@ let RestaurantsService = class RestaurantsService {
             }
             restaurantDetails.promotions = promotionEntities;
             await this.restaurantsRepository.repository.save(restaurantDetails);
+            await this.redisService.del(this.restaurantsValidPromotionsCacheKey);
             return (0, createResponse_1.createResponse)('OK', {
                 transaction: transactionResponse.data,
                 restaurant: restaurantDetails,
@@ -938,7 +942,7 @@ let RestaurantsService = class RestaurantsService {
                 },
                 relations: ['reviewer_customer', 'reviewer_driver', 'order']
             });
-            const totalReviews = ratingsReviews.length;
+            const totalReviews = ratingsReviews?.filter(item => !item?.delivery_review || !item?.delivery_rating)?.length;
             const totalFoodRating = ratingsReviews.reduce((sum, review) => sum + review.food_rating, 0);
             const totalDeliveryRating = ratingsReviews.reduce((sum, review) => sum + review.delivery_rating, 0);
             const averageFoodRating = totalReviews > 0 ? totalFoodRating / totalReviews : 0;
@@ -948,7 +952,8 @@ let RestaurantsService = class RestaurantsService {
                 total_reviews: totalReviews,
                 average_food_rating: averageFoodRating,
                 average_delivery_rating: averageDeliveryRating,
-                reviews: ratingsReviews.map(review => ({
+                reviews: ratingsReviews
+                    .map(review => ({
                     id: review.id,
                     reviewer_type: review.reviewer_type,
                     reviewer: review.reviewer_type === 'customer'
@@ -962,6 +967,7 @@ let RestaurantsService = class RestaurantsService {
                     created_at: review.created_at,
                     order_id: review.order_id
                 }))
+                    ?.filter(item => !item?.delivery_review || !item?.delivery_rating)
             };
             return (0, createResponse_1.createResponse)('OK', response, 'Restaurant ratings and reviews retrieved successfully');
         }
@@ -987,6 +993,7 @@ exports.RestaurantsService = RestaurantsService = __decorate([
         food_categories_repository_1.FoodCategoriesRepository,
         fwallets_repository_1.FWalletsRepository,
         typeorm_1.DataSource,
-        ratings_reviews_repository_1.RatingsReviewsRepository])
+        ratings_reviews_repository_1.RatingsReviewsRepository,
+        redis_service_1.RedisService])
 ], RestaurantsService);
 //# sourceMappingURL=restaurants.service.js.map

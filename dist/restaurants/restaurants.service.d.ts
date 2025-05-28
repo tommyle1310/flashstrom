@@ -22,6 +22,7 @@ import { DataSource } from 'typeorm';
 import { ToggleRestaurantAvailabilityDto } from './dto/restaurant-availability.dto';
 import { Order } from 'src/orders/entities/order.entity';
 import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
+import { RedisService } from 'src/redis/redis.service';
 export declare class RestaurantsService {
     private readonly restaurantsRepository;
     private readonly userRepository;
@@ -37,7 +38,9 @@ export declare class RestaurantsService {
     private readonly fWalletsRepository;
     private readonly dataSource;
     private readonly ratingsReviewsRepository;
-    constructor(restaurantsRepository: RestaurantsRepository, userRepository: UserRepository, promotionRepository: PromotionsRepository, addressRepository: AddressBookRepository, ordersRepository: OrdersRepository, menuItemRepository: MenuItemsRepository, menuItemsService: MenuItemsService, menuItemVariantsService: MenuItemVariantsService, transactionsService: TransactionService, restaurantsGateway: RestaurantsGateway, foodCategoryRepository: FoodCategoriesRepository, fWalletsRepository: FWalletsRepository, dataSource: DataSource, ratingsReviewsRepository: RatingsReviewsRepository);
+    private readonly redisService;
+    private readonly restaurantsValidPromotionsCacheKey;
+    constructor(restaurantsRepository: RestaurantsRepository, userRepository: UserRepository, promotionRepository: PromotionsRepository, addressRepository: AddressBookRepository, ordersRepository: OrdersRepository, menuItemRepository: MenuItemsRepository, menuItemsService: MenuItemsService, menuItemVariantsService: MenuItemVariantsService, transactionsService: TransactionService, restaurantsGateway: RestaurantsGateway, foodCategoryRepository: FoodCategoriesRepository, fWalletsRepository: FWalletsRepository, dataSource: DataSource, ratingsReviewsRepository: RatingsReviewsRepository, redisService: RedisService);
     onModuleInit(): Promise<void>;
     preloadRestaurants(): Promise<void>;
     clearRedis(): Promise<ApiResponse<null>>;

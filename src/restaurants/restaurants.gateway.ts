@@ -30,6 +30,7 @@ import { DriverStatsService } from 'src/driver_stats_records/driver_stats_record
 import { RedisService } from 'src/redis/redis.service';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { OrdersService } from 'src/orders/orders.service';
+import { Logger } from '@nestjs/common';
 
 interface AvailableDriver {
   id: string;
@@ -64,7 +65,8 @@ export class RestaurantsGateway
   private activeConnections = new Map<string, Socket>();
   private restaurantSockets = new Map<string, Set<string>>();
   private redisClient: any;
-  private isListenerRegistered = false; // Thêm biến để theo dõi listener
+  private isListenerRegistered = false;
+  private readonly logger = new Logger(RestaurantsGateway.name);
 
   constructor(
     @Inject('SOCKET_SERVER') private socketServer: any,
@@ -82,16 +84,16 @@ export class RestaurantsGateway
     private readonly ordersService: OrdersService
   ) {
     this.redisClient = this.redisService.getClient();
-    console.log(
+    this.logger.log(
       '[RestaurantsGateway] Constructor called, instance ID:',
       Math.random()
     );
   }
 
   afterInit() {
-    console.log('[RestaurantsGateway] Initialized');
+    this.logger.log('[RestaurantsGateway] Initialized');
     if (!this.server) {
-      console.error(
+      this.logger.error(
         '[RestaurantsGateway] WebSocket server is null after initialization'
       );
       return;
@@ -104,27 +106,27 @@ export class RestaurantsGateway
       const connectRedis = async () => {
         try {
           if (subClient.isOpen) {
-            console.log(
+            this.logger.log(
               '[RestaurantsGateway] Redis subClient already open, skipping connect'
             );
           } else {
             await subClient.connect();
-            console.log('[RestaurantsGateway] Redis subClient connected');
+            this.logger.log('[RestaurantsGateway] Redis subClient connected');
           }
           const redisAdapter = createAdapter(pubClient, subClient);
           this.server.adapter(redisAdapter);
-          console.log(
+          this.logger.log(
             '[RestaurantsGateway] Socket.IO Redis adapter initialized successfully'
           );
         } catch (err: any) {
           if (retryCount < maxRetries) {
             retryCount++;
-            console.warn(
+            this.logger.warn(
               `[RestaurantsGateway] Retrying Redis connection (${retryCount}/${maxRetries})...`
             );
             setTimeout(connectRedis, 2000);
           } else {
-            console.error(
+            this.logger.error(
               '[RestaurantsGateway] Failed to initialize Redis adapter after retries:',
               err.message
             );
@@ -133,7 +135,7 @@ export class RestaurantsGateway
       };
       connectRedis();
     } catch (err: any) {
-      console.error(
+      this.logger.error(
         '[RestaurantsGateway] Error setting up Redis adapter:',
         err.message
       );
@@ -143,11 +145,11 @@ export class RestaurantsGateway
     const listenerCount = this.eventEmitter.listenerCount(
       'listenUpdateOrderTracking'
     );
-    console.log(
+    this.logger.log(
       `[RestaurantsGateway] Current listenUpdateOrderTracking listeners: ${listenerCount}`
     );
     if (listenerCount > 1) {
-      console.warn(
+      this.logger.warn(
         '[RestaurantsGateway] Multiple listeners detected, removing all'
       );
       this.eventEmitter.removeAllListeners('listenUpdateOrderTracking');
@@ -157,11 +159,11 @@ export class RestaurantsGateway
     const newOrderListenerCount = this.eventEmitter.listenerCount(
       'newOrderForRestaurant'
     );
-    console.log(
+    this.logger.log(
       `[RestaurantsGateway] Current newOrderForRestaurant listeners: ${newOrderListenerCount}`
     );
     if (newOrderListenerCount > 1) {
-      console.warn(
+      this.logger.warn(
         '[RestaurantsGateway] Multiple newOrderForRestaurant listeners detected, removing all'
       );
       this.eventEmitter.removeAllListeners('newOrderForRestaurant');
@@ -178,7 +180,7 @@ export class RestaurantsGateway
         this.handleNewOrder.bind(this)
       );
       this.isListenerRegistered = true;
-      console.log(
+      this.logger.log(
         '[RestaurantsGateway] Registered listeners for listenUpdateOrderTracking and newOrderForRestaurant'
       );
     }
@@ -186,7 +188,6 @@ export class RestaurantsGateway
     this.server.setMaxListeners(300);
   }
 
-  // Thêm phương thức để cleanup khi gateway bị destroy
   async onModuleDestroy() {
     this.eventEmitter.removeListener(
       'listenUpdateOrderTracking',
@@ -200,7 +201,7 @@ export class RestaurantsGateway
     if (this.redisClient && this.redisClient.isOpen) {
       await this.redisClient.quit();
     }
-    console.log(
+    this.logger.log(
       '[RestaurantsGateway] Removed listeners and closed Redis connection'
     );
   }
@@ -220,7 +221,7 @@ export class RestaurantsGateway
       });
       return decoded;
     } catch (error: any) {
-      console.error(
+      this.logger.error(
         '[RestaurantsGateway] Token validation error:',
         error.message
       );
@@ -230,10 +231,13 @@ export class RestaurantsGateway
 
   async handleConnection(client: Socket) {
     try {
-      console.log('⚡️ Client connected to restaurant namespace:', client.id);
+      this.logger.log(
+        '⚡️ Client connected to restaurant namespace:',
+        client.id
+      );
       const restaurantData = await this.validateToken(client);
       if (!restaurantData) {
-        console.log(
+        this.logger.log(
           '[RestaurantsGateway] Invalid token, disconnecting:',
           client.id
         );
@@ -242,7 +246,7 @@ export class RestaurantsGateway
       }
 
       const restaurantId = restaurantData.id;
-      console.log(
+      this.logger.log(
         `[RestaurantsGateway] Restaurant ${restaurantId} attempting connection:`,
         client.id
       );
@@ -251,9 +255,9 @@ export class RestaurantsGateway
       const lockKey = `lock:restaurant:connect:${restaurantId}`;
       let lockAcquired = false;
       let retryCount = 0;
-      const maxRetries = 10; // Tăng số lần thử
-      const retryDelay = 100; // Giảm thời gian chờ
-      const lockTTL = 30000; // Giảm TTL xuống 30s
+      const maxRetries = 10;
+      const retryDelay = 100;
+      const lockTTL = 30000;
 
       while (!lockAcquired && retryCount < maxRetries) {
         lockAcquired = await this.redisService.setNx(
@@ -266,17 +270,16 @@ export class RestaurantsGateway
           if (existingSocketId && existingSocketId !== client.id) {
             const existingSocket = this.activeConnections.get(existingSocketId);
             if (existingSocket && existingSocket.connected) {
-              console.log(
+              this.logger.log(
                 `[RestaurantsGateway] Active connection exists for restaurant ${restaurantId} with socket ${existingSocketId}, disconnecting ${client.id}`
               );
               client.disconnect(true);
               return;
             }
-            // Nếu socket cũ không còn active, xóa lock
             await this.redisService.del(lockKey);
           }
           retryCount++;
-          console.log(
+          this.logger.log(
             `[RestaurantsGateway] Retrying lock for restaurant ${restaurantId} (${retryCount}/${maxRetries})`
           );
           await new Promise(resolve => setTimeout(resolve, retryDelay));
@@ -284,7 +287,7 @@ export class RestaurantsGateway
       }
 
       if (!lockAcquired) {
-        console.log(
+        this.logger.log(
           `[RestaurantsGateway] Failed to acquire lock for restaurant ${restaurantId}, disconnecting ${client.id}`
         );
         client.disconnect(true);
@@ -292,49 +295,43 @@ export class RestaurantsGateway
       }
 
       try {
-        // Kiểm tra và cleanup các socket hiện có
         const clients = await this.server
           .in(`restaurant_${restaurantId}`)
           .fetchSockets();
         if (clients.length > 0) {
-          console.warn(
+          this.logger.warn(
             `[RestaurantsGateway] Multiple clients detected in room restaurant_${restaurantId}, cleaning up`
           );
           await this.cleanupRestaurantConnections(restaurantId, client.id);
         }
 
-        // Join room
         await client.join(`restaurant_${restaurantId}`);
-        console.log(
+        this.logger.log(
           `Restaurant auto-joined restaurant_${restaurantId} via token`
         );
 
-        // Update socket set
         this.restaurantSockets.set(restaurantId, new Set([client.id]));
-        console.log(
+        this.logger.log(
           `[RestaurantsGateway] Updated socket set for restaurant ${restaurantId}:`,
           this.restaurantSockets.get(restaurantId)
         );
 
-        // Store active connection
         this.activeConnections.set(client.id, client);
 
-        // Log clients in room
         const updatedClients = await this.server
           .in(`restaurant_${restaurantId}`)
           .fetchSockets();
-        console.log(
+        this.logger.log(
           `[RestaurantsGateway] Clients in room restaurant_${restaurantId}:`,
           updatedClients.length
         );
 
-        // Emit connected event
         client.emit('connected', { restaurantId, status: 'connected' });
       } finally {
         await this.redisService.del(lockKey);
       }
     } catch (error: any) {
-      console.error(
+      this.logger.error(
         '[RestaurantsGateway] Error handling connection:',
         error.message
       );
@@ -346,7 +343,7 @@ export class RestaurantsGateway
     restaurantId: string,
     newSocketId: string
   ) {
-    console.log(
+    this.logger.log(
       `[RestaurantsGateway] Cleaning up connections for restaurant ${restaurantId}`
     );
     const socketIds = this.restaurantSockets.get(restaurantId) || new Set();
@@ -358,10 +355,10 @@ export class RestaurantsGateway
       if (socket.id !== newSocketId) {
         const activeSocket = this.activeConnections.get(socket.id);
         if (activeSocket) {
-          console.log(
+          this.logger.log(
             `[RestaurantsGateway] Disconnecting old socket ${socket.id} for restaurant ${restaurantId}`
           );
-          activeSocket.removeAllListeners(); // Xóa tất cả listeners
+          activeSocket.removeAllListeners();
           activeSocket.leave(`restaurant_${restaurantId}`);
           activeSocket.disconnect(true);
           this.activeConnections.delete(socket.id);
@@ -375,7 +372,7 @@ export class RestaurantsGateway
       }
     }
     this.restaurantSockets.delete(restaurantId);
-    console.log(
+    this.logger.log(
       `[RestaurantsGateway] Removed socket set for restaurant ${restaurantId}`
     );
 
@@ -383,7 +380,10 @@ export class RestaurantsGateway
   }
 
   handleDisconnect(client: Socket) {
-    console.log('❌ Client disconnected from restaurant namespace:', client.id);
+    this.logger.log(
+      '❌ Client disconnected from restaurant namespace:',
+      client.id
+    );
     const restaurantId = Array.from(this.restaurantSockets.keys()).find(key => {
       const socketSet = this.restaurantSockets.get(key);
       return socketSet && socketSet.has(client.id);
@@ -418,8 +418,7 @@ export class RestaurantsGateway
 
   @OnEvent('newOrderForRestaurant')
   async handleNewOrder(@MessageBody() order: any) {
-    console.log('check order', order);
-    console.log('chekc order.order', order.order);
+    this.logger.log('Received newOrderForRestaurant:', order);
     await this.server
       .to(`restaurant_${order.restaurant_id}`)
       .emit('incomingOrderForRestaurant', {
@@ -437,13 +436,13 @@ export class RestaurantsGateway
         restaurantAddress: order.order.restaurantAddress,
         customerAddress: order.order.customerAddress
       });
-    console.log(
+    this.logger.log(
       `Emitted incomingOrderForRestaurant to restaurant_${order.restaurant_id}`
     );
     return {
       event: 'newOrderForRestaurant',
       data: order,
-      message: `Notified customer ${order.customer_id}`
+      message: `Notified restaurant ${order.restaurant_id}`
     };
   }
 
@@ -461,7 +460,6 @@ export class RestaurantsGateway
     if (!restaurantId) {
       throw new WsException('Restaurant not authorized');
     }
-    // Kiểm tra sự kiện trùng lặp với Redis
     const lockKey = `event:restaurant:accept:${orderId}`;
     const lockAcquired = await this.redisService.setNx(
       lockKey,
@@ -469,14 +467,13 @@ export class RestaurantsGateway
       300000
     );
     if (!lockAcquired) {
-      console.log(
+      this.logger.log(
         `[RestaurantsGateway] Skipping duplicated restaurantAccept for order ${orderId}`
       );
       return { event: 'restaurantAcceptWithAvailableDrivers', data: undefined };
     }
 
     try {
-      // Lấy chi tiết order
       const order = await this.ordersService.findOne(orderId);
       if (!order?.data) {
         throw new WsException(`Order ${orderId} not found`);
@@ -486,13 +483,11 @@ export class RestaurantsGateway
         throw new WsException('Restaurant not authorized for this order');
       }
 
-      // Cập nhật trạng thái order
       await this.ordersService.update(orderId, {
         status: OrderStatus.PREPARING,
         tracking_info: OrderTrackingInfo.PREPARING
       });
 
-      // Chọn driver và tính toán metrics
       const mappedDrivers = this.prepareDriverData(availableDrivers);
       const responsePrioritizeDrivers =
         await this.driverService.prioritizeAndAssignDriver(
@@ -501,7 +496,7 @@ export class RestaurantsGateway
         );
 
       if (!this.isValidDriverResponse(responsePrioritizeDrivers)) {
-        console.log(
+        this.logger.log(
           '[RestaurantsGateway] No suitable driver found for order:',
           orderId
         );
@@ -519,11 +514,9 @@ export class RestaurantsGateway
         throw new WsException('Failed to calculate driver wage');
       }
 
-      // Cập nhật order với metrics
       await this.updateOrderWithMetrics(orderId, distance, driver_wage);
       const updatedOrder = await this.getUpdatedOrder(orderId);
 
-      // Notify customer about restaurant acceptance
       this.eventEmitter.emit('listenUpdateOrderTracking', {
         orderId: updatedOrder.id,
         status: updatedOrder.status,
@@ -538,23 +531,21 @@ export class RestaurantsGateway
         customerAddress: updatedOrder.customerAddress
       });
 
-      // Thông báo driver và các bên liên quan
       await this.notifyDriverAndParties(
         updatedOrder,
         selectedDriver.id,
         driver_wage
       );
 
-      // Notify restaurant
       await this.notifyPartiesOnce(updatedOrder);
 
-      console.log(
+      this.logger.log(
         '[RestaurantsGateway] Successfully handled restaurantAccept for order:',
         orderId
       );
       return { event: 'restaurantAcceptWithAvailableDrivers', data: undefined };
     } catch (error: any) {
-      console.error(
+      this.logger.error(
         '[RestaurantsGateway] Error handling restaurantAccept:',
         error
       );
@@ -565,7 +556,7 @@ export class RestaurantsGateway
   }
 
   private prepareDriverData(availableDrivers: AvailableDriver[]) {
-    console.log('check avai dri', availableDrivers);
+    this.logger.log('Preparing driver data:', availableDrivers);
     return availableDrivers.map(item => ({
       id: item.id,
       location: { lat: item.lat, lng: item.lng },
@@ -603,7 +594,7 @@ export class RestaurantsGateway
     const { EC, EM, data } = latestFinanceRuleResponse;
 
     if (EC !== 0) {
-      console.error('Error getting finance rules:', EM);
+      this.logger.error('Error getting finance rules:', EM);
       return null;
     }
 
@@ -622,20 +613,9 @@ export class RestaurantsGateway
       }
       return null;
     } catch (error: any) {
-      console.error('Error calculating driver wage:', error);
+      this.logger.error('Error calculating driver wage:', error);
       return null;
     }
-  }
-
-  private async updateOrderStatus(
-    orderId: string,
-    status: OrderStatus,
-    trackingInfo: OrderTrackingInfo
-  ) {
-    await this.ordersRepository.update(orderId, {
-      status,
-      tracking_info: trackingInfo
-    });
   }
 
   private async updateOrderWithMetrics(
@@ -649,7 +629,7 @@ export class RestaurantsGateway
       tracking_info: OrderTrackingInfo.PREPARING,
       driver_wage: +driver_wage
     };
-    console.log('cehck udpate field', updatedFields);
+    this.logger.log('Updating order with fields:', updatedFields);
 
     await this.ordersRepository.update(orderId, updatedFields);
   }
@@ -668,7 +648,7 @@ export class RestaurantsGateway
     driverId: string,
     driver_wage: number
   ) {
-    console.log(
+    this.logger.log(
       '[RestaurantsGateway] Preparing driver notification for driver:',
       driverId,
       'with wage:',
@@ -693,7 +673,7 @@ export class RestaurantsGateway
       10000
     );
     if (!lockAcquired) {
-      console.log(
+      this.logger.log(
         '[RestaurantsGateway] Skipping notify due to existing lock for order:',
         order.id
       );
@@ -701,20 +681,18 @@ export class RestaurantsGateway
     }
 
     try {
-      // Emit sự kiện order.assignedToDriver để DriversGateway xử lý
       await this.eventEmitter.emitAsync(
         'order.assignedToDriver',
         driverNotificationData
       );
-      console.log(
+      this.logger.log(
         '[RestaurantsGateway] Emitted order.assignedToDriver for order:',
         order.id
       );
 
-      // Notify các bên liên quan
       await this.notifyPartiesOnce(order);
     } catch (err) {
-      console.error(
+      this.logger.error(
         '[RestaurantsGateway] Error in notifyDriverAndParties:',
         err
       );
@@ -734,7 +712,7 @@ export class RestaurantsGateway
       await this.notifyPartiesOnce(order);
       return { event: 'orderReadyForPickup', data: order };
     } catch (error: any) {
-      console.error('Error in handleRestaurantOrderReady:', error);
+      this.logger.error('Error in handleRestaurantOrderReady:', error);
       return { event: 'error', data: { message: 'Internal server error' } };
     }
   }
@@ -747,7 +725,7 @@ export class RestaurantsGateway
       10000
     );
     if (!lockAcquired) {
-      console.log(
+      this.logger.log(
         `[RestaurantsGateway] Notification for order ${order.id} already in progress, skipping`
       );
       return;
@@ -768,7 +746,6 @@ export class RestaurantsGateway
         customerAddress: order.customerAddress
       };
 
-      // Retry emit nếu không có client
       let retryCount = 0;
       const maxRetries = 3;
       const retryDelay = 500;
@@ -777,7 +754,7 @@ export class RestaurantsGateway
         const restaurantClients = await this.server
           .in(`restaurant_${order.restaurant_id}`)
           .fetchSockets();
-        console.log(
+        this.logger.log(
           `[RestaurantsGateway] Emitting notifyOrderStatus to ${restaurantClients.length} clients in room restaurant_${order.restaurant_id}`
         );
 
@@ -789,18 +766,17 @@ export class RestaurantsGateway
         }
 
         retryCount++;
-        console.log(
+        this.logger.log(
           `[RestaurantsGateway] No clients in room restaurant_${order.restaurant_id}, retrying (${retryCount}/${maxRetries})`
         );
         await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
 
-      // Emit cho driver nếu có
       if (order.driver_id) {
         const driverClients = await this.server
           .in(`driver_${order.driver_id}`)
           .fetchSockets();
-        console.log(
+        this.logger.log(
           `[RestaurantsGateway] Emitting notifyOrderStatus to ${driverClients.length} clients in room driver_${order.driver_id}`
         );
         if (driverClients.length > 0) {
@@ -810,26 +786,60 @@ export class RestaurantsGateway
         }
       }
 
-      console.log(
+      this.logger.log(
         `[RestaurantsGateway] Emitted notifyOrderStatus for order ${order.id}`
       );
 
-      // Emit sự kiện cho các gateway khác
       this.eventEmitter.emit('notifyDriverOrderStatus', trackingUpdate);
     } catch (err) {
-      console.error('[RestaurantsGateway] Error in notifyPartiesOnce:', err);
+      this.logger.error(
+        '[RestaurantsGateway] Error in notifyPartiesOnce:',
+        err
+      );
     } finally {
       await this.redisService.del(notifyKey);
     }
   }
 
   @OnEvent('listenUpdateOrderTracking')
-  handleOrderTrackingUpdate(payload: any) {
-    console.log(
-      `[RestaurantsGateway] Received listenUpdateOrderTracking for order ${payload.orderId}`
-    );
-    this.server
-      .to(`restaurant_${payload.restaurant_id}`)
-      .emit('orderTrackingUpdated', payload);
+  async handleOrderTrackingUpdate(@MessageBody() order: any) {
+    this.logger.log('Received listenUpdateOrderTracking:', order);
+    try {
+      const restaurantId = order.restaurant_id;
+      if (!restaurantId) {
+        this.logger.error('Missing restaurant_id in order:', order);
+        return;
+      }
+
+      const trackingUpdate = {
+        orderId: order.orderId,
+        status: order.status,
+        tracking_info: order.tracking_info,
+        updated_at: order.updated_at || Math.floor(Date.now() / 1000),
+        customer_id: order.customer_id,
+        driver_id: order.driver_id,
+        restaurant_id: order.restaurant_id,
+        restaurant_avatar: order.restaurant_avatar || null,
+        driver_avatar: order.driver_avatar || null,
+        restaurantAddress: order.restaurantAddress || null,
+        customerAddress: order.customerAddress || null,
+        driverDetails: order.driverDetails || null
+      };
+
+      await this.server
+        .to(`restaurant_${restaurantId}`)
+        .emit('notifyOrderStatus', trackingUpdate);
+      this.logger.log(
+        `Emitted notifyOrderStatus to restaurant_${restaurantId}`
+      );
+
+      return {
+        event: 'notifyOrderStatus',
+        data: trackingUpdate,
+        message: `Notified restaurant ${restaurantId}`
+      };
+    } catch (error) {
+      this.logger.error('Error in handleOrderTrackingUpdate:', error);
+    }
   }
 }

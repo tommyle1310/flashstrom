@@ -36,6 +36,7 @@ import { ToggleRestaurantAvailabilityDto } from './dto/restaurant-availability.d
 import * as dotenv from 'dotenv';
 import { Order } from 'src/orders/entities/order.entity';
 import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
+import { RedisService } from 'src/redis/redis.service';
 // import { Equal } from 'typeorm';
 
 dotenv.config();
@@ -92,6 +93,8 @@ interface MenuItemResponse {
 
 @Injectable()
 export class RestaurantsService {
+  private readonly restaurantsValidPromotionsCacheKey =
+    'promotions:valid_with_restaurants';
   constructor(
     private readonly restaurantsRepository: RestaurantsRepository,
     private readonly userRepository: UserRepository,
@@ -106,7 +109,8 @@ export class RestaurantsService {
     private readonly foodCategoryRepository: FoodCategoriesRepository,
     private readonly fWalletsRepository: FWalletsRepository,
     private readonly dataSource: DataSource,
-    private readonly ratingsReviewsRepository: RatingsReviewsRepository
+    private readonly ratingsReviewsRepository: RatingsReviewsRepository,
+    private readonly redisService: RedisService
   ) {}
 
   async onModuleInit() {
@@ -1251,6 +1255,7 @@ export class RestaurantsService {
       // Gán promotions vào restaurantDetails và save
       restaurantDetails.promotions = promotionEntities;
       await this.restaurantsRepository.repository.save(restaurantDetails);
+      await this.redisService.del(this.restaurantsValidPromotionsCacheKey);
 
       return createResponse(
         'OK',
@@ -1492,7 +1497,9 @@ export class RestaurantsService {
       });
 
       // Calculate average ratings
-      const totalReviews = ratingsReviews.length;
+      const totalReviews = ratingsReviews?.filter(
+        item => !item?.delivery_review || !item?.delivery_rating
+      )?.length;
       const totalFoodRating = ratingsReviews.reduce(
         (sum, review) => sum + review.food_rating,
         0
@@ -1511,21 +1518,23 @@ export class RestaurantsService {
         total_reviews: totalReviews,
         average_food_rating: averageFoodRating,
         average_delivery_rating: averageDeliveryRating,
-        reviews: ratingsReviews.map(review => ({
-          id: review.id,
-          reviewer_type: review.reviewer_type,
-          reviewer:
-            review.reviewer_type === 'customer'
-              ? review.reviewer_customer
-              : review.reviewer_driver,
-          food_rating: review.food_rating,
-          delivery_rating: review.delivery_rating,
-          food_review: review.food_review,
-          delivery_review: review.delivery_review,
-          images: review.images,
-          created_at: review.created_at,
-          order_id: review.order_id
-        }))
+        reviews: ratingsReviews
+          .map(review => ({
+            id: review.id,
+            reviewer_type: review.reviewer_type,
+            reviewer:
+              review.reviewer_type === 'customer'
+                ? review.reviewer_customer
+                : review.reviewer_driver,
+            food_rating: review.food_rating,
+            delivery_rating: review.delivery_rating,
+            food_review: review.food_review,
+            delivery_review: review.delivery_review,
+            images: review.images,
+            created_at: review.created_at,
+            order_id: review.order_id
+          }))
+          ?.filter(item => !item?.delivery_review || !item?.delivery_rating)
       };
 
       return createResponse(

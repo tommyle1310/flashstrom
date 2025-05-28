@@ -20,9 +20,9 @@ redis.connect().catch(err => logger.error('Redis connection error:', err));
 
 const logger = new Logger('CustomersService');
 
-interface CustomerCareWithBanStatus extends Omit<CustomerCare, 'generateId'> {
-  is_banned: boolean;
-}
+// interface CustomerCareWithBanStatus extends Omit<CustomerCare, 'generateId'> {
+//   is_banned: boolean;
+// }
 
 @Injectable()
 export class CustomerCareService {
