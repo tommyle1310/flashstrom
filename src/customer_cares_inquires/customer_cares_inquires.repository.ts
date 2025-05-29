@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CustomerCareInquiry } from './entities/customer_care_inquiry.entity';
@@ -14,6 +14,8 @@ import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
 
 @Injectable()
 export class CustomerCareInquiriesRepository {
+  private readonly logger = new Logger(CustomerCareInquiriesRepository.name);
+
   constructor(
     @InjectRepository(CustomerCareInquiry)
     private repository: Repository<CustomerCareInquiry>,
@@ -172,30 +174,45 @@ export class CustomerCareInquiriesRepository {
   }
 
   async findById(id: string): Promise<CustomerCareInquiry> {
-    const inquiry = await this.repository.findOne({
-      where: { id }
-    });
-
-    if (!inquiry) {
-      return null;
+    try {
+      return await this.repository
+        .createQueryBuilder('inquiry')
+        .leftJoinAndSelect('inquiry.customer', 'customer')
+        .leftJoinAndSelect('inquiry.assigned_admin', 'assigned_admin')
+        .leftJoinAndSelect(
+          'inquiry.assigned_customer_care',
+          'assigned_customer_care'
+        )
+        .leftJoinAndSelect('inquiry.order', 'order')
+        .where('inquiry.id = :id', { id })
+        .getOne();
+    } catch (error) {
+      this.logger.error(
+        `Error finding inquiry by id: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      throw error;
     }
-
-    return await this.repository.findOne({
-      where: { id },
-      relations: [
-        'customer',
-        'order',
-        inquiry.assignee_type === 'ADMIN'
-          ? 'assigned_admin'
-          : 'assigned_customer_care'
-      ]
-    });
   }
 
   async findAll(): Promise<CustomerCareInquiry[]> {
-    return await this.repository.find({
-      relations: ['customer', 'assigned_admin', 'assigned_customer_care']
-    });
+    try {
+      return await this.repository
+        .createQueryBuilder('inquiry')
+        .leftJoinAndSelect('inquiry.customer', 'customer')
+        .leftJoinAndSelect('inquiry.assigned_admin', 'assigned_admin')
+        .leftJoinAndSelect(
+          'inquiry.assigned_customer_care',
+          'assigned_customer_care'
+        )
+        .leftJoinAndSelect('inquiry.order', 'order')
+        .orderBy('inquiry.created_at', 'DESC')
+        .getMany();
+    } catch (error) {
+      this.logger.error(
+        `Error finding all inquiries: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      throw error;
+    }
   }
 
   async findAllInquiriesByCCId(
@@ -208,12 +225,20 @@ export class CustomerCareInquiriesRepository {
 
       console.log(`Finding inquiries for CustomerCare ID: ${customerCareId}`);
 
-      const inquiries = await this.repository.find({
-        where: {
-          assigned_customer_care: { id: customerCareId }
-        },
-        relations: ['customer', 'assigned_admin', 'assigned_customer_care']
-      });
+      const inquiries = await this.repository
+        .createQueryBuilder('inquiry')
+        .leftJoinAndSelect('inquiry.customer', 'customer')
+        .leftJoinAndSelect('inquiry.assigned_admin', 'assigned_admin')
+        .leftJoinAndSelect(
+          'inquiry.assigned_customer_care',
+          'assigned_customer_care'
+        )
+        .leftJoinAndSelect('inquiry.order', 'order')
+        .where('inquiry.assigned_customer_care_id = :id', {
+          id: customerCareId
+        })
+        .orderBy('inquiry.created_at', 'DESC')
+        .getMany();
 
       console.log(
         `Found ${inquiries.length} inquiries for CustomerCare ID: ${customerCareId}`
@@ -239,20 +264,18 @@ export class CustomerCareInquiriesRepository {
 
       console.log(`Finding inquiries for Customer ID: ${customerId}`);
 
-      const inquiries = await this.repository.find({
-        where: {
-          customer: { id: customerId }
-        },
-        relations: [
-          'customer',
-          'assigned_admin',
-          'assigned_customer_care',
-          'order'
-        ],
-        order: {
-          created_at: 'DESC' // Sort by creation date, newest first
-        }
-      });
+      const inquiries = await this.repository
+        .createQueryBuilder('inquiry')
+        .leftJoinAndSelect('inquiry.customer', 'customer')
+        .leftJoinAndSelect('inquiry.assigned_admin', 'assigned_admin')
+        .leftJoinAndSelect(
+          'inquiry.assigned_customer_care',
+          'assigned_customer_care'
+        )
+        .leftJoinAndSelect('inquiry.order', 'order')
+        .where('inquiry.customer_id = :customerId', { customerId })
+        .orderBy('inquiry.created_at', 'DESC')
+        .getMany();
 
       console.log(
         `Found ${inquiries.length} inquiries for Customer ID: ${customerId}`
@@ -283,36 +306,34 @@ export class CustomerCareInquiriesRepository {
     escalatedTo: 'ADMIN' | 'CUSTOMER_CARE',
     escalatedToId: string
   ): Promise<CustomerCareInquiry> {
-    const inquiry = await this.findById(id);
-    if (!inquiry) {
-      throw new Error(`Inquiry with ID ${id} not found`);
+    try {
+      const inquiry = await this.findById(id);
+      if (!inquiry) {
+        throw new Error('Inquiry not found');
+      }
+
+      const escalationHistory = inquiry.escalation_history || [];
+      escalationHistory.push({
+        customer_care_id: customerCareId,
+        reason,
+        timestamp: Math.floor(Date.now() / 1000),
+        escalated_to: escalatedTo,
+        escalated_to_id: escalatedToId
+      });
+
+      await this.update(id, {
+        status: 'ESCALATE',
+        escalation_history: escalationHistory,
+        escalation_count: inquiry.escalation_count + 1
+      });
+
+      return await this.findById(id);
+    } catch (error) {
+      this.logger.error(
+        `Error escalating inquiry: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      throw error;
     }
-
-    // Create escalation record
-    const escalationRecord = {
-      customer_care_id: customerCareId,
-      reason,
-      timestamp: Math.floor(Date.now() / 1000),
-      escalated_to: escalatedTo,
-      escalated_to_id: escalatedToId
-    };
-
-    // Update inquiry
-    await this.repository.save({
-      ...inquiry,
-      status: 'ESCALATE',
-      escalation_history: [
-        ...(inquiry.escalation_history || []),
-        escalationRecord
-      ],
-      escalation_count: (inquiry.escalation_count || 0) + 1,
-      assignee_type: escalatedTo,
-      assigned_admin_id: escalatedTo === 'ADMIN' ? escalatedToId : null,
-      assigned_customer_care:
-        escalatedTo === 'CUSTOMER_CARE' ? { id: escalatedToId } : null
-    });
-
-    return this.findById(id);
   }
 
   /**
@@ -323,29 +344,31 @@ export class CustomerCareInquiriesRepository {
     customerCareId: string,
     reason: string
   ): Promise<CustomerCareInquiry> {
-    const inquiry = await this.findById(id);
-    if (!inquiry) {
-      throw new Error(`Inquiry with ID ${id} not found`);
+    try {
+      const inquiry = await this.findById(id);
+      if (!inquiry) {
+        throw new Error('Inquiry not found');
+      }
+
+      const rejectionHistory = inquiry.rejection_history || [];
+      rejectionHistory.push({
+        customer_care_id: customerCareId,
+        reason,
+        timestamp: Math.floor(Date.now() / 1000)
+      });
+
+      await this.update(id, {
+        rejection_history: rejectionHistory,
+        rejection_count: inquiry.rejection_count + 1
+      });
+
+      return await this.findById(id);
+    } catch (error) {
+      this.logger.error(
+        `Error rejecting inquiry: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      throw error;
     }
-
-    // Create rejection record
-    const rejectionRecord = {
-      customer_care_id: customerCareId,
-      reason,
-      timestamp: Math.floor(Date.now() / 1000)
-    };
-
-    // Update inquiry
-    await this.repository.save({
-      ...inquiry,
-      rejection_history: [
-        ...(inquiry.rejection_history || []),
-        rejectionRecord
-      ],
-      rejection_count: (inquiry.rejection_count || 0) + 1
-    });
-
-    return this.findById(id);
   }
 
   /**
@@ -357,56 +380,63 @@ export class CustomerCareInquiriesRepository {
     toCustomerCareId: string,
     reason: string
   ): Promise<CustomerCareInquiry> {
-    const inquiry = await this.findById(id);
-    if (!inquiry) {
-      throw new Error(`Inquiry with ID ${id} not found`);
+    try {
+      const inquiry = await this.findById(id);
+      if (!inquiry) {
+        throw new Error('Inquiry not found');
+      }
+
+      const transferHistory = inquiry.transfer_history || [];
+      transferHistory.push({
+        from_customer_care_id: fromCustomerCareId,
+        to_customer_care_id: toCustomerCareId,
+        reason,
+        timestamp: Math.floor(Date.now() / 1000)
+      });
+
+      await this.update(id, {
+        assigned_customer_care_id: toCustomerCareId,
+        transfer_history: transferHistory,
+        transfer_count: inquiry.transfer_count + 1
+      });
+
+      return await this.findById(id);
+    } catch (error) {
+      this.logger.error(
+        `Error transferring inquiry: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      throw error;
     }
-
-    // Create transfer record
-    const transferRecord = {
-      from_customer_care_id: fromCustomerCareId,
-      to_customer_care_id: toCustomerCareId,
-      reason,
-      timestamp: Math.floor(Date.now() / 1000)
-    };
-
-    // Update inquiry
-    await this.repository.save({
-      ...inquiry,
-      transfer_history: [...(inquiry.transfer_history || []), transferRecord],
-      transfer_count: (inquiry.transfer_count || 0) + 1,
-      assigned_customer_care: { id: toCustomerCareId }
-    });
-
-    return this.findById(id);
   }
 
   /**
    * Record a response to an inquiry
    */
   async recordResponse(id: string): Promise<CustomerCareInquiry> {
-    const inquiry = await this.findById(id);
-    if (!inquiry) {
-      throw new Error(`Inquiry with ID ${id} not found`);
+    try {
+      const inquiry = await this.findById(id);
+      if (!inquiry) {
+        throw new Error('Inquiry not found');
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const updates: Partial<CustomerCareInquiry> = {
+        last_response_at: now
+      };
+
+      if (!inquiry.first_response_at) {
+        updates.first_response_at = now;
+        updates.response_time = now - inquiry.created_at;
+      }
+
+      await this.update(id, updates);
+      return await this.findById(id);
+    } catch (error) {
+      this.logger.error(
+        `Error recording response: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      throw error;
     }
-
-    const now = Math.floor(Date.now() / 1000);
-
-    // Calculate response time if this is the first response
-    let responseTime = inquiry.response_time || 0;
-    if (!inquiry.first_response_at) {
-      responseTime = now - inquiry.created_at;
-    }
-
-    // Update inquiry
-    await this.repository.save({
-      ...inquiry,
-      first_response_at: inquiry.first_response_at || now,
-      last_response_at: now,
-      response_time: responseTime
-    });
-
-    return this.findById(id);
   }
 
   /**
@@ -423,27 +453,28 @@ export class CustomerCareInquiriesRepository {
       | 'OTHER',
     resolutionNotes?: string
   ): Promise<CustomerCareInquiry> {
-    const inquiry = await this.findById(id);
-    if (!inquiry) {
-      throw new Error(`Inquiry with ID ${id} not found`);
+    try {
+      const inquiry = await this.findById(id);
+      if (!inquiry) {
+        throw new Error('Inquiry not found');
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      await this.update(id, {
+        status: 'RESOLVED',
+        resolution_type: resolutionType,
+        resolution_notes: resolutionNotes,
+        resolved_at: now,
+        resolution_time: now - inquiry.created_at
+      });
+
+      return await this.findById(id);
+    } catch (error) {
+      this.logger.error(
+        `Error resolving inquiry: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      throw error;
     }
-
-    const now = Math.floor(Date.now() / 1000);
-
-    // Calculate resolution time
-    const resolutionTime = now - inquiry.created_at;
-
-    // Update inquiry
-    await this.repository.save({
-      ...inquiry,
-      status: 'RESOLVED',
-      resolution_type: resolutionType,
-      resolution_notes: resolutionNotes || inquiry.resolution_notes,
-      resolved_at: now,
-      resolution_time: resolutionTime
-    });
-
-    return this.findById(id);
   }
 
   /**
@@ -451,23 +482,18 @@ export class CustomerCareInquiriesRepository {
    */
   async findAllEscalatedInquiries(): Promise<CustomerCareInquiry[]> {
     try {
-      const inquiries = await this.repository.find({
-        where: {
-          status: 'ESCALATE'
-        },
-        relations: [
-          'customer',
-          'assigned_admin',
-          'assigned_customer_care',
-          'order'
-        ],
-        order: {
-          created_at: 'DESC' // Sort by creation date, newest first
-        }
-      });
-
-      console.log(`Found ${inquiries.length} escalated inquiries`);
-      return inquiries;
+      return await this.repository
+        .createQueryBuilder('inquiry')
+        .leftJoinAndSelect('inquiry.customer', 'customer')
+        .leftJoinAndSelect('inquiry.assigned_admin', 'assigned_admin')
+        .leftJoinAndSelect(
+          'inquiry.assigned_customer_care',
+          'assigned_customer_care'
+        )
+        .leftJoinAndSelect('inquiry.order', 'order')
+        .where('inquiry.status = :status', { status: 'ESCALATE' })
+        .orderBy('inquiry.created_at', 'DESC')
+        .getMany();
     } catch (error: any) {
       console.error('Error finding escalated inquiries:', error);
       throw error;
@@ -478,10 +504,25 @@ export class CustomerCareInquiriesRepository {
     skip: number,
     limit: number
   ): Promise<[CustomerCareInquiry[], number]> {
-    return await this.repository.findAndCount({
-      skip,
-      take: limit,
-      relations: ['customer_care', 'customer']
-    });
+    try {
+      return await this.repository
+        .createQueryBuilder('inquiry')
+        .leftJoinAndSelect('inquiry.customer', 'customer')
+        .leftJoinAndSelect('inquiry.assigned_admin', 'assigned_admin')
+        .leftJoinAndSelect(
+          'inquiry.assigned_customer_care',
+          'assigned_customer_care'
+        )
+        .leftJoinAndSelect('inquiry.order', 'order')
+        .orderBy('inquiry.created_at', 'DESC')
+        .skip(skip)
+        .take(limit)
+        .getManyAndCount();
+    } catch (error) {
+      this.logger.error(
+        `Error finding paginated inquiries: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      throw error;
+    }
   }
 }

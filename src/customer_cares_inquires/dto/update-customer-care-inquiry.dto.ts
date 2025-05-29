@@ -12,6 +12,9 @@ export class UpdateCustomerCareInquiryDto extends PartialType(
   CreateCustomerCareInquiryDto
 ) {
   @IsOptional()
+  assigned_customer_care_id?: string;
+
+  @IsOptional()
   @IsString()
   subject?: string; // Updated subject of the inquiry
 

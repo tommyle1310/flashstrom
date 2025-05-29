@@ -6,7 +6,9 @@ export declare class CustomerCareInquiry {
     id: string;
     customer_id: string;
     customer: Customer;
+    assigned_admin_id: string;
     assigned_admin: Admin;
+    assigned_customer_care_id: string;
     assigned_customer_care: CustomerCare;
     assignee_type: 'ADMIN' | 'CUSTOMER_CARE';
     subject: string;
@@ -38,6 +40,7 @@ export declare class CustomerCareInquiry {
     transfer_count: number;
     response_time: number;
     resolution_time: number;
+    order_id: string;
     order: Order;
     resolution_notes: string;
     created_at: number;

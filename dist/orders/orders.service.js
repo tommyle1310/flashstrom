@@ -316,7 +316,7 @@ let OrdersService = class OrdersService {
                             logger.log(`Fetch admin wallet (cache) took ${Date.now() - walletStart}ms`);
                             return JSON.parse(cached);
                         }
-                        const wallet = await this.fWalletsRepository.findById(constants_1.FLASHFOOD_FINANCE_neon_test_branch.id);
+                        const wallet = await this.fWalletsRepository.findById(constants_1.FLASHFOOD_FINANCE.id);
                         if (wallet)
                             await redis.setEx(cacheKey, 7200, JSON.stringify(wallet));
                         logger.log(`Fetch admin wallet took ${Date.now() - walletStart}ms`);
@@ -485,7 +485,7 @@ let OrdersService = class OrdersService {
                             wallet_id: customerWallet?.id
                         },
                         admin: {
-                            user_id: constants_1.FLASHFOOD_FINANCE_neon_test_branch.user_id,
+                            user_id: constants_1.FLASHFOOD_FINANCE.user_id,
                             wallet_id: adminWallet?.id
                         },
                         restaurant: {
@@ -512,13 +512,13 @@ let OrdersService = class OrdersService {
                         logger.error(`Customer transaction failed: ${JSON.stringify(customerTxResponse)}`);
                         return customerTxResponse;
                     }
-                    const updatedAdminWallet = await this.fWalletsRepository.findById(constants_1.FLASHFOOD_FINANCE_neon_test_branch.id, transactionalEntityManager);
+                    const updatedAdminWallet = await this.fWalletsRepository.findById(constants_1.FLASHFOOD_FINANCE.id, transactionalEntityManager);
                     if (!updatedAdminWallet) {
                         logger.error('Failed to get updated admin wallet');
                         return (0, createResponse_1.createResponse)('ServerError', null, 'Failed to get updated admin wallet');
                     }
                     const adminToRestaurantTxDto = {
-                        user_id: constants_1.FLASHFOOD_FINANCE_neon_test_branch.user_id,
+                        user_id: constants_1.FLASHFOOD_FINANCE.user_id,
                         fwallet_id: updatedAdminWallet.id,
                         transaction_type: 'DEPOSIT',
                         amount: restaurantSubTotal,

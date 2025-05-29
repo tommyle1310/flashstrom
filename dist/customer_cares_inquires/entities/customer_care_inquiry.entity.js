@@ -39,13 +39,21 @@ __decorate([
     __metadata("design:type", customer_entity_1.Customer)
 ], CustomerCareInquiry.prototype, "customer", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], CustomerCareInquiry.prototype, "assigned_admin_id", void 0);
+__decorate([
     (0, typeorm_1.ManyToOne)(() => admin_entity_1.Admin, { nullable: true }),
-    (0, typeorm_1.JoinColumn)({ name: 'assigned_admin_id' }),
+    (0, typeorm_1.JoinColumn)({ name: 'assigned_admin_id', referencedColumnName: 'id' }),
     __metadata("design:type", admin_entity_1.Admin)
 ], CustomerCareInquiry.prototype, "assigned_admin", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], CustomerCareInquiry.prototype, "assigned_customer_care_id", void 0);
+__decorate([
     (0, typeorm_1.ManyToOne)(() => customer_care_entity_1.CustomerCare, { nullable: true }),
-    (0, typeorm_1.JoinColumn)({ name: 'assigned_customer_care_id' }),
+    (0, typeorm_1.JoinColumn)({ name: 'assigned_customer_care_id', referencedColumnName: 'id' }),
     __metadata("design:type", customer_care_entity_1.CustomerCare)
 ], CustomerCareInquiry.prototype, "assigned_customer_care", void 0);
 __decorate([
@@ -144,8 +152,12 @@ __decorate([
     __metadata("design:type", Number)
 ], CustomerCareInquiry.prototype, "resolution_time", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], CustomerCareInquiry.prototype, "order_id", void 0);
+__decorate([
     (0, typeorm_1.ManyToOne)(() => order_entity_1.Order, { nullable: true }),
-    (0, typeorm_1.JoinColumn)({ name: 'order_id' }),
+    (0, typeorm_1.JoinColumn)({ name: 'order_id', referencedColumnName: 'id' }),
     __metadata("design:type", order_entity_1.Order)
 ], CustomerCareInquiry.prototype, "order", void 0);
 __decorate([

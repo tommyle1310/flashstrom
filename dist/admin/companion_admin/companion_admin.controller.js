@@ -28,9 +28,12 @@ const auth_service_1 = require("../../auth/auth.service");
 const Payload_1 = require("../../types/Payload");
 const address_book_service_1 = require("../../address_book/address_book.service");
 const redis_service_1 = require("../../redis/redis.service");
+const orders_service_1 = require("../../orders/orders.service");
+const constants_1 = require("../../utils/constants");
 let CompanionAdminController = class CompanionAdminController {
-    constructor(adminService, restaurantService, customerService, driverService, customerCareService, authService, addressBookService, redisService) {
+    constructor(adminService, orderService, restaurantService, customerService, driverService, customerCareService, authService, addressBookService, redisService) {
         this.adminService = adminService;
+        this.orderService = orderService;
         this.restaurantService = restaurantService;
         this.customerService = customerService;
         this.driverService = driverService;
@@ -244,6 +247,35 @@ let CompanionAdminController = class CompanionAdminController {
         const registrationResult = await this.authService.register(createCustomerCareDto, Payload_1.Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE);
         return registrationResult;
     }
+    async generateOrder() {
+        const order = await this.orderService.createOrder({
+            customer_id: constants_1.CUSTOMER_MOCK.customer_id,
+            restaurant_id: constants_1.RESTAURANT_MOCK.restaurant_id,
+            status: 'PENDING',
+            total_amount: 45.97,
+            delivery_fee: 5.0,
+            service_fee: 2.99,
+            payment_status: 'PENDING',
+            payment_method: 'FWallet',
+            customer_location: constants_1.ADDRESS_1_MOCK.id,
+            restaurant_location: constants_1.ADDRESS_2_MOCK.id,
+            order_items: [
+                {
+                    item_id: constants_1.MENU_ITEM_MOCK.id,
+                    variant_id: constants_1.MENU_ITEM_VARIANT_MOCK.id,
+                    name: 'Com Tao',
+                    quantity: 2,
+                    price_at_time_of_order: 12
+                }
+            ],
+            customer_note: 'Lots of cry cheese please',
+            restaurant_note: 'Bunch of sadness tear for this man',
+            order_time: 1746628586,
+            delivery_time: 1746628586,
+            tracking_info: 'ORDER_PLACED'
+        });
+        return order;
+    }
     findOneCompanionAdmin(id) {
         return this.adminService.findOne(id);
     }
@@ -327,6 +359,12 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], CompanionAdminController.prototype, "createCustomerCare", null);
 __decorate([
+    (0, common_1.Post)('/order'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], CompanionAdminController.prototype, "generateOrder", null);
+__decorate([
     (0, common_1.Get)('/:id'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -373,6 +411,7 @@ __decorate([
 exports.CompanionAdminController = CompanionAdminController = __decorate([
     (0, common_1.Controller)('companion-admin'),
     __metadata("design:paramtypes", [admin_service_1.AdminService,
+        orders_service_1.OrdersService,
         restaurants_service_1.RestaurantsService,
         customers_service_1.CustomersService,
         drivers_service_1.DriversService,

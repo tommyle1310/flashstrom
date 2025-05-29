@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FLASHFOOD_FINANCE_neon_test_branch = exports.FLASHFOOD_FINANCE = exports.FIXED_DELIVERY_DRIVER_WAGE = exports.ResponseStatus = void 0;
+exports.MENU_ITEM_VARIANT_MOCK = exports.MENU_ITEM_MOCK = exports.FOOD_CATEGORY_MOCK = exports.ADDRESS_2_MOCK = exports.ADDRESS_1_MOCK = exports.RESTAURANT_MOCK = exports.CUSTOMER_MOCK = exports.FLASHFOOD_FINANCE = exports.FIXED_DELIVERY_DRIVER_WAGE = exports.ResponseStatus = void 0;
 exports.ResponseStatus = {
     OK: { httpCode: 200, message: 'Success', code: 0 },
     MissingInput: { httpCode: 400, message: 'Missing Input', code: 1 },
@@ -54,13 +54,35 @@ exports.ResponseStatus = {
 };
 exports.FIXED_DELIVERY_DRIVER_WAGE = 20;
 exports.FLASHFOOD_FINANCE = {
-    id: 'F_WALLET_06f81c5e-8ef5-4072-85b2-dc3f19f91ef3',
-    user_id: 'USR_ee0f6d15-f7bf-4b97-a903-fa0406a43847',
-    email: 'flashfood.finance@gmail.com'
-};
-exports.FLASHFOOD_FINANCE_neon_test_branch = {
-    id: 'F_WALLET_55c3eaa9-8b2a-48ae-8476-b329a8f3d99f',
-    user_id: 'USR_ba2e04fe-3281-4940-8aa3-37a56a3033c8',
+    id: 'F_WALLET_32bd844d-4558-4f5b-8906-4e74d733cd91',
+    user_id: 'USR_c68740f1-f629-4774-8d94-3b221df61cae',
     email: 'finance.flashfood@gmail.com'
+};
+exports.CUSTOMER_MOCK = {
+    customer_id: 'FF_CUS_430b0b56-df21-4ac4-ac98-904dd522f0ee',
+    user_id: 'USR_55a7dbf9-82e3-4a10-9ba6-a9783e5fa5eb',
+    fwallet_id: 'F_WALLET_8ebec8ae-fbe3-4d62-8966-e3f1fd4093dc',
+    email: 'flashfood211@gmail.com'
+};
+exports.RESTAURANT_MOCK = {
+    restaurant_id: 'FF_RES_f0f1d013-b624-42c7-9f97-7c1445beb978',
+    user_id: 'USR_46682f77-c104-41f8-9ce1-0bc62decf2a5',
+    fwallet_id: 'F_WALLET_3760cc6c-f130-452b-bb44-b1380f0c1e95',
+    email: 'flashfood212@gmail.com'
+};
+exports.ADDRESS_1_MOCK = {
+    id: 'FF_AB_213f07fb-5e25-43c3-88b5-e878bdc56328'
+};
+exports.ADDRESS_2_MOCK = {
+    id: 'FF_AB_6291084a-e944-465d-8cdd-c9b40bec9ace'
+};
+exports.FOOD_CATEGORY_MOCK = {
+    id: 'FF_FC_c0d2925e-58f1-4388-b7f8-a578b2266433'
+};
+exports.MENU_ITEM_MOCK = {
+    id: 'FF_MENU_ITEM_10d5f687-8f07-45f9-aa29-8a552956391f'
+};
+exports.MENU_ITEM_VARIANT_MOCK = {
+    id: 'FF_MENU_ITEM_VARIANT_57a31677-ada6-484b-b706-291b71bd613d'
 };
 //# sourceMappingURL=constants.js.map

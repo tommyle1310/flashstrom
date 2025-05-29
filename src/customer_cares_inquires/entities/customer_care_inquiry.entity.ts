@@ -14,7 +14,7 @@ import { Order } from 'src/orders/entities/order.entity';
 
 @Entity('customer_care_inquiries')
 export class CustomerCareInquiry {
-  @PrimaryColumn({ type: 'varchar' }) // Thêm type cho chắc
+  @PrimaryColumn({ type: 'varchar' })
   id: string;
 
   @Column()
@@ -24,12 +24,18 @@ export class CustomerCareInquiry {
   @JoinColumn({ name: 'customer_id' })
   customer: Customer;
 
+  @Column({ nullable: true })
+  assigned_admin_id: string;
+
   @ManyToOne(() => Admin, { nullable: true })
-  @JoinColumn({ name: 'assigned_admin_id' }) // Tách riêng cột
+  @JoinColumn({ name: 'assigned_admin_id', referencedColumnName: 'id' })
   assigned_admin: Admin;
 
+  @Column({ nullable: true })
+  assigned_customer_care_id: string;
+
   @ManyToOne(() => CustomerCare, { nullable: true })
-  @JoinColumn({ name: 'assigned_customer_care_id' }) // Tách riêng cột
+  @JoinColumn({ name: 'assigned_customer_care_id', referencedColumnName: 'id' })
   assigned_customer_care: CustomerCare;
 
   @Column({
@@ -135,13 +141,16 @@ export class CustomerCareInquiry {
   transfer_count: number;
 
   @Column({ type: 'int', default: 0 })
-  response_time: number; // in seconds
+  response_time: number;
 
   @Column({ type: 'int', default: 0 })
-  resolution_time: number; // in seconds
+  resolution_time: number;
+
+  @Column({ nullable: true })
+  order_id: string;
 
   @ManyToOne(() => Order, { nullable: true })
-  @JoinColumn({ name: 'order_id' })
+  @JoinColumn({ name: 'order_id', referencedColumnName: 'id' })
   order: Order;
 
   @Column({ type: 'text', nullable: true })

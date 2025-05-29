@@ -8,6 +8,7 @@ export declare class CustomerCareInquiriesRepository {
     private repository;
     private orderRepository;
     private customerCareRepository;
+    private readonly logger;
     constructor(repository: Repository<CustomerCareInquiry>, orderRepository: Repository<Order>, customerCareRepository: Repository<CustomerCare>);
     create(createDto: CreateCustomerCareInquiryDto): Promise<CustomerCareInquiry>;
     update(id: string, updateDto: UpdateCustomerCareInquiryDto): Promise<CustomerCareInquiry>;

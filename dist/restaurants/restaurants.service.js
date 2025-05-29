@@ -775,7 +775,7 @@ let RestaurantsService = class RestaurantsService {
                     +promotion.promotion_cost_price,
                 status: 'PENDING',
                 source: 'FWALLET',
-                destination: constants_1.FLASHFOOD_FINANCE_neon_test_branch.id,
+                destination: constants_1.FLASHFOOD_FINANCE.id,
                 destination_type: 'FWALLET'
             };
             const transactionResponse = await this.transactionsService.create(transactionDto);

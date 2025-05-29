@@ -18,6 +18,10 @@ class UpdateCustomerCareInquiryDto extends (0, mapped_types_1.PartialType)(creat
 exports.UpdateCustomerCareInquiryDto = UpdateCustomerCareInquiryDto;
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateCustomerCareInquiryDto.prototype, "assigned_customer_care_id", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], UpdateCustomerCareInquiryDto.prototype, "subject", void 0);

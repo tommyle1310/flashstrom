@@ -34,7 +34,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { RedisService } from 'src/redis/redis.service';
 import { OrdersRepository } from './orders.repository';
 import { calculateDistance } from 'src/utils/commonFunctions';
-import { FLASHFOOD_FINANCE_neon_test_branch } from 'src/utils/constants';
+import { FLASHFOOD_FINANCE } from 'src/utils/constants';
 import { FinanceRule } from 'src/finance_rules/entities/finance_rule.entity';
 import { MenuItemVariant } from 'src/menu_item_variants/entities/menu_item_variant.entity';
 
@@ -343,7 +343,7 @@ export class OrdersService {
               return JSON.parse(cached);
             }
             const wallet = await this.fWalletsRepository.findById(
-              FLASHFOOD_FINANCE_neon_test_branch.id
+              FLASHFOOD_FINANCE.id
             );
             if (wallet)
               await redis.setEx(cacheKey, 7200, JSON.stringify(wallet));
@@ -605,7 +605,7 @@ export class OrdersService {
                 wallet_id: customerWallet?.id
               },
               admin: {
-                user_id: FLASHFOOD_FINANCE_neon_test_branch.user_id,
+                user_id: FLASHFOOD_FINANCE.user_id,
                 wallet_id: adminWallet?.id
               },
               restaurant: {
@@ -647,7 +647,7 @@ export class OrdersService {
 
             // Cập nhật ví admin
             const updatedAdminWallet = await this.fWalletsRepository.findById(
-              FLASHFOOD_FINANCE_neon_test_branch.id,
+              FLASHFOOD_FINANCE.id,
               transactionalEntityManager
             );
             if (!updatedAdminWallet) {
@@ -661,7 +661,7 @@ export class OrdersService {
 
             // Transaction 2: Admin trả nhà hàng (restaurantSubTotal)
             const adminToRestaurantTxDto = {
-              user_id: FLASHFOOD_FINANCE_neon_test_branch.user_id,
+              user_id: FLASHFOOD_FINANCE.user_id,
               fwallet_id: updatedAdminWallet.id,
               transaction_type: 'DEPOSIT',
               amount: restaurantSubTotal,

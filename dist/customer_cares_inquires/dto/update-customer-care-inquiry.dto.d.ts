@@ -1,6 +1,7 @@
 import { CreateCustomerCareInquiryDto } from './create-customer-care-inquiry.dto';
 declare const UpdateCustomerCareInquiryDto_base: import("@nestjs/mapped-types").MappedType<Partial<CreateCustomerCareInquiryDto>>;
 export declare class UpdateCustomerCareInquiryDto extends UpdateCustomerCareInquiryDto_base {
+    assigned_customer_care_id?: string;
     subject?: string;
     description?: string;
     issue_type?: 'ACCOUNT' | 'PAYMENT' | 'PRODUCT' | 'DELIVERY' | 'REFUND' | 'TECHNICAL' | 'OTHER';

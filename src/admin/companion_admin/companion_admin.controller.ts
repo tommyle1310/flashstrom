@@ -28,6 +28,15 @@ import { User } from 'src/users/entities/user.entity';
 import { AddressBookService } from 'src/address_book/address_book.service';
 // import { createClient } from 'redis';
 import { RedisService } from 'src/redis/redis.service';
+import { OrdersService } from 'src/orders/orders.service';
+import {
+  ADDRESS_1_MOCK,
+  ADDRESS_2_MOCK,
+  CUSTOMER_MOCK,
+  MENU_ITEM_MOCK,
+  MENU_ITEM_VARIANT_MOCK,
+  RESTAURANT_MOCK
+} from 'src/utils/constants';
 
 // const redis = createClient({
 //   url: process.env.REDIS_URL || 'redis://localhost:6379'
@@ -37,6 +46,7 @@ import { RedisService } from 'src/redis/redis.service';
 export class CompanionAdminController {
   constructor(
     private readonly adminService: AdminService,
+    private readonly orderService: OrdersService,
     private readonly restaurantService: RestaurantsService,
     private readonly customerService: CustomersService,
     private readonly driverService: DriversService,
@@ -313,6 +323,39 @@ export class CompanionAdminController {
     );
 
     return registrationResult;
+  }
+
+  @Post('/order')
+  async generateOrder() {
+    // Create an address book entry first
+    const order = await this.orderService.createOrder({
+      customer_id: CUSTOMER_MOCK.customer_id,
+      restaurant_id: RESTAURANT_MOCK.restaurant_id,
+      status: 'PENDING',
+      total_amount: 45.97,
+      delivery_fee: 5.0,
+      service_fee: 2.99,
+      payment_status: 'PENDING',
+      payment_method: 'FWallet',
+      customer_location: ADDRESS_1_MOCK.id,
+      restaurant_location: ADDRESS_2_MOCK.id,
+      order_items: [
+        {
+          item_id: MENU_ITEM_MOCK.id,
+          variant_id: MENU_ITEM_VARIANT_MOCK.id,
+          name: 'Com Tao',
+          quantity: 2,
+          price_at_time_of_order: 12
+        }
+      ],
+      customer_note: 'Lots of cry cheese please',
+      restaurant_note: 'Bunch of sadness tear for this man',
+      order_time: 1746628586,
+      delivery_time: 1746628586,
+      tracking_info: 'ORDER_PLACED'
+    });
+
+    return order;
   }
 
   @Get('/:id')

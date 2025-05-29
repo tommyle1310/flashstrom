@@ -71,6 +71,7 @@ import { CustomerCareInquiriesModule } from './customer_cares_inquires/customer_
 import { CustomerCareInquiry } from './customer_cares_inquires/entities/customer_care_inquiry.entity';
 import { RestaurantStatsModule } from './restaurant_stats_records/restaurant_stats_records.module';
 import { OrdersService } from './orders/orders.service';
+import { AdminChartModule } from './admin_chart/admin_chart.module';
 
 @Global()
 @Module({
@@ -111,6 +112,7 @@ import { OrdersService } from './orders/orders.service';
     MailerCustomModule,
     FwalletsModule,
     TransactionsModule,
+    AdminChartModule,
     FoodCategoriesModule,
     PromotionsModule,
     RestaurantsModule,

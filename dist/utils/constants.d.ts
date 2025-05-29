@@ -91,8 +91,30 @@ export declare const FLASHFOOD_FINANCE: {
     user_id: string;
     email: string;
 };
-export declare const FLASHFOOD_FINANCE_neon_test_branch: {
-    id: string;
+export declare const CUSTOMER_MOCK: {
+    customer_id: string;
     user_id: string;
+    fwallet_id: string;
     email: string;
+};
+export declare const RESTAURANT_MOCK: {
+    restaurant_id: string;
+    user_id: string;
+    fwallet_id: string;
+    email: string;
+};
+export declare const ADDRESS_1_MOCK: {
+    id: string;
+};
+export declare const ADDRESS_2_MOCK: {
+    id: string;
+};
+export declare const FOOD_CATEGORY_MOCK: {
+    id: string;
+};
+export declare const MENU_ITEM_MOCK: {
+    id: string;
+};
+export declare const MENU_ITEM_VARIANT_MOCK: {
+    id: string;
 };

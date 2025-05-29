@@ -25,7 +25,7 @@ import { FoodCategory } from 'src/food_categories/entities/food_category.entity'
 import { CreateTransactionDto } from 'src/transactions/dto/create-transaction.dto';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionService } from 'src/transactions/transactions.service';
-import { FLASHFOOD_FINANCE_neon_test_branch } from 'src/utils/constants';
+import { FLASHFOOD_FINANCE } from 'src/utils/constants';
 import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
 import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
@@ -1221,7 +1221,7 @@ export class RestaurantsService {
           +promotion.promotion_cost_price,
         status: 'PENDING',
         source: 'FWALLET',
-        destination: FLASHFOOD_FINANCE_neon_test_branch.id,
+        destination: FLASHFOOD_FINANCE.id,
         destination_type: 'FWALLET'
       };
 

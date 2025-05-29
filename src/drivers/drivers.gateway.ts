@@ -32,7 +32,7 @@ import { DriverStatsService } from 'src/driver_stats_records/driver_stats_record
 import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionService } from 'src/transactions/transactions.service';
-import { FLASHFOOD_FINANCE_neon_test_branch } from 'src/utils/constants';
+import { FLASHFOOD_FINANCE } from 'src/utils/constants';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { RedisService } from 'src/redis/redis.service';
 import { Logger } from '@nestjs/common';
@@ -2034,7 +2034,7 @@ export class DriversGateway
 
       // Get finance wallet (source)
       let financeWallet = await this.fWalletsRepository.findById(
-        FLASHFOOD_FINANCE_neon_test_branch.id,
+        FLASHFOOD_FINANCE.id,
         transactionalEntityManager
       );
       if (!financeWallet) {
@@ -2072,7 +2072,7 @@ export class DriversGateway
         ) {
           // Refetch finance wallet and retry
           financeWallet = await this.fWalletsRepository.findById(
-            FLASHFOOD_FINANCE_neon_test_branch.id,
+            FLASHFOOD_FINANCE.id,
             transactionalEntityManager
           );
           attempt++;

@@ -1468,7 +1468,7 @@ let DriversGateway = class DriversGateway {
             if (!driverWallet) {
                 throw new Error(`Wallet not found for driver ${driver.id}`);
             }
-            let financeWallet = await this.fWalletsRepository.findById(constants_1.FLASHFOOD_FINANCE_neon_test_branch.id, transactionalEntityManager);
+            let financeWallet = await this.fWalletsRepository.findById(constants_1.FLASHFOOD_FINANCE.id, transactionalEntityManager);
             if (!financeWallet) {
                 throw new Error('Finance wallet not found');
             }
@@ -1494,7 +1494,7 @@ let DriversGateway = class DriversGateway {
                 }
                 if (transactionResponse.EM &&
                     transactionResponse.EM.includes('Wallet version mismatch')) {
-                    financeWallet = await this.fWalletsRepository.findById(constants_1.FLASHFOOD_FINANCE_neon_test_branch.id, transactionalEntityManager);
+                    financeWallet = await this.fWalletsRepository.findById(constants_1.FLASHFOOD_FINANCE.id, transactionalEntityManager);
                     attempt++;
                     lastError = transactionResponse.EM;
                     continue;
