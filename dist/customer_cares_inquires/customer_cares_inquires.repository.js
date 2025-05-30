@@ -21,6 +21,7 @@ const customer_care_inquiry_entity_1 = require("./entities/customer_care_inquiry
 const inquiries_1 = require("../utils/rules/inquiries");
 const order_entity_1 = require("../orders/entities/order.entity");
 const customer_care_entity_1 = require("../customer_cares/entities/customer_care.entity");
+const constants_1 = require("../utils/constants");
 let CustomerCareInquiriesRepository = CustomerCareInquiriesRepository_1 = class CustomerCareInquiriesRepository {
     constructor(repository, orderRepository, customerCareRepository) {
         this.repository = repository;
@@ -52,7 +53,7 @@ let CustomerCareInquiriesRepository = CustomerCareInquiriesRepository_1 = class 
                 else {
                     console.warn('No CustomerCare assigned, falling back to ADMIN');
                     createDto.assignee_type = 'ADMIN';
-                    createDto.assigned_to = 'DEFAULT_ADMIN_ID';
+                    createDto.assigned_to = constants_1.ADMIN_MOCK.admin_id;
                 }
             }
             const inquiryData = {

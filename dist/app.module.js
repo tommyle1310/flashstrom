@@ -161,7 +161,8 @@ exports.AppModule = AppModule = __decorate([
                     rejectUnauthorized: false
                 },
                 extra: {
-                    sslmode: 'require'
+                    sslmode: 'require',
+                    max: 20
                 },
                 entities: [__dirname + '/**/*.entity{.ts,.js}'],
                 synchronize: false

@@ -74,6 +74,7 @@ import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
 import { CustomerCareInquiry } from 'src/customer_cares_inquires/entities/customer_care_inquiry.entity';
 import { CustomerCareInquiriesRepository } from 'src/customer_cares_inquires/customer_cares_inquires.repository';
+import { CustomerCareInquiriesService } from 'src/customer_cares_inquires/customer_cares_inquires.service';
 
 @Module({
   imports: [
@@ -84,7 +85,6 @@ import { CustomerCareInquiriesRepository } from 'src/customer_cares_inquires/cus
       CustomerCare,
       FoodCategory,
       CustomerCareInquiry,
-
       MenuItem,
       FinanceRule,
       MenuItemVariant,
@@ -151,6 +151,7 @@ import { CustomerCareInquiriesRepository } from 'src/customer_cares_inquires/cus
     JwtService,
     CartItemsService,
     UserRepository,
+    CustomerCareInquiriesService,
     FWalletsRepository,
     UsersService,
     TransactionService,

@@ -140,7 +140,8 @@ import { AdminChartModule } from './admin_chart/admin_chart.module';
         rejectUnauthorized: false // Neon yêu cầu
       },
       extra: {
-        sslmode: 'require' // Cần cho Neon
+        sslmode: 'require', // Cần cho Neon,
+        max: 20
       },
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: false

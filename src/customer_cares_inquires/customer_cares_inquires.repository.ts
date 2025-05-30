@@ -11,6 +11,7 @@ import {
 } from 'src/utils/rules/inquiries';
 import { Order } from 'src/orders/entities/order.entity';
 import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
+import { ADMIN_MOCK } from 'src/utils/constants';
 
 @Injectable()
 export class CustomerCareInquiriesRepository {
@@ -66,7 +67,7 @@ export class CustomerCareInquiriesRepository {
         } else {
           console.warn('No CustomerCare assigned, falling back to ADMIN');
           createDto.assignee_type = 'ADMIN';
-          createDto.assigned_to = 'DEFAULT_ADMIN_ID'; // Thay bằng ID admin mặc định
+          createDto.assigned_to = ADMIN_MOCK.admin_id; // Thay bằng ID admin mặc định
         }
       }
 

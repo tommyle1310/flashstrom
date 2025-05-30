@@ -30,9 +30,11 @@ const address_book_service_1 = require("../../address_book/address_book.service"
 const redis_service_1 = require("../../redis/redis.service");
 const orders_service_1 = require("../../orders/orders.service");
 const constants_1 = require("../../utils/constants");
+const customer_cares_inquires_service_1 = require("../../customer_cares_inquires/customer_cares_inquires.service");
 let CompanionAdminController = class CompanionAdminController {
-    constructor(adminService, orderService, restaurantService, customerService, driverService, customerCareService, authService, addressBookService, redisService) {
+    constructor(adminService, customerCareInquiriesService, orderService, restaurantService, customerService, driverService, customerCareService, authService, addressBookService, redisService) {
         this.adminService = adminService;
+        this.customerCareInquiriesService = customerCareInquiriesService;
         this.orderService = orderService;
         this.restaurantService = restaurantService;
         this.customerService = customerService;
@@ -276,6 +278,15 @@ let CompanionAdminController = class CompanionAdminController {
         });
         return order;
     }
+    async generateCCI() {
+        const cci = await this.customerCareInquiriesService.create({
+            customer_id: 'FF_CUS_430b0b56-df21-4ac4-ac98-904dd522f0ee',
+            subject: 'I want cat',
+            description: 'dude she just not into you.',
+            status: 'OPEN'
+        });
+        return cci;
+    }
     findOneCompanionAdmin(id) {
         return this.adminService.findOne(id);
     }
@@ -365,6 +376,12 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], CompanionAdminController.prototype, "generateOrder", null);
 __decorate([
+    (0, common_1.Post)('/customer-care-inquiries'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], CompanionAdminController.prototype, "generateCCI", null);
+__decorate([
     (0, common_1.Get)('/:id'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -411,6 +428,7 @@ __decorate([
 exports.CompanionAdminController = CompanionAdminController = __decorate([
     (0, common_1.Controller)('companion-admin'),
     __metadata("design:paramtypes", [admin_service_1.AdminService,
+        customer_cares_inquires_service_1.CustomerCareInquiriesService,
         orders_service_1.OrdersService,
         restaurants_service_1.RestaurantsService,
         customers_service_1.CustomersService,

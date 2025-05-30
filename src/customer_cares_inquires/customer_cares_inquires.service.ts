@@ -18,6 +18,9 @@ export class CustomerCareInquiriesService {
   async create(createDto: CreateCustomerCareInquiryDto) {
     const start = Date.now();
     try {
+      if (!createDto.assignee_type) {
+        createDto.assignee_type = 'ADMIN'; // or 'CUSTOMER_CARE' if that's your default
+      }
       const inquiry = await this.repository.create(createDto);
 
       // Invalidate relevant caches

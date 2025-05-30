@@ -81,6 +81,10 @@ const logger = new common_1.Logger('OrdersService');
 const redis = (0, redis_1.createClient)({
     url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
+redis.on('error', err => logger.error('Redis error:', err));
+redis.on('end', () => logger.error('Redis connection closed'));
+redis.on('reconnecting', () => logger.warn('Redis reconnecting...'));
+redis.on('connect', () => logger.log('Redis connected'));
 redis.connect().catch(err => logger.error('Redis connection error:', err));
 let OrdersService = class OrdersService {
     constructor(ordersRepository, menuItemsRepository, menuItemVariantsRepository, addressBookRepository, customersRepository, driverStatsService, restaurantsRepository, dataSource, cartItemsRepository, orderRepository, customersGateway, driversGateway, transactionService, fWalletsRepository, eventEmitter, driverService, redisService) {
@@ -142,139 +146,175 @@ let OrdersService = class OrdersService {
     }
     async createOrder(createOrderDto) {
         const start = Date.now();
+        logger.log('createOrder called with:', JSON.stringify(createOrderDto));
         try {
+            logger.log('Step 1: Checking for duplicate order');
             const orderHash = `${createOrderDto.customer_id}:${createOrderDto.order_time}:${createOrderDto.order_items
                 .map(item => item.item_id)
                 .sort()
                 .join(',')}`;
             const cacheKey = `order_lock:${orderHash}`;
-            const lockAcquired = await redis.set(cacheKey, '1', { NX: true, EX: 60 });
+            let lockAcquired;
+            try {
+                lockAcquired = await redis.set(cacheKey, '1', { NX: true, EX: 60 });
+                logger.log('Step 1 result (lockAcquired):', lockAcquired);
+            }
+            catch (err) {
+                logger.error('Error acquiring Redis lock:', err);
+                throw err;
+            }
             if (!lockAcquired) {
                 logger.warn(`Duplicate order detected: ${orderHash}`);
                 return (0, createResponse_1.createResponse)('DuplicatedRecord', null, 'Order already processed');
             }
+            logger.log('Step 2: Batch fetch related data');
             const fetchStart = Date.now();
-            const [customer, restaurant, customerAddress, restaurantAddress, menuItems, variants, promotion] = await Promise.all([
-                (async () => {
-                    const start = Date.now();
-                    const cacheKey = `customer:${createOrderDto.customer_id}`;
-                    const cached = await redis.get(cacheKey);
-                    if (cached) {
-                        logger.log(`Fetch customer (cache) took ${Date.now() - start}ms`);
-                        return JSON.parse(cached);
-                    }
-                    const result = await this.customersRepository.findById(createOrderDto.customer_id);
-                    if (result) {
-                        await redis.setEx(cacheKey, 7200, JSON.stringify(result));
-                        logger.log(`Stored customer in Redis: ${cacheKey}`);
-                    }
-                    else {
-                        logger.warn(`Customer not found: ${createOrderDto.customer_id}`);
-                    }
-                    logger.log(`Fetch customer took ${Date.now() - start}ms`);
-                    return result;
-                })(),
-                (async () => {
-                    const start = Date.now();
-                    const cacheKey = `restaurant:${createOrderDto.restaurant_id}`;
-                    await redis.del(cacheKey);
-                    const result = await this.restaurantsRepository.findById(createOrderDto.restaurant_id);
-                    if (result) {
-                        logger.log('Restaurant from DB:', {
-                            id: result.id,
-                            owner_id: result.owner_id,
-                            owner: result.owner
-                        });
-                        await redis.setEx(cacheKey, 7200, JSON.stringify(result));
-                    }
-                    logger.log(`Fetch restaurant took ${Date.now() - start}ms`);
-                    return result;
-                })(),
-                (async () => {
-                    const start = Date.now();
-                    const cacheKey = `address:${createOrderDto.customer_location}`;
-                    const cached = await redis.get(cacheKey);
-                    if (cached) {
-                        logger.log(`Fetch customer address (cache) took ${Date.now() - start}ms`);
-                        return JSON.parse(cached);
-                    }
-                    const address = await this.addressBookRepository.findById(createOrderDto.customer_location);
-                    if (address)
-                        await redis.setEx(cacheKey, 7200, JSON.stringify(address));
-                    logger.log(`Fetch customer address took ${Date.now() - start}ms`);
-                    return address;
-                })(),
-                (async () => {
-                    const start = Date.now();
-                    const cacheKey = `address:${createOrderDto.restaurant_location}`;
-                    const cached = await redis.get(cacheKey);
-                    if (cached) {
-                        logger.log(`Fetch restaurant address (cache) took ${Date.now() - start}ms`);
-                        return JSON.parse(cached);
-                    }
-                    const address = await this.addressBookRepository.findById(createOrderDto.restaurant_location);
-                    if (address)
-                        await redis.setEx(cacheKey, 7200, JSON.stringify(address));
-                    logger.log(`Fetch restaurant address took ${Date.now() - start}ms`);
-                    return address;
-                })(),
-                (async () => {
-                    const start = Date.now();
-                    const itemIds = createOrderDto.order_items.map(item => item.item_id);
-                    const cacheKey = `menu_items:${itemIds.sort().join(',')}`;
-                    const cached = await redis.get(cacheKey);
-                    if (cached) {
-                        logger.log(`Fetch menu items (cache) took ${Date.now() - start}ms`);
-                        return JSON.parse(cached);
-                    }
-                    const items = await this.menuItemsRepository.findByIds(itemIds);
-                    if (items.length > 0) {
-                        await redis.setEx(cacheKey, 7200, JSON.stringify(items));
-                        logger.log(`Stored menu items in Redis: ${cacheKey}`);
-                    }
-                    else {
-                        logger.warn(`No menu items found for IDs: ${itemIds.join(',')}`);
-                    }
-                    logger.log(`Fetch menu items took ${Date.now() - start}ms`);
-                    return items;
-                })(),
-                (async () => {
-                    const start = Date.now();
-                    const variantIds = createOrderDto.order_items
-                        .filter(item => item.variant_id)
-                        .map(item => item.variant_id);
-                    if (!variantIds.length)
-                        return [];
-                    const cacheKey = `variants:${variantIds.join(',')}`;
-                    const cached = await redis.get(cacheKey);
-                    if (cached) {
-                        logger.log(`Fetch variants (cache) took ${Date.now() - start}ms`);
-                        return JSON.parse(cached);
-                    }
-                    const variants = await this.menuItemVariantsRepository.findByIds(variantIds);
-                    await redis.setEx(cacheKey, 7200, JSON.stringify(variants));
-                    logger.log(`Fetch variants took ${Date.now() - start}ms`);
-                    return variants;
-                })(),
-                createOrderDto.promotion_applied
-                    ? (async () => {
+            let customer, restaurant, customerAddress, restaurantAddress, menuItems, variants, promotion;
+            try {
+                [
+                    customer,
+                    restaurant,
+                    customerAddress,
+                    restaurantAddress,
+                    menuItems,
+                    variants,
+                    promotion
+                ] = await Promise.all([
+                    (async () => {
                         const start = Date.now();
-                        const cacheKey = `promotion:${createOrderDto.promotion_applied}`;
+                        const cacheKey = `customer:${createOrderDto.customer_id}`;
                         const cached = await redis.get(cacheKey);
                         if (cached) {
-                            logger.log(`Fetch promotion (cache) took ${Date.now() - start}ms`);
+                            logger.log(`Fetch customer (cache) took ${Date.now() - start}ms`);
                             return JSON.parse(cached);
                         }
-                        const promo = await this.dataSource
-                            .getRepository(promotion_entity_1.Promotion)
-                            .findOne({ where: { id: createOrderDto.promotion_applied } });
-                        if (promo)
-                            await redis.setEx(cacheKey, 7200, JSON.stringify(promo));
-                        logger.log(`Fetch promotion took ${Date.now() - start}ms`);
-                        return promo;
-                    })()
-                    : Promise.resolve(null)
-            ]);
+                        const result = await this.customersRepository.findById(createOrderDto.customer_id);
+                        if (result) {
+                            await redis.setEx(cacheKey, 7200, JSON.stringify(result));
+                            logger.log(`Stored customer in Redis: ${cacheKey}`);
+                        }
+                        else {
+                            logger.warn(`Customer not found: ${createOrderDto.customer_id}`);
+                        }
+                        logger.log(`Fetch customer took ${Date.now() - start}ms`);
+                        return result;
+                    })(),
+                    (async () => {
+                        const start = Date.now();
+                        const cacheKey = `restaurant:${createOrderDto.restaurant_id}`;
+                        await redis.del(cacheKey);
+                        const result = await this.restaurantsRepository.findById(createOrderDto.restaurant_id);
+                        if (result) {
+                            logger.log('Restaurant from DB:', {
+                                id: result.id,
+                                owner_id: result.owner_id,
+                                owner: result.owner
+                            });
+                            await redis.setEx(cacheKey, 7200, JSON.stringify(result));
+                        }
+                        logger.log(`Fetch restaurant took ${Date.now() - start}ms`);
+                        return result;
+                    })(),
+                    (async () => {
+                        const start = Date.now();
+                        const cacheKey = `address:${createOrderDto.customer_location}`;
+                        const cached = await redis.get(cacheKey);
+                        if (cached) {
+                            logger.log(`Fetch customer address (cache) took ${Date.now() - start}ms`);
+                            return JSON.parse(cached);
+                        }
+                        const address = await this.addressBookRepository.findById(createOrderDto.customer_location);
+                        if (address)
+                            await redis.setEx(cacheKey, 7200, JSON.stringify(address));
+                        logger.log(`Fetch customer address took ${Date.now() - start}ms`);
+                        return address;
+                    })(),
+                    (async () => {
+                        const start = Date.now();
+                        const cacheKey = `address:${createOrderDto.restaurant_location}`;
+                        const cached = await redis.get(cacheKey);
+                        if (cached) {
+                            logger.log(`Fetch restaurant address (cache) took ${Date.now() - start}ms`);
+                            return JSON.parse(cached);
+                        }
+                        const address = await this.addressBookRepository.findById(createOrderDto.restaurant_location);
+                        if (address)
+                            await redis.setEx(cacheKey, 7200, JSON.stringify(address));
+                        logger.log(`Fetch restaurant address took ${Date.now() - start}ms`);
+                        return address;
+                    })(),
+                    (async () => {
+                        const start = Date.now();
+                        const itemIds = createOrderDto.order_items.map(item => item.item_id);
+                        const cacheKey = `menu_items:${itemIds.sort().join(',')}`;
+                        const cached = await redis.get(cacheKey);
+                        if (cached) {
+                            logger.log(`Fetch menu items (cache) took ${Date.now() - start}ms`);
+                            return JSON.parse(cached);
+                        }
+                        const items = await this.menuItemsRepository.findByIds(itemIds);
+                        if (items.length > 0) {
+                            await redis.setEx(cacheKey, 7200, JSON.stringify(items));
+                            logger.log(`Stored menu items in Redis: ${cacheKey}`);
+                        }
+                        else {
+                            logger.warn(`No menu items found for IDs: ${itemIds.join(',')}`);
+                        }
+                        logger.log(`Fetch menu items took ${Date.now() - start}ms`);
+                        return items;
+                    })(),
+                    (async () => {
+                        const start = Date.now();
+                        const variantIds = createOrderDto.order_items
+                            .filter(item => item.variant_id)
+                            .map(item => item.variant_id);
+                        if (!variantIds.length)
+                            return [];
+                        const cacheKey = `variants:${variantIds.join(',')}`;
+                        const cached = await redis.get(cacheKey);
+                        if (cached) {
+                            logger.log(`Fetch variants (cache) took ${Date.now() - start}ms`);
+                            return JSON.parse(cached);
+                        }
+                        const variants = await this.menuItemVariantsRepository.findByIds(variantIds);
+                        await redis.setEx(cacheKey, 7200, JSON.stringify(variants));
+                        logger.log(`Fetch variants took ${Date.now() - start}ms`);
+                        return variants;
+                    })(),
+                    createOrderDto.promotion_applied
+                        ? (async () => {
+                            const start = Date.now();
+                            const cacheKey = `promotion:${createOrderDto.promotion_applied}`;
+                            const cached = await redis.get(cacheKey);
+                            if (cached) {
+                                logger.log(`Fetch promotion (cache) took ${Date.now() - start}ms`);
+                                return JSON.parse(cached);
+                            }
+                            const promo = await this.dataSource
+                                .getRepository(promotion_entity_1.Promotion)
+                                .findOne({ where: { id: createOrderDto.promotion_applied } });
+                            if (promo)
+                                await redis.setEx(cacheKey, 7200, JSON.stringify(promo));
+                            logger.log(`Fetch promotion took ${Date.now() - start}ms`);
+                            return promo;
+                        })()
+                        : Promise.resolve(null)
+                ]);
+            }
+            catch (err) {
+                logger.error('Error during batch fetch:', err);
+                throw err;
+            }
+            logger.log('Step 2 result: fetched data', {
+                customer,
+                restaurant,
+                customerAddress,
+                restaurantAddress,
+                menuItems,
+                variants,
+                promotion
+            });
+            logger.log(`Data fetch took ${Date.now() - fetchStart}ms`);
             let customerWallet = null;
             let restaurantWallet = null;
             let adminWallet = null;
@@ -324,7 +364,6 @@ let OrdersService = class OrdersService {
                     })()
                 ]);
             }
-            logger.log(`Data fetch took ${Date.now() - fetchStart}ms`);
             const validationStart = Date.now();
             const validationResult = await this.validateOrderData(createOrderDto, {
                 customer,

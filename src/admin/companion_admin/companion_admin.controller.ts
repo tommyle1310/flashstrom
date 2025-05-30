@@ -37,6 +37,7 @@ import {
   MENU_ITEM_VARIANT_MOCK,
   RESTAURANT_MOCK
 } from 'src/utils/constants';
+import { CustomerCareInquiriesService } from 'src/customer_cares_inquires/customer_cares_inquires.service';
 
 // const redis = createClient({
 //   url: process.env.REDIS_URL || 'redis://localhost:6379'
@@ -46,6 +47,7 @@ import {
 export class CompanionAdminController {
   constructor(
     private readonly adminService: AdminService,
+    private readonly customerCareInquiriesService: CustomerCareInquiriesService,
     private readonly orderService: OrdersService,
     private readonly restaurantService: RestaurantsService,
     private readonly customerService: CustomersService,
@@ -356,6 +358,19 @@ export class CompanionAdminController {
     });
 
     return order;
+  }
+
+  @Post('/customer-care-inquiries')
+  async generateCCI() {
+    // Create an address book entry first
+    const cci = await this.customerCareInquiriesService.create({
+      customer_id: 'FF_CUS_430b0b56-df21-4ac4-ac98-904dd522f0ee',
+      subject: 'I want cat',
+      description: 'dude she just not into you.',
+      status: 'OPEN'
+    });
+
+    return cci;
   }
 
   @Get('/:id')

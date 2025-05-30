@@ -84,3 +84,7 @@ export const MENU_ITEM_MOCK = {
 export const MENU_ITEM_VARIANT_MOCK = {
   id: 'FF_MENU_ITEM_VARIANT_57a31677-ada6-484b-b706-291b71bd613d'
 };
+export const ADMIN_MOCK = {
+  admin_id: 'FF_ADMIN_ea42a109-ec7a-4014-ada2-a050c9e817ed',
+  user_id: 'USR_dfdb430a-4506-401f-8242-634ea8d9735e'
+};

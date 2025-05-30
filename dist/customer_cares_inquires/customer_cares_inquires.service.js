@@ -23,6 +23,9 @@ let CustomerCareInquiriesService = class CustomerCareInquiriesService {
     async create(createDto) {
         const start = Date.now();
         try {
+            if (!createDto.assignee_type) {
+                createDto.assignee_type = 'ADMIN';
+            }
             const inquiry = await this.repository.create(createDto);
             if (inquiry.assigned_customer_care) {
                 await this.redisService.del(`inquiries:customer_care:${inquiry.assigned_customer_care.id}`);

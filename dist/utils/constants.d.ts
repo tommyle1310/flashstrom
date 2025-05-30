@@ -118,3 +118,7 @@ export declare const MENU_ITEM_MOCK: {
 export declare const MENU_ITEM_VARIANT_MOCK: {
     id: string;
 };
+export declare const ADMIN_MOCK: {
+    admin_id: string;
+    user_id: string;
+};

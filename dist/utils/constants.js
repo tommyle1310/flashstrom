@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MENU_ITEM_VARIANT_MOCK = exports.MENU_ITEM_MOCK = exports.FOOD_CATEGORY_MOCK = exports.ADDRESS_2_MOCK = exports.ADDRESS_1_MOCK = exports.RESTAURANT_MOCK = exports.CUSTOMER_MOCK = exports.FLASHFOOD_FINANCE = exports.FIXED_DELIVERY_DRIVER_WAGE = exports.ResponseStatus = void 0;
+exports.ADMIN_MOCK = exports.MENU_ITEM_VARIANT_MOCK = exports.MENU_ITEM_MOCK = exports.FOOD_CATEGORY_MOCK = exports.ADDRESS_2_MOCK = exports.ADDRESS_1_MOCK = exports.RESTAURANT_MOCK = exports.CUSTOMER_MOCK = exports.FLASHFOOD_FINANCE = exports.FIXED_DELIVERY_DRIVER_WAGE = exports.ResponseStatus = void 0;
 exports.ResponseStatus = {
     OK: { httpCode: 200, message: 'Success', code: 0 },
     MissingInput: { httpCode: 400, message: 'Missing Input', code: 1 },
@@ -84,5 +84,9 @@ exports.MENU_ITEM_MOCK = {
 };
 exports.MENU_ITEM_VARIANT_MOCK = {
     id: 'FF_MENU_ITEM_VARIANT_57a31677-ada6-484b-b706-291b71bd613d'
+};
+exports.ADMIN_MOCK = {
+    admin_id: 'FF_ADMIN_ea42a109-ec7a-4014-ada2-a050c9e817ed',
+    user_id: 'USR_dfdb430a-4506-401f-8242-634ea8d9735e'
 };
 //# sourceMappingURL=constants.js.map

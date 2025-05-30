@@ -691,8 +691,8 @@ export class AuthService {
           last_name: userData.last_name,
           permissions: [],
           status: AdminStatus.ACTIVE,
-          created_at: new Date(),
-          updated_at: new Date()
+          created_at: Math.floor(Date.now() / 1000),
+          updated_at: Math.floor(Date.now() / 1000)
         });
         if (newUserWithRole.EC !== 'OK') {
           return newUserWithRole;
@@ -1097,8 +1097,8 @@ export class AuthService {
             last_name: userData.last_name,
             permissions: [],
             status: AdminStatus.ACTIVE,
-            created_at: new Date(),
-            updated_at: new Date()
+            created_at: Math.floor(Date.now() / 1000),
+            updated_at: Math.floor(Date.now() / 1000)
           });
           if (newUserWithRole.EC !== 'OK') {
             return newUserWithRole;

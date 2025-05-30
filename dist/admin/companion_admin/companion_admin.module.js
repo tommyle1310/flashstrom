@@ -115,6 +115,7 @@ const drivers_gateway_1 = require("../../drivers/drivers.gateway");
 const driver_progress_stages_service_1 = require("../../driver_progress_stages/driver_progress_stages.service");
 const customer_care_inquiry_entity_1 = require("../../customer_cares_inquires/entities/customer_care_inquiry.entity");
 const customer_cares_inquires_repository_1 = require("../../customer_cares_inquires/customer_cares_inquires.repository");
+const customer_cares_inquires_service_1 = require("../../customer_cares_inquires/customer_cares_inquires.service");
 let CompanionAdminModule = class CompanionAdminModule {
 };
 exports.CompanionAdminModule = CompanionAdminModule;
@@ -194,6 +195,7 @@ exports.CompanionAdminModule = CompanionAdminModule = __decorate([
             jwt_1.JwtService,
             cart_items_service_1.CartItemsService,
             users_repository_1.UserRepository,
+            customer_cares_inquires_service_1.CustomerCareInquiriesService,
             fwallets_repository_1.FWalletsRepository,
             users_service_1.UsersService,
             transactions_service_1.TransactionService,
