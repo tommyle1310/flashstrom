@@ -9,7 +9,6 @@ import { calculateDistance } from 'src/utils/commonFunctions';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { DriversRepository } from './drivers.repository';
 import { Order } from 'src/orders/entities/order.entity';
-import { HARDED_CODE_TEST } from 'src/utils/harded_code_test';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -25,6 +24,7 @@ import * as dotenv from 'dotenv';
 import { RedisService } from 'src/redis/redis.service';
 import { In } from 'typeorm';
 import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
+import { DRIVER_MOCK } from 'src/utils/constants';
 
 dotenv.config();
 
@@ -382,7 +382,7 @@ export class DriversService {
 
       // Tìm driver ưu tiên từ danh sách
       const specificDriver = listAvailableDrivers.find(
-        driver => driver.id === HARDED_CODE_TEST.prioritised_drivers[0]
+        driver => driver.id === DRIVER_MOCK.driver_id
       );
       if (!specificDriver) {
         return createResponse(

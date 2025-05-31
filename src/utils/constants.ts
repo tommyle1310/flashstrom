@@ -88,3 +88,7 @@ export const ADMIN_MOCK = {
   admin_id: 'FF_ADMIN_ea42a109-ec7a-4014-ada2-a050c9e817ed',
   user_id: 'USR_dfdb430a-4506-401f-8242-634ea8d9735e'
 };
+export const DRIVER_MOCK = {
+  driver_id: 'FF_DRI_d561f2ba-b3a8-4190-8221-ec2a86c85010',
+  user_id: 'USR_4eb1f0c4-1025-4de3-b210-b942ffbf77aa'
+};

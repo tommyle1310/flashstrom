@@ -53,7 +53,6 @@ const commonFunctions_1 = require("../utils/commonFunctions");
 const address_book_repository_1 = require("../address_book/address_book.repository");
 const drivers_repository_1 = require("./drivers.repository");
 const order_entity_1 = require("../orders/entities/order.entity");
-const harded_code_test_1 = require("../utils/harded_code_test");
 const orders_repository_1 = require("../orders/orders.repository");
 const typeorm_1 = require("typeorm");
 const typeorm_2 = require("@nestjs/typeorm");
@@ -67,6 +66,7 @@ const dotenv = __importStar(require("dotenv"));
 const redis_service_1 = require("../redis/redis.service");
 const typeorm_3 = require("typeorm");
 const menu_item_entity_1 = require("../menu_items/entities/menu_item.entity");
+const constants_1 = require("../utils/constants");
 dotenv.config();
 const logger = new common_1.Logger('DriversService');
 const redis = (0, redis_1.createClient)({
@@ -325,7 +325,7 @@ let DriversService = class DriversService {
             if (!restaurantLocation) {
                 return (0, createResponse_1.createResponse)('NotFound', null, 'Restaurant location not found');
             }
-            const specificDriver = listAvailableDrivers.find(driver => driver.id === harded_code_test_1.HARDED_CODE_TEST.prioritised_drivers[0]);
+            const specificDriver = listAvailableDrivers.find(driver => driver.id === constants_1.DRIVER_MOCK.driver_id);
             if (!specificDriver) {
                 return (0, createResponse_1.createResponse)('NotFound', [], 'Prioritized driver not found in available list');
             }

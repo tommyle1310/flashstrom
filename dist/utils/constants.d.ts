@@ -122,3 +122,7 @@ export declare const ADMIN_MOCK: {
     admin_id: string;
     user_id: string;
 };
+export declare const DRIVER_MOCK: {
+    driver_id: string;
+    user_id: string;
+};
