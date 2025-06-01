@@ -1505,6 +1505,8 @@ let DriversGateway = class DriversGateway {
             if (transactionResponse.EC !== 0) {
                 throw new Error(`Transaction failed: ${lastError || transactionResponse.EM}`);
             }
+            this.redisService.del(`fwallet:${driver.user_id}`);
+            this.redisService.del(`orders:restaurant:${order.restaurant_id}:page:1:limit:50`);
             logToFile('Created transaction', {
                 orderId: order.id,
                 transactionId: transactionResponse.data.id,
