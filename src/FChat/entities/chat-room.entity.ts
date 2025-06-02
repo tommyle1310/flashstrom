@@ -36,10 +36,18 @@ export class ChatRoom {
   @Column({ nullable: true })
   relatedId: string;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({
+    name: 'created_at',
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP'
+  })
   createdAt: Date;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({
+    name: 'last_activity',
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP'
+  })
   lastActivity: Date;
 
   @OneToMany(() => Message, message => message.chatRoom)

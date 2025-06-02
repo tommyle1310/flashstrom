@@ -42,11 +42,19 @@ __decorate([
     __metadata("design:type", String)
 ], ChatRoom.prototype, "relatedId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' }),
+    (0, typeorm_1.Column)({
+        name: 'created_at',
+        type: 'timestamp',
+        default: () => 'CURRENT_TIMESTAMP'
+    }),
     __metadata("design:type", Date)
 ], ChatRoom.prototype, "createdAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' }),
+    (0, typeorm_1.Column)({
+        name: 'last_activity',
+        type: 'timestamp',
+        default: () => 'CURRENT_TIMESTAMP'
+    }),
     __metadata("design:type", Date)
 ], ChatRoom.prototype, "lastActivity", void 0);
 __decorate([

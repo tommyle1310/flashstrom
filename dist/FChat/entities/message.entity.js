@@ -32,20 +32,21 @@ __decorate([
     __metadata("design:type", String)
 ], Message.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.Column)(),
+    (0, typeorm_1.Column)({ name: 'room_id' }),
     __metadata("design:type", String)
 ], Message.prototype, "roomId", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => chat_room_entity_1.ChatRoom, chatRoom => chatRoom.messages),
-    (0, typeorm_1.JoinColumn)({ name: 'roomId' }),
+    (0, typeorm_1.JoinColumn)({ name: 'room_id' }),
     __metadata("design:type", chat_room_entity_1.ChatRoom)
 ], Message.prototype, "chatRoom", void 0);
 __decorate([
-    (0, typeorm_1.Column)(),
+    (0, typeorm_1.Column)({ name: 'sender_id' }),
     __metadata("design:type", String)
 ], Message.prototype, "senderId", void 0);
 __decorate([
     (0, typeorm_1.Column)({
+        name: 'sender_type',
         type: 'enum',
         enum: Payload_1.Enum_UserType
     }),
@@ -53,22 +54,22 @@ __decorate([
 ], Message.prototype, "senderType", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => customer_entity_1.Customer, { nullable: true }),
-    (0, typeorm_1.JoinColumn)({ name: 'senderId' }),
+    (0, typeorm_1.JoinColumn)({ name: 'sender_id' }),
     __metadata("design:type", customer_entity_1.Customer)
 ], Message.prototype, "customerSender", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => driver_entity_1.Driver, { nullable: true }),
-    (0, typeorm_1.JoinColumn)({ name: 'senderId' }),
+    (0, typeorm_1.JoinColumn)({ name: 'sender_id' }),
     __metadata("design:type", driver_entity_1.Driver)
 ], Message.prototype, "driverSender", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => restaurant_entity_1.Restaurant, { nullable: true }),
-    (0, typeorm_1.JoinColumn)({ name: 'senderId' }),
+    (0, typeorm_1.JoinColumn)({ name: 'sender_id' }),
     __metadata("design:type", restaurant_entity_1.Restaurant)
 ], Message.prototype, "restaurantSender", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => customer_care_entity_1.CustomerCare, { nullable: true }),
-    (0, typeorm_1.JoinColumn)({ name: 'senderId' }),
+    (0, typeorm_1.JoinColumn)({ name: 'sender_id' }),
     __metadata("design:type", customer_care_entity_1.CustomerCare)
 ], Message.prototype, "customerCareSender", void 0);
 __decorate([
@@ -77,6 +78,7 @@ __decorate([
 ], Message.prototype, "content", void 0);
 __decorate([
     (0, typeorm_1.Column)({
+        name: 'message_type',
         type: 'enum',
         enum: MessageType,
         default: MessageType.TEXT
@@ -88,7 +90,7 @@ __decorate([
     __metadata("design:type", Date)
 ], Message.prototype, "timestamp", void 0);
 __decorate([
-    (0, typeorm_1.Column)('text', { array: true, default: [] }),
+    (0, typeorm_1.Column)('text', { name: 'read_by', array: true, default: [] }),
     __metadata("design:type", Array)
 ], Message.prototype, "readBy", void 0);
 exports.Message = Message = __decorate([
