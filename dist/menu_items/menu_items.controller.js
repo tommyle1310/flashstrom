@@ -41,6 +41,9 @@ let MenuItemsController = class MenuItemsController {
     remove(id) {
         return this.menuItemsService.remove(id);
     }
+    toggleAvailability(id) {
+        return this.menuItemsService.toggleAvailability(id);
+    }
 };
 exports.MenuItemsController = MenuItemsController;
 __decorate([
@@ -86,6 +89,13 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], MenuItemsController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Patch)(':id/toggle-availability'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], MenuItemsController.prototype, "toggleAvailability", null);
 exports.MenuItemsController = MenuItemsController = __decorate([
     (0, common_1.Controller)('menu-items'),
     __metadata("design:paramtypes", [menu_items_service_1.MenuItemsService])

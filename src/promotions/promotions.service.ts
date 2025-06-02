@@ -80,57 +80,6 @@ export class PromotionsService {
     }
   }
 
-  async findAll(): Promise<ApiResponse<Promotion[]>> {
-    const start = Date.now();
-    try {
-      // Kiểm tra cache
-      const cachedData = await this.redisService.get(
-        this.allPromotionsCacheKey
-      );
-      if (cachedData) {
-        logger.log(`Fetched promotions from cache in ${Date.now() - start}ms`);
-        return createResponse(
-          'OK',
-          JSON.parse(cachedData),
-          'Promotions retrieved from cache'
-        );
-      }
-      logger.log(`Cache miss for ${this.allPromotionsCacheKey}`);
-
-      // Truy vấn database
-      const dbStart = Date.now();
-      const promotions = await this.promotionsRepository.findAll();
-      logger.log(`Database fetch took ${Date.now() - dbStart}ms`);
-
-      // Lưu vào cache
-      const cacheStart = Date.now();
-      const cacheSaved = await this.redisService.setNx(
-        this.allPromotionsCacheKey,
-        JSON.stringify(promotions),
-        this.cacheTtl * 1000
-      );
-      if (cacheSaved) {
-        logger.log(
-          `Stored promotions in cache: ${this.allPromotionsCacheKey} (took ${Date.now() - cacheStart}ms)`
-        );
-      } else {
-        logger.warn(
-          `Failed to store promotions in cache: ${this.allPromotionsCacheKey}`
-        );
-      }
-
-      logger.log(`Total time: ${Date.now() - start}ms`);
-      return createResponse(
-        'OK',
-        promotions,
-        'Promotions retrieved successfully'
-      );
-    } catch (error: any) {
-      logger.error(`Error fetching promotions: ${error.message}`, error.stack);
-      return createResponse('ServerError', null, 'Error fetching promotions');
-    }
-  }
-
   async findValidWithRestaurants(): Promise<ApiResponse<Promotion[]>> {
     const start = Date.now();
     try {
@@ -286,6 +235,57 @@ export class PromotionsService {
         null,
         'Error fetching valid promotions with restaurants'
       );
+    }
+  }
+
+  async findAll(): Promise<ApiResponse<Promotion[]>> {
+    const start = Date.now();
+    try {
+      // Kiểm tra cache
+      const cachedData = await this.redisService.get(
+        this.allPromotionsCacheKey
+      );
+      if (cachedData) {
+        logger.log(`Fetched promotions from cache in ${Date.now() - start}ms`);
+        return createResponse(
+          'OK',
+          JSON.parse(cachedData),
+          'Promotions retrieved from cache'
+        );
+      }
+      logger.log(`Cache miss for ${this.allPromotionsCacheKey}`);
+
+      // Truy vấn database
+      const dbStart = Date.now();
+      const promotions = await this.promotionsRepository.findAll();
+      logger.log(`Database fetch took ${Date.now() - dbStart}ms`);
+
+      // Lưu vào cache
+      const cacheStart = Date.now();
+      const cacheSaved = await this.redisService.setNx(
+        this.allPromotionsCacheKey,
+        JSON.stringify(promotions),
+        this.cacheTtl * 1000
+      );
+      if (cacheSaved) {
+        logger.log(
+          `Stored promotions in cache: ${this.allPromotionsCacheKey} (took ${Date.now() - cacheStart}ms)`
+        );
+      } else {
+        logger.warn(
+          `Failed to store promotions in cache: ${this.allPromotionsCacheKey}`
+        );
+      }
+
+      logger.log(`Total time: ${Date.now() - start}ms`);
+      return createResponse(
+        'OK',
+        promotions,
+        'Promotions retrieved successfully'
+      );
+    } catch (error: any) {
+      logger.error(`Error fetching promotions: ${error.message}`, error.stack);
+      return createResponse('ServerError', null, 'Error fetching promotions');
     }
   }
 

@@ -882,23 +882,37 @@ let RestaurantsService = class RestaurantsService {
                     ? this.menuItemRepository.findByIds(allItemIds)
                     : Promise.resolve([]),
                 allVariantIds.length > 0
-                    ? this.dataSource
-                        .createQueryBuilder(menu_item_variant_entity_1.MenuItemVariant, 'variant')
-                        .where('variant.id IN (:...ids)', { ids: allVariantIds })
-                        .getMany()
+                    ? (async () => {
+                        try {
+                            return await this.dataSource
+                                .createQueryBuilder(menu_item_variant_entity_1.MenuItemVariant, 'variant')
+                                .where('variant.id IN (:...ids)', { ids: allVariantIds })
+                                .getMany();
+                        }
+                        catch (variantError) {
+                            logger.warn('Failed to fetch menu item variants:', variantError);
+                            return [];
+                        }
+                    })()
                     : Promise.resolve([])
             ]);
             const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
             const variantMap = new Map(menuItemVariants.map(variant => [variant.id, variant]));
             logger.log(`Menu items and variants fetched in ${Date.now() - menuItemStart}ms`);
             const populatedOrders = paginatedOrders.map(order => {
-                const populatedOrderItems = order.order_items.map(item => ({
-                    ...item,
-                    menu_item: menuItemMap.get(item.item_id) || null,
-                    menu_item_variant: item.variant_id
-                        ? variantMap.get(item.variant_id) || null
-                        : null
-                }));
+                const populatedOrderItems = order.order_items.map(item => {
+                    const variant = item.variant_id
+                        ? variantMap.get(item.variant_id)
+                        : null;
+                    if (item.variant_id && !variant) {
+                        logger.warn(`Variant ID ${item.variant_id} not found for order ${order.id}`);
+                    }
+                    return {
+                        ...item,
+                        menu_item: menuItemMap.get(item.item_id) || null,
+                        menu_item_variant: variant
+                    };
+                });
                 return {
                     ...order,
                     order_items: populatedOrderItems

@@ -21,6 +21,7 @@ const menu_item_variant_entity_1 = require("../menu_item_variants/entities/menu_
 const food_categories_repository_1 = require("../food_categories/food_categories.repository");
 const food_category_entity_1 = require("../food_categories/entities/food_category.entity");
 const cart_items_module_1 = require("../cart_items/cart_items.module");
+const redis_service_1 = require("../redis/redis.service");
 let MenuItemsModule = class MenuItemsModule {
 };
 exports.MenuItemsModule = MenuItemsModule;
@@ -36,6 +37,7 @@ exports.MenuItemsModule = MenuItemsModule = __decorate([
         controllers: [menu_items_controller_1.MenuItemsController],
         providers: [
             menu_items_service_1.MenuItemsService,
+            redis_service_1.RedisService,
             menu_items_repository_1.MenuItemsRepository,
             menu_item_variants_service_1.MenuItemVariantsService,
             food_categories_repository_1.FoodCategoriesRepository

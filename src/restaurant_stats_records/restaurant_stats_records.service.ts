@@ -416,6 +416,7 @@ export class RestaurantStatsService {
     forceRefresh: boolean = false
   ): Promise<ApiResponse<any>> {
     try {
+      // Convert dates to epoch seconds, assuming input is in +07:00
       const start =
         typeof startDate === 'string'
           ? Math.floor(new Date(startDate + 'T00:00:00+07:00').getTime() / 1000)
@@ -431,16 +432,22 @@ export class RestaurantStatsService {
         originalStart: startDate,
         originalEnd: endDate,
         convertedStart: start,
-        convertedEnd: end
+        convertedEnd: end,
+        startISO: new Date(start * 1000).toISOString(),
+        endISO: new Date(end * 1000).toISOString()
       });
 
+      // Update stats if forceRefresh or regular update
       if (forceRefresh) {
+        console.log('[DEBUG] Forcing stats refresh for range:', { start, end });
         await this.updateStatsForDateRange(restaurantId, start, end, 'daily');
       } else {
+        console.log('[DEBUG] Updating stats for restaurant:', { restaurantId });
         await this.updateStatsForRestaurant(restaurantId, 'daily');
       }
 
-      let stats = await this.restaurantStatsRepo.find({
+      // Fetch stats
+      const stats = await this.restaurantStatsRepo.find({
         where: {
           restaurant_id: restaurantId,
           period_start: LessThanOrEqual(end),
@@ -449,11 +456,22 @@ export class RestaurantStatsService {
         order: { period_start: 'ASC' }
       });
 
+      console.log('[DEBUG] Found stats:', {
+        count: stats.length,
+        periods: stats.map(s => ({
+          period_start: s.period_start,
+          period_end: s.period_end,
+          startISO: new Date(s.period_start * 1000).toISOString(),
+          endISO: new Date(s.period_end * 1000).toISOString()
+        }))
+      });
+
+      // Fetch completed orders without timezone offset
       const completedOrders = await this.orderRepo.find({
         where: {
           restaurant_id: restaurantId,
           status: OrderStatus.DELIVERED,
-          updated_at: Between(start - 7 * 3600, end - 7 * 3600)
+          updated_at: Between(start, end)
         }
       });
 
@@ -464,25 +482,44 @@ export class RestaurantStatsService {
           status: o.status,
           updated_at: o.updated_at,
           total_amount: o.total_amount,
-          date_plus07: new Date((o.updated_at + 7 * 3600) * 1000).toISOString()
+          updated_at_iso: new Date(o.updated_at * 1000).toISOString()
         }))
       );
 
-      // Xóa bản ghi thống kê không khớp với orders
+      // Build valid period starts from orders (for validation)
       const validPeriodStarts = new Set<number>();
       completedOrders.forEach(order => {
-        const date = new Date((order.updated_at + 7 * 3600) * 1000);
+        const date = new Date(order.updated_at * 1000);
         const periodStart = Math.floor(date.setHours(0, 0, 0, 0) / 1000);
         validPeriodStarts.add(periodStart);
       });
 
-      stats = stats.filter(stat => validPeriodStarts.has(stat.period_start));
+      console.log(
+        '[DEBUG] Valid period starts from orders:',
+        Array.from(validPeriodStarts)
+      );
 
-      // Tạo lại stats nếu cần
+      // Only filter stats if orders exist; otherwise, keep all stats
+      let filteredStats = stats;
+      if (completedOrders.length > 0) {
+        filteredStats = stats.filter(stat =>
+          validPeriodStarts.has(stat.period_start)
+        );
+      }
+
+      console.log('[DEBUG] Filtered stats:', {
+        count: filteredStats.length,
+        periods: filteredStats.map(s => ({
+          period_start: s.period_start,
+          startISO: new Date(s.period_start * 1000).toISOString()
+        }))
+      });
+
+      // Create new stats for periods with orders but no stats
       if (completedOrders.length > 0) {
         const ordersByDate = new Map<number, Order[]>();
         completedOrders.forEach(order => {
-          const date = new Date((order.updated_at + 7 * 3600) * 1000);
+          const date = new Date(order.updated_at * 1000);
           const periodStart = Math.floor(date.setHours(0, 0, 0, 0) / 1000);
           if (!ordersByDate.has(periodStart)) {
             ordersByDate.set(periodStart, []);
@@ -491,7 +528,10 @@ export class RestaurantStatsService {
         });
 
         for (const [periodStart, orders] of ordersByDate) {
-          if (!stats.some(s => s.period_start === periodStart)) {
+          if (!filteredStats.some(s => s.period_start === periodStart)) {
+            console.log('[DEBUG] Creating new stats for period:', {
+              periodStart
+            });
             const periodEnd = Math.floor(
               new Date(periodStart * 1000).setHours(23, 59, 59, 999) / 1000
             );
@@ -555,93 +595,101 @@ export class RestaurantStatsService {
               .slice(0, 10);
 
             await this.restaurantStatsRepo.save(newStats);
-            stats.push(newStats);
+            filteredStats.push(newStats);
           }
         }
       }
 
-      stats = stats.map(stat => ({
+      // Ensure popular_items is always an array
+      filteredStats = filteredStats.map(stat => ({
         ...stat,
         popular_items: Array.isArray(stat.popular_items)
           ? stat.popular_items
           : []
       }));
 
+      // Aggregate stats if requested
       if (aggregate) {
         const aggregated = {
           restaurant_id: restaurantId,
           period_start: start,
           period_end: end,
-          total_orders: stats.reduce((sum, s) => sum + s.total_orders, 0),
-          total_revenue: stats.reduce((sum, s) => sum + s.total_revenue, 0),
-          total_delivery_fee: stats.reduce(
+          total_orders: filteredStats.reduce(
+            (sum, s) => sum + s.total_orders,
+            0
+          ),
+          total_revenue: filteredStats.reduce(
+            (sum, s) => sum + s.total_revenue,
+            0
+          ),
+          total_delivery_fee: filteredStats.reduce(
             (sum, s) => sum + s.total_delivery_fee,
             0
           ),
-          total_commission: stats.reduce(
+          total_commission: filteredStats.reduce(
             (sum, s) => sum + s.total_commission,
             0
           ),
-          total_tips: stats.reduce((sum, s) => sum + s.total_tips, 0),
-          total_online_hours: stats.reduce(
+          total_tips: filteredStats.reduce((sum, s) => sum + s.total_tips, 0),
+          total_online_hours: filteredStats.reduce(
             (sum, s) => sum + s.total_online_hours,
             0
           ),
           rating_summary: {
-            average_food_rating: stats.some(
+            average_food_rating: filteredStats.some(
               s => s.rating_summary?.review_count > 0
             )
-              ? stats.reduce(
+              ? filteredStats.reduce(
                   (sum, s) =>
                     sum +
                     (s.rating_summary?.average_food_rating || 0) *
                       (s.rating_summary?.review_count || 0),
                   0
                 ) /
-                stats.reduce(
+                filteredStats.reduce(
                   (sum, s) => sum + (s.rating_summary?.review_count || 0),
                   0
                 )
               : 0,
-            average_service_rating: stats.some(
+            average_service_rating: filteredStats.some(
               s => s.rating_summary?.review_count > 0
             )
-              ? stats.reduce(
+              ? filteredStats.reduce(
                   (sum, s) =>
                     sum +
                     (s.rating_summary?.average_service_rating || 0) *
                       (s.rating_summary?.review_count || 0),
                   0
                 ) /
-                stats.reduce(
+                filteredStats.reduce(
                   (sum, s) => sum + (s.rating_summary?.review_count || 0),
                   0
                 )
               : 0,
-            average_overall_rating: stats.some(
+            average_overall_rating: filteredStats.some(
               s => s.rating_summary?.review_count > 0
             )
-              ? stats.reduce(
+              ? filteredStats.reduce(
                   (sum, s) =>
                     sum +
                     (s.rating_summary?.average_overall_rating || 0) *
                       (s.rating_summary?.review_count || 0),
                   0
                 ) /
-                stats.reduce(
+                filteredStats.reduce(
                   (sum, s) => sum + (s.rating_summary?.review_count || 0),
                   0
                 )
               : 0,
-            total_ratings: stats.reduce(
+            total_ratings: filteredStats.reduce(
               (sum, s) => sum + (s.rating_summary?.total_ratings || 0),
               0
             ),
-            review_count: stats.reduce(
+            review_count: filteredStats.reduce(
               (sum, s) => sum + (s.rating_summary?.review_count || 0),
               0
             ),
-            rating_distribution: stats.reduce(
+            rating_distribution: filteredStats.reduce(
               (dist, s) => {
                 if (s.rating_summary?.rating_distribution) {
                   Object.entries(s.rating_summary.rating_distribution).forEach(
@@ -655,7 +703,7 @@ export class RestaurantStatsService {
               { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 }
             )
           },
-          popular_items: stats
+          popular_items: filteredStats
             .reduce((acc, s) => {
               if (Array.isArray(s.popular_items)) {
                 s.popular_items.forEach(item => {
@@ -673,6 +721,7 @@ export class RestaurantStatsService {
             .sort((a, b) => b.quantity - a.quantity)
             .slice(0, 10)
         };
+        console.log('[DEBUG] Aggregated stats:', aggregated);
         return createResponse(
           'OK',
           aggregated,
@@ -680,13 +729,21 @@ export class RestaurantStatsService {
         );
       }
 
+      console.log('[DEBUG] Returning non-aggregated stats:', {
+        count: filteredStats.length,
+        periods: filteredStats.map(s => s.period_start)
+      });
       return createResponse(
         'OK',
-        stats,
+        filteredStats,
         'Restaurant stats retrieved successfully'
       );
     } catch (error: any) {
-      console.error('Error fetching restaurant stats:', error);
+      console.error(
+        '[ERROR] Error fetching restaurant stats:',
+        error.message,
+        error.stack
+      );
       return createResponse(
         'ServerError',
         null,

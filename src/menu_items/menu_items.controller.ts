@@ -58,4 +58,10 @@ export class MenuItemsController {
   remove(@Param('id') id: string) {
     return this.menuItemsService.remove(id); // ID passed as string
   }
+
+  // Toggle availability of a menu item by ID
+  @Patch(':id/toggle-availability')
+  toggleAvailability(@Param('id') id: string) {
+    return this.menuItemsService.toggleAvailability(id);
+  }
 }

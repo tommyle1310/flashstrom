@@ -24,13 +24,15 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("typeorm");
 const typeorm_2 = require("@nestjs/typeorm");
 const typeorm_3 = require("typeorm");
+const redis_service_1 = require("../redis/redis.service");
 let MenuItemsService = MenuItemsService_1 = class MenuItemsService {
-    constructor(menuItemRepository, menuItemsRepository, restaurantRepository, foodCategoriesRepository, menuItemVariantsService) {
+    constructor(menuItemRepository, menuItemsRepository, restaurantRepository, foodCategoriesRepository, menuItemVariantsService, redisService) {
         this.menuItemRepository = menuItemRepository;
         this.menuItemsRepository = menuItemsRepository;
         this.restaurantRepository = restaurantRepository;
         this.foodCategoriesRepository = foodCategoriesRepository;
         this.menuItemVariantsService = menuItemVariantsService;
+        this.redisService = redisService;
         this.logger = new common_1.Logger(MenuItemsService_1.name);
     }
     async create(createMenuItemDto) {
@@ -315,6 +317,26 @@ let MenuItemsService = MenuItemsService_1 = class MenuItemsService {
             return (0, createResponse_1.createResponse)('ServerError', null);
         }
     }
+    async toggleAvailability(id) {
+        try {
+            const menuItem = await this.menuItemsRepository.findById(id);
+            if (!menuItem) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Menu Item not found');
+            }
+            const newAvailability = !menuItem.availability;
+            const updatedMenuItem = await this.menuItemsRepository.update(id, {
+                availability: newAvailability,
+                updated_at: Math.floor(Date.now() / 1000)
+            });
+            const cacheKey = `menu_item:${id}`;
+            await this.redisService.set(cacheKey, JSON.stringify(updatedMenuItem), 300000);
+            this.redisService.del(`menu_items:${menuItem.restaurant_id}`);
+            return (0, createResponse_1.createResponse)('OK', updatedMenuItem, `Menu Item availability toggled to ${newAvailability}`);
+        }
+        catch (error) {
+            return this.handleError('Error toggling menu item availability:', error);
+        }
+    }
 };
 exports.MenuItemsService = MenuItemsService;
 exports.MenuItemsService = MenuItemsService = MenuItemsService_1 = __decorate([
@@ -324,6 +346,7 @@ exports.MenuItemsService = MenuItemsService = MenuItemsService_1 = __decorate([
         menu_items_repository_1.MenuItemsRepository,
         restaurants_repository_1.RestaurantsRepository,
         food_categories_repository_1.FoodCategoriesRepository,
-        menu_item_variants_service_1.MenuItemVariantsService])
+        menu_item_variants_service_1.MenuItemVariantsService,
+        redis_service_1.RedisService])
 ], MenuItemsService);
 //# sourceMappingURL=menu_items.service.js.map

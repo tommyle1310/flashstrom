@@ -10,4 +10,5 @@ export declare class MenuItemsController {
     findOne(id: string): Promise<import("../utils/createResponse").ApiResponse<any>>;
     update(id: string, updateMenuItemDto: UpdateMenuItemDto): Promise<import("../utils/createResponse").ApiResponse<import("./entities/menu_item.entity").MenuItem>>;
     remove(id: string): Promise<import("../utils/createResponse").ApiResponse<null>>;
+    toggleAvailability(id: string): Promise<import("../utils/createResponse").ApiResponse<import("./entities/menu_item.entity").MenuItem>>;
 }

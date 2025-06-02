@@ -14,6 +14,7 @@ import { MenuItemVariant } from 'src/menu_item_variants/entities/menu_item_varia
 import { Equal } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { RedisService } from 'src/redis/redis.service';
 
 interface MenuItemVariantResponse {
   id: string;
@@ -63,7 +64,8 @@ export class MenuItemsService {
     private readonly menuItemsRepository: MenuItemsRepository,
     private readonly restaurantRepository: RestaurantsRepository,
     private readonly foodCategoriesRepository: FoodCategoriesRepository,
-    private readonly menuItemVariantsService: MenuItemVariantsService
+    private readonly menuItemVariantsService: MenuItemVariantsService,
+    private readonly redisService: RedisService
   ) {}
 
   async create(
@@ -507,6 +509,35 @@ export class MenuItemsService {
         `Error fetching paginated menu items: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
       return createResponse('ServerError', null);
+    }
+  }
+
+  async toggleAvailability(id: string): Promise<ApiResponse<MenuItem>> {
+    try {
+      const menuItem = await this.menuItemsRepository.findById(id);
+      if (!menuItem) {
+        return createResponse('NotFound', null, 'Menu Item not found');
+      }
+      const newAvailability = !menuItem.availability;
+      const updatedMenuItem = await this.menuItemsRepository.update(id, {
+        availability: newAvailability,
+        updated_at: Math.floor(Date.now() / 1000)
+      });
+      // Cache the updated menu item in Redis
+      const cacheKey = `menu_item:${id}`;
+      await this.redisService.set(
+        cacheKey,
+        JSON.stringify(updatedMenuItem),
+        300000
+      ); // cache for 5 minutes
+      this.redisService.del(`menu_items:${menuItem.restaurant_id}`);
+      return createResponse(
+        'OK',
+        updatedMenuItem,
+        `Menu Item availability toggled to ${newAvailability}`
+      );
+    } catch (error: any) {
+      return this.handleError('Error toggling menu item availability:', error);
     }
   }
 }

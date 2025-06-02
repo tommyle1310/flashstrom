@@ -7,14 +7,16 @@ import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { MenuItemsRepository } from './menu_items.repository';
 import { MenuItem } from './entities/menu_item.entity';
 import { Repository } from 'typeorm';
+import { RedisService } from 'src/redis/redis.service';
 export declare class MenuItemsService {
     private readonly menuItemRepository;
     private readonly menuItemsRepository;
     private readonly restaurantRepository;
     private readonly foodCategoriesRepository;
     private readonly menuItemVariantsService;
+    private readonly redisService;
     private readonly logger;
-    constructor(menuItemRepository: Repository<MenuItem>, menuItemsRepository: MenuItemsRepository, restaurantRepository: RestaurantsRepository, foodCategoriesRepository: FoodCategoriesRepository, menuItemVariantsService: MenuItemVariantsService);
+    constructor(menuItemRepository: Repository<MenuItem>, menuItemsRepository: MenuItemsRepository, restaurantRepository: RestaurantsRepository, foodCategoriesRepository: FoodCategoriesRepository, menuItemVariantsService: MenuItemVariantsService, redisService: RedisService);
     create(createMenuItemDto: CreateMenuItemDto): Promise<ApiResponse<any>>;
     findAll(): Promise<ApiResponse<MenuItem[]>>;
     private calculateDiscountedPrice;
@@ -35,4 +37,5 @@ export declare class MenuItemsService {
     private handleError;
     findByRestaurantId(restaurantId: string): Promise<ApiResponse<MenuItem[]>>;
     findAllPaginated(page?: number, limit?: number): Promise<ApiResponse<any>>;
+    toggleAvailability(id: string): Promise<ApiResponse<MenuItem>>;
 }

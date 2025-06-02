@@ -12,6 +12,7 @@ import { MenuItemVariant } from 'src/menu_item_variants/entities/menu_item_varia
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 import { CartItemsModule } from 'src/cart_items/cart_items.module';
+import { RedisService } from 'src/redis/redis.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([MenuItem, MenuItemVariant, FoodCategory]),
@@ -23,6 +24,7 @@ import { CartItemsModule } from 'src/cart_items/cart_items.module';
   controllers: [MenuItemsController],
   providers: [
     MenuItemsService,
+    RedisService,
     MenuItemsRepository,
     MenuItemVariantsService,
     FoodCategoriesRepository

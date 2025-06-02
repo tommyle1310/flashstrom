@@ -54,34 +54,6 @@ let PromotionsService = class PromotionsService {
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error creating promotion');
         }
     }
-    async findAll() {
-        const start = Date.now();
-        try {
-            const cachedData = await this.redisService.get(this.allPromotionsCacheKey);
-            if (cachedData) {
-                logger.log(`Fetched promotions from cache in ${Date.now() - start}ms`);
-                return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedData), 'Promotions retrieved from cache');
-            }
-            logger.log(`Cache miss for ${this.allPromotionsCacheKey}`);
-            const dbStart = Date.now();
-            const promotions = await this.promotionsRepository.findAll();
-            logger.log(`Database fetch took ${Date.now() - dbStart}ms`);
-            const cacheStart = Date.now();
-            const cacheSaved = await this.redisService.setNx(this.allPromotionsCacheKey, JSON.stringify(promotions), this.cacheTtl * 1000);
-            if (cacheSaved) {
-                logger.log(`Stored promotions in cache: ${this.allPromotionsCacheKey} (took ${Date.now() - cacheStart}ms)`);
-            }
-            else {
-                logger.warn(`Failed to store promotions in cache: ${this.allPromotionsCacheKey}`);
-            }
-            logger.log(`Total time: ${Date.now() - start}ms`);
-            return (0, createResponse_1.createResponse)('OK', promotions, 'Promotions retrieved successfully');
-        }
-        catch (error) {
-            logger.error(`Error fetching promotions: ${error.message}`, error.stack);
-            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching promotions');
-        }
-    }
     async findValidWithRestaurants() {
         const start = Date.now();
         try {
@@ -175,6 +147,34 @@ let PromotionsService = class PromotionsService {
         catch (error) {
             logger.error(`Error fetching valid promotions: ${error.message}`, error.stack);
             return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching valid promotions with restaurants');
+        }
+    }
+    async findAll() {
+        const start = Date.now();
+        try {
+            const cachedData = await this.redisService.get(this.allPromotionsCacheKey);
+            if (cachedData) {
+                logger.log(`Fetched promotions from cache in ${Date.now() - start}ms`);
+                return (0, createResponse_1.createResponse)('OK', JSON.parse(cachedData), 'Promotions retrieved from cache');
+            }
+            logger.log(`Cache miss for ${this.allPromotionsCacheKey}`);
+            const dbStart = Date.now();
+            const promotions = await this.promotionsRepository.findAll();
+            logger.log(`Database fetch took ${Date.now() - dbStart}ms`);
+            const cacheStart = Date.now();
+            const cacheSaved = await this.redisService.setNx(this.allPromotionsCacheKey, JSON.stringify(promotions), this.cacheTtl * 1000);
+            if (cacheSaved) {
+                logger.log(`Stored promotions in cache: ${this.allPromotionsCacheKey} (took ${Date.now() - cacheStart}ms)`);
+            }
+            else {
+                logger.warn(`Failed to store promotions in cache: ${this.allPromotionsCacheKey}`);
+            }
+            logger.log(`Total time: ${Date.now() - start}ms`);
+            return (0, createResponse_1.createResponse)('OK', promotions, 'Promotions retrieved successfully');
+        }
+        catch (error) {
+            logger.error(`Error fetching promotions: ${error.message}`, error.stack);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error fetching promotions');
         }
     }
     async findOne(id) {
