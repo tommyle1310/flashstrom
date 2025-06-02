@@ -486,10 +486,10 @@ let RestaurantsService = class RestaurantsService {
                 logger.log('No menu items result or data found');
                 return (0, createResponse_1.createResponse)('OK', [], 'No menu items found for the restaurant');
             }
-            const menuItems = menuItemsResult.data || [];
-            logger.log('Menu items count:', menuItems.length);
+            const menuItems = (menuItemsResult.data || []).filter((item) => item.availability);
+            logger.log('Filtered menu items count (availability true):', menuItems.length);
             if (!restaurant.promotions || restaurant.promotions.length === 0) {
-                logger.log('No promotions found for restaurant, returning normal menu items');
+                logger.log('No promotions found for restaurant, returning filtered menu items');
                 await redis.setEx(cacheKey, 3600, JSON.stringify(menuItems));
                 return (0, createResponse_1.createResponse)('OK', menuItems, 'Fetched menu items for the restaurant');
             }
@@ -546,7 +546,9 @@ let RestaurantsService = class RestaurantsService {
                 console.log(`Final price after all promotions for item ${item.id}: ${currentItemPrice}`);
                 if (item.variants && item.variants.length > 0) {
                     console.log(`\nProcessing ${item.variants.length} variants for item ${item.id}`);
-                    item.variants.forEach((variant) => {
+                    item.variants
+                        .filter((variant) => variant.availability)
+                        .forEach((variant) => {
                         console.log(`\n--- Processing variant: ${variant.id} - ${variant.variant} ---`);
                         console.log(`Original price: ${variant.price}`);
                         let currentVariantPrice = Number(variant.price);

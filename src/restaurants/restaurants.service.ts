@@ -733,13 +733,19 @@ export class RestaurantsService {
         );
       }
 
-      const menuItems = menuItemsResult.data || [];
-      logger.log('Menu items count:', menuItems.length);
+      // Filter menu items to only include those with availability: true
+      const menuItems = (menuItemsResult.data || []).filter(
+        (item: MenuItem) => item.availability
+      );
+      logger.log(
+        'Filtered menu items count (availability true):',
+        menuItems.length
+      );
 
-      // If restaurant has no promotions, cache and return normal menu items
+      // If restaurant has no promotions, cache and return filtered menu items
       if (!restaurant.promotions || restaurant.promotions.length === 0) {
         logger.log(
-          'No promotions found for restaurant, returning normal menu items'
+          'No promotions found for restaurant, returning filtered menu items'
         );
         // Cache the result
         await redis.setEx(cacheKey, 3600, JSON.stringify(menuItems)); // Cache for 1 hour
@@ -845,93 +851,97 @@ export class RestaurantsService {
             `Final price after all promotions for item ${item.id}: ${currentItemPrice}`
           );
 
-          // Process variants
+          // Process variants, filtering for availability: true
           if (item.variants && item.variants.length > 0) {
             console.log(
               `\nProcessing ${item.variants.length} variants for item ${item.id}`
             );
 
-            item.variants.forEach((variant: MenuItemVariant) => {
-              console.log(
-                `\n--- Processing variant: ${variant.id} - ${variant.variant} ---`
-              );
-              console.log(`Original price: ${variant.price}`);
+            item.variants
+              .filter((variant: MenuItemVariant) => variant.availability)
+              .forEach((variant: MenuItemVariant) => {
+                console.log(
+                  `\n--- Processing variant: ${variant.id} - ${variant.variant} ---`
+                );
+                console.log(`Original price: ${variant.price}`);
 
-              // Start with original variant price
-              let currentVariantPrice = Number(variant.price);
-              let isVariantPromotionApplied = false;
+                // Start with original variant price
+                let currentVariantPrice = Number(variant.price);
+                let isVariantPromotionApplied = false;
 
-              if (applicablePromotions.length > 0) {
-                // Sort promotions to apply percentage discounts first, then fixed discounts
-                const sortedPromotions = [...applicablePromotions].sort(
-                  (a, b) => {
-                    if (
-                      a.discount_type === 'PERCENTAGE' &&
-                      b.discount_type !== 'PERCENTAGE'
-                    )
-                      return -1;
-                    if (
-                      a.discount_type !== 'PERCENTAGE' &&
-                      b.discount_type === 'PERCENTAGE'
-                    )
-                      return 1;
-                    return 0;
-                  }
+                if (applicablePromotions.length > 0) {
+                  // Sort promotions to apply percentage discounts first, then fixed discounts
+                  const sortedPromotions = [...applicablePromotions].sort(
+                    (a, b) => {
+                      if (
+                        a.discount_type === 'PERCENTAGE' &&
+                        b.discount_type !== 'PERCENTAGE'
+                      )
+                        return -1;
+                      if (
+                        a.discount_type !== 'PERCENTAGE' &&
+                        b.discount_type === 'PERCENTAGE'
+                      )
+                        return 1;
+                      return 0;
+                    }
+                  );
+
+                  sortedPromotions.forEach(promotion => {
+                    console.log(
+                      `\nApplying promotion ${promotion.id} to variant ${variant.id}:`
+                    );
+                    console.log(`- Current price: ${currentVariantPrice}`);
+                    console.log(`- Discount type: ${promotion.discount_type}`);
+                    console.log(
+                      `- Discount value: ${promotion.discount_value}`
+                    );
+
+                    const discountedPrice = this.calculateDiscountedPrice(
+                      currentVariantPrice,
+                      promotion
+                    );
+
+                    console.log(
+                      `- Calculated discounted price: ${discountedPrice}`
+                    );
+
+                    if (discountedPrice !== null) {
+                      console.log(
+                        `- Applied promotion: new price ${discountedPrice} (was: ${currentVariantPrice})`
+                      );
+                      currentVariantPrice = discountedPrice;
+                      isVariantPromotionApplied = true; // Đánh dấu rằng promotion đã được áp dụng cho variant
+                    }
+                  });
+                }
+
+                console.log(
+                  `Final price after all promotions for variant ${variant.id}: ${currentVariantPrice}`
                 );
 
-                sortedPromotions.forEach(promotion => {
-                  console.log(
-                    `\nApplying promotion ${promotion.id} to variant ${variant.id}:`
-                  );
-                  console.log(`- Current price: ${currentVariantPrice}`);
-                  console.log(`- Discount type: ${promotion.discount_type}`);
-                  console.log(`- Discount value: ${promotion.discount_value}`);
+                // Chỉ thêm price_after_applied_promotion nếu promotion thực sự được áp dụng
+                const variantResponse: MenuItemVariantResponse = {
+                  id: variant.id,
+                  menu_id: variant.menu_id,
+                  variant: variant.variant,
+                  description: variant.description,
+                  avatar: variant.avatar,
+                  availability: variant.availability,
+                  default_restaurant_notes: variant.default_restaurant_notes,
+                  price: variant.price,
+                  discount_rate: variant.discount_rate,
+                  created_at: variant.created_at,
+                  updated_at: variant.updated_at
+                };
 
-                  const discountedPrice = this.calculateDiscountedPrice(
-                    currentVariantPrice,
-                    promotion
-                  );
+                if (isVariantPromotionApplied) {
+                  variantResponse.price_after_applied_promotion =
+                    currentVariantPrice;
+                }
 
-                  console.log(
-                    `- Calculated discounted price: ${discountedPrice}`
-                  );
-
-                  if (discountedPrice !== null) {
-                    console.log(
-                      `- Applied promotion: new price ${discountedPrice} (was: ${currentVariantPrice})`
-                    );
-                    currentVariantPrice = discountedPrice;
-                    isVariantPromotionApplied = true; // Đánh dấu rằng promotion đã được áp dụng cho variant
-                  }
-                });
-              }
-
-              console.log(
-                `Final price after all promotions for variant ${variant.id}: ${currentVariantPrice}`
-              );
-
-              // Chỉ thêm price_after_applied_promotion nếu promotion thực sự được áp dụng
-              const variantResponse: MenuItemVariantResponse = {
-                id: variant.id,
-                menu_id: variant.menu_id,
-                variant: variant.variant,
-                description: variant.description,
-                avatar: variant.avatar,
-                availability: variant.availability,
-                default_restaurant_notes: variant.default_restaurant_notes,
-                price: variant.price,
-                discount_rate: variant.discount_rate,
-                created_at: variant.created_at,
-                updated_at: variant.updated_at
-              };
-
-              if (isVariantPromotionApplied) {
-                variantResponse.price_after_applied_promotion =
-                  currentVariantPrice;
-              }
-
-              processedVariants.push(variantResponse);
-            });
+                processedVariants.push(variantResponse);
+              });
           }
 
           // Chỉ thêm price_after_applied_promotion nếu promotion thực sự được áp dụng

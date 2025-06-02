@@ -205,7 +205,7 @@ export class AuthService {
       const userWithRole = await (Promise.race([
         this.customersRepository.findByUserId(user.id),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Customer lookup timeout')), 30000)
+          setTimeout(() => reject(new Error('Customer lookup timeout')), 60000)
         )
       ]) as Promise<Customer>);
 
