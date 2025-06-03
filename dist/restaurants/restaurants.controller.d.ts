@@ -8,11 +8,14 @@ import { UpdateMenuItemVariantDto } from 'src/menu_item_variants/dto/update-menu
 import { ApiResponse } from 'src/utils/createResponse';
 import { Restaurant } from './entities/restaurant.entity';
 import { ToggleRestaurantAvailabilityDto } from './dto/restaurant-availability.dto';
+import { OrdersService } from 'src/orders/orders.service';
 export declare class RestaurantsController {
     private readonly restaurantsService;
-    constructor(restaurantsService: RestaurantsService);
+    private readonly ordersService;
+    constructor(restaurantsService: RestaurantsService, ordersService: OrdersService);
     create(createRestaurantDto: CreateRestaurantDto): Promise<ApiResponse<Restaurant>>;
     applyPromotion(restaurantId: string, promotionId: string): Promise<ApiResponse<any>>;
+    acceptOrder(orderId: string, restaurantId: string): Promise<any>;
     clearRedis(): Promise<ApiResponse<null>>;
     findAll(): Promise<ApiResponse<any>>;
     findAllPaginated(page?: string, limit?: string): Promise<ApiResponse<{

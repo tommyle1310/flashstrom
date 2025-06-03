@@ -22,15 +22,20 @@ const create_menu_item_dto_1 = require("../menu_items/dto/create-menu_item.dto")
 const create_menu_item_variant_dto_1 = require("../menu_item_variants/dto/create-menu_item_variant.dto");
 const update_menu_item_variant_dto_1 = require("../menu_item_variants/dto/update-menu_item_variant.dto");
 const restaurant_availability_dto_1 = require("./dto/restaurant-availability.dto");
+const orders_service_1 = require("../orders/orders.service");
 let RestaurantsController = class RestaurantsController {
-    constructor(restaurantsService) {
+    constructor(restaurantsService, ordersService) {
         this.restaurantsService = restaurantsService;
+        this.ordersService = ordersService;
     }
     create(createRestaurantDto) {
         return this.restaurantsService.create(createRestaurantDto);
     }
     applyPromotion(restaurantId, promotionId) {
         return this.restaurantsService.applyPromotion(restaurantId, promotionId);
+    }
+    async acceptOrder(orderId, restaurantId) {
+        return this.ordersService.restaurantAcceptOrder(orderId, restaurantId);
     }
     clearRedis() {
         return this.restaurantsService.clearRedis();
@@ -104,6 +109,14 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", void 0)
 ], RestaurantsController.prototype, "applyPromotion", null);
+__decorate([
+    (0, common_1.Post)('/accept-order/:orderId/:restaurantId'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('restaurantId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], RestaurantsController.prototype, "acceptOrder", null);
 __decorate([
     (0, common_1.Post)('clear-redis'),
     __metadata("design:type", Function),
@@ -235,6 +248,7 @@ __decorate([
 ], RestaurantsController.prototype, "getRestaurantOrders", null);
 exports.RestaurantsController = RestaurantsController = __decorate([
     (0, common_1.Controller)('restaurants'),
-    __metadata("design:paramtypes", [restaurants_service_1.RestaurantsService])
+    __metadata("design:paramtypes", [restaurants_service_1.RestaurantsService,
+        orders_service_1.OrdersService])
 ], RestaurantsController);
 //# sourceMappingURL=restaurants.controller.js.map

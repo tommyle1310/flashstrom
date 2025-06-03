@@ -1051,6 +1051,17 @@ let OrdersService = class OrdersService {
             if (!this.canOrderBeCancelled(order.status)) {
                 return (0, createResponse_1.createResponse)('Forbidden', null, 'Order cannot be cancelled in its current status');
             }
+            const [customerAddress, restaurantAddress] = await Promise.all([
+                this.addressBookRepository.findById(order.customer_location),
+                this.addressBookRepository.findById(order.restaurant_location)
+            ]);
+            if (!restaurantAddress) {
+                return (0, createResponse_1.createResponse)('NotFound', null, `Restaurant address ${order.restaurant_location} not found`);
+            }
+            const restaurant = await this.restaurantsRepository.findById(order.restaurant_id);
+            if (!restaurant) {
+                return (0, createResponse_1.createResponse)('NotFound', null, `Restaurant ${order.restaurant_id} not found`);
+            }
             const updatedOrder = await this.dataSource.transaction(async (transactionalEntityManager) => {
                 const orderToUpdate = await transactionalEntityManager
                     .getRepository(order_entity_1.Order)
@@ -1070,6 +1081,38 @@ let OrdersService = class OrdersService {
                 return orderToUpdate;
             });
             await this.notifyRestaurantAndDriver(updatedOrder);
+            const eventId = `${updatedOrder.id}-${Date.now()}`;
+            const trackingUpdate = {
+                orderId: updatedOrder.id,
+                status: updatedOrder.status,
+                tracking_info: updatedOrder.tracking_info,
+                updated_at: updatedOrder.updated_at,
+                customer_id: updatedOrder.customer_id,
+                driver_id: updatedOrder.driver_id,
+                restaurant_id: updatedOrder.restaurant_id,
+                restaurantAddress,
+                customerAddress,
+                order_items: updatedOrder.order_items,
+                total_amount: updatedOrder.total_amount,
+                delivery_fee: updatedOrder.delivery_fee,
+                service_fee: updatedOrder.service_fee,
+                promotions_applied: updatedOrder.promotions_applied,
+                restaurant_avatar: restaurant.avatar || null,
+                eventId
+            };
+            const redisResult = await redis.set(`event:${eventId}`, '1', {
+                NX: true,
+                EX: 60
+            });
+            if (redisResult === 'OK') {
+                this.notifyOrderStatus(trackingUpdate);
+                this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
+                logger.log('check tracking update', trackingUpdate);
+            }
+            else {
+                logger.log(`Event ${eventId} already emitted, skipped`);
+            }
+            this.redisService.del(`orders:restaurant:${updatedOrder.restaurant_id}:page:1:limit:50`);
             return (0, createResponse_1.createResponse)('OK', updatedOrder, 'Order cancelled successfully');
         }
         catch (error) {
@@ -1085,6 +1128,88 @@ let OrdersService = class OrdersService {
             order_entity_1.OrderStatus.DELIVERY_FAILED
         ];
         return !nonCancellableStatuses.includes(status);
+    }
+    async restaurantAcceptOrder(orderId, restaurantId) {
+        try {
+            const order = await this.ordersRepository.findOneOrFail({
+                where: { id: orderId }
+            });
+            console.log('check oỏderordeẻ', order);
+            if (!order) {
+                return (0, createResponse_1.createResponse)('NotFound', null, 'Order not found');
+            }
+            const restaurant = await this.restaurantsRepository.findById(restaurantId);
+            if (!restaurant) {
+                return (0, createResponse_1.createResponse)('NotFound', null, `Restaurant with ID ${restaurantId} not found`);
+            }
+            if (order.restaurant_id !== restaurantId) {
+                return (0, createResponse_1.createResponse)('Forbidden', null, 'Restaurant is not authorized to accept this order');
+            }
+            if (!this.canOrderBeAccepted(order.status)) {
+                return (0, createResponse_1.createResponse)('Forbidden', null, 'Order cannot be accepted in its current status');
+            }
+            const [customerAddress, restaurantAddress] = await Promise.all([
+                this.addressBookRepository.findById(order.customer_location),
+                this.addressBookRepository.findById(order.restaurant_location)
+            ]);
+            if (!restaurantAddress) {
+                return (0, createResponse_1.createResponse)('NotFound', null, `Restaurant address ${order.restaurant_location} not found`);
+            }
+            const updatedOrder = await this.dataSource.transaction(async (transactionalEntityManager) => {
+                const orderToUpdate = await transactionalEntityManager
+                    .getRepository(order_entity_1.Order)
+                    .findOne({ where: { id: orderId } });
+                if (!orderToUpdate)
+                    throw new Error('Order not found in transaction');
+                orderToUpdate.status = order_entity_1.OrderStatus.PREPARING;
+                orderToUpdate.tracking_info = order_entity_1.OrderTrackingInfo.PREPARING;
+                orderToUpdate.updated_at = Math.floor(Date.now() / 1000);
+                await transactionalEntityManager.save(order_entity_1.Order, orderToUpdate);
+                return orderToUpdate;
+            });
+            await this.notifyRestaurantAndDriver(updatedOrder);
+            const eventId = `${updatedOrder.id}-${Date.now()}`;
+            const trackingUpdate = {
+                orderId: updatedOrder.id,
+                status: updatedOrder.status,
+                tracking_info: updatedOrder.tracking_info,
+                updated_at: updatedOrder.updated_at,
+                customer_id: updatedOrder.customer_id,
+                driver_id: updatedOrder.driver_id,
+                restaurant_id: updatedOrder.restaurant_id,
+                restaurantAddress,
+                customerAddress,
+                order_items: updatedOrder.order_items,
+                total_amount: updatedOrder.total_amount,
+                delivery_fee: updatedOrder.delivery_fee,
+                service_fee: updatedOrder.service_fee,
+                promotions_applied: updatedOrder.promotions_applied,
+                restaurant_avatar: restaurant.avatar || null,
+                eventId
+            };
+            const redisResult = await redis.set(`event:${eventId}`, '1', {
+                NX: true,
+                EX: 60
+            });
+            if (redisResult === 'OK') {
+                this.notifyOrderStatus(trackingUpdate);
+                this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
+                logger.log('check tracking update', trackingUpdate);
+            }
+            else {
+                logger.log(`Event ${eventId} already emitted, skipped`);
+            }
+            return (0, createResponse_1.createResponse)('OK', updatedOrder, 'Order accepted successfully');
+        }
+        catch (error) {
+            logger.error('Error accepting order:', error);
+            return (0, createResponse_1.createResponse)('ServerError', null, 'Error accepting order');
+        }
+    }
+    canOrderBeAccepted(status) {
+        console.log('check order status', status);
+        const acceptableStatuses = [order_entity_1.OrderStatus.PENDING];
+        return acceptableStatuses.includes(status);
     }
     async validateOrderData(orderDto, fetchedData) {
         const validationStart = Date.now();

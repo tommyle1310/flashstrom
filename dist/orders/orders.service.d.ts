@@ -51,6 +51,8 @@ export declare class OrdersService {
     remove(id: string): Promise<ApiResponse<null>>;
     cancelOrder(orderId: string, cancelledBy: 'customer' | 'restaurant' | 'driver', cancelledById: string, reason: OrderCancellationReason, title: string, description: string): Promise<ApiResponse<Order>>;
     private canOrderBeCancelled;
+    restaurantAcceptOrder(orderId: string, restaurantId: string): Promise<ApiResponse<Order>>;
+    private canOrderBeAccepted;
     private validateOrderData;
     updateOrderPaymentStatus(orderId: string, paymentStatus: 'PENDING' | 'PAID' | 'FAILED', transactionalEntityManager?: EntityManager): Promise<ApiResponse<Order>>;
     findAllPaginated(page?: number, limit?: number): Promise<ApiResponse<{

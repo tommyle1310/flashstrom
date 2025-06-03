@@ -18,10 +18,14 @@ import { UpdateMenuItemVariantDto } from 'src/menu_item_variants/dto/update-menu
 import { ApiResponse } from 'src/utils/createResponse';
 import { Restaurant } from './entities/restaurant.entity';
 import { ToggleRestaurantAvailabilityDto } from './dto/restaurant-availability.dto';
+import { OrdersService } from 'src/orders/orders.service';
 
 @Controller('restaurants')
 export class RestaurantsController {
-  constructor(private readonly restaurantsService: RestaurantsService) {}
+  constructor(
+    private readonly restaurantsService: RestaurantsService,
+    private readonly ordersService: OrdersService
+  ) {}
 
   @Post()
   create(@Body() createRestaurantDto: CreateRestaurantDto) {
@@ -34,6 +38,14 @@ export class RestaurantsController {
     @Body('promotionId') promotionId: string
   ) {
     return this.restaurantsService.applyPromotion(restaurantId, promotionId);
+  }
+
+  @Post('/accept-order/:orderId/:restaurantId')
+  async acceptOrder(
+    @Param('id') orderId: string,
+    @Param('restaurantId') restaurantId: string
+  ): Promise<any> {
+    return this.ordersService.restaurantAcceptOrder(orderId, restaurantId);
   }
 
   @Post('clear-redis')
