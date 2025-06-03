@@ -518,6 +518,9 @@ let FchatService = class FchatService {
         })
             .orderBy('room.lastActivity', 'DESC')
             .getMany();
+        if (rooms.length === 0) {
+            return [];
+        }
         const lastMessages = await this.messageRepository
             .createQueryBuilder('message')
             .select([

@@ -620,6 +620,11 @@ export class FchatService {
       .orderBy('room.lastActivity', 'DESC')
       .getMany();
 
+    // If no rooms found, return empty array
+    if (rooms.length === 0) {
+      return [];
+    }
+
     // Fetch last messages
     const lastMessages = await this.messageRepository
       .createQueryBuilder('message')
