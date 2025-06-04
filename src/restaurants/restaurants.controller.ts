@@ -42,7 +42,7 @@ export class RestaurantsController {
 
   @Post('/accept-order/:orderId/:restaurantId')
   async acceptOrder(
-    @Param('id') orderId: string,
+    @Param('orderId') orderId: string,
     @Param('restaurantId') restaurantId: string
   ): Promise<any> {
     return this.ordersService.restaurantAcceptOrder(orderId, restaurantId);

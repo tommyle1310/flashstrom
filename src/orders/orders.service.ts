@@ -1503,6 +1503,8 @@ export class OrdersService {
     restaurantId: string
   ): Promise<ApiResponse<Order>> {
     try {
+      console.log('check orrder id', orderId);
+
       const order = await this.ordersRepository.findOneOrFail({
         where: { id: orderId }
       });

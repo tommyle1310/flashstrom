@@ -111,7 +111,7 @@ __decorate([
 ], RestaurantsController.prototype, "applyPromotion", null);
 __decorate([
     (0, common_1.Post)('/accept-order/:orderId/:restaurantId'),
-    __param(0, (0, common_1.Param)('id')),
+    __param(0, (0, common_1.Param)('orderId')),
     __param(1, (0, common_1.Param)('restaurantId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String]),

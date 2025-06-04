@@ -1131,6 +1131,7 @@ let OrdersService = class OrdersService {
     }
     async restaurantAcceptOrder(orderId, restaurantId) {
         try {
+            console.log('check orrder id', orderId);
             const order = await this.ordersRepository.findOneOrFail({
                 where: { id: orderId }
             });
