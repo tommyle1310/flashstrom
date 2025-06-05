@@ -395,7 +395,7 @@ let DriversGateway = class DriversGateway {
                     const driverRoom = `driver_${driver.id}`;
                     const driverClients = await this.server.in(driverRoom).fetchSockets();
                     console.log(`[DriversGateway] Notifying driver ${driver.id}, clients in room: ${driverClients.length}`);
-                    await this.server.to(driverRoom).emit('orderStatusUpdated', {
+                    await this.server.to(driverRoom).emit('driverStagesUpdated', {
                         orderId: order.id,
                         status: orderData.status,
                         tracking_info: orderData.tracking_info
@@ -435,22 +435,53 @@ let DriversGateway = class DriversGateway {
         }
     }
     async handleDriverProgressUpdate(data) {
+        const startTime = Date.now();
+        const requestId = `${data.stageId}_${startTime}`;
+        logToFile('=== DRIVER PROGRESS UPDATE START ===', {
+            requestId,
+            stageId: data.stageId,
+            orderId: data.orderId,
+            timestamp: new Date().toISOString(),
+            startTime
+        });
         logger.log('Received updateDriverProgress event:', {
             stageId: data.stageId,
             orderId: data.orderId
         });
         try {
+            logToFile('[DEDUPLICATION] Checking for duplicate events', {
+                requestId,
+                stageId: data.stageId
+            });
             const isUnique = await this.deduplicateEvent(data.stageId);
             if (!isUnique) {
+                logToFile('[DEDUPLICATION] Duplicate event detected - SKIPPING', {
+                    requestId,
+                    stageId: data.stageId
+                });
                 logger.warn(`[DriversGateway] Duplicate updateDriverProgress event for stage ${data.stageId}, skipping`);
                 return { success: false, message: 'Duplicate event' };
             }
+            logToFile('[DEDUPLICATION] Event is unique - PROCEEDING', {
+                requestId,
+                stageId: data.stageId
+            });
             const maxRetries = 3;
             let attempt = 0;
             while (attempt < maxRetries) {
                 try {
                     return await this.dataSource.transaction(async (transactionalEntityManager) => {
+                        logToFile('[TRANSACTION] Starting transaction for driver progress update', {
+                            requestId,
+                            stageId: data.stageId,
+                            attempt: attempt + 1,
+                            maxRetries
+                        });
                         logger.log('Starting transaction for driver progress update', {
+                            stageId: data.stageId
+                        });
+                        logToFile('[DPS_FETCH] Fetching DPS with orders', {
+                            requestId,
                             stageId: data.stageId
                         });
                         const dps = await transactionalEntityManager
@@ -459,7 +490,30 @@ let DriversGateway = class DriversGateway {
                             where: { id: data.stageId },
                             relations: ['orders']
                         });
+                        logToFile('[DPS_FETCH] DPS fetch result', {
+                            requestId,
+                            stageId: data.stageId,
+                            dpsExists: !!dps,
+                            dpsId: dps?.id,
+                            driverId: dps?.driver_id,
+                            ordersCount: dps?.orders?.length || 0,
+                            currentState: dps?.current_state,
+                            previousState: dps?.previous_state,
+                            nextState: dps?.next_state,
+                            estimatedTimeRemaining: dps?.estimated_time_remaining,
+                            actualTimeSpent: dps?.actual_time_spent,
+                            totalDistance: dps?.total_distance_travelled,
+                            totalTips: dps?.total_tips,
+                            totalEarns: dps?.total_earns,
+                            transactionsProcessed: dps?.transactions_processed
+                        });
                         if (!dps || !dps.orders || dps.orders.length === 0) {
+                            logToFile('[DPS_FETCH] DPS or orders not found - ABORTING', {
+                                requestId,
+                                stageId: data.stageId,
+                                dpsExists: !!dps,
+                                ordersExist: dps?.orders?.length > 0
+                            });
                             logger.warn('Stage or orders not found:', {
                                 stageId: data.stageId,
                                 dpsExists: !!dps,
@@ -476,7 +530,18 @@ let DriversGateway = class DriversGateway {
                             logger.error(`[DriversGateway] No driver_id found for stage ${data.stageId}`);
                             return { success: false, message: 'Invalid driver_id' };
                         }
+                        logToFile('[ORDER_RELATIONS] Loading order relations', {
+                            requestId,
+                            orderIds: dps.orders.map(o => o.id),
+                            orderCount: dps.orders.length
+                        });
                         for (const order of dps.orders) {
+                            logToFile('[ORDER_RELATIONS] Loading relations for order', {
+                                requestId,
+                                orderId: order.id,
+                                currentStatus: order.status,
+                                currentTrackingInfo: order.tracking_info
+                            });
                             const loadedOrder = await transactionalEntityManager
                                 .getRepository(order_entity_1.Order)
                                 .findOne({
@@ -495,8 +560,37 @@ let DriversGateway = class DriversGateway {
                                 order.customer = loadedOrder.customer;
                                 order.restaurantAddress = loadedOrder.restaurantAddress;
                                 order.customerAddress = loadedOrder.customerAddress;
+                                logToFile('[ORDER_RELATIONS] Relations loaded successfully', {
+                                    requestId,
+                                    orderId: order.id,
+                                    hasRestaurant: !!order.restaurant,
+                                    hasDriver: !!order.driver,
+                                    hasCustomer: !!order.customer,
+                                    hasRestaurantAddress: !!order.restaurantAddress,
+                                    hasCustomerAddress: !!order.customerAddress
+                                });
+                            }
+                            else {
+                                logToFile('[ORDER_RELATIONS] Failed to load order relations', {
+                                    requestId,
+                                    orderId: order.id
+                                });
                             }
                         }
+                        logToFile('[DPS_ORDERS] All orders with full details', {
+                            requestId,
+                            orders: dps.orders.map(order => ({
+                                id: order.id,
+                                status: order.status,
+                                tracking_info: order.tracking_info,
+                                distance: order.distance,
+                                restaurant_id: order.restaurant_id,
+                                customer_id: order.customer_id,
+                                driver_id: order.driver_id,
+                                created_at: order.created_at,
+                                updated_at: order.updated_at
+                            }))
+                        });
                         logger.log('Found driver progress stage:', {
                             id: dps.id,
                             driverId: dps.driver_id,
@@ -510,53 +604,360 @@ let DriversGateway = class DriversGateway {
                             'en_route_to_customer',
                             'delivery_complete'
                         ];
-                        const stageToStatusMap = {
-                            driver_ready: order_entity_1.OrderStatus.DISPATCHED,
-                            waiting_for_pickup: order_entity_1.OrderStatus.READY_FOR_PICKUP,
-                            restaurant_pickup: order_entity_1.OrderStatus.RESTAURANT_PICKUP,
-                            en_route_to_customer: order_entity_1.OrderStatus.EN_ROUTE,
-                            delivery_complete: order_entity_1.OrderStatus.DELIVERED
+                        const getStatusForStage = (stageBase, orderSuffix) => {
+                            const isFirstOrder = orderSuffix === 'order_1';
+                            if (isFirstOrder) {
+                                switch (stageBase) {
+                                    case 'driver_ready':
+                                        return order_entity_1.OrderStatus.READY_FOR_PICKUP;
+                                    case 'waiting_for_pickup':
+                                        return order_entity_1.OrderStatus.RESTAURANT_PICKUP;
+                                    case 'restaurant_pickup':
+                                        return order_entity_1.OrderStatus.EN_ROUTE;
+                                    case 'en_route_to_customer':
+                                        return order_entity_1.OrderStatus.DELIVERED;
+                                    case 'delivery_complete':
+                                        return order_entity_1.OrderStatus.DELIVERED;
+                                    default:
+                                        return order_entity_1.OrderStatus.DISPATCHED;
+                                }
+                            }
+                            else {
+                                switch (stageBase) {
+                                    case 'driver_ready':
+                                        return order_entity_1.OrderStatus.RESTAURANT_PICKUP;
+                                    case 'waiting_for_pickup':
+                                        return order_entity_1.OrderStatus.EN_ROUTE;
+                                    case 'restaurant_pickup':
+                                        return order_entity_1.OrderStatus.DELIVERED;
+                                    case 'en_route_to_customer':
+                                        return order_entity_1.OrderStatus.DELIVERED;
+                                    case 'delivery_complete':
+                                        return order_entity_1.OrderStatus.DELIVERED;
+                                    default:
+                                        return order_entity_1.OrderStatus.READY_FOR_PICKUP;
+                                }
+                            }
                         };
-                        const stageToTrackingMap = {
-                            driver_ready: order_entity_1.OrderTrackingInfo.DISPATCHED,
-                            waiting_for_pickup: order_entity_1.OrderTrackingInfo.PREPARING,
-                            restaurant_pickup: order_entity_1.OrderTrackingInfo.RESTAURANT_PICKUP,
-                            en_route_to_customer: order_entity_1.OrderTrackingInfo.EN_ROUTE,
-                            delivery_complete: order_entity_1.OrderTrackingInfo.DELIVERED
+                        const getTrackingInfoForStage = (stageBase, orderSuffix) => {
+                            const isFirstOrder = orderSuffix === 'order_1';
+                            if (isFirstOrder) {
+                                switch (stageBase) {
+                                    case 'driver_ready':
+                                        return order_entity_1.OrderTrackingInfo.PREPARING;
+                                    case 'waiting_for_pickup':
+                                        return order_entity_1.OrderTrackingInfo.RESTAURANT_PICKUP;
+                                    case 'restaurant_pickup':
+                                        return order_entity_1.OrderTrackingInfo.EN_ROUTE;
+                                    case 'en_route_to_customer':
+                                        return order_entity_1.OrderTrackingInfo.DELIVERED;
+                                    case 'delivery_complete':
+                                        return order_entity_1.OrderTrackingInfo.DELIVERED;
+                                    default:
+                                        return order_entity_1.OrderTrackingInfo.DISPATCHED;
+                                }
+                            }
+                            else {
+                                switch (stageBase) {
+                                    case 'driver_ready':
+                                        return order_entity_1.OrderTrackingInfo.RESTAURANT_PICKUP;
+                                    case 'waiting_for_pickup':
+                                        return order_entity_1.OrderTrackingInfo.EN_ROUTE;
+                                    case 'restaurant_pickup':
+                                        return order_entity_1.OrderTrackingInfo.DELIVERED;
+                                    case 'en_route_to_customer':
+                                        return order_entity_1.OrderTrackingInfo.DELIVERED;
+                                    case 'delivery_complete':
+                                        return order_entity_1.OrderTrackingInfo.DELIVERED;
+                                    default:
+                                        return order_entity_1.OrderTrackingInfo.PREPARING;
+                                }
+                            }
                         };
-                        let targetOrderId = data.orderId ||
-                            dps.orders.find((order, index) => {
-                                const orderSuffix = `order_${index + 1}`;
-                                const finalState = `delivery_complete_${orderSuffix}`;
-                                const finalStage = dps.stages.find(s => s.state === finalState);
-                                return finalStage && finalStage.status !== 'completed';
-                            })?.id ||
-                            dps.orders[0].id;
+                        logToFile('[TARGET_ORDER] Determining target order', {
+                            requestId,
+                            providedOrderId: data.orderId,
+                            availableOrders: dps.orders.map(o => o.id),
+                            stagesSnapshot: dps.stages.map(s => ({
+                                state: s.state,
+                                status: s.status
+                            }))
+                        });
+                        let targetOrderId = data.orderId;
+                        const orderStageMapping = new Map();
+                        const sortedOrders = [...dps.orders].sort((a, b) => a.created_at - b.created_at);
+                        for (const [index, order] of sortedOrders.entries()) {
+                            orderStageMapping.set(order.id, `order_${index + 1}`);
+                        }
+                        logToFile('[TARGET_ORDER] Order stage mapping created', {
+                            requestId,
+                            orderStageMapping: Array.from(orderStageMapping.entries()),
+                            sortedOrderIds: sortedOrders.map(o => o.id)
+                        });
+                        if (!targetOrderId) {
+                            for (const order of sortedOrders) {
+                                const orderSuffix = orderStageMapping.get(order.id);
+                                const hasInProgressStage = dps.stages.some(stage => stage.state.includes(orderSuffix) &&
+                                    stage.status === 'in_progress');
+                                if (hasInProgressStage) {
+                                    targetOrderId = order.id;
+                                    logToFile('[TARGET_ORDER] Found order with in-progress stage', {
+                                        requestId,
+                                        orderId: order.id,
+                                        orderSuffix
+                                    });
+                                    break;
+                                }
+                            }
+                            if (!targetOrderId) {
+                                for (const order of sortedOrders) {
+                                    const orderSuffix = orderStageMapping.get(order.id);
+                                    let canProgress = false;
+                                    let expectedStage = '';
+                                    switch (order.status) {
+                                        case order_entity_1.OrderStatus.READY_FOR_PICKUP:
+                                            expectedStage = `driver_ready_${orderSuffix}`;
+                                            break;
+                                        case order_entity_1.OrderStatus.RESTAURANT_PICKUP:
+                                            expectedStage = `restaurant_pickup_${orderSuffix}`;
+                                            break;
+                                        case order_entity_1.OrderStatus.EN_ROUTE:
+                                            expectedStage = `en_route_to_customer_${orderSuffix}`;
+                                            break;
+                                        case order_entity_1.OrderStatus.DISPATCHED:
+                                            expectedStage = `driver_ready_${orderSuffix}`;
+                                            break;
+                                    }
+                                    if (expectedStage) {
+                                        const stage = dps.stages.find(s => s.state === expectedStage);
+                                        if (stage &&
+                                            (stage.status === 'pending' ||
+                                                stage.status === 'in_progress')) {
+                                            canProgress = true;
+                                        }
+                                    }
+                                    if (canProgress) {
+                                        targetOrderId = order.id;
+                                        logToFile('[TARGET_ORDER] Found order that can progress', {
+                                            requestId,
+                                            orderId: order.id,
+                                            orderSuffix,
+                                            orderStatus: order.status,
+                                            expectedStage,
+                                            stageStatus: dps.stages.find(s => s.state === expectedStage)?.status
+                                        });
+                                        break;
+                                    }
+                                }
+                            }
+                            if (!targetOrderId) {
+                                for (const order of sortedOrders) {
+                                    const orderSuffix = orderStageMapping.get(order.id);
+                                    const finalState = `delivery_complete_${orderSuffix}`;
+                                    const finalStage = dps.stages.find(s => s.state === finalState);
+                                    if (!finalStage || finalStage.status !== 'completed') {
+                                        targetOrderId = order.id;
+                                        logToFile('[TARGET_ORDER] Found incomplete order', {
+                                            requestId,
+                                            orderId: order.id,
+                                            orderSuffix,
+                                            finalStageStatus: finalStage?.status || 'not_found'
+                                        });
+                                        break;
+                                    }
+                                }
+                            }
+                            if (!targetOrderId) {
+                                targetOrderId = sortedOrders[0].id;
+                                logToFile('[TARGET_ORDER] Fallback to first order', {
+                                    requestId,
+                                    orderId: targetOrderId
+                                });
+                            }
+                        }
+                        logToFile('[TARGET_ORDER] Target order determined', {
+                            requestId,
+                            targetOrderId,
+                            targetOrderSuffix: orderStageMapping.get(targetOrderId)
+                        });
                         let updatedStages = [...dps.stages];
                         let allCompleted = true;
-                        for (const [index, order] of dps.orders.entries()) {
-                            const orderIndex = index + 1;
-                            const orderSuffix = `order_${orderIndex}`;
+                        logToFile('[STAGE_PROCESSING] Starting stage processing for all orders', {
+                            requestId,
+                            totalOrders: dps.orders.length,
+                            initialStagesCount: updatedStages.length,
+                            orderStageMapping: Array.from(orderStageMapping.entries())
+                        });
+                        for (const order of sortedOrders) {
+                            const orderSuffix = orderStageMapping.get(order.id);
+                            logToFile('[ORDER_PROCESSING] Processing order', {
+                                requestId,
+                                orderId: order.id,
+                                orderSuffix,
+                                isTargetOrder: order.id === targetOrderId,
+                                currentStatus: order.status,
+                                currentTrackingInfo: order.tracking_info
+                            });
                             let currentStageIndex = stageOrder.findIndex(baseState => {
                                 const state = `${baseState}_${orderSuffix}`;
                                 const stage = updatedStages.find(s => s.state === state);
                                 return stage && stage.status === 'in_progress';
                             });
-                            if (currentStageIndex === -1 && order.id === targetOrderId) {
-                                const driverReadyState = `driver_ready_${orderSuffix}`;
-                                const driverReadyStage = updatedStages.find(s => s.state === driverReadyState);
-                                if (driverReadyStage &&
-                                    driverReadyStage.status === 'pending') {
-                                    currentStageIndex = 0;
-                                    logger.log(`[First Emission] Setting initial stage to driver_ready for order ${order.id}`);
-                                }
-                                else {
-                                    for (let i = stageOrder.length - 1; i >= 0; i--) {
-                                        const state = `${stageOrder[i]}_${orderSuffix}`;
-                                        const stage = updatedStages.find(s => s.state === state);
-                                        if (stage && stage.status === 'completed') {
-                                            currentStageIndex = i;
+                            logToFile('[STAGE_DETECTION] Current stage detection', {
+                                requestId,
+                                orderId: order.id,
+                                currentStageIndex,
+                                currentStageState: currentStageIndex >= 0
+                                    ? `${stageOrder[currentStageIndex]}_${orderSuffix}`
+                                    : 'none',
+                                allStagesForOrder: updatedStages
+                                    .filter(s => s.state.includes(orderSuffix))
+                                    .map(s => ({ state: s.state, status: s.status }))
+                            });
+                            if (order.id === targetOrderId) {
+                                logToFile('[TARGET_ORDER_STAGE_DETECTION] Processing target order stage detection', {
+                                    requestId,
+                                    orderId: order.id,
+                                    orderSuffix,
+                                    currentStageIndex,
+                                    orderStatus: order.status,
+                                    orderTrackingInfo: order.tracking_info
+                                });
+                                let shouldRecalculateStage = currentStageIndex === -1;
+                                const isFirstOrder = orderSuffix === 'order_1';
+                                if (!shouldRecalculateStage && !isFirstOrder) {
+                                    const currentStageBase = currentStageIndex >= 0
+                                        ? stageOrder[currentStageIndex]
+                                        : '';
+                                    let expectedStageForStatus = '';
+                                    switch (order.status) {
+                                        case order_entity_1.OrderStatus.READY_FOR_PICKUP:
+                                            expectedStageForStatus = 'driver_ready';
                                             break;
+                                        case order_entity_1.OrderStatus.RESTAURANT_PICKUP:
+                                            expectedStageForStatus = 'waiting_for_pickup';
+                                            break;
+                                        case order_entity_1.OrderStatus.EN_ROUTE:
+                                            expectedStageForStatus = 'restaurant_pickup';
+                                            break;
+                                        case order_entity_1.OrderStatus.DELIVERED:
+                                            expectedStageForStatus = 'en_route_to_customer';
+                                            break;
+                                    }
+                                    if (expectedStageForStatus &&
+                                        currentStageBase !== expectedStageForStatus) {
+                                        shouldRecalculateStage = true;
+                                        logToFile('[STAGE_DETECTION] Stage mismatch detected for subsequent order', {
+                                            requestId,
+                                            orderId: order.id,
+                                            orderStatus: order.status,
+                                            currentStageBase,
+                                            expectedStageForStatus,
+                                            willRecalculate: true
+                                        });
+                                    }
+                                }
+                                if (shouldRecalculateStage) {
+                                    logToFile('[STAGE_DETECTION] No in-progress stage found, determining from order status', {
+                                        requestId,
+                                        orderId: order.id,
+                                        orderStatus: order.status,
+                                        orderTrackingInfo: order.tracking_info
+                                    });
+                                    let expectedCurrentStage = '';
+                                    const isFirstOrder = orderSuffix === 'order_1';
+                                    if (isFirstOrder) {
+                                        switch (order.status) {
+                                            case order_entity_1.OrderStatus.DISPATCHED:
+                                                expectedCurrentStage = 'driver_ready';
+                                                break;
+                                            case order_entity_1.OrderStatus.READY_FOR_PICKUP:
+                                                expectedCurrentStage = 'waiting_for_pickup';
+                                                break;
+                                            case order_entity_1.OrderStatus.RESTAURANT_PICKUP:
+                                                expectedCurrentStage = 'restaurant_pickup';
+                                                break;
+                                            case order_entity_1.OrderStatus.EN_ROUTE:
+                                                expectedCurrentStage = 'en_route_to_customer';
+                                                break;
+                                            case order_entity_1.OrderStatus.DELIVERED:
+                                                expectedCurrentStage = 'delivery_complete';
+                                                break;
+                                            default:
+                                                expectedCurrentStage = 'driver_ready';
+                                        }
+                                    }
+                                    else {
+                                        switch (order.status) {
+                                            case order_entity_1.OrderStatus.READY_FOR_PICKUP:
+                                                expectedCurrentStage = 'driver_ready';
+                                                break;
+                                            case order_entity_1.OrderStatus.RESTAURANT_PICKUP:
+                                                expectedCurrentStage = 'waiting_for_pickup';
+                                                break;
+                                            case order_entity_1.OrderStatus.EN_ROUTE:
+                                                expectedCurrentStage = 'restaurant_pickup';
+                                                break;
+                                            case order_entity_1.OrderStatus.DELIVERED:
+                                                expectedCurrentStage = 'en_route_to_customer';
+                                                break;
+                                            default:
+                                                expectedCurrentStage = 'driver_ready';
+                                        }
+                                    }
+                                    const expectedStageIndex = stageOrder.indexOf(expectedCurrentStage);
+                                    const expectedStageState = `${expectedCurrentStage}_${orderSuffix}`;
+                                    const expectedStage = updatedStages.find(s => s.state === expectedStageState);
+                                    logToFile('[STAGE_DETECTION] Expected stage based on order status', {
+                                        requestId,
+                                        orderId: order.id,
+                                        orderStatus: order.status,
+                                        expectedCurrentStage,
+                                        expectedStageIndex,
+                                        expectedStageState,
+                                        expectedStageExists: !!expectedStage,
+                                        expectedStageStatus: expectedStage?.status
+                                    });
+                                    if (expectedStage) {
+                                        if (expectedStage.status === 'pending') {
+                                            currentStageIndex = expectedStageIndex;
+                                            logToFile('[STAGE_DETECTION] Found pending expected stage, will start it', {
+                                                requestId,
+                                                orderId: order.id,
+                                                currentStageIndex,
+                                                expectedStageState
+                                            });
+                                        }
+                                        else if (expectedStage.status === 'in_progress') {
+                                            currentStageIndex = expectedStageIndex;
+                                            logToFile('[STAGE_DETECTION] Found in-progress expected stage', {
+                                                requestId,
+                                                orderId: order.id,
+                                                currentStageIndex,
+                                                expectedStageState
+                                            });
+                                        }
+                                        else if (expectedStage.status === 'completed') {
+                                            currentStageIndex = expectedStageIndex;
+                                            logToFile('[STAGE_DETECTION] Expected stage is completed, will progress to next', {
+                                                requestId,
+                                                orderId: order.id,
+                                                currentStageIndex,
+                                                expectedStageState
+                                            });
+                                        }
+                                    }
+                                    if (currentStageIndex === -1) {
+                                        const driverReadyState = `driver_ready_${orderSuffix}`;
+                                        const driverReadyStage = updatedStages.find(s => s.state === driverReadyState);
+                                        if (driverReadyStage &&
+                                            driverReadyStage.status === 'pending') {
+                                            currentStageIndex = 0;
+                                            logToFile('[FALLBACK] Setting initial stage to driver_ready', {
+                                                requestId,
+                                                orderId: order.id,
+                                                newCurrentStageIndex: currentStageIndex
+                                            });
                                         }
                                     }
                                 }
@@ -569,9 +970,33 @@ let DriversGateway = class DriversGateway {
                                 const nextState = nextStateBase
                                     ? `${nextStateBase}_${orderSuffix}`
                                     : null;
+                                logToFile('[STAGE_UPDATE] Processing stage update for target order', {
+                                    requestId,
+                                    orderId: order.id,
+                                    currentState,
+                                    nextStateBase,
+                                    nextState,
+                                    currentStageIndex,
+                                    isDeliveryComplete: nextStateBase === 'delivery_complete'
+                                });
                                 if (nextStateBase === 'delivery_complete') {
+                                    logToFile('[DELIVERY_COMPLETION] Handling delivery completion', {
+                                        requestId,
+                                        orderId: order.id,
+                                        currentState
+                                    });
                                     await this.handleDeliveryCompletion(order, dps, transactionalEntityManager);
                                 }
+                                logToFile('[STAGE_UPDATE] Before stage updates', {
+                                    requestId,
+                                    orderId: order.id,
+                                    stagesBeforeUpdate: updatedStages.map(s => ({
+                                        state: s.state,
+                                        status: s.status,
+                                        timestamp: s.timestamp,
+                                        duration: s.duration
+                                    }))
+                                });
                                 updatedStages = updatedStages.map((stage) => {
                                     if (stage.state === currentState) {
                                         const actualTime = stage.status === 'in_progress'
@@ -580,6 +1005,13 @@ let DriversGateway = class DriversGateway {
                                         dps.actual_time_spent =
                                             (dps.actual_time_spent || 0) + actualTime;
                                         stage.details.actual_time = actualTime;
+                                        logToFile('[STAGE_UPDATE] Completing current stage', {
+                                            requestId,
+                                            orderId: order.id,
+                                            stageState: stage.state,
+                                            actualTime,
+                                            newTotalActualTime: dps.actual_time_spent
+                                        });
                                         return {
                                             ...stage,
                                             status: 'completed',
@@ -593,32 +1025,236 @@ let DriversGateway = class DriversGateway {
                                                 (stage.details?.estimated_time || 0) +
                                                 estimatedTime;
                                         stage.details.estimated_time = estimatedTime;
+                                        logToFile('[STAGE_UPDATE] Starting next stage', {
+                                            requestId,
+                                            orderId: order.id,
+                                            stageState: stage.state,
+                                            estimatedTime,
+                                            newEstimatedTimeRemaining: dps.estimated_time_remaining
+                                        });
                                         return { ...stage, status: 'in_progress', timestamp };
                                     }
                                     return stage;
                                 });
-                                if (nextStateBase && nextStateBase in stageToStatusMap) {
-                                    const newStatus = stageToStatusMap[nextStateBase];
-                                    const newTrackingInfo = stageToTrackingMap[nextStateBase];
+                                logToFile('[STAGE_UPDATE] After stage updates', {
+                                    requestId,
+                                    orderId: order.id,
+                                    stagesAfterUpdate: updatedStages.map(s => ({
+                                        state: s.state,
+                                        status: s.status,
+                                        timestamp: s.timestamp,
+                                        duration: s.duration
+                                    }))
+                                });
+                                if (currentState.includes('delivery_complete') &&
+                                    !nextStateBase) {
+                                    logToFile('[DELIVERY_COMPLETE] Order delivery completed, checking for next order', {
+                                        requestId,
+                                        orderId: order.id,
+                                        currentState
+                                    });
+                                    const completedOrderStatus = order_entity_1.OrderStatus.DELIVERED;
+                                    const completedOrderTrackingInfo = order_entity_1.OrderTrackingInfo.DELIVERED;
+                                    logToFile('[DELIVERY_COMPLETE] Emitting for completed order', {
+                                        requestId,
+                                        orderId: order.id,
+                                        status: completedOrderStatus,
+                                        trackingInfo: completedOrderTrackingInfo
+                                    });
+                                    this.eventEmitter.emit('listenUpdateOrderTracking', {
+                                        orderId: order.id,
+                                        status: completedOrderStatus,
+                                        tracking_info: completedOrderTrackingInfo,
+                                        updated_at: timestamp
+                                    });
+                                    try {
+                                        await this.notifyPartiesOnce(order);
+                                        logToFile('[DELIVERY_COMPLETE] Successfully notified parties for completed order', {
+                                            requestId,
+                                            orderId: order.id
+                                        });
+                                    }
+                                    catch (notifyError) {
+                                        logToFile('[DELIVERY_COMPLETE] Failed to notify parties for completed order', {
+                                            requestId,
+                                            orderId: order.id,
+                                            error: notifyError?.message || 'Unknown error'
+                                        });
+                                    }
+                                    for (const nextOrder of sortedOrders) {
+                                        if (nextOrder.id === order.id)
+                                            continue;
+                                        const nextOrderSuffix = orderStageMapping.get(nextOrder.id);
+                                        const nextDriverReadyState = `driver_ready_${nextOrderSuffix}`;
+                                        const nextDriverReadyStage = updatedStages.find(s => s.state === nextDriverReadyState);
+                                        if (nextDriverReadyStage &&
+                                            nextDriverReadyStage.status === 'pending') {
+                                            logToFile('[DELIVERY_COMPLETE] Starting next order', {
+                                                requestId,
+                                                nextOrderId: nextOrder.id,
+                                                nextOrderSuffix,
+                                                nextDriverReadyState
+                                            });
+                                            updatedStages = updatedStages.map((stage) => {
+                                                if (stage.state === nextDriverReadyState) {
+                                                    const estimatedTime = this.calculateEstimatedTime(nextOrder.distance || 0);
+                                                    dps.estimated_time_remaining =
+                                                        (dps.estimated_time_remaining || 0) +
+                                                            estimatedTime;
+                                                    stage.details.estimated_time = estimatedTime;
+                                                    return {
+                                                        ...stage,
+                                                        status: 'in_progress',
+                                                        timestamp
+                                                    };
+                                                }
+                                                return stage;
+                                            });
+                                            const nextOrderNewStatus = order_entity_1.OrderStatus.READY_FOR_PICKUP;
+                                            const nextOrderNewTrackingInfo = order_entity_1.OrderTrackingInfo.PREPARING;
+                                            logToFile('[DELIVERY_COMPLETE] Updating next order status', {
+                                                requestId,
+                                                nextOrderId: nextOrder.id,
+                                                oldStatus: nextOrder.status,
+                                                newStatus: nextOrderNewStatus,
+                                                oldTrackingInfo: nextOrder.tracking_info,
+                                                newTrackingInfo: nextOrderNewTrackingInfo
+                                            });
+                                            const nextOrderToUpdate = await transactionalEntityManager
+                                                .getRepository(order_entity_1.Order)
+                                                .findOne({ where: { id: nextOrder.id } });
+                                            if (nextOrderToUpdate) {
+                                                nextOrderToUpdate.status = nextOrderNewStatus;
+                                                nextOrderToUpdate.tracking_info =
+                                                    nextOrderNewTrackingInfo;
+                                                nextOrderToUpdate.updated_at = timestamp;
+                                                const savedNextOrder = await transactionalEntityManager
+                                                    .getRepository(order_entity_1.Order)
+                                                    .save(nextOrderToUpdate);
+                                                nextOrder.status = savedNextOrder.status;
+                                                nextOrder.tracking_info =
+                                                    savedNextOrder.tracking_info;
+                                                nextOrder.updated_at = savedNextOrder.updated_at;
+                                                logToFile('[DELIVERY_COMPLETE] Next order updated successfully', {
+                                                    requestId,
+                                                    nextOrderId: nextOrder.id,
+                                                    newStatus: savedNextOrder.status,
+                                                    newTrackingInfo: savedNextOrder.tracking_info
+                                                });
+                                                this.eventEmitter.emit('listenUpdateOrderTracking', {
+                                                    orderId: nextOrder.id,
+                                                    status: savedNextOrder.status,
+                                                    tracking_info: savedNextOrder.tracking_info,
+                                                    updated_at: savedNextOrder.updated_at
+                                                });
+                                                try {
+                                                    await this.notifyPartiesOnce(savedNextOrder);
+                                                    logToFile('[DELIVERY_COMPLETE] Successfully notified parties for next order', {
+                                                        requestId,
+                                                        nextOrderId: nextOrder.id
+                                                    });
+                                                }
+                                                catch (notifyError) {
+                                                    logToFile('[DELIVERY_COMPLETE] Failed to notify parties for next order', {
+                                                        requestId,
+                                                        nextOrderId: nextOrder.id,
+                                                        error: notifyError?.message || 'Unknown error'
+                                                    });
+                                                }
+                                            }
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (nextStateBase) {
+                                    const currentStateBase = stageOrder[currentStageIndex];
+                                    const newStatus = getStatusForStage(currentStateBase, orderSuffix);
+                                    const newTrackingInfo = getTrackingInfoForStage(currentStateBase, orderSuffix);
+                                    logToFile('[ORDER_UPDATE] Preparing to update order status', {
+                                        requestId,
+                                        orderId: order.id,
+                                        oldStatus: order.status,
+                                        newStatus,
+                                        oldTrackingInfo: order.tracking_info,
+                                        newTrackingInfo,
+                                        currentStage: currentState,
+                                        nextStage: nextState
+                                    });
                                     logger.log(`Preparing to update order ${order.id}`, {
                                         newStatus,
                                         newTrackingInfo,
                                         currentStage: currentState,
                                         nextStage: nextState
                                     });
-                                    const updateResult = await transactionalEntityManager.update(order_entity_1.Order, { id: order.id }, {
-                                        status: newStatus,
-                                        tracking_info: newTrackingInfo,
-                                        updated_at: timestamp
+                                    const orderToUpdate = await transactionalEntityManager
+                                        .getRepository(order_entity_1.Order)
+                                        .findOne({ where: { id: order.id } });
+                                    if (!orderToUpdate) {
+                                        throw new Error(`Order ${order.id} not found for update`);
+                                    }
+                                    orderToUpdate.status = newStatus;
+                                    orderToUpdate.tracking_info = newTrackingInfo;
+                                    orderToUpdate.updated_at = timestamp;
+                                    const savedOrder = await transactionalEntityManager
+                                        .getRepository(order_entity_1.Order)
+                                        .save(orderToUpdate);
+                                    logToFile('[ORDER_UPDATE] Order update result (IMMEDIATE SAVE)', {
+                                        requestId,
+                                        orderId: order.id,
+                                        oldStatus: order.status,
+                                        newStatus: savedOrder.status,
+                                        oldTrackingInfo: order.tracking_info,
+                                        newTrackingInfo: savedOrder.tracking_info,
+                                        updateSuccess: true,
+                                        savedAt: savedOrder.updated_at
                                     });
-                                    logger.log(`Order update result for ${order.id}`, {
-                                        affectedRows: updateResult.affected
+                                    logger.log(`Order IMMEDIATELY updated for ${order.id}`, {
+                                        newStatus: savedOrder.status,
+                                        newTrackingInfo: savedOrder.tracking_info
                                     });
-                                    if (updateResult.affected === 0) {
-                                        logger.error(`Failed to update order ${order.id}: No rows affected`);
+                                    order.status = savedOrder.status;
+                                    order.tracking_info = savedOrder.tracking_info;
+                                    order.updated_at = savedOrder.updated_at;
+                                    logToFile('[EMIT] Emitting listenUpdateOrderTracking', {
+                                        requestId,
+                                        orderId: order.id,
+                                        newStatus: savedOrder.status,
+                                        newTrackingInfo: savedOrder.tracking_info
+                                    });
+                                    this.eventEmitter.emit('listenUpdateOrderTracking', {
+                                        orderId: order.id,
+                                        status: savedOrder.status,
+                                        tracking_info: savedOrder.tracking_info,
+                                        updated_at: savedOrder.updated_at
+                                    });
+                                    logToFile('[EMIT] Notifying parties for order update', {
+                                        requestId,
+                                        orderId: order.id,
+                                        newStatus: savedOrder.status,
+                                        newTrackingInfo: savedOrder.tracking_info
+                                    });
+                                    try {
+                                        await this.notifyPartiesOnce(savedOrder);
+                                        logToFile('[EMIT] Successfully notified parties', {
+                                            requestId,
+                                            orderId: order.id
+                                        });
+                                    }
+                                    catch (notifyError) {
+                                        logToFile('[EMIT_ERROR] Failed to notify parties', {
+                                            requestId,
+                                            orderId: order.id,
+                                            error: notifyError?.message || 'Unknown notify error'
+                                        });
+                                        logger.error(`Failed to notify parties for order ${order.id}:`, notifyError);
                                     }
                                 }
                                 else if (!nextStateBase) {
+                                    logToFile('[ORDER_UPDATE] No next stage - skipping order update', {
+                                        requestId,
+                                        orderId: order.id,
+                                        currentStage: currentState
+                                    });
                                     logger.log(`No next stage for order ${order.id}, skipping Order update`, {
                                         currentStage: currentState
                                     });
@@ -630,44 +1266,125 @@ let DriversGateway = class DriversGateway {
                                 allCompleted = false;
                         }
                         if (!allCompleted) {
-                            const nextIncompleteOrder = dps.orders.find((order, index) => {
-                                const orderSuffix = `order_${index + 1}`;
-                                const finalState = `delivery_complete_${orderSuffix}`;
-                                const finalStage = updatedStages.find(s => s.state === finalState);
-                                return finalStage && finalStage.status !== 'completed';
+                            logToFile('[MULTI_ORDER] Checking for next order to start', {
+                                requestId,
+                                allCompleted,
+                                targetOrderId,
+                                totalOrders: dps.orders.length
                             });
-                            if (nextIncompleteOrder &&
-                                nextIncompleteOrder.id !== targetOrderId) {
-                                const nextOrderIndex = dps.orders.findIndex(o => o.id === nextIncompleteOrder.id) +
-                                    1;
-                                const nextOrderSuffix = `order_${nextOrderIndex}`;
-                                const nextDriverReadyState = `driver_ready_${nextOrderSuffix}`;
-                                updatedStages = updatedStages.map((stage) => {
-                                    if (stage.state === nextDriverReadyState &&
-                                        stage.status === 'pending') {
-                                        const estimatedTime = this.calculateEstimatedTime(nextIncompleteOrder.distance || 0);
-                                        dps.estimated_time_remaining =
-                                            (dps.estimated_time_remaining || 0) + estimatedTime;
-                                        stage.details.estimated_time = estimatedTime;
-                                        return { ...stage, status: 'in_progress', timestamp };
+                            const targetOrderSuffix = orderStageMapping.get(targetOrderId);
+                            const targetDeliveryState = `delivery_complete_${targetOrderSuffix}`;
+                            const targetDeliveryStage = updatedStages.find(s => s.state === targetDeliveryState);
+                            const targetOrderJustCompleted = targetDeliveryStage &&
+                                targetDeliveryStage.status === 'completed';
+                            logToFile('[MULTI_ORDER] Target order completion check', {
+                                requestId,
+                                targetOrderId,
+                                targetOrderSuffix,
+                                targetDeliveryState,
+                                targetOrderJustCompleted,
+                                targetDeliveryStageStatus: targetDeliveryStage?.status
+                            });
+                            if (targetOrderJustCompleted) {
+                                for (const order of sortedOrders) {
+                                    if (order.id === targetOrderId)
+                                        continue;
+                                    const orderSuffix = orderStageMapping.get(order.id);
+                                    const driverReadyState = `driver_ready_${orderSuffix}`;
+                                    const driverReadyStage = updatedStages.find(s => s.state === driverReadyState);
+                                    if (driverReadyStage &&
+                                        driverReadyStage.status === 'pending') {
+                                        logToFile('[MULTI_ORDER] Starting next order', {
+                                            requestId,
+                                            nextOrderId: order.id,
+                                            nextOrderSuffix: orderSuffix,
+                                            driverReadyState
+                                        });
+                                        updatedStages = updatedStages.map((stage) => {
+                                            if (stage.state === driverReadyState) {
+                                                const estimatedTime = this.calculateEstimatedTime(order.distance || 0);
+                                                dps.estimated_time_remaining =
+                                                    (dps.estimated_time_remaining || 0) + estimatedTime;
+                                                stage.details.estimated_time = estimatedTime;
+                                                logToFile('[MULTI_ORDER] Setting driver_ready to in_progress', {
+                                                    requestId,
+                                                    orderId: order.id,
+                                                    stageState: stage.state,
+                                                    estimatedTime
+                                                });
+                                                return { ...stage, status: 'in_progress', timestamp };
+                                            }
+                                            return stage;
+                                        });
+                                        const newStatus = order_entity_1.OrderStatus.READY_FOR_PICKUP;
+                                        const newTrackingInfo = order_entity_1.OrderTrackingInfo.PREPARING;
+                                        logToFile('[MULTI_ORDER] Updating next order to READY_FOR_PICKUP', {
+                                            requestId,
+                                            orderId: order.id,
+                                            newStatus,
+                                            newTrackingInfo
+                                        });
+                                        const nextOrderToUpdate = await transactionalEntityManager
+                                            .getRepository(order_entity_1.Order)
+                                            .findOne({ where: { id: order.id } });
+                                        if (!nextOrderToUpdate) {
+                                            throw new Error(`Next order ${order.id} not found for update`);
+                                        }
+                                        nextOrderToUpdate.status = newStatus;
+                                        nextOrderToUpdate.tracking_info = newTrackingInfo;
+                                        nextOrderToUpdate.updated_at = timestamp;
+                                        const savedNextOrder = await transactionalEntityManager
+                                            .getRepository(order_entity_1.Order)
+                                            .save(nextOrderToUpdate);
+                                        logToFile('[MULTI_ORDER] Next order update result (IMMEDIATE SAVE)', {
+                                            requestId,
+                                            orderId: order.id,
+                                            oldStatus: order.status,
+                                            newStatus: savedNextOrder.status,
+                                            oldTrackingInfo: order.tracking_info,
+                                            newTrackingInfo: savedNextOrder.tracking_info,
+                                            updateSuccess: true,
+                                            savedAt: savedNextOrder.updated_at
+                                        });
+                                        order.status = savedNextOrder.status;
+                                        order.tracking_info = savedNextOrder.tracking_info;
+                                        order.updated_at = savedNextOrder.updated_at;
+                                        logToFile('[MULTI_ORDER_EMIT] Emitting listenUpdateOrderTracking for next order', {
+                                            requestId,
+                                            orderId: order.id,
+                                            newStatus: savedNextOrder.status,
+                                            newTrackingInfo: savedNextOrder.tracking_info
+                                        });
+                                        this.eventEmitter.emit('listenUpdateOrderTracking', {
+                                            orderId: order.id,
+                                            status: savedNextOrder.status,
+                                            tracking_info: savedNextOrder.tracking_info,
+                                            updated_at: savedNextOrder.updated_at
+                                        });
+                                        logToFile('[MULTI_ORDER_EMIT] Notifying parties for next order', {
+                                            requestId,
+                                            orderId: order.id,
+                                            newStatus: savedNextOrder.status,
+                                            newTrackingInfo: savedNextOrder.tracking_info
+                                        });
+                                        try {
+                                            await this.notifyPartiesOnce(savedNextOrder);
+                                            logToFile('[MULTI_ORDER_EMIT] Successfully notified parties for next order', {
+                                                requestId,
+                                                orderId: order.id
+                                            });
+                                        }
+                                        catch (notifyError) {
+                                            logToFile('[MULTI_ORDER_EMIT_ERROR] Failed to notify parties for next order', {
+                                                requestId,
+                                                orderId: order.id,
+                                                error: notifyError?.message || 'Unknown notify error'
+                                            });
+                                            logger.error(`Failed to notify parties for next order ${order.id}:`, notifyError);
+                                        }
+                                        break;
                                     }
-                                    return stage;
-                                });
-                                targetOrderId = nextIncompleteOrder.id;
-                                const newStatus = stageToStatusMap['driver_ready'];
-                                const newTrackingInfo = stageToTrackingMap['driver_ready'];
-                                logger.log(`Updating next incomplete order ${targetOrderId} to driver_ready`, {
-                                    newStatus,
-                                    newTrackingInfo
-                                });
-                                const updateResult = await transactionalEntityManager.update(order_entity_1.Order, { id: targetOrderId }, {
-                                    status: newStatus,
-                                    tracking_info: newTrackingInfo,
-                                    updated_at: timestamp
-                                });
-                                logger.log(`Next incomplete order update result for ${targetOrderId}`, {
-                                    affectedRows: updateResult.affected
-                                });
+                                }
                             }
                         }
                         const inProgressStage = updatedStages.find(stage => stage.status === 'in_progress');
@@ -693,6 +1410,21 @@ let DriversGateway = class DriversGateway {
                                 allDeliveryCompleteStages[allDeliveryCompleteStages.length - 1].state;
                             dps.next_state = null;
                         }
+                        logToFile('[DPS_UPDATE] Preparing to update DPS', {
+                            requestId,
+                            dpsId: data.stageId,
+                            finalCurrentState: dps.current_state,
+                            finalPreviousState: dps.previous_state,
+                            finalNextState: dps.next_state,
+                            finalEstimatedTimeRemaining: dps.estimated_time_remaining,
+                            finalActualTimeSpent: dps.actual_time_spent,
+                            finalTotalDistance: dps.total_distance_travelled,
+                            finalTotalTips: dps.total_tips,
+                            finalTotalEarns: dps.total_earns,
+                            finalTransactionsProcessed: dps.transactions_processed,
+                            finalStagesCount: updatedStages.length,
+                            finalOrdersCount: dps.orders.length
+                        });
                         const updateResult = await this.driverProgressStageService.updateStage(data.stageId, {
                             current_state: dps.current_state,
                             previous_state: dps.previous_state,
@@ -706,6 +1438,14 @@ let DriversGateway = class DriversGateway {
                             total_earns: Number(Number(dps.total_earns || 0).toFixed(2)),
                             transactions_processed: dps.transactions_processed || false
                         }, transactionalEntityManager);
+                        logToFile('[DPS_UPDATE] DPS update result', {
+                            requestId,
+                            dpsId: data.stageId,
+                            updateSuccess: updateResult.EC === 0 && !!updateResult.data,
+                            errorCode: updateResult.EC,
+                            errorMessage: updateResult.EM,
+                            hasData: !!updateResult.data
+                        });
                         logToFile('Successfully updated DPS', {
                             dpsId: data.stageId,
                             total_earns: parseFloat(Number(dps.total_earns || 0).toFixed(2)),
@@ -717,15 +1457,46 @@ let DriversGateway = class DriversGateway {
                         }
                         if (this.server) {
                             const driverRoom = `driver_${dps.driver_id}`;
+                            logToFile('[EMIT] Preparing to emit driverStagesUpdated', {
+                                requestId,
+                                driverId: dps.driver_id,
+                                driverRoom,
+                                hasUpdateData: !!updateResult.data
+                            });
                             logger.log(`Emitting driverStagesUpdated event to driver: ${dps.driver_id}`);
                             const clients = await this.server.in(driverRoom).fetchSockets();
                             logger.log(`[DriversGateway] Clients in room ${driverRoom}: ${clients.length}`);
                             if (clients.length === 0) {
                                 logger.warn(`[DriversGateway] No clients in room ${driverRoom}, event may not be delivered`);
                             }
-                            await this.server
-                                .to(driverRoom)
-                                .emit('driverStagesUpdated', updateResult.data);
+                            try {
+                                this.server
+                                    .to(driverRoom)
+                                    .emit('driverStagesUpdated', updateResult.data);
+                                logToFile('[EMIT] Successfully emitted driverStagesUpdated', {
+                                    requestId,
+                                    driverId: dps.driver_id,
+                                    driverRoom,
+                                    clientsCount: clients.length,
+                                    dataEmitted: !!updateResult.data
+                                });
+                                logger.log(`[DriversGateway] Successfully emitted driverStagesUpdated to ${driverRoom}`);
+                            }
+                            catch (emitError) {
+                                logToFile('[EMIT_ERROR] Failed to emit driverStagesUpdated', {
+                                    requestId,
+                                    driverId: dps.driver_id,
+                                    error: emitError?.message || 'Unknown emit error'
+                                });
+                                logger.error(`[DriversGateway] Failed to emit driverStagesUpdated:`, emitError);
+                            }
+                        }
+                        else {
+                            logToFile('[EMIT_ERROR] Server instance not available for driverStagesUpdated', {
+                                requestId,
+                                driverId: dps.driver_id
+                            });
+                            logger.error('[DriversGateway] Server instance not available for emit');
                         }
                         const updatedOrder = await transactionalEntityManager
                             .getRepository(order_entity_1.Order)
@@ -750,9 +1521,25 @@ let DriversGateway = class DriversGateway {
                     });
                 }
                 catch (error) {
+                    logToFile('[ERROR] Transaction error occurred', {
+                        requestId,
+                        stageId: data.stageId,
+                        attempt: attempt + 1,
+                        maxRetries,
+                        errorMessage: error.message,
+                        errorStack: error.stack,
+                        isDeadlock: error.message.includes('deadlock detected')
+                    });
                     if (error.message.includes('deadlock detected') &&
                         attempt < maxRetries - 1) {
                         attempt++;
+                        logToFile('[RETRY] Deadlock detected - retrying', {
+                            requestId,
+                            stageId: data.stageId,
+                            attempt,
+                            maxRetries,
+                            retryDelay: 100 * attempt
+                        });
                         logger.warn(`Deadlock detected, retrying (${attempt}/${maxRetries})`);
                         await new Promise(resolve => setTimeout(resolve, 100 * attempt));
                         continue;
@@ -761,14 +1548,41 @@ let DriversGateway = class DriversGateway {
                     throw error;
                 }
                 finally {
+                    logToFile('[CLEANUP] Releasing Redis lock', {
+                        requestId,
+                        stageId: data.stageId,
+                        lockKey: `lock:dps:${data.stageId}`
+                    });
                     await this.redisService.del(`lock:dps:${data.stageId}`);
                 }
             }
+            logToFile('[ERROR] Max retries reached', {
+                requestId,
+                stageId: data.stageId,
+                maxRetries
+            });
             throw new Error('Max retries reached for handleDriverProgressUpdate');
         }
         catch (error) {
+            logToFile('[ERROR] Final error in handleDriverProgressUpdate', {
+                requestId,
+                stageId: data.stageId,
+                errorMessage: error.message,
+                errorStack: error.stack,
+                endTime: Date.now(),
+                totalDuration: Date.now() - startTime
+            });
             logger.error('Error in handleDriverProgressUpdate:', error);
             return { success: false, message: error.message };
+        }
+        finally {
+            logToFile('=== DRIVER PROGRESS UPDATE END ===', {
+                requestId,
+                stageId: data.stageId,
+                endTime: Date.now(),
+                totalDuration: Date.now() - startTime,
+                timestamp: new Date().toISOString()
+            });
         }
     }
     async handleDriverAcceptOrder(data) {
