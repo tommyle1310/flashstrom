@@ -83,4 +83,7 @@ export class UpdateDriverProgressStageDto extends PartialType(
 
   @IsOptional()
   updated_at?: number;
+
+  @IsOptional()
+  version?: number;
 }

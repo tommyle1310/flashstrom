@@ -48,9 +48,10 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
     private registerEventListeners;
     onModuleDestroy(): Promise<void>;
     private validateToken;
-    handleConnection(client: Socket): Promise<void>;
+    handleConnection(client: Socket): Promise<boolean>;
     cleanupDriverConnections(driverId: string, newSocketId: string): Promise<void>;
     handleDisconnect(client: Socket): void;
+    private deduplicateEvent;
     handleNewOrder(order: any): Promise<any>;
     notifyPartiesOnce(order: Order): Promise<void>;
     handleDriverProgressUpdate(data: {
@@ -58,12 +59,11 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
         orderId?: string;
     }): Promise<{
         success: boolean;
-        message: string;
-        stage?: undefined;
-    } | {
-        success: boolean;
         stage: DriverProgressStage;
         message?: undefined;
+    } | {
+        success: boolean;
+        message: any;
     }>;
     handleDriverAcceptOrder(data: {
         driverId: string;
@@ -78,9 +78,6 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
         success: boolean;
         message: string;
     }>;
-    private calculateDistance;
-    private deg2rad;
-    private calculateEstimatedTime;
     private getStageDetails;
     handleOrderAssignedToDriver(orderAssignment: any): Promise<{
         event: string;
@@ -88,9 +85,12 @@ export declare class DriversGateway implements OnGatewayConnection, OnGatewayDis
             success: boolean;
         };
     }>;
+    private handleDeliveryCompletion;
     private prepareDriverNotificationData;
     private prepareAddressData;
     private prepareDriverDetails;
     private formatFullAddress;
-    private handleDeliveryCompletion;
+    private calculateDistance;
+    private deg2rad;
+    private calculateEstimatedTime;
 }

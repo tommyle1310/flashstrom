@@ -68,5 +68,6 @@ export declare class DriverProgressStage {
     created_at: number;
     updated_at: number;
     transactions_processed: boolean;
+    version: number;
     generateId(): void;
 }

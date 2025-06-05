@@ -57,4 +57,8 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Number)
 ], UpdateDriverProgressStageDto.prototype, "updated_at", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], UpdateDriverProgressStageDto.prototype, "version", void 0);
 //# sourceMappingURL=update-driver-progress-stage.dto.js.map

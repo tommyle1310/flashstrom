@@ -16,5 +16,6 @@ export declare class UpdateDriverProgressStageDto extends UpdateDriverProgressSt
     events?: EventDto[];
     transactions_processed?: boolean;
     updated_at?: number;
+    version?: number;
 }
 export {};

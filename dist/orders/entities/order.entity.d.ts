@@ -93,5 +93,6 @@ export declare class Order {
     cancellation_title: string;
     cancellation_description: string;
     cancelled_at: number;
+    version: number;
     generateId(): void;
 }

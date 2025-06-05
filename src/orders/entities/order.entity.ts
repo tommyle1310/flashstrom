@@ -230,6 +230,11 @@ export class Order {
   @Column({ nullable: true })
   cancelled_at: number;
 
+  @Column({
+    default: 0
+  })
+  version: number;
+
   @BeforeInsert()
   generateId() {
     this.id = `FF_ORDER_${uuidv4()}`;

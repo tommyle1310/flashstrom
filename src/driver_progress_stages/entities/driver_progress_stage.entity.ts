@@ -117,6 +117,11 @@ export class DriverProgressStage {
   @Column({ type: 'boolean', default: false })
   transactions_processed: boolean;
 
+  @Column({
+    default: 0
+  })
+  version: number;
+
   @BeforeInsert()
   generateId() {
     this.id = `FF_DPS_${uuidv4()}`;
