@@ -153,6 +153,7 @@ export class CustomersGateway implements OnGatewayInit {
       }
 
       const trackingUpdate = {
+        ...order,
         orderId: order.orderId,
         status: order.status,
         tracking_info: order.tracking_info,

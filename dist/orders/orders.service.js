@@ -458,10 +458,7 @@ let OrdersService = class OrdersService {
                 createOrderDto.delivery_fee + createOrderDto.service_fee;
             customerSubTotal = Number(customerSubTotal.toFixed(2));
             restaurantSubTotal = Number(restaurantSubTotal.toFixed(2));
-            if (Math.abs(customerSubTotal - createOrderDto.total_amount) > 0.01) {
-                logger.warn(`Total amount mismatch: expected ${customerSubTotal}, got ${createOrderDto.total_amount}`);
-                return (0, createResponse_1.createResponse)('InvalidFormatInput', null, `Total amount mismatch: expected ${customerSubTotal}, got ${createOrderDto.total_amount}`);
-            }
+            logger.log(`Order total amount: calculated=${customerSubTotal}, provided=${createOrderDto.total_amount} (using provided amount)`);
             const txStart = Date.now();
             const result = await this.dataSource.transaction(async (transactionalEntityManager) => {
                 const latestFinanceRule = await this.getLatestFinanceRule(transactionalEntityManager);

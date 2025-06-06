@@ -121,6 +121,7 @@ let CustomersGateway = CustomersGateway_1 = class CustomersGateway {
                 return;
             }
             const trackingUpdate = {
+                ...order,
                 orderId: order.orderId,
                 status: order.status,
                 tracking_info: order.tracking_info,

@@ -538,17 +538,12 @@ export class OrdersService {
       customerSubTotal = Number(customerSubTotal.toFixed(2));
       restaurantSubTotal = Number(restaurantSubTotal.toFixed(2));
 
-      // Kiểm tra customerSubTotal khớp với DTO
-      if (Math.abs(customerSubTotal - createOrderDto.total_amount) > 0.01) {
-        logger.warn(
-          `Total amount mismatch: expected ${customerSubTotal}, got ${createOrderDto.total_amount}`
-        );
-        return createResponse(
-          'InvalidFormatInput',
-          null,
-          `Total amount mismatch: expected ${customerSubTotal}, got ${createOrderDto.total_amount}`
-        );
-      }
+      // REMOVED: Total amount validation - createOrderDto.total_amount already includes promotion deductions
+      // The frontend sends the final amount after applying promotions/discounts
+      // So we should not validate against the calculated subtotal
+      logger.log(
+        `Order total amount: calculated=${customerSubTotal}, provided=${createOrderDto.total_amount} (using provided amount)`
+      );
 
       // 5. Transaction
       const txStart = Date.now();

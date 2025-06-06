@@ -33,20 +33,7 @@ export declare class CustomersGateway implements OnGatewayInit {
     }>;
     handleListenUpdateOrderTracking(order: any): Promise<{
         event: string;
-        data: {
-            orderId: any;
-            status: any;
-            tracking_info: any;
-            updated_at: any;
-            customer_id: any;
-            driver_id: any;
-            restaurant_id: any;
-            restaurant_avatar: any;
-            driver_avatar: any;
-            restaurantAddress: any;
-            customerAddress: any;
-            driverDetails: any;
-        };
+        data: any;
         message: string;
     }>;
 }

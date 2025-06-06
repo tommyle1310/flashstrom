@@ -201,11 +201,13 @@ export class AuthService {
 
   private async handleCustomerLogin(user: User, basePayload: BasePayload) {
     try {
+      console.log('check user', user, 'chekc user id', user.id);
+
       // Fetch customer data with timeout
       const userWithRole = await (Promise.race([
         this.customersRepository.findByUserId(user.id),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Customer lookup timeout')), 60000)
+          setTimeout(() => reject(new Error('Customer lookup timeout')), 2000)
         )
       ]) as Promise<Customer>);
 
