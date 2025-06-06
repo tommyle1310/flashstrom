@@ -538,6 +538,8 @@ export class DriversGateway
             `[DriversGateway] Notifying driver ${driver.id}, clients in room: ${driverClients.length}`
           );
           await this.server.to(driverRoom).emit('driverStagesUpdated', {
+            ...orderData,
+            ...order,
             orderId: order.id,
             status: orderData.status,
             tracking_info: orderData.tracking_info
@@ -1406,11 +1408,20 @@ export class DriversGateway
                       }
                     );
 
+                    // CRITICAL FIX: Apply same comprehensive emit pattern as driverAcceptOrder
                     this.eventEmitter.emit('listenUpdateOrderTracking', {
                       orderId: order.id,
                       status: completedOrderStatus,
                       tracking_info: completedOrderTrackingInfo,
-                      updated_at: timestamp
+                      updated_at: timestamp,
+                      customer_id: order.customer_id,
+                      driver_id: order.driver_id,
+                      restaurant_id: order.restaurant_id,
+                      restaurant_avatar: order.restaurant?.avatar || null,
+                      driver_avatar: null, // Will be populated by the listener
+                      restaurantAddress: order.restaurantAddress,
+                      customerAddress: order.customerAddress,
+                      driverDetails: null // Will be populated by the listener
                     });
 
                     try {
@@ -1527,11 +1538,21 @@ export class DriversGateway
                           );
 
                           // Emit for next order
+                          // CRITICAL FIX: Apply same comprehensive emit pattern as driverAcceptOrder
                           this.eventEmitter.emit('listenUpdateOrderTracking', {
                             orderId: nextOrder.id,
                             status: savedNextOrder.status,
                             tracking_info: savedNextOrder.tracking_info,
-                            updated_at: savedNextOrder.updated_at
+                            updated_at: savedNextOrder.updated_at,
+                            customer_id: nextOrder.customer_id,
+                            driver_id: nextOrder.driver_id,
+                            restaurant_id: nextOrder.restaurant_id,
+                            restaurant_avatar:
+                              nextOrder.restaurant?.avatar || null,
+                            driver_avatar: null, // Will be populated by the listener
+                            restaurantAddress: nextOrder.restaurantAddress,
+                            customerAddress: nextOrder.customerAddress,
+                            driverDetails: null // Will be populated by the listener
                           });
 
                           try {
@@ -1643,11 +1664,20 @@ export class DriversGateway
                       newTrackingInfo: savedOrder.tracking_info
                     });
 
+                    // CRITICAL FIX: Apply same comprehensive emit pattern as driverAcceptOrder
                     this.eventEmitter.emit('listenUpdateOrderTracking', {
                       orderId: order.id,
                       status: savedOrder.status,
                       tracking_info: savedOrder.tracking_info,
-                      updated_at: savedOrder.updated_at
+                      updated_at: savedOrder.updated_at,
+                      customer_id: order.customer_id,
+                      driver_id: order.driver_id,
+                      restaurant_id: order.restaurant_id,
+                      restaurant_avatar: order.restaurant?.avatar || null,
+                      driver_avatar: null, // Will be populated by the listener
+                      restaurantAddress: order.restaurantAddress,
+                      customerAddress: order.customerAddress,
+                      driverDetails: null // Will be populated by the listener
                     });
 
                     // FIXED: Also notify all parties immediately after order update
@@ -2471,7 +2501,10 @@ export class DriversGateway
           });
 
           // Emit events
-          this.server.to(`driver_${driverId}`).emit('driverStagesUpdated', dps);
+          this.server.to(`driver_${driverId}`).emit('driverStagesUpdated', {
+            ...orderWithRelations,
+            ...dps
+          });
           this.eventEmitter.emit('order.statusUpdated', {
             orderId,
             status: OrderStatus.DISPATCHED,

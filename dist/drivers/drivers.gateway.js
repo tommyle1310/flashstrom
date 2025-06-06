@@ -396,6 +396,8 @@ let DriversGateway = class DriversGateway {
                     const driverClients = await this.server.in(driverRoom).fetchSockets();
                     console.log(`[DriversGateway] Notifying driver ${driver.id}, clients in room: ${driverClients.length}`);
                     await this.server.to(driverRoom).emit('driverStagesUpdated', {
+                        ...orderData,
+                        ...order,
                         orderId: order.id,
                         status: orderData.status,
                         tracking_info: orderData.tracking_info
@@ -1065,7 +1067,15 @@ let DriversGateway = class DriversGateway {
                                         orderId: order.id,
                                         status: completedOrderStatus,
                                         tracking_info: completedOrderTrackingInfo,
-                                        updated_at: timestamp
+                                        updated_at: timestamp,
+                                        customer_id: order.customer_id,
+                                        driver_id: order.driver_id,
+                                        restaurant_id: order.restaurant_id,
+                                        restaurant_avatar: order.restaurant?.avatar || null,
+                                        driver_avatar: null,
+                                        restaurantAddress: order.restaurantAddress,
+                                        customerAddress: order.customerAddress,
+                                        driverDetails: null
                                     });
                                     try {
                                         await this.notifyPartiesOnce(order);
@@ -1145,7 +1155,15 @@ let DriversGateway = class DriversGateway {
                                                     orderId: nextOrder.id,
                                                     status: savedNextOrder.status,
                                                     tracking_info: savedNextOrder.tracking_info,
-                                                    updated_at: savedNextOrder.updated_at
+                                                    updated_at: savedNextOrder.updated_at,
+                                                    customer_id: nextOrder.customer_id,
+                                                    driver_id: nextOrder.driver_id,
+                                                    restaurant_id: nextOrder.restaurant_id,
+                                                    restaurant_avatar: nextOrder.restaurant?.avatar || null,
+                                                    driver_avatar: null,
+                                                    restaurantAddress: nextOrder.restaurantAddress,
+                                                    customerAddress: nextOrder.customerAddress,
+                                                    driverDetails: null
                                                 });
                                                 try {
                                                     await this.notifyPartiesOnce(savedNextOrder);
@@ -1225,7 +1243,15 @@ let DriversGateway = class DriversGateway {
                                         orderId: order.id,
                                         status: savedOrder.status,
                                         tracking_info: savedOrder.tracking_info,
-                                        updated_at: savedOrder.updated_at
+                                        updated_at: savedOrder.updated_at,
+                                        customer_id: order.customer_id,
+                                        driver_id: order.driver_id,
+                                        restaurant_id: order.restaurant_id,
+                                        restaurant_avatar: order.restaurant?.avatar || null,
+                                        driver_avatar: null,
+                                        restaurantAddress: order.restaurantAddress,
+                                        customerAddress: order.customerAddress,
+                                        driverDetails: null
                                     });
                                     logToFile('[EMIT] Notifying parties for order update', {
                                         requestId,
@@ -1790,7 +1816,10 @@ let DriversGateway = class DriversGateway {
                         }
                     }
                 });
-                this.server.to(`driver_${driverId}`).emit('driverStagesUpdated', dps);
+                this.server.to(`driver_${driverId}`).emit('driverStagesUpdated', {
+                    ...orderWithRelations,
+                    ...dps
+                });
                 this.eventEmitter.emit('order.statusUpdated', {
                     orderId,
                     status: order_entity_1.OrderStatus.DISPATCHED,
