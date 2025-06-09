@@ -1520,11 +1520,13 @@ export class DriversGateway
 
                     // CRITICAL FIX: Apply same comprehensive emit pattern as driverAcceptOrder
                     this.eventEmitter.emit('listenUpdateOrderTracking', {
+                      ...order,
                       orderId: order.id,
                       status: completedOrderStatus,
                       tracking_info: completedOrderTrackingInfo,
                       updated_at: timestamp,
                       customer_id: order.customer_id,
+                      order_items: order.order_items,
                       driver_id: order.driver_id,
                       restaurant_id: order.restaurant_id,
                       restaurant_avatar: order.restaurant?.avatar || null,
@@ -1661,6 +1663,8 @@ export class DriversGateway
                           // Emit for next order
                           // CRITICAL FIX: Apply same comprehensive emit pattern as driverAcceptOrder
                           this.eventEmitter.emit('listenUpdateOrderTracking', {
+                            ...order,
+                            order_items: nextOrder.order_items,
                             orderId: nextOrder.id,
                             status: savedNextOrder.status,
                             tracking_info: savedNextOrder.tracking_info,
@@ -1913,8 +1917,10 @@ export class DriversGateway
 
                     // CRITICAL FIX: Apply same comprehensive emit pattern as driverAcceptOrder
                     this.eventEmitter.emit('listenUpdateOrderTracking', {
+                      ...order,
                       orderId: order.id,
                       status: savedOrder.status,
+                      order_items: order.order_items,
                       tracking_info: savedOrder.tracking_info,
                       updated_at: savedOrder.updated_at,
                       customer_id: order.customer_id,
@@ -2137,6 +2143,7 @@ export class DriversGateway
                       );
 
                       this.eventEmitter.emit('listenUpdateOrderTracking', {
+                        order_items: order.order_items,
                         orderId: order.id,
                         status: savedNextOrder.status,
                         tracking_info: savedNextOrder.tracking_info,
@@ -2738,6 +2745,8 @@ export class DriversGateway
 
           // Notify customer about order acceptance
           this.eventEmitter.emit('listenUpdateOrderTracking', {
+            ...orderWithRelations,
+            order_items: orderWithRelations.order_items,
             orderId: orderWithRelations.id,
             status: orderWithRelations.status,
             tracking_info: orderWithRelations.tracking_info,

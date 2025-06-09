@@ -490,6 +490,7 @@ let OrdersService = class OrdersService {
                 else {
                     createOrderDto.payment_status = 'PENDING';
                 }
+                const currentTimestamp = Date.now();
                 const orderData = {
                     ...createOrderDto,
                     total_amount: customerSubTotal,
@@ -501,8 +502,9 @@ let OrdersService = class OrdersService {
                         order_entity_1.OrderTrackingInfo.ORDER_PLACED),
                     customerAddress: { id: customerAddress.id },
                     restaurantAddress: { id: restaurantAddress.id },
-                    created_at: Math.floor(Date.now() / 1000),
-                    updated_at: Math.floor(Date.now() / 1000),
+                    order_time: currentTimestamp,
+                    created_at: currentTimestamp,
+                    updated_at: currentTimestamp,
                     distance: Number(distance.toFixed(4))
                 };
                 logger.log('Saving order...');

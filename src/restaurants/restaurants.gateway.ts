@@ -733,11 +733,13 @@ export class RestaurantsGateway
 
     try {
       const trackingUpdate = {
+        ...order,
         orderId: order.id,
         status: order.status,
         tracking_info: order.tracking_info,
         updated_at: order.updated_at,
         customer_id: order.customer_id,
+        order_items: order.order_items,
         driver_id: order.driver_id,
         restaurant_id: order.restaurant_id,
         restaurant_avatar: order.restaurant?.avatar || null,
@@ -812,6 +814,7 @@ export class RestaurantsGateway
       }
 
       const trackingUpdate = {
+        ...order,
         orderId: order.orderId,
         status: order.status,
         tracking_info: order.tracking_info,

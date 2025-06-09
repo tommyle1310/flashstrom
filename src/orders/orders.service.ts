@@ -596,6 +596,7 @@ export class OrdersService {
             createOrderDto.payment_status = 'PENDING';
           }
 
+          const currentTimestamp = Date.now(); // Milliseconds, not seconds!
           const orderData: DeepPartial<Order> = {
             ...createOrderDto,
             total_amount: customerSubTotal,
@@ -607,8 +608,9 @@ export class OrdersService {
               OrderTrackingInfo.ORDER_PLACED) as OrderTrackingInfo,
             customerAddress: { id: customerAddress.id },
             restaurantAddress: { id: restaurantAddress.id },
-            created_at: Math.floor(Date.now() / 1000),
-            updated_at: Math.floor(Date.now() / 1000),
+            order_time: currentTimestamp,
+            created_at: currentTimestamp,
+            updated_at: currentTimestamp,
             distance: Number(distance.toFixed(4))
           };
 

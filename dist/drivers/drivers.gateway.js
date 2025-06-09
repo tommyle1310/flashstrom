@@ -1133,11 +1133,13 @@ let DriversGateway = class DriversGateway {
                                         trackingInfo: completedOrderTrackingInfo
                                     });
                                     this.eventEmitter.emit('listenUpdateOrderTracking', {
+                                        ...order,
                                         orderId: order.id,
                                         status: completedOrderStatus,
                                         tracking_info: completedOrderTrackingInfo,
                                         updated_at: timestamp,
                                         customer_id: order.customer_id,
+                                        order_items: order.order_items,
                                         driver_id: order.driver_id,
                                         restaurant_id: order.restaurant_id,
                                         restaurant_avatar: order.restaurant?.avatar || null,
@@ -1229,6 +1231,8 @@ let DriversGateway = class DriversGateway {
                                                     newTrackingInfo: savedNextOrder.tracking_info
                                                 });
                                                 this.eventEmitter.emit('listenUpdateOrderTracking', {
+                                                    ...order,
+                                                    order_items: nextOrder.order_items,
                                                     orderId: nextOrder.id,
                                                     status: savedNextOrder.status,
                                                     tracking_info: savedNextOrder.tracking_info,
@@ -1401,8 +1405,10 @@ let DriversGateway = class DriversGateway {
                                         newTrackingInfo: savedOrder.tracking_info
                                     });
                                     this.eventEmitter.emit('listenUpdateOrderTracking', {
+                                        ...order,
                                         orderId: order.id,
                                         status: savedOrder.status,
+                                        order_items: order.order_items,
                                         tracking_info: savedOrder.tracking_info,
                                         updated_at: savedOrder.updated_at,
                                         customer_id: order.customer_id,
@@ -1552,6 +1558,7 @@ let DriversGateway = class DriversGateway {
                                             newTrackingInfo: savedNextOrder.tracking_info
                                         });
                                         this.eventEmitter.emit('listenUpdateOrderTracking', {
+                                            order_items: order.order_items,
                                             orderId: order.id,
                                             status: savedNextOrder.status,
                                             tracking_info: savedNextOrder.tracking_info,
@@ -1962,6 +1969,8 @@ let DriversGateway = class DriversGateway {
                     await transactionalEntityManager.save(driver_entity_1.Driver, driverWithRelations);
                 }
                 this.eventEmitter.emit('listenUpdateOrderTracking', {
+                    ...orderWithRelations,
+                    order_items: orderWithRelations.order_items,
                     orderId: orderWithRelations.id,
                     status: orderWithRelations.status,
                     tracking_info: orderWithRelations.tracking_info,

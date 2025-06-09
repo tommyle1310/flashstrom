@@ -476,11 +476,13 @@ let RestaurantsGateway = RestaurantsGateway_1 = class RestaurantsGateway {
         }
         try {
             const trackingUpdate = {
+                ...order,
                 orderId: order.id,
                 status: order.status,
                 tracking_info: order.tracking_info,
                 updated_at: order.updated_at,
                 customer_id: order.customer_id,
+                order_items: order.order_items,
                 driver_id: order.driver_id,
                 restaurant_id: order.restaurant_id,
                 restaurant_avatar: order.restaurant?.avatar || null,
@@ -536,6 +538,7 @@ let RestaurantsGateway = RestaurantsGateway_1 = class RestaurantsGateway {
                 return;
             }
             const trackingUpdate = {
+                ...order,
                 orderId: order.orderId,
                 status: order.status,
                 tracking_info: order.tracking_info,
