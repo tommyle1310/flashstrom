@@ -55,7 +55,7 @@ let MenuItemVariantsRepository = class MenuItemVariantsRepository {
         }
         const variants = await this.menuItemVariantRepository.find({
             where: { id: (0, typeorm_2.In)(ids) },
-            select: ['id', 'price', 'description', 'menu_id']
+            select: ['id', 'price', 'description', 'menu_id', 'variant']
         });
         await redis.setEx(cacheKey, 3600, JSON.stringify(variants));
         return variants;

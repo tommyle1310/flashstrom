@@ -654,6 +654,18 @@ let OrdersService = class OrdersService {
             this.updateMenuItemPurchaseCount(createOrderDto.order_items).catch(err => logger.error('Error updating menu item purchase count:', err));
             const emitStart = Date.now();
             const eventId = `${savedOrder.id}-${Date.now()}`;
+            const populatedOrderItems = savedOrder.order_items.map(item => {
+                const variant = item.variant_id
+                    ? variantMap.get(item.variant_id)
+                    : null;
+                if (item.variant_id && !variant) {
+                    logger.warn(`Variant ID ${item.variant_id} not found for order ${savedOrder.id}`);
+                }
+                return {
+                    ...item,
+                    menu_item_variant: variant
+                };
+            });
             const trackingUpdate = {
                 orderId: savedOrder.id,
                 status: savedOrder.status,
@@ -664,8 +676,9 @@ let OrdersService = class OrdersService {
                 restaurant_id: savedOrder.restaurant_id,
                 restaurantAddress,
                 customerAddress,
-                order_items: savedOrder.order_items,
+                order_items: populatedOrderItems,
                 total_amount: savedOrder.total_amount,
+                total_restaurant_earn: restaurantSubTotal,
                 delivery_fee: savedOrder.delivery_fee,
                 service_fee: savedOrder.service_fee,
                 promotions_applied: savedOrder.promotions_applied,

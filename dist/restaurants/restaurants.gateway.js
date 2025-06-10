@@ -271,6 +271,7 @@ let RestaurantsGateway = RestaurantsGateway_1 = class RestaurantsGateway {
             updated_at: order.order.updated_at,
             customer_id: order.order.customer_id,
             total_amount: order.order.total_amount,
+            total_restaurant_earn: order.order.total_restaurant_earn,
             order_items: order.order.order_items,
             driver_id: order.order.driver_id,
             restaurant_id: order.order.restaurant_id,
