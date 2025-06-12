@@ -533,7 +533,7 @@ export class RestaurantsGateway
       });
 
       await this.notifyDriverAndParties(
-        updatedOrder,
+        { ...updatedOrder, distance: distance },
         selectedDriver.id,
         driver_wage
       );

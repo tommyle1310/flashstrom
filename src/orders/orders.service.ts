@@ -1225,8 +1225,27 @@ export class OrdersService {
         'daily'
       );
       await this.driversGateway.notifyPartiesOnce(updatedOrder);
+
+      // Emit tip event for driver notification
+      this.eventEmitter.emit('driver.receivedTip', {
+        driverId: updatedOrder.driver_id,
+        orderId: updatedOrder.id,
+        tipAmount: tipAmount,
+        tipTime: Math.floor(Date.now() / 1000), // Unix timestamp in seconds
+        totalTips: updatedOrder.driver_tips,
+        orderDetails: {
+          id: updatedOrder.id,
+          customer_id: updatedOrder.customer_id,
+          restaurant_id: updatedOrder.restaurant_id,
+          status: updatedOrder.status,
+          tracking_info: updatedOrder.tracking_info,
+          total_amount: updatedOrder.total_amount,
+          delivery_fee: updatedOrder.delivery_fee
+        }
+      });
+
       logger.log(
-        `Notified driver ${updatedOrder.driver_id} about tip of ${tipAmount} for order ${orderId}`
+        `Emitted tip event for driver ${updatedOrder.driver_id} - tip: ${tipAmount} for order ${orderId}`
       );
 
       return createResponse('OK', updatedOrder, 'Driver tipped successfully');

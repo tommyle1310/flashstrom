@@ -201,9 +201,16 @@ export class DriversGateway
       'order.assignedToDriver',
       this.handleOrderAssignedToDriver.bind(this)
     );
+
+    this.eventEmitter.removeAllListeners('driver.receivedTip');
+    this.eventEmitter.on(
+      'driver.receivedTip',
+      this.handleDriverReceivedTip.bind(this)
+    );
+
     this.isListenerRegistered = true;
     console.log(
-      '[DriversGateway] Registered event listener for order.assignedToDriver'
+      '[DriversGateway] Registered event listeners for order.assignedToDriver and driver.receivedTip'
     );
   }
 
@@ -212,12 +219,16 @@ export class DriversGateway
       'order.assignedToDriver',
       this.handleOrderAssignedToDriver.bind(this)
     );
+    this.eventEmitter.removeListener(
+      'driver.receivedTip',
+      this.handleDriverReceivedTip.bind(this)
+    );
     this.isListenerRegistered = false;
     if (this.redisClient && this.redisClient.isOpen) {
       await this.redisClient.quit();
     }
     console.log(
-      '[DriversGateway] Removed event listener and closed Redis connection'
+      '[DriversGateway] Removed event listeners and closed Redis connection'
     );
   }
 
@@ -2867,6 +2878,7 @@ export class DriversGateway
     try {
       const driverId = orderAssignment.driverListenerId;
       if (!driverId) throw new WsException('Driver ID is required');
+      console.log('cehck what order here in dg', orderAssignment);
 
       const order = await this.ordersService.findOne(orderAssignment.id);
 
@@ -2887,6 +2899,7 @@ export class DriversGateway
           event: 'incomingOrderForDriver',
           data: {
             ...driverNotificationData,
+            distance: orderAssignment.distance,
             driver_wage: orderAssignment.driver_wage,
             driver_earn: orderAssignment.driver_wage
           },
@@ -2908,6 +2921,70 @@ export class DriversGateway
       );
     }
   }
+
+  @OnEvent('driver.receivedTip')
+  async handleDriverReceivedTip(tipData: any) {
+    try {
+      const { driverId, orderId, tipAmount, tipTime, totalTips, orderDetails } =
+        tipData;
+
+      if (!driverId) {
+        console.error(
+          '[DriversGateway] Driver ID is required for tip notification'
+        );
+        return;
+      }
+
+      console.log(
+        `[DriversGateway] Processing tip notification for driver ${driverId}:`,
+        {
+          orderId,
+          tipAmount,
+          totalTips
+        }
+      );
+
+      // Get connected clients for the driver
+      const clients = await this.server.in(`driver_${driverId}`).fetchSockets();
+      console.log(
+        `[DriversGateway] Emitting tip notification to room driver_${driverId}, clients: ${clients.length}`
+      );
+
+      if (clients.length === 0) {
+        console.log(
+          `[DriversGateway] No connected clients for driver ${driverId}, tip notification not sent`
+        );
+        return;
+      }
+
+      // Emit tip notification to the driver
+      this.server.to(`driver_${driverId}`).emit('tipReceived', {
+        event: 'tipReceived',
+        data: {
+          orderId,
+          tipAmount,
+          tipTime,
+          totalTips,
+          orderDetails,
+          message: `You received a tip of $${tipAmount}! 🎉`
+        },
+        message: `Tip received: $${tipAmount}`
+      });
+
+      console.log(
+        `[DriversGateway] Successfully emitted tip notification to driver ${driverId} - Amount: $${tipAmount}`
+      );
+
+      return { event: 'tipNotified', data: { success: true } };
+    } catch (error: any) {
+      console.error(
+        '[DriversGateway] Error handling driver.receivedTip:',
+        error
+      );
+      // Don't throw error to avoid breaking the tip flow
+    }
+  }
+
   private async handleDeliveryCompletion(
     order: Order,
     dps: DriverProgressStage,
