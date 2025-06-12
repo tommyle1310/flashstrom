@@ -76,6 +76,7 @@ import { FinanceRulesRepository } from 'src/finance_rules/finance_rules.reposito
 import { OrdersService } from 'src/orders/orders.service';
 import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
+import { NotificationsService } from 'src/notifications/notifications.service';
 @Module({
   imports: [
     JwtModule.register({
@@ -150,6 +151,7 @@ import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_p
     DriverProgressStagesRepository,
     OnlineSessionsRepository,
     OnlineSessionsService,
+    NotificationsService,
     NotificationsRepository,
     TransactionsRepository,
     DriversService,

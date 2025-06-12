@@ -32,8 +32,10 @@ import { DriverStatsService } from 'src/driver_stats_records/driver_stats_record
 import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionService } from 'src/transactions/transactions.service';
-import { FLASHFOOD_FINANCE } from 'src/utils/constants';
+import { FLASHFOOD_FINANCE, ADMIN_MOCK } from 'src/utils/constants';
 import { createAdapter } from '@socket.io/redis-adapter';
+import { NotificationsService } from 'src/notifications/notifications.service';
+import { TargetUser } from 'src/notifications/entities/notification.entity';
 import { RedisService } from 'src/redis/redis.service';
 import { Logger } from '@nestjs/common';
 import { UserRepository } from 'src/users/users.repository';
@@ -112,7 +114,8 @@ export class DriversGateway
     private readonly jwtService: JwtService,
     private readonly redisService: RedisService,
     @Inject(forwardRef(() => UserRepository))
-    private readonly userRepository: UserRepository
+    private readonly userRepository: UserRepository,
+    private readonly notificationsService: NotificationsService
   ) {
     logger.log('DriversGateway constructor called');
     logger.log('Checking injected dependencies:');
@@ -3150,6 +3153,116 @@ export class DriversGateway
       if (lockAcquired) {
         await this.redisService.del(lockKey);
       }
+    }
+
+    // Create notifications for order completion
+    await this.createDeliveryCompletionNotifications(
+      order,
+      transactionalEntityManager
+    );
+  }
+
+  private async createDeliveryCompletionNotifications(
+    order: Order,
+    transactionalEntityManager: EntityManager
+  ): Promise<void> {
+    try {
+      logToFile('Creating delivery completion notifications', {
+        orderId: order.id,
+        customerId: order.customer_id,
+        restaurantId: order.restaurant_id
+      });
+
+      // Get order with relations for notification content
+      const orderWithRelations = await transactionalEntityManager
+        .getRepository(Order)
+        .findOne({
+          where: { id: order.id },
+          relations: ['customer', 'restaurant']
+        });
+
+      if (!orderWithRelations) {
+        logToFile('Order not found for notifications', { orderId: order.id });
+        return;
+      }
+
+      const timestamp = Date.now(); // Use milliseconds for notifications
+
+      // Create customer notification
+      if (orderWithRelations.customer) {
+        const customerNotificationData = {
+          avatar: {
+            url: 'https://flashfood-assets.s3.amazonaws.com/delivery-success.png',
+            key: 'delivery-success'
+          },
+          title: 'Order Delivered Successfully! 🎉',
+          desc: `Your order #${order.id} has been delivered successfully. Thank you for choosing FlashFood!`,
+          image: null,
+          link: `/orders/${order.id}`,
+          target_user: [TargetUser.CUSTOMER],
+          created_by_id: ADMIN_MOCK.admin_id,
+          target_user_id: orderWithRelations.customer.id
+        };
+
+        const customerNotificationResponse =
+          await this.notificationsService.create(customerNotificationData);
+
+        if (customerNotificationResponse.EC === 0) {
+          logToFile('Customer notification created successfully', {
+            orderId: order.id,
+            customerId: orderWithRelations.customer.id,
+            notificationId: customerNotificationResponse.data.id
+          });
+        } else {
+          logToFile('Failed to create customer notification', {
+            orderId: order.id,
+            customerId: orderWithRelations.customer.id,
+            error: customerNotificationResponse.EM
+          });
+        }
+      }
+
+      // Create restaurant notification
+      if (orderWithRelations.restaurant) {
+        const restaurantNotificationData = {
+          avatar: {
+            url: 'https://flashfood-assets.s3.amazonaws.com/delivery-complete.png',
+            key: 'delivery-complete'
+          },
+          title: 'Order Delivered to Customer! ✅',
+          desc: `Order #${order.id} has been successfully delivered to your customer. Great job!`,
+          image: null,
+          link: `/orders/${order.id}`,
+          target_user: [TargetUser.RESTAURANT],
+          created_by_id: ADMIN_MOCK.admin_id,
+          target_user_id: orderWithRelations.restaurant.id
+        };
+
+        const restaurantNotificationResponse =
+          await this.notificationsService.create(restaurantNotificationData);
+
+        if (restaurantNotificationResponse.EC === 0) {
+          logToFile('Restaurant notification created successfully', {
+            orderId: order.id,
+            restaurantId: orderWithRelations.restaurant.id,
+            notificationId: restaurantNotificationResponse.data.id
+          });
+        } else {
+          logToFile('Failed to create restaurant notification', {
+            orderId: order.id,
+            restaurantId: orderWithRelations.restaurant.id,
+            error: restaurantNotificationResponse.EM
+          });
+        }
+      }
+    } catch (error: any) {
+      logToFile('Error creating delivery completion notifications', {
+        orderId: order.id,
+        error: error.message,
+        stack: error.stack
+      });
+      // Don't throw error to avoid breaking the main delivery completion flow
+      console.error('Error creating delivery completion notifications:', error);
     }
   }
 

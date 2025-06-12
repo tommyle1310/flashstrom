@@ -70,6 +70,7 @@ import { OrdersService } from 'src/orders/orders.service';
 import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
 import { CartItem } from 'src/cart_items/entities/cart_item.entity';
 import { DriversGateway } from 'src/drivers/drivers.gateway';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Module({
   imports: [
@@ -130,6 +131,7 @@ import { DriversGateway } from 'src/drivers/drivers.gateway';
     DriverStatsService,
     RatingsReviewsRepository,
     AdminRepository,
+    NotificationsService,
     FinanceRulesService,
     AdminService,
     UsersService,

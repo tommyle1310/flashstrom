@@ -50,6 +50,9 @@ import { RedisService } from 'src/redis/redis.service';
 import { OrdersService } from 'src/orders/orders.service';
 import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
+import { NotificationsService } from 'src/notifications/notifications.service';
+import { Notification } from 'src/notifications/entities/notification.entity';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
 
 @Module({
   imports: [
@@ -67,7 +70,8 @@ import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_p
       Admin,
       DriverProgressStage,
       User,
-      DriverStatsRecord
+      DriverStatsRecord,
+      Notification
     ]),
     UsersModule,
     AddressBookModule,
@@ -86,6 +90,7 @@ import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_p
     RestaurantsRepository,
     RatingsReviewsRepository,
     AddressBookRepository,
+    NotificationsRepository,
     FoodCategoriesRepository,
     UserRepository,
     FinanceRulesService,
@@ -94,6 +99,7 @@ import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_p
     DriverStatsService,
     FinanceRulesRepository,
     AdminRepository,
+    NotificationsService,
     OrdersRepository,
     JwtService,
     RestaurantsGateway,

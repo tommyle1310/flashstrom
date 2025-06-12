@@ -61,6 +61,7 @@ import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
 import { Server } from 'socket.io';
 import { TransactionsModule } from 'src/transactions/transactions.module';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Module({
   imports: [
@@ -113,6 +114,7 @@ import { TransactionsModule } from 'src/transactions/transactions.module';
     UserRepository,
     CustomersService,
     DriversRepository,
+    NotificationsService,
     PromotionsRepository,
     MenuItemsService,
     DriverProgressStagesService,

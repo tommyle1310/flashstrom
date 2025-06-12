@@ -30,6 +30,9 @@ import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { Notification } from 'src/notifications/entities/notification.entity';
 import { NotificationsRepository } from 'src/notifications/notifications.repository';
 import { RedisService } from 'src/redis/redis.service';
+import { NotificationsService } from 'src/notifications/notifications.service';
+import { AdminRepository } from 'src/admin/admin.repository';
+import { Admin } from 'src/admin/entities/admin.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -37,6 +40,7 @@ import { RedisService } from 'src/redis/redis.service';
       AddressBook,
       FoodCategory,
       Restaurant,
+      Admin,
       Customer,
       Promotion,
       CartItem,
@@ -52,6 +56,8 @@ import { RedisService } from 'src/redis/redis.service';
   providers: [
     CustomersService,
     AddressBookService,
+    NotificationsService,
+    AdminRepository,
     CustomersGateway,
     UserRepository,
     RedisService,
