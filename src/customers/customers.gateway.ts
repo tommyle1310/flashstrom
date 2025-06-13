@@ -10,6 +10,7 @@ import { CustomersService } from './customers.service';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import { Logger } from '@nestjs/common';
+import { calculateDistance } from 'src/utils/commonFunctions';
 
 @WebSocketGateway({
   namespace: 'customer',
@@ -152,9 +153,13 @@ export class CustomersGateway implements OnGatewayInit {
         return;
       }
 
+      const { distance } = await this.calculateOrderMetrics(order.data);
+
       const trackingUpdate = {
         ...order,
+        order_items: order.order_items,
         orderId: order.orderId,
+        distance,
         status: order.status,
         tracking_info: order.tracking_info,
         updated_at: order.updated_at || Math.floor(Date.now() / 1000),
@@ -181,5 +186,22 @@ export class CustomersGateway implements OnGatewayInit {
     } catch (error) {
       this.logger.error('Error in handleListenUpdateOrderTracking:', error);
     }
+  }
+  private async calculateOrderMetrics(order: any) {
+    const res_location = order.restaurantAddress as unknown as {
+      location: { lat: number; lng: number };
+    };
+    const customer_location = order.customerAddress as unknown as {
+      location: { lat: number; lng: number };
+    };
+
+    const distance = calculateDistance(
+      customer_location?.location?.lat ?? 0,
+      customer_location?.location?.lng ?? 0,
+      res_location?.location?.lat ?? 0,
+      res_location?.location?.lng ?? 0
+    );
+
+    return { distance };
   }
 }

@@ -42,6 +42,7 @@ import { UserRepository } from 'src/users/users.repository';
 import { Transaction } from 'src/transactions/entities/transaction.entity';
 import * as fs from 'fs';
 import * as path from 'path';
+import { IMAGE_LINKS } from 'src/assets/image_urls';
 
 const logger = new Logger('DriversGateway');
 
@@ -3269,7 +3270,7 @@ export class DriversGateway
       if (orderWithRelations.customer) {
         const customerNotificationData = {
           avatar: {
-            url: 'https://flashfood-assets.s3.amazonaws.com/delivery-success.png',
+            url: IMAGE_LINKS.ORDER_DELIVERED,
             key: 'delivery-success'
           },
           title: 'Order Delivered Successfully! 🎉',
@@ -3303,7 +3304,7 @@ export class DriversGateway
       if (orderWithRelations.restaurant) {
         const restaurantNotificationData = {
           avatar: {
-            url: 'https://flashfood-assets.s3.amazonaws.com/delivery-complete.png',
+            url: IMAGE_LINKS.ORDER_DELIVERED,
             key: 'delivery-complete'
           },
           title: 'Order Delivered to Customer! ✅',
