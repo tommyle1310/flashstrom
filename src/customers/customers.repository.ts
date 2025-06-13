@@ -156,9 +156,9 @@ export class CustomersRepository {
 
     try {
       const customer = await this.customerRepository.findOne({
-        where: { user_id: userId }
+        where: { user_id: userId },
         // Removed relations to speed up the query for login
-        // relations: ['address']
+        relations: ['address']
       });
 
       const queryTime = Date.now() - startTime;
