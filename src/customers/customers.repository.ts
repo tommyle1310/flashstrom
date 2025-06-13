@@ -14,7 +14,23 @@ const logger = new Logger('OrdersService');
 const redis = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
-redis.connect().catch(err => logger.error('Redis connection error:', err));
+
+// Improved Redis connection handling
+redis.connect().catch(err => {
+  logger.error('Redis connection error:', err);
+});
+
+redis.on('error', err => {
+  logger.error('Redis client error:', err);
+});
+
+redis.on('connect', () => {
+  logger.log('Redis client connected');
+});
+
+redis.on('ready', () => {
+  logger.log('Redis client ready');
+});
 
 @Injectable()
 export class CustomersRepository {
@@ -117,20 +133,76 @@ export class CustomersRepository {
 
   async findByUserId(userId: string): Promise<Customer> {
     const cacheKey = `customer:user:${userId}`;
-    const cached = await redis.get(cacheKey);
-    console.log('echck cached', cached);
-    if (cached) {
-      return JSON.parse(cached);
-    }
-    const customer = await this.customerRepository.findOne({
-      where: { user_id: userId },
-      relations: ['address']
-      // select: ['id', 'user_id']
-    });
 
-    if (customer) {
-      await redis.setEx(cacheKey, 3600, JSON.stringify(customer));
+    try {
+      // Check if Redis is connected before trying to use it
+      if (redis.isReady) {
+        const cached = await redis.get(cacheKey);
+        console.log('check cached', cached);
+        if (cached) {
+          console.log('Returning customer from cache');
+          return JSON.parse(cached);
+        }
+      } else {
+        console.warn('Redis is not ready, skipping cache read');
+      }
+    } catch (cacheError) {
+      console.warn('Redis cache read error:', cacheError);
+      // Continue to database query if cache fails
     }
+
+    console.log('Fetching customer from database for userId:', userId);
+    const startTime = Date.now();
+
+    try {
+      const customer = await this.customerRepository.findOne({
+        where: { user_id: userId }
+        // Removed relations to speed up the query for login
+        // relations: ['address']
+      });
+
+      const queryTime = Date.now() - startTime;
+      console.log(
+        `Database query completed in ${queryTime}ms for userId: ${userId}`
+      );
+
+      return await this.handleCustomerResult(customer, cacheKey, queryTime);
+    } catch (dbError) {
+      const queryTime = Date.now() - startTime;
+      console.error(
+        `Database query failed after ${queryTime}ms for userId: ${userId}`,
+        dbError
+      );
+      throw dbError;
+    }
+  }
+
+  private async handleCustomerResult(
+    customer: Customer,
+    cacheKey: string,
+    queryTime: number
+  ): Promise<Customer> {
+    if (customer) {
+      try {
+        // Try to cache the result only if Redis is ready
+        if (redis.isReady) {
+          await redis.setEx(cacheKey, 3600, JSON.stringify(customer));
+          console.log(
+            `Customer cached successfully (query took ${queryTime}ms)`
+          );
+        } else {
+          console.warn('Redis is not ready, skipping cache write');
+        }
+      } catch (cacheError) {
+        console.warn('Redis cache write error:', cacheError);
+        // Don't fail if caching fails
+      }
+    }
+
+    console.log(
+      `Returning customer from database (${queryTime}ms):`,
+      customer ? 'Found' : 'Not found'
+    );
     return customer;
   }
 

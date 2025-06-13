@@ -203,25 +203,20 @@ export class AuthService {
     try {
       console.log('check user', user, 'chekc user id', user.id);
 
-      // Fetch customer data with timeout
-      const userWithRole = await (Promise.race([
-        this.customersRepository.findByUserId(user.id),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Customer lookup timeout')), 2000)
-        )
-      ]) as Promise<Customer>);
+      // Fetch customer data
+      console.log('Fetching customer data for user ID:', user.id);
+      const userWithRole = await this.customersRepository.findByUserId(user.id);
+      console.log(
+        'Customer data fetched:',
+        userWithRole ? 'Found' : 'Not found'
+      );
 
       if (!userWithRole) {
         return createResponse('NotFound', null, 'Customer not found');
       }
 
-      // Fetch wallet data with timeout
-      const fwallet = await (Promise.race([
-        this.fWalletsRepository.findByUserId(user.id),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Wallet lookup timeout')), 5000)
-        )
-      ]) as Promise<FWallet>);
+      // Fetch wallet data
+      const fwallet = await this.fWalletsRepository.findByUserId(user.id);
 
       if (!fwallet) {
         return createResponse(
@@ -231,15 +226,10 @@ export class AuthService {
         );
       }
 
-      // Fetch cart items with timeout
-      const cartItems = await Promise.race([
-        this.cartItemService.findAll({
-          customer_id: userWithRole.id
-        }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Cart items lookup timeout')), 5000)
-        )
-      ]);
+      // Fetch cart items
+      const cartItems = await this.cartItemService.findAll({
+        customer_id: userWithRole.id
+      });
 
       // Update last login timestamp
       await this.customersRepository.update(userWithRole.id, {
@@ -259,7 +249,7 @@ export class AuthService {
         user_id: user.id,
         avatar: userWithRole.avatar,
         support_tickets: userWithRole.support_tickets || [],
-        address: userWithRole.address || {},
+        address: userWithRole.address || [],
         cart_items: cartItems?.data || []
       };
 
