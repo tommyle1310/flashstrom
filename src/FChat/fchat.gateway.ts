@@ -880,4 +880,116 @@ export class FchatGateway
     // This could be based on availability, load, expertise, etc.
     return { id: 'FF_CC_12345' }; // Example return value
   }
+
+  @OnEvent('customerCareAssigned')
+  async handleCustomerCareAssigned(data: {
+    userId: string;
+    customerCareId: string;
+    type: 'SUPPORT' | 'ORDER';
+    originalChatRoomId: string;
+  }) {
+    const { userId, customerCareId, type } = data;
+
+    // Tạo socketRoomId
+    const socketRoomId = this.getChatId(userId, customerCareId, type);
+    // Ví dụ: chat_FF_CUS_430b0b56-df21-4ac4-ac98-904dd522f0ee_FF_CC_320571da-59d0-483a-9c39-912d2a72b256_SUPPORT
+
+    // Khóa Redis để tránh trùng lặp
+    const lockKey = `lock:chat:${socketRoomId}`;
+    const lockAcquired = await this.redisService.setNx(lockKey, '1', 60 * 1000); // Khóa 60 giây
+
+    if (!lockAcquired) {
+      console.log(`Room creation for ${socketRoomId} is already in progress`);
+      return; // Bỏ qua nếu khóa đã tồn tại
+    }
+
+    try {
+      // Kiểm tra phòng trong Redis
+      const cacheKey = `active_chat:${socketRoomId}`;
+      const cachedRoom = await this.redisService.get(cacheKey);
+      if (cachedRoom) {
+        console.log(`Room ${socketRoomId} already exists in Redis`);
+        const roomData = JSON.parse(cachedRoom);
+        // Đưa người dùng vào phòng hiện có
+        const clientSocket = this.userSockets.get(userId);
+        const careSocket = this.userSockets.get(customerCareId);
+
+        if (clientSocket) {
+          await clientSocket.join(socketRoomId);
+          clientSocket.emit('chatStarted', {
+            chatId: socketRoomId,
+            withUser: customerCareId,
+            type,
+            dbRoomId: roomData.dbRoomId
+          });
+        }
+
+        if (careSocket) {
+          await careSocket.join(socketRoomId);
+          careSocket.emit('chatStarted', {
+            chatId: socketRoomId,
+            withUser: userId,
+            type,
+            dbRoomId: roomData.dbRoomId
+          });
+        }
+
+        return;
+      }
+
+      // Tạo phòng trong cơ sở dữ liệu nếu chưa tồn tại
+      const dbRoom = await this.fchatService.createRoom({
+        type: type === 'SUPPORT' ? RoomType.SUPPORT : RoomType.ORDER,
+        participants: [
+          { userId, userType: Enum_UserType.CUSTOMER },
+          {
+            userId: customerCareId,
+            userType: Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE
+          }
+        ],
+        createdAt: new Date(),
+        lastActivity: new Date()
+      });
+
+      // Lưu vào Redis
+      const roomData = {
+        participants: [userId, customerCareId],
+        type,
+        dbRoomId: dbRoom.id
+      };
+      await this.redisService.setNx(
+        cacheKey,
+        JSON.stringify(roomData),
+        86400 * 1000
+      );
+      this.activeChats.set(socketRoomId, roomData);
+
+      // Đưa khách hàng và nhân viên vào phòng
+      const clientSocket = this.userSockets.get(userId);
+      const careSocket = this.userSockets.get(customerCareId);
+
+      if (clientSocket) {
+        await clientSocket.join(socketRoomId);
+        clientSocket.emit('chatStarted', {
+          chatId: socketRoomId,
+          withUser: customerCareId,
+          type,
+          dbRoomId: dbRoom.id
+        });
+      }
+
+      if (careSocket) {
+        await careSocket.join(socketRoomId);
+        careSocket.emit('chatStarted', {
+          chatId: socketRoomId,
+          withUser: userId,
+          type,
+          dbRoomId: dbRoom.id
+        });
+      }
+    } finally {
+      // Giải phóng khóa
+      await this.redisService.del(lockKey);
+    }
+  }
 }
