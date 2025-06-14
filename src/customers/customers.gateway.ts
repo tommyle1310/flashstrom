@@ -153,7 +153,7 @@ export class CustomersGateway implements OnGatewayInit {
         return;
       }
 
-      const { distance } = await this.calculateOrderMetrics(order.data);
+      const { distance } = await this.calculateOrderMetrics(order);
 
       const trackingUpdate = {
         ...order,

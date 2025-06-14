@@ -2162,7 +2162,15 @@ export class DriversGateway
                         orderId: order.id,
                         status: savedNextOrder.status,
                         tracking_info: savedNextOrder.tracking_info,
-                        updated_at: savedNextOrder.updated_at
+                        updated_at: savedNextOrder.updated_at,
+                        customer_id: order.customer_id,
+                        driver_id: order.driver_id,
+                        restaurant_id: order.restaurant_id,
+                        restaurant_avatar: order.restaurant?.avatar || null,
+                        driver_avatar: null,
+                        restaurantAddress: order.restaurantAddress,
+                        customerAddress: order.customerAddress,
+                        driverDetails: null
                       });
 
                       // FIXED: Also notify all parties for multi-order updates
