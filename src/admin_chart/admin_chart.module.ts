@@ -10,6 +10,7 @@ import { Customer } from 'src/customers/entities/customer.entity';
 import { Driver } from 'src/drivers/entities/driver.entity';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
+import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entit
       Customer,
       Driver,
       Restaurant,
+      CustomerCare,
       RatingsReview
     ])
   ],

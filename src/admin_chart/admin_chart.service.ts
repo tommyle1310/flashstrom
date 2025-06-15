@@ -12,6 +12,7 @@ import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entit
 import { createResponse, ApiResponse } from 'src/utils/createResponse';
 import { PeriodType } from './dto/admin_chart_query.dto';
 import * as Redis from 'redis';
+import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
 
 @Injectable()
 export class AdminChartService {
@@ -28,6 +29,8 @@ export class AdminChartService {
     private promotionRepo: Repository<Promotion>,
     @InjectRepository(Customer)
     private customerRepo: Repository<Customer>,
+    @InjectRepository(CustomerCare)
+    private customerCareRepo: Repository<CustomerCare>,
     @InjectRepository(Driver)
     private driverRepo: Repository<Driver>,
     @InjectRepository(Restaurant)
@@ -445,6 +448,24 @@ export class AdminChartService {
         .orderBy("TO_CHAR(TO_TIMESTAMP(customer.created_at), 'YYYY-MM-DD')")
         .getRawMany();
 
+      const customerCareGrowth = await this.customerCareRepo
+        .createQueryBuilder('customer_care')
+        .select([
+          "TO_CHAR(TO_TIMESTAMP(customer_care.created_at), 'YYYY-MM-DD') as date",
+          'COUNT(*) as count'
+        ])
+        .where('customer_care.created_at BETWEEN :startDate AND :endDate', {
+          startDate,
+          endDate
+        })
+        .groupBy(
+          "TO_CHAR(TO_TIMESTAMP(customer_care.created_at), 'YYYY-MM-DD')"
+        )
+        .orderBy(
+          "TO_CHAR(TO_TIMESTAMP(customer_care.created_at), 'YYYY-MM-DD')"
+        )
+        .getRawMany();
+
       // Get unique dates
       const dateSet = new Set([
         ...driverGrowth.map(d => d.date),
@@ -465,7 +486,9 @@ export class AdminChartService {
             customer: parseInt(
               customerGrowth.find(c => c.date === date)?.count || 0
             ),
-            customer_care: 0 // Placeholder since customer_care is not in your schema
+            customer_care: parseInt(
+              customerCareGrowth.find(c => c.date === date)?.count || 0
+            ) // Placeholder since customer_care is not in your schema
           };
         })
         .sort((a, b) => a.date.localeCompare(b.date));
@@ -482,10 +505,10 @@ export class AdminChartService {
     try {
       const result = await this.promotionRepo
         .createQueryBuilder('promotion')
-        .select('SUM(promotion.value)', 'total')
+        .select('SUM(promotion.promotion_cost_price)', 'total')
         .where('promotion.created_at BETWEEN :startDate AND :endDate', {
-          startDate,
-          endDate
+          startDate: new Date(startDate * 1000),
+          endDate: new Date(endDate * 1000)
         })
         .getRawOne();
 
@@ -503,7 +526,10 @@ export class AdminChartService {
     try {
       const result = await this.ratingsReviewRepo
         .createQueryBuilder('review')
-        .select('AVG(review.overall_rating)', 'average')
+        .select(
+          'AVG((review.food_rating + review.delivery_rating) / 2)',
+          'average'
+        )
         .where('review.created_at BETWEEN :startDate AND :endDate', {
           startDate,
           endDate
@@ -524,15 +550,19 @@ export class AdminChartService {
     try {
       const result = await this.orderRepo
         .createQueryBuilder('order')
-        .select('AVG(order.delivery_time - order.order_time)', 'average')
+        .select('AVG(ABS(order.delivery_time - order.order_time))', 'average')
         .where('order.status = :status', { status: OrderStatus.DELIVERED })
         .andWhere('order.created_at BETWEEN :startDate AND :endDate', {
           startDate,
           endDate
         })
+        .andWhere('order.delivery_time IS NOT NULL')
+        .andWhere('order.order_time IS NOT NULL')
         .getRawOne();
 
-      return Math.round(parseFloat(result?.average || '0'));
+      const avgTime = parseFloat(result?.average || '0');
+      // Ensure the result fits in PostgreSQL integer range
+      return Math.min(Math.max(Math.round(avgTime), 0), 2147483647);
     } catch (error) {
       console.error('Error calculating average delivery time:', error);
       return 0;
@@ -583,6 +613,7 @@ export class AdminChartService {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private async calculateChurnRate(
     startDate: number,
     endDate: number
