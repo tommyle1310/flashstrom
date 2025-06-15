@@ -17,8 +17,6 @@ import { CreateFWalletDto } from 'src/fwallets/dto/create-fwallet.dto';
 import { CreateRestaurantDto } from 'src/restaurants/dto/create-restaurant.dto';
 import { User } from 'src/users/entities/user.entity';
 import { CartItemsService } from 'src/cart_items/cart_items.service';
-import { Customer } from 'src/customers/entities/customer.entity';
-import { FWallet } from 'src/fwallets/entities/fwallet.entity';
 
 @Injectable()
 export class AuthService {
@@ -35,7 +33,11 @@ export class AuthService {
     private readonly cartItemService: CartItemsService
   ) {}
 
-  async register(userData: any, type: Enum_UserType): Promise<any> {
+  async register(
+    userData: any,
+    type: Enum_UserType,
+    isGenerated?: string
+  ): Promise<any> {
     console.log('Starting registration process with data:', { userData, type });
 
     const { email, password, phone } = userData;
@@ -56,11 +58,16 @@ export class AuthService {
 
     if (existingUser) {
       console.log('Found existing user, handling existing user registration');
-      return this.handleExistingUserRegistration(existingUser, userData, type);
+      return this.handleExistingUserRegistration(
+        existingUser,
+        userData,
+        type,
+        isGenerated
+      );
     }
 
     console.log('No existing user found, creating new registration');
-    return this.createNewUserRegistration(userData, type, phone);
+    return this.createNewUserRegistration(userData, type, phone, isGenerated);
   }
 
   async login(
@@ -442,7 +449,8 @@ export class AuthService {
   private async handleExistingUserRegistration(
     existingUser: User,
     userData: any,
-    type: Enum_UserType
+    type: Enum_UserType,
+    isGenerated?: string
   ) {
     if (existingUser && Array.isArray(existingUser.user_type)) {
       const userTypes = existingUser.user_type.map(t => String(t));
@@ -460,6 +468,16 @@ export class AuthService {
 
     switch (type as Enum_UserType) {
       case Enum_UserType.CUSTOMER:
+        const customerFWalletData: CreateFWalletDto = {
+          user_id: existingUser.id,
+          email: existingUser.email,
+          password: existingUser.password,
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          balance: isGenerated === 'true' ? 999999 : 0
+        };
+
+        fWallet = await this.fWalletsRepository.create(customerFWalletData);
         newUserWithRole = await this.customersRepository.create({
           ...userData,
           password: existingUser.password,
@@ -474,7 +492,7 @@ export class AuthService {
             ...userData,
             password: existingUser.password,
             user_id: existingUser.id,
-            balance: 0
+            balance: isGenerated === 'true' ? 999999 : 0
           });
           if (!existingUser.user_type.includes(Enum_UserType.F_WALLET)) {
             existingUser.user_type.push(Enum_UserType.F_WALLET);
@@ -556,7 +574,7 @@ export class AuthService {
             password: existingUser.password,
             first_name: userData.first_name,
             last_name: userData.last_name,
-            balance: 0
+            balance: isGenerated === 'true' ? 999999 : 0
           };
 
           console.log('Creating FWallet with data:', fWalletData);
@@ -643,7 +661,7 @@ export class AuthService {
           ...userData,
           password: existingUser.password,
           user_id: existingUser.id,
-          balance: 0
+          balance: isGenerated === 'true' ? 999999 : 0
         });
         break;
 
@@ -761,7 +779,8 @@ export class AuthService {
   private async createNewUserRegistration(
     userData: any,
     type: Enum_UserType,
-    phone: string
+    phone: string,
+    isGenerated?: string
   ) {
     console.log('=== Starting createNewUserRegistration ===');
     console.log('Input data:', { userData, type, phone });
@@ -818,7 +837,7 @@ export class AuthService {
               password: newUserData.password,
               first_name: userData.first_name,
               last_name: userData.last_name,
-              balance: 0
+              balance: isGenerated === 'true' ? 999999 : 0
             };
 
             console.log('Creating FWallet with data:', customerFWalletData);
@@ -875,7 +894,7 @@ export class AuthService {
               password: newUserData.password,
               first_name: userData.first_name,
               last_name: userData.last_name,
-              balance: 0
+              balance: isGenerated === 'true' ? 999999 : 0
             };
 
             console.log('Creating FWallet with data:', driverFWalletData);
@@ -962,7 +981,7 @@ export class AuthService {
               password: newUserData.password,
               first_name: userData.first_name,
               last_name: userData.last_name,
-              balance: 0
+              balance: isGenerated === 'true' ? 999999 : 0
             };
 
             console.log('Creating FWallet with data:', fWalletData);
@@ -1049,7 +1068,7 @@ export class AuthService {
             ...userData,
             password: newUserData.password,
             user_id: newUser.id,
-            balance: 0
+            balance: isGenerated === 'true' ? 999999 : 0
           });
           break;
 

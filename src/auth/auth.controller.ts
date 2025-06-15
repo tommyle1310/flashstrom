@@ -33,12 +33,14 @@ export class AuthController {
       password: string;
       first_name: string;
       last_name: string;
-    }
+    },
+    @Query('is-generated') isGenerated?: string
   ) {
     // Step 1: Register the customer with the provided data
     const registrationResponse = await this.authService.register(
       userData,
-      Enum_UserType.CUSTOMER
+      Enum_UserType.CUSTOMER,
+      isGenerated
     );
     console.log('check regis res', registrationResponse);
 
@@ -69,12 +71,14 @@ export class AuthController {
       password: string;
       first_name: string;
       last_name: string;
-    }
+    },
+    @Query('is-generated') isGenerated?: string
   ) {
     // Step 1: Register the customer with the provided data
     const registrationResponse = await this.authService.register(
       userData,
-      Enum_UserType.DRIVER
+      Enum_UserType.DRIVER,
+      isGenerated
     );
 
     // If registration is successful
@@ -99,12 +103,14 @@ export class AuthController {
   @Post('register-restaurant')
   async registerRestaurant(
     @Body()
-    userData: CreateRestaurantSignup
+    userData: CreateRestaurantSignup,
+    @Query('is-generated') isGenerated?: string
   ) {
     // Step 1: Register the customer with the provided data
     const registrationResponse = await this.authService.register(
       userData,
-      Enum_UserType.RESTAURANT_OWNER
+      Enum_UserType.RESTAURANT_OWNER,
+      isGenerated
     );
 
     console.log(
@@ -145,12 +151,14 @@ export class AuthController {
       email: string;
       password: string;
       balance: string;
-    }
+    },
+    @Query('is-generated') isGenerated?: string
   ) {
     // Step 1: Register the customer with the provided data
     const registrationResponse = await this.authService.register(
       userData,
-      Enum_UserType.F_WALLET
+      Enum_UserType.F_WALLET,
+      isGenerated
     );
     console.log('check res', registrationResponse);
     // If registration is successful
@@ -179,12 +187,14 @@ export class AuthController {
       email: string;
       password: string;
       balance: string;
-    }
+    },
+    @Query('is-generated') isGenerated?: string
   ) {
     // Step 1: Register the customer with the provided data
     const registrationResponse = await this.authService.register(
       userData,
-      Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE
+      Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE,
+      isGenerated
     );
 
     // If registration is successful
@@ -213,12 +223,14 @@ export class AuthController {
       email: string;
       password: string;
       balance: string;
-    }
+    },
+    @Query('is-generated') isGenerated?: string
   ) {
     // Step 1: Register the customer with the provided data
     const registrationResponse = await this.authService.register(
       userData,
-      Enum_UserType.SUPER_ADMIN
+      Enum_UserType.SUPER_ADMIN,
+      isGenerated
     );
 
     // If registration is successful
@@ -247,12 +259,14 @@ export class AuthController {
       email: string;
       password: string;
       balance: string;
-    }
+    },
+    @Query('is-generated') isGenerated?: string
   ) {
     // Step 1: Register the customer with the provided data
     const registrationResponse = await this.authService.register(
       userData,
-      Enum_UserType.FINANCE_ADMIN
+      Enum_UserType.FINANCE_ADMIN,
+      isGenerated
     );
 
     // If registration is successful
@@ -281,12 +295,14 @@ export class AuthController {
       email: string;
       password: string;
       balance: string;
-    }
+    },
+    @Query('is-generated') isGenerated?: string
   ) {
     // Step 1: Register the customer with the provided data
     const registrationResponse = await this.authService.register(
       userData,
-      Enum_UserType.COMPANION_ADMIN
+      Enum_UserType.COMPANION_ADMIN,
+      isGenerated
     );
 
     // If registration is successful
