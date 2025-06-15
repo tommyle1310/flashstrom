@@ -33,11 +33,7 @@ export class OrdersController {
   @Get()
   async findAll(): Promise<Promise<any>> {
     const orders = await this.ordersService.findAll();
-    return {
-      status: 'OK',
-      data: orders,
-      message: 'Orders retrieved successfully'
-    };
+    return orders;
   }
 
   @Get('paginated')

@@ -912,6 +912,16 @@ export class OrdersService {
       logger.log(`Emit events took ${Date.now() - emitStart}ms`);
       logger.log(`Total execution took ${Date.now() - start}ms`);
 
+      // Update orders:all cache with new order
+      const allOrdersCacheKey = 'orders:all';
+      const cachedOrders = await redis.get(allOrdersCacheKey);
+      if (cachedOrders) {
+        const orders = JSON.parse(cachedOrders);
+        orders.push(result.data);
+        await redis.setEx(allOrdersCacheKey, 300, JSON.stringify(orders));
+        logger.log('Updated orders:all cache with new order');
+      }
+
       return result;
     } catch (error: any) {
       logger.error('Error creating order:', error);
