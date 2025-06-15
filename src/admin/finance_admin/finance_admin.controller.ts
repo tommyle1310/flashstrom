@@ -14,6 +14,7 @@ import { UpdateAdminDto } from '../dto/update-admin.dto';
 import { CreatePromotionDto } from '../../promotions/dto/create-promotion.dto';
 import { UpdatePromotionDto } from '../../promotions/dto/update-promotion.dto';
 import { AdminRole } from 'src/utils/types/admin';
+import { FindAdminByRoleDto } from '../dto/find-admin-by-role.dto';
 
 @Controller('finance-admin')
 export class FinanceAdminController {
@@ -34,6 +35,11 @@ export class FinanceAdminController {
   findAllFinanceAdmins() {
     // This should be modified in the service to filter only FINANCE_ADMIN roles
     return this.adminService.findAll();
+  }
+
+  @Get('by-role/:role')
+  findAllAdminsByRole(@Param('role') role: AdminRole) {
+    return this.adminService.findAllByRole(role);
   }
 
   @Get('promotions')

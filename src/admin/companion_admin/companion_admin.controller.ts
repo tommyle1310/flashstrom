@@ -72,6 +72,11 @@ export class CompanionAdminController {
     return this.adminService.findAll();
   }
 
+  @Get('by-role/:role')
+  findAllAdminsByRole(@Param('role') role: AdminRole) {
+    return this.adminService.findAllByRole(role);
+  }
+
   // Restaurant Management Endpoints
   @Get('/restaurants')
   findAllRestaurants() {

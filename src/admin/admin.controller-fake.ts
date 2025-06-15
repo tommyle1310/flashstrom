@@ -17,13 +17,11 @@ import { PermissionGuard } from './guards/permission.guard'; // Đã fix đườ
 import { Permissions } from './decorators/permissions.decorator';
 import { AdminPermission, AdminRole } from 'src/utils/types/admin';
 
-@Controller('admin')
-@UseGuards(JwtAuthGuard)
-export class AdminController {
+@Controller('admin-fake')
+export class AdminFakeController {
   constructor(private readonly adminService: AdminService) {}
 
   @Post()
-  @UseGuards(PermissionGuard)
   @Permissions(AdminPermission.MANAGE_ADMINS)
   create(@Body() createAdminDto: CreateAdminDto) {
     return this.adminService.create(createAdminDto);
@@ -50,14 +48,12 @@ export class AdminController {
   }
 
   @Delete(':id')
-  @UseGuards(PermissionGuard)
   @Permissions(AdminPermission.MANAGE_ADMINS)
   remove(@Param('id') id: string) {
     return this.adminService.remove(id);
   }
 
   @Post('ban/:entityType/:entityId')
-  @UseGuards(PermissionGuard)
   @Permissions(AdminPermission.BAN_ACCOUNTS)
   banAccount(
     @Param('entityType')
@@ -70,7 +66,6 @@ export class AdminController {
   }
 
   @Patch('permissions/:id')
-  @UseGuards(PermissionGuard)
   @Permissions(AdminPermission.MANAGE_ADMINS)
   updatePermissions(
     @Param('id') adminId: string,

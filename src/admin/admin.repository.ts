@@ -4,6 +4,7 @@ import { Repository, DeleteResult } from 'typeorm';
 import { Admin } from './entities/admin.entity';
 import { UpdateAdminDto } from './dto/update-admin.dto';
 import { User } from 'src/users/entities/user.entity';
+import { AdminRole } from 'src/utils/types/admin';
 
 @Injectable()
 export class AdminRepository {
@@ -65,6 +66,21 @@ export class AdminRepository {
     } catch (error) {
       this.logger.error(
         `Error finding admin by user id: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      throw error;
+    }
+  }
+
+  async findByRole(role: AdminRole): Promise<Admin[]> {
+    try {
+      return await this.adminRepository.find({
+        where: { role },
+        relations: ['user', 'created_by'],
+        order: { created_at: 'DESC' }
+      });
+    } catch (error) {
+      this.logger.error(
+        `Error finding admins by role: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
       throw error;
     }
