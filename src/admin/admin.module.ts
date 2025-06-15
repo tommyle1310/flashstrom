@@ -33,6 +33,7 @@ import { Order } from 'src/orders/entities/order.entity';
 import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
 import { User } from 'src/users/entities/user.entity';
 import { UserRepository } from 'src/users/users.repository';
+import { AdminControllerFake } from './admin.controller.fake';
 
 @Module({
   imports: [
@@ -55,7 +56,7 @@ import { UserRepository } from 'src/users/users.repository';
     ]),
     UsersModule
   ],
-  controllers: [AdminController],
+  controllers: [AdminController, AdminControllerFake],
   providers: [
     {
       provide: 'MAIL_TRANSPORT',

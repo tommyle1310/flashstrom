@@ -22,6 +22,7 @@ let Customer = class Customer {
         this.id = `FF_CUS_${(0, uuid_1.v4)()}`;
         this.created_at = Math.floor(Date.now() / 1000);
         this.updated_at = Math.floor(Date.now() / 1000);
+        this.last_login = Math.floor(Date.now() / 1000);
     }
 };
 exports.Customer = Customer;
@@ -124,7 +125,7 @@ __decorate([
     __metadata("design:type", Number)
 ], Customer.prototype, "updated_at", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'last_login' }),
+    (0, typeorm_1.Column)({ name: 'last_login', nullable: true }),
     __metadata("design:type", Number)
 ], Customer.prototype, "last_login", void 0);
 __decorate([

@@ -3,6 +3,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RestaurantsService } from './restaurants.service';
 import { RestaurantsController } from './restaurants.controller';
+import { RestaurantsControllerFake } from './restaurants.controller.fake';
 import { Restaurant } from './entities/restaurant.entity';
 import { RestaurantsRepository } from './restaurants.repository';
 import { DriversModule } from 'src/drivers/drivers.module';
@@ -80,7 +81,7 @@ import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_p
     FoodCategoriesModule,
     EventEmitterModule.forRoot()
   ],
-  controllers: [RestaurantsController],
+  controllers: [RestaurantsController, RestaurantsControllerFake],
   providers: [
     RestaurantsService,
     RestaurantsRepository,

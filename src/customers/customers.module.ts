@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CustomersController } from './customers.controller';
+import { CustomersControllerFake } from './customers.controller.fake';
 import { User } from '../users/entities/user.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -48,7 +49,7 @@ import { RedisService } from 'src/redis/redis.service';
     AddressBookModule,
     forwardRef(() => RestaurantsModule)
   ],
-  controllers: [CustomersController],
+  controllers: [CustomersController, CustomersControllerFake],
   providers: [
     CustomersService,
     AddressBookService,

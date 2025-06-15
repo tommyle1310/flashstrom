@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const restaurants_service_1 = require("./restaurants.service");
 const restaurants_controller_1 = require("./restaurants.controller");
+const restaurants_controller_fake_1 = require("./restaurants.controller.fake");
 const restaurant_entity_1 = require("./entities/restaurant.entity");
 const restaurants_repository_1 = require("./restaurants.repository");
 const drivers_module_1 = require("../drivers/drivers.module");
@@ -90,7 +91,7 @@ exports.RestaurantsModule = RestaurantsModule = __decorate([
             food_categories_module_1.FoodCategoriesModule,
             event_emitter_1.EventEmitterModule.forRoot()
         ],
-        controllers: [restaurants_controller_1.RestaurantsController],
+        controllers: [restaurants_controller_1.RestaurantsController, restaurants_controller_fake_1.RestaurantsControllerFake],
         providers: [
             restaurants_service_1.RestaurantsService,
             restaurants_repository_1.RestaurantsRepository,

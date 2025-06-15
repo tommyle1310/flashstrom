@@ -8,6 +8,18 @@ export declare class Driver {
     user: User;
     first_name: string;
     last_name: string;
+    email: string;
+    phone: string;
+    license_number: string;
+    license_image: {
+        url: string;
+        key: string;
+    };
+    identity_card_number: string;
+    identity_card_image: {
+        url: string;
+        key: string;
+    };
     avatar: {
         url: string;
         key: string;
@@ -29,12 +41,23 @@ export declare class Driver {
         brand: string;
         year: number;
         color: string;
+        type?: string;
         images?: {
             url: string;
             key: string;
         }[];
     };
+    vehicle_info: {
+        type: string;
+        license_plate: string;
+        model: string;
+        color: string;
+    };
     current_location: {
+        lat: number;
+        lng: number;
+    };
+    location: {
         lat: number;
         lng: number;
     };
@@ -45,6 +68,11 @@ export declare class Driver {
     };
     available_for_work: boolean;
     is_on_delivery: boolean;
+    status: {
+        is_active: boolean;
+        is_available: boolean;
+        is_verified: boolean;
+    };
     active_points: number;
     created_at: number;
     updated_at: number;

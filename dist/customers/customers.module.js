@@ -10,6 +10,7 @@ exports.CustomersModule = void 0;
 const common_1 = require("@nestjs/common");
 const customers_service_1 = require("./customers.service");
 const customers_controller_1 = require("./customers.controller");
+const customers_controller_fake_1 = require("./customers.controller.fake");
 const user_entity_1 = require("../users/entities/user.entity");
 const typeorm_1 = require("@nestjs/typeorm");
 const cart_items_module_1 = require("../cart_items/cart_items.module");
@@ -59,7 +60,7 @@ exports.CustomersModule = CustomersModule = __decorate([
             address_book_module_1.AddressBookModule,
             (0, common_1.forwardRef)(() => restaurants_module_1.RestaurantsModule)
         ],
-        controllers: [customers_controller_1.CustomersController],
+        controllers: [customers_controller_1.CustomersController, customers_controller_fake_1.CustomersControllerFake],
         providers: [
             customers_service_1.CustomersService,
             address_book_service_1.AddressBookService,

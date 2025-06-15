@@ -21,6 +21,30 @@ let Driver = class Driver {
         this.id = `FF_DRI_${(0, uuid_1.v4)()}`;
         this.created_at = Math.floor(Date.now() / 1000);
         this.updated_at = Math.floor(Date.now() / 1000);
+        this.last_login = Math.floor(Date.now() / 1000);
+        if (this.available_for_work === undefined)
+            this.available_for_work = false;
+        if (this.is_on_delivery === undefined)
+            this.is_on_delivery = false;
+        if (this.active_points === undefined)
+            this.active_points = 0;
+        if (this.vehicle_info && !this.vehicle) {
+            this.vehicle = {
+                license_plate: this.vehicle_info.license_plate,
+                model: this.vehicle_info.model,
+                color: this.vehicle_info.color,
+                type: this.vehicle_info.type,
+                owner: '',
+                brand: '',
+                year: new Date().getFullYear()
+            };
+        }
+        if (this.location && !this.current_location) {
+            this.current_location = this.location;
+        }
+        if (this.status) {
+            this.available_for_work = this.status.is_available || false;
+        }
     }
 };
 exports.Driver = Driver;
@@ -46,6 +70,30 @@ __decorate([
     __metadata("design:type", String)
 ], Driver.prototype, "last_name", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Driver.prototype, "email", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Driver.prototype, "phone", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Driver.prototype, "license_number", void 0);
+__decorate([
+    (0, typeorm_1.Column)('jsonb', { nullable: true }),
+    __metadata("design:type", Object)
+], Driver.prototype, "license_image", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Driver.prototype, "identity_card_number", void 0);
+__decorate([
+    (0, typeorm_1.Column)('jsonb', { nullable: true }),
+    __metadata("design:type", Object)
+], Driver.prototype, "identity_card_image", void 0);
+__decorate([
     (0, typeorm_1.Column)('jsonb', { nullable: true }),
     __metadata("design:type", Object)
 ], Driver.prototype, "avatar", void 0);
@@ -64,7 +112,15 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)('jsonb', { nullable: true }),
     __metadata("design:type", Object)
+], Driver.prototype, "vehicle_info", void 0);
+__decorate([
+    (0, typeorm_1.Column)('jsonb', { nullable: true }),
+    __metadata("design:type", Object)
 ], Driver.prototype, "current_location", void 0);
+__decorate([
+    (0, typeorm_1.Column)('jsonb', { nullable: true }),
+    __metadata("design:type", Object)
+], Driver.prototype, "location", void 0);
 __decorate([
     (0, typeorm_1.ManyToMany)(() => order_entity_1.Order, order => order.drivers),
     (0, typeorm_1.JoinTable)({
@@ -86,6 +142,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'boolean', default: false }),
     __metadata("design:type", Boolean)
 ], Driver.prototype, "is_on_delivery", void 0);
+__decorate([
+    (0, typeorm_1.Column)('jsonb', { nullable: true }),
+    __metadata("design:type", Object)
+], Driver.prototype, "status", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'int', default: 0 }),
     __metadata("design:type", Number)

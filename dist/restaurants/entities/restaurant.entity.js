@@ -25,6 +25,9 @@ let Restaurant = class Restaurant {
         this.created_at = Math.floor(Date.now() / 1000);
         this.updated_at = Math.floor(Date.now() / 1000);
         this.total_orders = 0;
+        if (!this.address_id) {
+            this.address_id = null;
+        }
     }
 };
 exports.Restaurant = Restaurant;
@@ -46,7 +49,7 @@ __decorate([
     __metadata("design:type", String)
 ], Restaurant.prototype, "owner_name", void 0);
 __decorate([
-    (0, typeorm_1.Column)(),
+    (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], Restaurant.prototype, "address_id", void 0);
 __decorate([

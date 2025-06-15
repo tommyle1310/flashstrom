@@ -75,6 +75,7 @@ const order_entity_1 = require("../orders/entities/order.entity");
 const customer_care_entity_1 = require("../customer_cares/entities/customer_care.entity");
 const user_entity_1 = require("../users/entities/user.entity");
 const users_repository_1 = require("../users/users.repository");
+const admin_controller_fake_1 = require("./admin.controller.fake");
 let AdminModule = class AdminModule {
 };
 exports.AdminModule = AdminModule;
@@ -100,7 +101,7 @@ exports.AdminModule = AdminModule = __decorate([
             ]),
             users_module_1.UsersModule
         ],
-        controllers: [admin_controller_1.AdminController],
+        controllers: [admin_controller_1.AdminController, admin_controller_fake_1.AdminControllerFake],
         providers: [
             {
                 provide: 'MAIL_TRANSPORT',

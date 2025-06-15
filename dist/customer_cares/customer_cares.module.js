@@ -19,6 +19,7 @@ const orders_repository_1 = require("../orders/orders.repository");
 const promotion_entity_1 = require("../promotions/entities/promotion.entity");
 const redis_service_1 = require("../redis/redis.service");
 const customer_cares_controller_1 = require("./customer_cares.controller");
+const customer_cares_controller_fake_1 = require("./customer_cares.controller.fake");
 const customer_cares_gateway_1 = require("./customer_cares.gateway");
 let CustomerCaresModule = class CustomerCaresModule {
 };
@@ -33,7 +34,7 @@ exports.CustomerCaresModule = CustomerCaresModule = __decorate([
                 promotion_entity_1.Promotion
             ])
         ],
-        controllers: [customer_cares_controller_1.CustomerCaresController],
+        controllers: [customer_cares_controller_1.CustomerCaresController, customer_cares_controller_fake_1.CustomerCaresControllerFake],
         providers: [
             redis_service_1.RedisService,
             customer_cares_service_1.CustomerCareService,
