@@ -20,8 +20,14 @@ export class OrdersController {
 
   // Create a new order
   @Post()
-  async createOrder(@Body() createOrderDto: CreateOrderDto): Promise<any> {
-    return await this.ordersService.createOrder(createOrderDto);
+  async createOrder(
+    @Body() createOrderDto: CreateOrderDto,
+    @Query('is-generated') isGenerated?: string
+  ): Promise<any> {
+    return await this.ordersService.createOrder(
+      createOrderDto,
+      isGenerated === 'true'
+    );
   }
 
   @Post('tip')

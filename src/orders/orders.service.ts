@@ -126,12 +126,49 @@ export class OrdersService {
     return rule;
   }
 
-  async createOrder(createOrderDto: CreateOrderDto): Promise<ApiResponse<any>> {
+  async createOrder(
+    createOrderDto: CreateOrderDto,
+    isGenerated: boolean = false
+  ): Promise<ApiResponse<any>> {
     const start = Date.now();
-    logger.log('createOrder called with:', JSON.stringify(createOrderDto));
+    logger.log(
+      'createOrder called with:',
+      JSON.stringify(createOrderDto),
+      'isGenerated:',
+      isGenerated
+    );
+
+    // Generate random timestamps if isGenerated is true
+    let orderTimestamp: number;
+    if (isGenerated) {
+      // Get timestamp from 2 months ago
+      const twoMonthsAgo = new Date();
+      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+      const twoMonthsAgoTs = twoMonthsAgo.getTime();
+      const nowTs = Date.now();
+
+      // Generate random timestamp between 2 months ago and now
+      orderTimestamp = Math.floor(
+        Math.random() * (nowTs - twoMonthsAgoTs) + twoMonthsAgoTs
+      );
+
+      // Ensure all timestamps are on the same date
+      const randomDate = new Date(orderTimestamp);
+      randomDate.setUTCHours(0, 0, 0, 0);
+      const startOfDay = randomDate.getTime();
+      const endOfDay = startOfDay + 24 * 60 * 60 * 1000 - 1;
+
+      // Generate timestamps within the same day
+      orderTimestamp = Math.floor(
+        Math.random() * (endOfDay - startOfDay) + startOfDay
+      );
+    } else {
+      orderTimestamp = Date.now();
+    }
+
     try {
       logger.log('Step 1: Checking for duplicate order');
-      const orderHash = `${createOrderDto.customer_id}:${createOrderDto.order_time}:${createOrderDto.order_items
+      const orderHash = `${createOrderDto.customer_id}:${orderTimestamp}:${createOrderDto.order_items
         .map(item => item.item_id)
         .sort()
         .join(',')}`;
@@ -596,7 +633,7 @@ export class OrdersService {
             createOrderDto.payment_status = 'PENDING';
           }
 
-          const currentTimestamp = Date.now(); // Milliseconds, not seconds!
+          const currentTimestamp = isGenerated ? orderTimestamp : Date.now(); // Use generated timestamp if isGenerated
           const orderData: DeepPartial<Order> = {
             ...createOrderDto,
             total_amount: customerSubTotal,
