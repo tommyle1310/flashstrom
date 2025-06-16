@@ -192,6 +192,16 @@ export class AdminChartService {
         }))
       );
 
+      // Calculate the same period last month for comparison
+      const periodDuration = endDate - startDate;
+      const lastMonthStartDate = startDate - 30 * 24 * 60 * 60; // 30 days ago
+      const lastMonthEndDate = lastMonthStartDate + periodDuration;
+
+      console.log(`[DEBUG] Current period: ${startDate} - ${endDate}`);
+      console.log(
+        `[DEBUG] Last month period: ${lastMonthStartDate} - ${lastMonthEndDate}`
+      );
+
       // Delete existing chart data for this period if any
       await this.adminChartRepo.delete({
         period_start: startDate,
@@ -199,7 +209,7 @@ export class AdminChartService {
         period_type: periodType
       });
 
-      // Calculate all required metrics
+      // Calculate current period metrics
       const [
         totalUsers,
         soldPromotions,
@@ -207,12 +217,12 @@ export class AdminChartService {
         grossIncome,
         orderStats,
         userGrowthRate,
-        grossFromPromotion,
-        avgCustomerSatisfaction,
-        avgDeliveryTime,
-        orderCancellationRate,
-        orderVolume,
-        churnRate
+        currentGrossFromPromotion,
+        currentAvgCustomerSatisfaction,
+        currentAvgDeliveryTime,
+        currentOrderCancellationRate,
+        currentOrderVolume,
+        currentChurnRate
       ] = await Promise.all([
         this.calculateTotalUsers(startDate, endDate),
         this.calculateSoldPromotions(startDate, endDate),
@@ -228,6 +238,101 @@ export class AdminChartService {
         this.calculateChurnRate(startDate, endDate)
       ]);
 
+      // Calculate last month metrics for comparison
+      const [
+        lastMonthGrossFromPromotion,
+        lastMonthAvgCustomerSatisfaction,
+        lastMonthAvgDeliveryTime,
+        lastMonthOrderCancellationRate,
+        lastMonthOrderVolume,
+        lastMonthChurnRate
+      ] = await Promise.all([
+        this.calculateGrossFromPromotion(lastMonthStartDate, lastMonthEndDate),
+        this.calculateAvgCustomerSatisfaction(
+          lastMonthStartDate,
+          lastMonthEndDate
+        ),
+        this.calculateAvgDeliveryTime(lastMonthStartDate, lastMonthEndDate),
+        this.calculateOrderCancellationRate(
+          lastMonthStartDate,
+          lastMonthEndDate
+        ),
+        this.calculateOrderVolume(lastMonthStartDate, lastMonthEndDate),
+        this.calculateChurnRate(lastMonthStartDate, lastMonthEndDate)
+      ]);
+
+      // Helper function to calculate percentage change
+      const calculatePercentageChange = (
+        current: number,
+        previous: number
+      ): number => {
+        if (previous === 0) return current > 0 ? 100 : 0;
+        return Number((((current - previous) / previous) * 100).toFixed(2));
+      };
+
+      // Helper function to calculate real number change
+      const calculateRealChange = (
+        current: number,
+        previous: number
+      ): number => {
+        return Number((current - previous).toFixed(2));
+      };
+
+      // Structure metrics with monthly changes
+      const grossFromPromotion = {
+        metric: currentGrossFromPromotion,
+        monthlyChanges: calculateRealChange(
+          currentGrossFromPromotion,
+          lastMonthGrossFromPromotion
+        ),
+        changeType: 'real' as const
+      };
+
+      const averageCustomerSatisfaction = {
+        metric: currentAvgCustomerSatisfaction,
+        monthlyChanges: calculateRealChange(
+          currentAvgCustomerSatisfaction,
+          lastMonthAvgCustomerSatisfaction
+        ),
+        changeType: 'real' as const
+      };
+
+      const averageDeliveryTime = {
+        metric: currentAvgDeliveryTime,
+        monthlyChanges: calculateRealChange(
+          currentAvgDeliveryTime,
+          lastMonthAvgDeliveryTime
+        ),
+        changeType: 'real' as const
+      };
+
+      const orderCancellationRate = {
+        metric: currentOrderCancellationRate,
+        monthlyChanges: calculatePercentageChange(
+          currentOrderCancellationRate,
+          lastMonthOrderCancellationRate
+        ),
+        changeType: 'percentage' as const
+      };
+
+      const orderVolume = {
+        metric: currentOrderVolume,
+        monthlyChanges: calculateRealChange(
+          currentOrderVolume,
+          lastMonthOrderVolume
+        ),
+        changeType: 'real' as const
+      };
+
+      const churnRate = {
+        metric: currentChurnRate,
+        monthlyChanges: calculatePercentageChange(
+          currentChurnRate,
+          lastMonthChurnRate
+        ),
+        changeType: 'percentage' as const
+      };
+
       // Create new chart record
       const chartData = this.adminChartRepo.create({
         period_type: periodType,
@@ -240,8 +345,8 @@ export class AdminChartService {
         order_stats: orderStats,
         user_growth_rate: userGrowthRate,
         gross_from_promotion: grossFromPromotion,
-        average_customer_satisfaction: avgCustomerSatisfaction,
-        average_delivery_time: avgDeliveryTime,
+        average_customer_satisfaction: averageCustomerSatisfaction,
+        average_delivery_time: averageDeliveryTime,
         order_cancellation_rate: orderCancellationRate,
         order_volume: orderVolume,
         churn_rate: churnRate
@@ -395,8 +500,17 @@ export class AdminChartService {
     endDate: number
   ): Promise<any[]> {
     try {
-      // Group orders by date and status - show ALL statuses to see daily activity
-      const allOrdersByDate = await this.orderRepo
+      // Calculate the date range duration in days
+      const rangeDurationDays = Math.ceil(
+        (endDate - startDate) / (24 * 60 * 60)
+      );
+      const isLongRange = rangeDurationDays > 1;
+
+      console.log(
+        `[DEBUG] Date range duration: ${rangeDurationDays} days, isLongRange: ${isLongRange}`
+      );
+
+      let queryBuilder = this.orderRepo
         .createQueryBuilder('order')
         .select([
           "TO_CHAR(TO_TIMESTAMP(order.created_at), 'YYYY-MM-DD') as date",
@@ -406,7 +520,23 @@ export class AdminChartService {
         .where('order.created_at BETWEEN :startDate AND :endDate', {
           startDate,
           endDate
-        })
+        });
+
+      // Apply status filtering based on date range
+      if (isLongRange) {
+        // For long ranges (> 1 day): only show CANCELLED and DELIVERED
+        queryBuilder = queryBuilder.andWhere('order.status IN (:...statuses)', {
+          statuses: ['CANCELLED', 'DELIVERED']
+        });
+        console.log(
+          `[DEBUG] Long range detected: filtering for CANCELLED and DELIVERED only`
+        );
+      } else {
+        // For short ranges (≤ 1 day): show all statuses
+        console.log(`[DEBUG] Short range detected: showing all order statuses`);
+      }
+
+      const allOrdersByDate = await queryBuilder
         .groupBy(
           "TO_CHAR(TO_TIMESTAMP(order.created_at), 'YYYY-MM-DD'), order.status"
         )
@@ -415,24 +545,32 @@ export class AdminChartService {
 
       console.log(`[DEBUG] All orders by date and status:`, allOrdersByDate);
 
-      // Group by date and aggregate all statuses
+      // Group by date and aggregate statuses
       const dateMap = new Map();
 
       allOrdersByDate.forEach(item => {
         const date = item.date;
         if (!dateMap.has(date)) {
-          dateMap.set(date, {
+          const dayStats = {
             date,
             delivered: 0,
             cancelled: 0,
-            pending: 0,
-            preparing: 0,
-            en_route: 0,
-            dispatched: 0,
-            ready_for_pickup: 0,
-            restaurant_pickup: 0,
             total: 0
-          });
+          };
+
+          // Add detailed status counters only for short ranges
+          if (!isLongRange) {
+            Object.assign(dayStats, {
+              pending: 0,
+              preparing: 0,
+              en_route: 0,
+              dispatched: 0,
+              ready_for_pickup: 0,
+              restaurant_pickup: 0
+            });
+          }
+
+          dateMap.set(date, dayStats);
         }
 
         const dayStats = dateMap.get(date);
@@ -447,33 +585,37 @@ export class AdminChartService {
           case 'CANCELLED':
             dayStats.cancelled += count;
             break;
+          // Only include detailed statuses for short ranges
           case 'PENDING':
-            dayStats.pending += count;
+            if (!isLongRange) dayStats.pending += count;
             break;
           case 'PREPARING':
           case 'RESTAURANT_ACCEPTED':
           case 'IN_PROGRESS':
-            dayStats.preparing += count;
+            if (!isLongRange) dayStats.preparing += count;
             break;
           case 'EN_ROUTE':
           case 'OUT_FOR_DELIVERY':
-            dayStats.en_route += count;
+            if (!isLongRange) dayStats.en_route += count;
             break;
           case 'DISPATCHED':
-            dayStats.dispatched += count;
+            if (!isLongRange) dayStats.dispatched += count;
             break;
           case 'READY_FOR_PICKUP':
-            dayStats.ready_for_pickup += count;
+            if (!isLongRange) dayStats.ready_for_pickup += count;
             break;
           case 'RESTAURANT_PICKUP':
-            dayStats.restaurant_pickup += count;
+            if (!isLongRange) dayStats.restaurant_pickup += count;
             break;
         }
       });
 
-      return Array.from(dateMap.values()).sort((a, b) =>
+      const result = Array.from(dateMap.values()).sort((a, b) =>
         a.date.localeCompare(b.date)
       );
+      console.log(`[DEBUG] Final order stats result:`, result);
+
+      return result;
     } catch (error) {
       console.error('Error calculating order stats:', error);
       return [];
@@ -485,12 +627,13 @@ export class AdminChartService {
     endDate: number
   ): Promise<any[]> {
     try {
-      // Calculate new users by type for each day
-      const driverGrowth = await this.driverRepo
+      // Calculate cumulative user growth for each day (total users up to that date)
+      // First get daily counts, then calculate cumulative totals
+      const driverDaily = await this.driverRepo
         .createQueryBuilder('driver')
         .select([
           "TO_CHAR(TO_TIMESTAMP(driver.created_at), 'YYYY-MM-DD') as date",
-          'COUNT(*) as count'
+          'COUNT(*) as daily_count'
         ])
         .where('driver.created_at BETWEEN :startDate AND :endDate', {
           startDate,
@@ -500,11 +643,11 @@ export class AdminChartService {
         .orderBy("TO_CHAR(TO_TIMESTAMP(driver.created_at), 'YYYY-MM-DD')")
         .getRawMany();
 
-      const restaurantGrowth = await this.restaurantRepo
+      const restaurantDaily = await this.restaurantRepo
         .createQueryBuilder('restaurant')
         .select([
           "TO_CHAR(TO_TIMESTAMP(restaurant.created_at), 'YYYY-MM-DD') as date",
-          'COUNT(*) as count'
+          'COUNT(*) as daily_count'
         ])
         .where('restaurant.created_at BETWEEN :startDate AND :endDate', {
           startDate,
@@ -514,11 +657,11 @@ export class AdminChartService {
         .orderBy("TO_CHAR(TO_TIMESTAMP(restaurant.created_at), 'YYYY-MM-DD')")
         .getRawMany();
 
-      const customerGrowth = await this.customerRepo
+      const customerDaily = await this.customerRepo
         .createQueryBuilder('customer')
         .select([
           "TO_CHAR(TO_TIMESTAMP(customer.created_at), 'YYYY-MM-DD') as date",
-          'COUNT(*) as count'
+          'COUNT(*) as daily_count'
         ])
         .where('customer.created_at BETWEEN :startDate AND :endDate', {
           startDate,
@@ -528,11 +671,11 @@ export class AdminChartService {
         .orderBy("TO_CHAR(TO_TIMESTAMP(customer.created_at), 'YYYY-MM-DD')")
         .getRawMany();
 
-      const customerCareGrowth = await this.customerCareRepo
+      const customerCareDaily = await this.customerCareRepo
         .createQueryBuilder('customer_care')
         .select([
           "TO_CHAR(TO_TIMESTAMP(customer_care.created_at), 'YYYY-MM-DD') as date",
-          'COUNT(*) as count'
+          'COUNT(*) as daily_count'
         ])
         .where('customer_care.created_at BETWEEN :startDate AND :endDate', {
           startDate,
@@ -546,32 +689,50 @@ export class AdminChartService {
         )
         .getRawMany();
 
-      // Get unique dates
+      // Get all unique dates and sort them
       const dateSet = new Set([
-        ...driverGrowth.map(d => d.date),
-        ...restaurantGrowth.map(r => r.date),
-        ...customerGrowth.map(c => c.date)
+        ...driverDaily.map(d => d.date),
+        ...restaurantDaily.map(r => r.date),
+        ...customerDaily.map(c => c.date),
+        ...customerCareDaily.map(c => c.date)
       ]);
 
-      return Array.from(dateSet)
-        .map(date => {
-          return {
-            date,
-            driver: parseInt(
-              driverGrowth.find(d => d.date === date)?.count || 0
-            ),
-            restaurant: parseInt(
-              restaurantGrowth.find(r => r.date === date)?.count || 0
-            ),
-            customer: parseInt(
-              customerGrowth.find(c => c.date === date)?.count || 0
-            ),
-            customer_care: parseInt(
-              customerCareGrowth.find(c => c.date === date)?.count || 0
-            ) // Placeholder since customer_care is not in your schema
-          };
-        })
-        .sort((a, b) => a.date.localeCompare(b.date));
+      const sortedDates = Array.from(dateSet).sort();
+
+      // Calculate cumulative totals
+      let cumulativeDrivers = 0;
+      let cumulativeRestaurants = 0;
+      let cumulativeCustomers = 0;
+      let cumulativeCustomerCare = 0;
+
+      return sortedDates.map(date => {
+        // Add daily counts to cumulative totals
+        const driverCount = parseInt(
+          driverDaily.find(d => d.date === date)?.daily_count || 0
+        );
+        const restaurantCount = parseInt(
+          restaurantDaily.find(r => r.date === date)?.daily_count || 0
+        );
+        const customerCount = parseInt(
+          customerDaily.find(c => c.date === date)?.daily_count || 0
+        );
+        const customerCareCount = parseInt(
+          customerCareDaily.find(c => c.date === date)?.daily_count || 0
+        );
+
+        cumulativeDrivers += driverCount;
+        cumulativeRestaurants += restaurantCount;
+        cumulativeCustomers += customerCount;
+        cumulativeCustomerCare += customerCareCount;
+
+        return {
+          date,
+          driver: cumulativeDrivers,
+          restaurant: cumulativeRestaurants,
+          customer: cumulativeCustomers,
+          customer_care: cumulativeCustomerCare
+        };
+      });
     } catch (error) {
       console.error('Error calculating user growth rate:', error);
       return [];
@@ -630,14 +791,13 @@ export class AdminChartService {
     try {
       const result = await this.orderRepo
         .createQueryBuilder('order')
-        .select('AVG(ABS(order.delivery_time - order.order_time))', 'average')
+        .select('AVG(order.delivery_time)', 'average')
         .where('order.status = :status', { status: OrderStatus.DELIVERED })
         .andWhere('order.created_at BETWEEN :startDate AND :endDate', {
           startDate,
           endDate
         })
         .andWhere('order.delivery_time IS NOT NULL')
-        .andWhere('order.order_time IS NOT NULL')
         .getRawOne();
 
       const avgTime = parseFloat(result?.average || '0');

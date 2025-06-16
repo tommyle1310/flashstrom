@@ -20,9 +20,9 @@ redis.connect().catch(err => {
   logger.error('Redis connection error:', err);
 });
 
-redis.on('error', err => {
-  logger.error('Redis client error:', err);
-});
+// redis.on('error', err => {
+//   logger.error('Redis client error:', err);
+// });
 
 redis.on('connect', () => {
   logger.log('Redis client connected');
