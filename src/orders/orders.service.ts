@@ -140,30 +140,55 @@ export class OrdersService {
 
     // Generate random timestamps if isGenerated is true
     let orderTimestamp: number;
+    let createdAtTimestamp: number;
+    let updatedAtTimestamp: number;
+
     if (isGenerated) {
-      // Get timestamp from 2 months ago
-      const twoMonthsAgo = new Date();
-      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-      const twoMonthsAgoTs = twoMonthsAgo.getTime();
+      // Get timestamp from 1 month ago
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      const oneMonthAgoTs = oneMonthAgo.getTime();
       const nowTs = Date.now();
 
-      // Generate random timestamp between 2 months ago and now
-      orderTimestamp = Math.floor(
-        Math.random() * (nowTs - twoMonthsAgoTs) + twoMonthsAgoTs
+      // First, pick a random date between 1 month ago and now
+      const randomDateTs = Math.floor(
+        Math.random() * (nowTs - oneMonthAgoTs) + oneMonthAgoTs
       );
-
-      // Ensure all timestamps are on the same date
-      const randomDate = new Date(orderTimestamp);
+      const randomDate = new Date(randomDateTs);
       randomDate.setUTCHours(0, 0, 0, 0);
       const startOfDay = randomDate.getTime();
       const endOfDay = startOfDay + 24 * 60 * 60 * 1000 - 1;
 
-      // Generate timestamps within the same day
-      orderTimestamp = Math.floor(
-        Math.random() * (endOfDay - startOfDay) + startOfDay
+      // Generate three different timestamps within the same day (in seconds)
+      // Order: created_at < order_time < updated_at
+      const dayDuration = endOfDay - startOfDay;
+
+      createdAtTimestamp = Math.floor(
+        (Math.random() * (dayDuration / 3) + startOfDay) / 1000
       );
+
+      orderTimestamp = Math.floor(
+        (Math.random() * (dayDuration / 3) + (startOfDay + dayDuration / 3)) /
+          1000
+      );
+
+      updatedAtTimestamp = Math.floor(
+        (Math.random() * (dayDuration / 3) +
+          (startOfDay + (2 * dayDuration) / 3)) /
+          1000
+      );
+
+      logger.log(`Generated timestamps for same day:`, {
+        date: randomDate.toISOString().split('T')[0],
+        created_at: new Date(createdAtTimestamp * 1000).toISOString(),
+        order_time: new Date(orderTimestamp * 1000).toISOString(),
+        updated_at: new Date(updatedAtTimestamp * 1000).toISOString()
+      });
     } else {
-      orderTimestamp = Date.now();
+      const currentTime = Math.floor(Date.now() / 1000);
+      orderTimestamp = currentTime;
+      createdAtTimestamp = currentTime;
+      updatedAtTimestamp = currentTime;
     }
 
     try {
@@ -633,7 +658,6 @@ export class OrdersService {
             createOrderDto.payment_status = 'PENDING';
           }
 
-          const currentTimestamp = isGenerated ? orderTimestamp : Date.now(); // Use generated timestamp if isGenerated
           const orderData: DeepPartial<Order> = {
             ...createOrderDto,
             total_amount: customerSubTotal,
@@ -645,20 +669,44 @@ export class OrdersService {
               OrderTrackingInfo.ORDER_PLACED) as OrderTrackingInfo,
             customerAddress: { id: customerAddress.id },
             restaurantAddress: { id: restaurantAddress.id },
-            order_time: currentTimestamp,
-            created_at: currentTimestamp,
-            updated_at: currentTimestamp,
+            order_time: orderTimestamp,
+            created_at: createdAtTimestamp,
+            updated_at: updatedAtTimestamp,
             distance: Number(distance.toFixed(4))
           };
 
           // Lưu đơn hàng trước để có order_id
           logger.log('Saving order...');
-          const newOrder = this.ordersRepository.create(orderData as any);
+          const newOrder = new Order();
+          Object.assign(newOrder, orderData);
+
+          // Override timestamps if generated to bypass BeforeInsert hook
+          if (isGenerated) {
+            newOrder.created_at = createdAtTimestamp;
+            newOrder.updated_at = updatedAtTimestamp;
+            newOrder.order_time = orderTimestamp;
+            logger.log('Set generated timestamps on entity:', {
+              created_at: newOrder.created_at,
+              updated_at: newOrder.updated_at,
+              order_time: newOrder.order_time
+            });
+          }
+
           const savedOrder = await transactionalEntityManager.save(
             Order,
-            newOrder as any
+            newOrder
           );
           logger.log(`Order saved with id: ${savedOrder.id}`);
+
+          // Verify saved timestamps
+          if (isGenerated) {
+            logger.log('Verified saved timestamps:', {
+              created_at: savedOrder.created_at,
+              updated_at: savedOrder.updated_at,
+              order_time: savedOrder.order_time
+            });
+          }
+
           orderData.id = savedOrder.id;
 
           if (createOrderDto.payment_method === 'FWallet') {

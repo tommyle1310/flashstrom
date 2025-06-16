@@ -168,6 +168,30 @@ export class AdminChartService {
         `Generating admin chart data for period ${startDate} - ${endDate}`
       );
 
+      // Debug: Show some sample orders to understand the data
+      const sampleOrders = await this.orderRepo
+        .createQueryBuilder('order')
+        .select([
+          'order.id',
+          'order.created_at',
+          'order.status',
+          'order.total_amount'
+        ])
+        .orderBy('order.created_at', 'DESC')
+        .limit(10)
+        .getRawMany();
+
+      console.log(
+        `[DEBUG] Sample recent orders:`,
+        sampleOrders.map(o => ({
+          id: o.order_id,
+          created_at: o.order_created_at,
+          created_at_date: new Date(o.order_created_at * 1000).toISOString(),
+          status: o.order_status,
+          total_amount: o.order_total_amount
+        }))
+      );
+
       // Delete existing chart data for this period if any
       await this.adminChartRepo.delete({
         period_start: startDate,
@@ -277,15 +301,34 @@ export class AdminChartService {
     endDate: number
   ): Promise<any[]> {
     try {
+      console.log(
+        `[DEBUG] calculateNetIncome - startDate: ${startDate}, endDate: ${endDate}`
+      );
+      console.log(
+        `[DEBUG] Date range: ${new Date(startDate * 1000).toISOString()} to ${new Date(endDate * 1000).toISOString()}`
+      );
+
+      // First, let's check how many orders exist in this date range
+      const totalOrdersInRange = await this.orderRepo
+        .createQueryBuilder('order')
+        .where('order.created_at BETWEEN :startDate AND :endDate', {
+          startDate,
+          endDate
+        })
+        .getCount();
+
+      console.log(`[DEBUG] Total orders in date range: ${totalOrdersInRange}`);
+
       // Group orders by date and calculate daily net income (revenue - costs)
+      // Include ALL orders, not just DELIVERED ones, to show daily fluctuations
       const result = await this.orderRepo
         .createQueryBuilder('order')
         .select([
           "TO_CHAR(TO_TIMESTAMP(order.created_at), 'YYYY-MM-DD') as date",
-          'SUM(order.total_amount - order.delivery_fee - order.service_fee) as total_amount'
+          'SUM(order.total_amount - order.delivery_fee - order.service_fee) as total_amount',
+          'COUNT(*) as order_count'
         ])
-        .where('order.status = :status', { status: OrderStatus.DELIVERED })
-        .andWhere('order.created_at BETWEEN :startDate AND :endDate', {
+        .where('order.created_at BETWEEN :startDate AND :endDate', {
           startDate,
           endDate
         })
@@ -294,9 +337,12 @@ export class AdminChartService {
         .limit(90) // Limit to 90 days for performance
         .getRawMany();
 
+      console.log(`[DEBUG] Net income result:`, result);
+
       return result.map(item => ({
         date: item.date,
-        total_amount: parseFloat(item.total_amount) || 0
+        total_amount: parseFloat(item.total_amount) || 0,
+        order_count: parseInt(item.order_count) || 0
       }));
     } catch (error) {
       console.error('Error calculating net income:', error);
@@ -309,15 +355,20 @@ export class AdminChartService {
     endDate: number
   ): Promise<any[]> {
     try {
+      console.log(
+        `[DEBUG] calculateGrossIncome - startDate: ${startDate}, endDate: ${endDate}`
+      );
+
       // Group orders by date and calculate daily gross income (total revenue)
+      // Include ALL orders, not just DELIVERED ones, to show daily fluctuations
       const result = await this.orderRepo
         .createQueryBuilder('order')
         .select([
           "TO_CHAR(TO_TIMESTAMP(order.created_at), 'YYYY-MM-DD') as date",
-          'SUM(order.total_amount) as total_amount'
+          'SUM(order.total_amount) as total_amount',
+          'COUNT(*) as order_count'
         ])
-        .where('order.status = :status', { status: OrderStatus.DELIVERED })
-        .andWhere('order.created_at BETWEEN :startDate AND :endDate', {
+        .where('order.created_at BETWEEN :startDate AND :endDate', {
           startDate,
           endDate
         })
@@ -326,9 +377,12 @@ export class AdminChartService {
         .limit(90) // Limit to 90 days for performance
         .getRawMany();
 
+      console.log(`[DEBUG] Gross income result:`, result);
+
       return result.map(item => ({
         date: item.date,
-        total_amount: parseFloat(item.total_amount) || 0
+        total_amount: parseFloat(item.total_amount) || 0,
+        order_count: parseInt(item.order_count) || 0
       }));
     } catch (error) {
       console.error('Error calculating gross income:', error);
@@ -341,59 +395,85 @@ export class AdminChartService {
     endDate: number
   ): Promise<any[]> {
     try {
-      // Group orders by date and status
-      const completedOrders = await this.orderRepo
+      // Group orders by date and status - show ALL statuses to see daily activity
+      const allOrdersByDate = await this.orderRepo
         .createQueryBuilder('order')
         .select([
           "TO_CHAR(TO_TIMESTAMP(order.created_at), 'YYYY-MM-DD') as date",
+          'order.status as status',
           'COUNT(*) as count'
         ])
-        .where('order.status = :status', { status: OrderStatus.DELIVERED })
-        .andWhere('order.created_at BETWEEN :startDate AND :endDate', {
+        .where('order.created_at BETWEEN :startDate AND :endDate', {
           startDate,
           endDate
         })
-        .groupBy("TO_CHAR(TO_TIMESTAMP(order.created_at), 'YYYY-MM-DD')")
+        .groupBy(
+          "TO_CHAR(TO_TIMESTAMP(order.created_at), 'YYYY-MM-DD'), order.status"
+        )
         .orderBy("TO_CHAR(TO_TIMESTAMP(order.created_at), 'YYYY-MM-DD')")
-        .limit(90)
         .getRawMany();
 
-      const cancelledOrders = await this.orderRepo
-        .createQueryBuilder('order')
-        .select([
-          "TO_CHAR(TO_TIMESTAMP(order.created_at), 'YYYY-MM-DD') as date",
-          'COUNT(*) as count'
-        ])
-        .where('order.status = :status', { status: OrderStatus.CANCELLED })
-        .andWhere('order.created_at BETWEEN :startDate AND :endDate', {
-          startDate,
-          endDate
-        })
-        .groupBy("TO_CHAR(TO_TIMESTAMP(order.created_at), 'YYYY-MM-DD')")
-        .orderBy("TO_CHAR(TO_TIMESTAMP(order.created_at), 'YYYY-MM-DD')")
-        .limit(90)
-        .getRawMany();
+      console.log(`[DEBUG] All orders by date and status:`, allOrdersByDate);
 
-      // Combine the results
-      const dateSet = new Set([
-        ...completedOrders.map(o => o.date),
-        ...cancelledOrders.map(o => o.date)
-      ]);
+      // Group by date and aggregate all statuses
+      const dateMap = new Map();
 
-      return Array.from(dateSet)
-        .map(date => {
-          const completed =
-            completedOrders.find(o => o.date === date)?.count || 0;
-          const cancelled =
-            cancelledOrders.find(o => o.date === date)?.count || 0;
-
-          return {
+      allOrdersByDate.forEach(item => {
+        const date = item.date;
+        if (!dateMap.has(date)) {
+          dateMap.set(date, {
             date,
-            completed: parseInt(completed),
-            cancelled: parseInt(cancelled)
-          };
-        })
-        .sort((a, b) => a.date.localeCompare(b.date));
+            delivered: 0,
+            cancelled: 0,
+            pending: 0,
+            preparing: 0,
+            en_route: 0,
+            dispatched: 0,
+            ready_for_pickup: 0,
+            restaurant_pickup: 0,
+            total: 0
+          });
+        }
+
+        const dayStats = dateMap.get(date);
+        const count = parseInt(item.count);
+        dayStats.total += count;
+
+        // Map status to appropriate counter
+        switch (item.status) {
+          case 'DELIVERED':
+            dayStats.delivered += count;
+            break;
+          case 'CANCELLED':
+            dayStats.cancelled += count;
+            break;
+          case 'PENDING':
+            dayStats.pending += count;
+            break;
+          case 'PREPARING':
+          case 'RESTAURANT_ACCEPTED':
+          case 'IN_PROGRESS':
+            dayStats.preparing += count;
+            break;
+          case 'EN_ROUTE':
+          case 'OUT_FOR_DELIVERY':
+            dayStats.en_route += count;
+            break;
+          case 'DISPATCHED':
+            dayStats.dispatched += count;
+            break;
+          case 'READY_FOR_PICKUP':
+            dayStats.ready_for_pickup += count;
+            break;
+          case 'RESTAURANT_PICKUP':
+            dayStats.restaurant_pickup += count;
+            break;
+        }
+      });
+
+      return Array.from(dateMap.values()).sort((a, b) =>
+        a.date.localeCompare(b.date)
+      );
     } catch (error) {
       console.error('Error calculating order stats:', error);
       return [];
