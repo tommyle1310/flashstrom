@@ -5,6 +5,8 @@ import { UpdateCustomerCareInquiryDto } from './dto/update-customer-care-inquiry
 import { ApiResponse, createResponse } from 'src/utils/createResponse';
 import { RedisService } from 'src/redis/redis.service';
 import { CustomerCareInquiry } from './entities/customer_care_inquiry.entity';
+import { DataSource } from 'typeorm';
+import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
 
 const logger = new Logger('CustomerCareInquiriesService');
 
@@ -12,7 +14,8 @@ const logger = new Logger('CustomerCareInquiriesService');
 export class CustomerCareInquiriesService {
   constructor(
     private readonly repository: CustomerCareInquiriesRepository,
-    private readonly redisService: RedisService
+    private readonly redisService: RedisService,
+    private readonly dataSource: DataSource
   ) {}
 
   async create(createDto: CreateCustomerCareInquiryDto) {
@@ -197,14 +200,48 @@ export class CustomerCareInquiriesService {
 
       const updated = await this.repository.update(id, updateDto);
 
-      // Invalidate relevant caches
+      // Invalidate inquiry-specific cache
       await this.redisService.del(`inquiry:${id}`);
-      if (inquiry.assigned_customer_care) {
-        await this.redisService.del(
-          `inquiries:customer_care:${inquiry.assigned_customer_care.id}`
-        );
-      }
+
+      // Invalidate general caches
       await this.redisService.del('inquiries:all');
+      await this.redisService.del('inquiries:escalated');
+
+      // Get all customer care IDs to invalidate their caches
+      const customerCareIds = new Set<string>();
+
+      // Add current assigned customer care if exists
+      if (inquiry.assigned_customer_care_id) {
+        customerCareIds.add(inquiry.assigned_customer_care_id);
+      }
+
+      // Add new assigned customer care if exists in update
+      if (updateDto.assigned_customer_care_id) {
+        customerCareIds.add(updateDto.assigned_customer_care_id);
+      }
+
+      // If either old or new state has null assigned_customer_care_id,
+      // we need to invalidate ALL customer care caches since unassigned tickets
+      // show up in everyone's list
+      const wasOrIsUnassigned =
+        !inquiry.assigned_customer_care_id ||
+        updateDto.assigned_customer_care_id === null;
+
+      if (wasOrIsUnassigned) {
+        // Get all customer cares and invalidate their caches
+        const allCustomerCares = await this.dataSource
+          .getRepository(CustomerCare)
+          .find({ select: ['id'] });
+
+        for (const cc of allCustomerCares) {
+          customerCareIds.add(cc.id);
+        }
+      }
+
+      // Invalidate cache for all affected customer cares
+      for (const ccId of customerCareIds) {
+        await this.redisService.del(`inquiries:customer_care:${ccId}`);
+      }
 
       logger.log(`Updated inquiry ${id} in ${Date.now() - start}ms`);
       return createResponse('OK', updated, 'Inquiry updated successfully');

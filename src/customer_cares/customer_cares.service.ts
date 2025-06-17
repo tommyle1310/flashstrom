@@ -156,30 +156,32 @@ export class CustomerCareService {
       const inquiriesStart = Date.now();
       const inquiries = await this.dataSource
         .getRepository(CustomerCareInquiry)
-        .find({
-          where: { assigned_customer_care: { id } },
-          relations: ['customer', 'order'],
-          select: {
-            id: true,
-            customer_id: true,
-            assignee_type: true,
-            subject: true,
-            description: true,
-            status: true,
-            priority: true,
-            resolution_notes: true,
-            created_at: true,
-            updated_at: true,
-            resolved_at: true,
-            customer: {
-              id: true,
-              first_name: true,
-              last_name: true,
-              avatar: true // Đảm bảo lấy avatar
-            },
-            order: true
-          }
-        });
+        .createQueryBuilder('inquiry')
+        .leftJoinAndSelect('inquiry.customer', 'customer')
+        .leftJoinAndSelect('inquiry.order', 'order')
+        .where(
+          'inquiry.assigned_customer_care_id = :id OR inquiry.assigned_customer_care_id IS NULL',
+          { id }
+        )
+        .select([
+          'inquiry.id',
+          'inquiry.customer_id',
+          'inquiry.assignee_type',
+          'inquiry.subject',
+          'inquiry.description',
+          'inquiry.status',
+          'inquiry.priority',
+          'inquiry.resolution_notes',
+          'inquiry.created_at',
+          'inquiry.updated_at',
+          'inquiry.resolved_at',
+          'customer.id',
+          'customer.first_name',
+          'customer.last_name',
+          'customer.avatar',
+          'order'
+        ])
+        .getMany();
       logger.log(`Inquiries fetch took ${Date.now() - inquiriesStart}ms`);
 
       if (!inquiries || inquiries.length === 0) {
