@@ -76,6 +76,7 @@ import { CustomerCareInquiry } from 'src/customer_cares_inquires/entities/custom
 import { CustomerCareInquiriesRepository } from 'src/customer_cares_inquires/customer_cares_inquires.repository';
 import { CustomerCareInquiriesService } from 'src/customer_cares_inquires/customer_cares_inquires.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
+import { Admin } from '../entities/admin.entity';
 
 @Module({
   imports: [
@@ -100,6 +101,7 @@ import { NotificationsService } from 'src/notifications/notifications.service';
       FWallet,
       Promotion,
       Transaction,
+      Admin,
       DriverStatsRecord,
       RatingsReview,
       DriverProgressStage
