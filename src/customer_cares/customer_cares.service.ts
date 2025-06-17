@@ -290,100 +290,33 @@ export class CustomerCareService {
 
   // Update a customer care record by ID
   async update(
-    inquiryId: string,
-    updateData: Partial<CustomerCareInquiry>
+    id: string,
+    updateData: Partial<CustomerCare>
   ): Promise<ApiResponse<any>> {
-    const ttl = 300; // Match TTL from findAllInquiriesByCCId
     try {
-      // Fetch the inquiry to get the assigned_customer_care ID
-      const inquiry = await this.inquiryRepository.findById(inquiryId);
-      if (!inquiry) {
-        return createResponse('NotFound', null, 'Inquiry not found');
+      // Check if customer care exists
+      const customerCare = await this.repository.findById(id);
+      if (!customerCare) {
+        return createResponse('NotFound', null, 'Customer care not found');
       }
 
-      // Update the inquiry in the database
-      const updatedInquiry = await this.inquiryRepository.update(
-        inquiryId,
-        updateData
-      );
-
-      // Fetch the updated inquiry with relations to match findAllInquiriesByCCId format
-      const refreshedInquiry = await this.dataSource
-        .getRepository(CustomerCareInquiry)
-        .findOne({
-          where: { id: inquiryId },
-          relations: ['customer', 'order'],
-          select: {
-            id: true,
-            customer_id: true,
-            assignee_type: true,
-            subject: true,
-            description: true,
-            status: true,
-            priority: true,
-            resolution_notes: true,
-            created_at: true,
-            updated_at: true,
-            resolved_at: true,
-            customer: {
-              id: true,
-              first_name: true,
-              last_name: true,
-              avatar: true
-            },
-            order: true
-          }
-        });
-
-      // Get the cache key
-      const cacheKey = `inquiries:customer_care:${inquiry.assigned_customer_care.id}`;
-
-      // Fetch current cached data
-      const cachedData = await this.redisService.get(cacheKey);
-      const inquiries = cachedData ? JSON.parse(cachedData) : [];
-
-      // Update or append the inquiry in the cached data
-      const inquiryIndex = inquiries.findIndex((i: any) => i.id === inquiryId);
-      const populatedInquiry = {
-        ...refreshedInquiry,
-        customer: refreshedInquiry.customer
-          ? {
-              id: refreshedInquiry.customer.id,
-              first_name: refreshedInquiry.customer.first_name,
-              last_name: refreshedInquiry.customer.last_name,
-              avatar: refreshedInquiry.customer.avatar
-            }
-          : null,
-        order: refreshedInquiry.order ? refreshedInquiry.order : null
-      };
-
-      if (inquiryIndex !== -1) {
-        // Update existing inquiry in cache
-        inquiries[inquiryIndex] = populatedInquiry;
-      } else {
-        // Append new inquiry (if it wasn't in the cache before)
-        inquiries.push(populatedInquiry);
-      }
-
-      // Save updated inquiries back to cache
-      await this.redisService.setNx(
-        cacheKey,
-        JSON.stringify(inquiries),
-        ttl * 1000
-      );
-      logger.log(`Updated cache for ${cacheKey}`);
+      // Update the customer care record
+      const updatedCustomerCare = await this.repository.update(id, updateData);
 
       return createResponse(
         'OK',
-        updatedInquiry,
-        'Inquiry updated successfully'
+        updatedCustomerCare,
+        'Customer care updated successfully'
       );
     } catch (error: any) {
-      logger.error(`Error updating inquiry: ${error.message}`, error.stack);
+      logger.error(
+        `Error updating customer care: ${error.message}`,
+        error.stack
+      );
       return createResponse(
         'ServerError',
         null,
-        'An error occurred while updating the inquiry'
+        'An error occurred while updating the customer care'
       );
     }
   }

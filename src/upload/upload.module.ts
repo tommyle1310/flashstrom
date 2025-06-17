@@ -71,6 +71,10 @@ import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
 import { CartItem } from 'src/cart_items/entities/cart_item.entity';
 import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { NotificationsService } from 'src/notifications/notifications.service';
+import { CustomerCareService } from 'src/customer_cares/customer_cares.service';
+import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
+import { CustomerCaresRepository } from 'src/customer_cares/customer_cares.repository';
+import { CustomerCareInquiriesRepository } from 'src/customer_cares_inquires/customer_cares_inquires.repository';
 
 @Module({
   imports: [
@@ -95,6 +99,7 @@ import { NotificationsService } from 'src/notifications/notifications.service';
       FinanceRule,
       Admin,
       Transaction,
+      CustomerCare,
       DriverStatsRecord,
       FWallet
     ]),
@@ -110,6 +115,7 @@ import { NotificationsService } from 'src/notifications/notifications.service';
   controllers: [UploadController],
   providers: [
     RedisService,
+    CustomerCareService,
     UploadService,
     RestaurantsGateway,
     {
@@ -133,10 +139,12 @@ import { NotificationsService } from 'src/notifications/notifications.service';
     AdminRepository,
     NotificationsService,
     FinanceRulesService,
+    CustomerCaresRepository,
     AdminService,
     UsersService,
     FinanceRulesRepository,
     TransactionsRepository,
+    CustomerCareInquiriesRepository,
     OnlineSessionsService,
     OnlineSessionsRepository,
     DriversGateway,

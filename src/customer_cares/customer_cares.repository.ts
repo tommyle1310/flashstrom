@@ -83,7 +83,10 @@ export class CustomerCaresRepository {
     return bla;
   }
 
-  async update(id: string, updateDto: any): Promise<CustomerCare> {
+  async update(
+    id: string,
+    updateDto: Partial<CustomerCare>
+  ): Promise<CustomerCare> {
     await this.repository.update(id, {
       ...updateDto,
       updated_at: Math.floor(Date.now() / 1000)
