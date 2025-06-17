@@ -22,11 +22,19 @@ export class AdminChartRecord {
   @Column({ type: 'bigint' })
   period_end: number; // End timestamp of the period
 
-  @Column({ type: 'integer', default: 0 })
-  total_users: number; // Total number of users in the system
+  @Column('jsonb', { nullable: true })
+  total_users: {
+    metric: number;
+    monthlyChanges: number;
+    changeType: 'real' | 'percentage';
+  }; // Gross revenue from promotions with monthly comparison
 
-  @Column({ type: 'integer', default: 0 })
-  sold_promotions: number; // Total number of promotions sold
+  @Column('jsonb', { nullable: true })
+  sold_promotions: {
+    metric: number;
+    monthlyChanges: number;
+    changeType: 'real' | 'percentage';
+  }; // Gross revenue from promotions with monthly comparison
 
   @Column('jsonb', { nullable: true })
   net_income: {

@@ -41,6 +41,9 @@ export class Restaurant {
   @JoinColumn({ name: 'address_id' })
   address: AddressBook;
 
+  @Column({ name: 'last_login' })
+  last_login: number;
+
   @Column()
   restaurant_name: string;
 

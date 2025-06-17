@@ -13,6 +13,8 @@ import { createResponse, ApiResponse } from 'src/utils/createResponse';
 import { PeriodType } from './dto/admin_chart_query.dto';
 import * as Redis from 'redis';
 import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
+import { DataSource } from 'typeorm';
+// import { FLASHFOOD_FINANCE } from 'src/utils/constants';
 
 @Injectable()
 export class AdminChartService {
@@ -36,7 +38,8 @@ export class AdminChartService {
     @InjectRepository(Restaurant)
     private restaurantRepo: Repository<Restaurant>,
     @InjectRepository(RatingsReview)
-    private ratingsReviewRepo: Repository<RatingsReview>
+    private ratingsReviewRepo: Repository<RatingsReview>,
+    private dataSource: DataSource
   ) {
     // Initialize Redis client
     this.redisClient = Redis.createClient({
@@ -168,7 +171,6 @@ export class AdminChartService {
         `Generating admin chart data for period ${startDate} - ${endDate}`
       );
 
-      // Debug: Show some sample orders to understand the data
       const sampleOrders = await this.orderRepo
         .createQueryBuilder('order')
         .select([
@@ -192,9 +194,8 @@ export class AdminChartService {
         }))
       );
 
-      // Calculate the same period last month for comparison
       const periodDuration = endDate - startDate;
-      const lastMonthStartDate = startDate - 30 * 24 * 60 * 60; // 30 days ago
+      const lastMonthStartDate = startDate - 30 * 24 * 60 * 60;
       const lastMonthEndDate = lastMonthStartDate + periodDuration;
 
       console.log(`[DEBUG] Current period: ${startDate} - ${endDate}`);
@@ -202,14 +203,12 @@ export class AdminChartService {
         `[DEBUG] Last month period: ${lastMonthStartDate} - ${lastMonthEndDate}`
       );
 
-      // Delete existing chart data for this period if any
       await this.adminChartRepo.delete({
         period_start: startDate,
         period_end: endDate,
         period_type: periodType
       });
 
-      // Calculate current period metrics
       const [
         totalUsers,
         soldPromotions,
@@ -238,7 +237,6 @@ export class AdminChartService {
         this.calculateChurnRate(startDate, endDate)
       ]);
 
-      // Calculate last month metrics for comparison
       const [
         lastMonthGrossFromPromotion,
         lastMonthAvgCustomerSatisfaction,
@@ -261,7 +259,6 @@ export class AdminChartService {
         this.calculateChurnRate(lastMonthStartDate, lastMonthEndDate)
       ]);
 
-      // Helper function to calculate percentage change
       const calculatePercentageChange = (
         current: number,
         previous: number
@@ -270,7 +267,6 @@ export class AdminChartService {
         return Number((((current - previous) / previous) * 100).toFixed(2));
       };
 
-      // Helper function to calculate real number change
       const calculateRealChange = (
         current: number,
         previous: number
@@ -278,7 +274,6 @@ export class AdminChartService {
         return Number((current - previous).toFixed(2));
       };
 
-      // Structure metrics with monthly changes
       const grossFromPromotion = {
         metric: currentGrossFromPromotion,
         monthlyChanges: calculateRealChange(
@@ -333,7 +328,6 @@ export class AdminChartService {
         changeType: 'percentage' as const
       };
 
-      // Create new chart record
       const chartData = this.adminChartRepo.create({
         period_type: periodType,
         period_start: startDate,
@@ -352,7 +346,6 @@ export class AdminChartService {
         churn_rate: churnRate
       });
 
-      // Save chart data
       await this.adminChartRepo.save(chartData);
       console.log(
         `Admin chart data generated successfully for period ${startDate} - ${endDate}`
@@ -367,37 +360,90 @@ export class AdminChartService {
   private async calculateTotalUsers(
     startDate: number,
     endDate: number
-  ): Promise<number> {
+  ): Promise<{ metric: number; monthlyChanges: number; changeType: 'real' }> {
     try {
       const totalUsers = await this.userRepo.count({
         where: {
-          created_at: Between(new Date(0), new Date(endDate * 1000)) // All users created before end date
+          created_at: Between(new Date(0), new Date(endDate * 1000))
         }
       });
-      return totalUsers;
+
+      const periodDuration = endDate - startDate;
+      const lastMonthStartDate = startDate - 30 * 24 * 60 * 60;
+      const lastMonthEndDate = lastMonthStartDate + periodDuration;
+
+      const lastMonthTotalUsers = await this.userRepo.count({
+        where: {
+          created_at: Between(new Date(0), new Date(lastMonthEndDate * 1000))
+        }
+      });
+
+      const monthlyChanges = Number(
+        (totalUsers - lastMonthTotalUsers).toFixed(2)
+      );
+
+      return {
+        metric: totalUsers,
+        monthlyChanges,
+        changeType: 'real'
+      };
     } catch (error) {
       console.error('Error calculating total users:', error);
-      return 0;
+      return { metric: 0, monthlyChanges: 0, changeType: 'real' };
     }
   }
 
   private async calculateSoldPromotions(
     startDate: number,
     endDate: number
-  ): Promise<number> {
+  ): Promise<{ metric: number; monthlyChanges: number; changeType: 'real' }> {
     try {
-      const soldPromotions = await this.promotionRepo.count({
-        where: {
-          created_at: Between(
-            new Date(startDate * 1000),
-            new Date(endDate * 1000)
-          )
-        }
-      });
-      return soldPromotions;
+      // Since restaurant_promotions junction table doesn't have timestamps,
+      // we count promotions currently applied by restaurants that were created in this period
+      // This gives us an approximation of promotion sales during the period
+      const result = await this.dataSource
+        .createQueryBuilder()
+        .select('COUNT(DISTINCT rp.promotion_id)', 'count')
+        .from('restaurant_promotions', 'rp')
+        .innerJoin('restaurants', 'r', 'r.id = rp.restaurant_id')
+        .where('r.created_at BETWEEN :startDate AND :endDate', {
+          startDate,
+          endDate
+        })
+        .getRawOne();
+
+      const currentSoldPromotions = parseInt(result?.count || '0');
+
+      // Calculate the same period last month for comparison
+      const periodDuration = endDate - startDate;
+      const lastMonthStartDate = startDate - 30 * 24 * 60 * 60;
+      const lastMonthEndDate = lastMonthStartDate + periodDuration;
+
+      const lastMonthResult = await this.dataSource
+        .createQueryBuilder()
+        .select('COUNT(DISTINCT rp.promotion_id)', 'count')
+        .from('restaurant_promotions', 'rp')
+        .innerJoin('restaurants', 'r', 'r.id = rp.restaurant_id')
+        .where('r.created_at BETWEEN :startDate AND :endDate', {
+          startDate: lastMonthStartDate,
+          endDate: lastMonthEndDate
+        })
+        .getRawOne();
+
+      const lastMonthSoldPromotions = parseInt(lastMonthResult?.count || '0');
+
+      const monthlyChanges = Number(
+        (currentSoldPromotions - lastMonthSoldPromotions).toFixed(2)
+      );
+
+      return {
+        metric: currentSoldPromotions,
+        monthlyChanges,
+        changeType: 'real'
+      };
     } catch (error) {
       console.error('Error calculating sold promotions:', error);
-      return 0;
+      return { metric: 0, monthlyChanges: 0, changeType: 'real' };
     }
   }
 
@@ -744,12 +790,17 @@ export class AdminChartService {
     endDate: number
   ): Promise<number> {
     try {
-      const result = await this.promotionRepo
-        .createQueryBuilder('promotion')
-        .select('SUM(promotion.promotion_cost_price)', 'total')
-        .where('promotion.created_at BETWEEN :startDate AND :endDate', {
-          startDate: new Date(startDate * 1000),
-          endDate: new Date(endDate * 1000)
+      // Calculate gross revenue from promotions applied by restaurants created in this period
+      // Sum the promotion_cost_price for each promotion-restaurant relationship
+      const result = await this.dataSource
+        .createQueryBuilder()
+        .select('SUM(p.promotion_cost_price)', 'total')
+        .from('restaurant_promotions', 'rp')
+        .innerJoin('restaurants', 'r', 'r.id = rp.restaurant_id')
+        .innerJoin('promotions', 'p', 'p.id = rp.promotion_id')
+        .where('r.created_at BETWEEN :startDate AND :endDate', {
+          startDate,
+          endDate
         })
         .getRawOne();
 
@@ -853,16 +904,90 @@ export class AdminChartService {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private async calculateChurnRate(
     startDate: number,
     endDate: number
   ): Promise<number> {
     try {
-      // Simplified churn rate calculation: (customers who didn't place orders in period) / (total customers)
-      // This requires customer order history which may not be directly accessible
-      // As a placeholder, returning a fixed value of 0.1 (10%)
-      return 0.1;
+      console.log(
+        `Calculating churn rate for period ${startDate} - ${endDate}`
+      );
+
+      // Count total users across all types
+      const [
+        totalCustomers,
+        totalDrivers,
+        totalRestaurants,
+        totalCustomerCare
+      ] = await Promise.all([
+        this.customerRepo.count(),
+        this.driverRepo.count(),
+        this.restaurantRepo.count(),
+        this.customerCareRepo.count()
+      ]);
+
+      const totalUsers =
+        totalCustomers + totalDrivers + totalRestaurants + totalCustomerCare;
+
+      if (totalUsers === 0) {
+        return 0;
+      }
+
+      // Count users who logged in during the period (active users)
+      const [
+        activeCustomers,
+        activeDrivers,
+        activeRestaurants,
+        activeCustomerCare
+      ] = await Promise.all([
+        this.customerRepo
+          .createQueryBuilder('customer')
+          .where('customer.last_login BETWEEN :startDate AND :endDate', {
+            startDate,
+            endDate
+          })
+          .getCount(),
+        this.driverRepo
+          .createQueryBuilder('driver')
+          .where('driver.last_login BETWEEN :startDate AND :endDate', {
+            startDate,
+            endDate
+          })
+          .getCount(),
+        this.restaurantRepo
+          .createQueryBuilder('restaurant')
+          .where('restaurant.last_login BETWEEN :startDate AND :endDate', {
+            startDate,
+            endDate
+          })
+          .getCount(),
+        this.customerCareRepo
+          .createQueryBuilder('customer_care')
+          .where('customer_care.last_login BETWEEN :startDate AND :endDate', {
+            startDate,
+            endDate
+          })
+          .getCount()
+      ]);
+
+      const activeUsers =
+        activeCustomers +
+        activeDrivers +
+        activeRestaurants +
+        activeCustomerCare;
+
+      // Churn rate = (total users - active users) / total users
+      const churnedUsers = totalUsers - activeUsers;
+      const churnRate = churnedUsers / totalUsers;
+
+      console.log(`Churn rate calculation:`, {
+        totalUsers,
+        activeUsers,
+        churnedUsers,
+        churnRate: churnRate.toFixed(4)
+      });
+
+      return Number(churnRate.toFixed(4));
     } catch (error) {
       console.error('Error calculating churn rate:', error);
       return 0;

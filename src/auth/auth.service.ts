@@ -72,7 +72,8 @@ export class AuthService {
 
   async login(
     { email, password }: { email: string; password: string },
-    type: Enum_UserType
+    type: Enum_UserType,
+    isGenerated?: string
   ): Promise<any> {
     if (!this.validateLoginInput(email, password)) {
       return createResponse(
@@ -88,7 +89,7 @@ export class AuthService {
     }
 
     const basePayload = this.createBasePayload(user);
-    return this.handleUserTypeLogin(user, type, basePayload);
+    return this.handleUserTypeLogin(user, type, basePayload, isGenerated);
   }
 
   // Private helper methods
@@ -137,22 +138,38 @@ export class AuthService {
   private async handleUserTypeLogin(
     user: User,
     type: Enum_UserType,
-    basePayload: BasePayload
+    basePayload: BasePayload,
+    isGenerated?: string
   ) {
     const loginHandlers = {
-      DRIVER: () => this.handleDriverLogin(user, basePayload),
-      CUSTOMER: () => this.handleCustomerLogin(user, basePayload),
-      F_WALLET: () => this.handleFWalletLogin(user, basePayload),
+      DRIVER: () => this.handleDriverLogin(user, basePayload, isGenerated),
+      CUSTOMER: () => this.handleCustomerLogin(user, basePayload, isGenerated),
+      F_WALLET: () => this.handleFWalletLogin(user, basePayload, isGenerated),
       RESTAURANT_OWNER: () =>
-        this.handleRestaurantOwnerLogin(user, basePayload),
+        this.handleRestaurantOwnerLogin(user, basePayload, isGenerated),
       CUSTOMER_CARE_REPRESENTATIVE: () =>
-        this.handleCustomerCareLogin(user, basePayload),
+        this.handleCustomerCareLogin(user, basePayload, isGenerated),
       SUPER_ADMIN: () =>
-        this.handleAdminLogin(user, basePayload, Enum_UserType.SUPER_ADMIN),
+        this.handleAdminLogin(
+          user,
+          basePayload,
+          Enum_UserType.SUPER_ADMIN,
+          isGenerated
+        ),
       FINANCE_ADMIN: () =>
-        this.handleAdminLogin(user, basePayload, Enum_UserType.FINANCE_ADMIN),
+        this.handleAdminLogin(
+          user,
+          basePayload,
+          Enum_UserType.FINANCE_ADMIN,
+          isGenerated
+        ),
       COMPANION_ADMIN: () =>
-        this.handleAdminLogin(user, basePayload, Enum_UserType.COMPANION_ADMIN)
+        this.handleAdminLogin(
+          user,
+          basePayload,
+          Enum_UserType.COMPANION_ADMIN,
+          isGenerated
+        )
     };
 
     const handler = loginHandlers[type];
@@ -163,7 +180,11 @@ export class AuthService {
     return handler();
   }
 
-  private async handleDriverLogin(user: User, basePayload: BasePayload) {
+  private async handleDriverLogin(
+    user: User,
+    basePayload: BasePayload,
+    isGenerated?: string
+  ) {
     const userWithRole = await this.driverRepository.findOne({
       user_id: user.id
     });
@@ -176,6 +197,12 @@ export class AuthService {
     if (!fWalletData) {
       return createResponse('NotFound', null, 'Driver not found');
     }
+
+    // Update last login timestamp
+    const timestamps = this.generateRandomTimestamps(isGenerated);
+    await this.driverRepository.update(userWithRole.id, {
+      last_login: timestamps.last_login
+    });
 
     const driverPayload = {
       ...basePayload,
@@ -206,7 +233,11 @@ export class AuthService {
     );
   }
 
-  private async handleCustomerLogin(user: User, basePayload: BasePayload) {
+  private async handleCustomerLogin(
+    user: User,
+    basePayload: BasePayload,
+    isGenerated?: string
+  ) {
     try {
       console.log('check user', user, 'chekc user id', user.id);
 
@@ -239,8 +270,9 @@ export class AuthService {
       });
 
       // Update last login timestamp
+      const timestamps = this.generateRandomTimestamps(isGenerated);
       await this.customersRepository.update(userWithRole.id, {
-        last_login: Math.floor(Date.now() / 1000)
+        last_login: timestamps.last_login
       });
 
       // Construct payload
@@ -282,7 +314,13 @@ export class AuthService {
     }
   }
 
-  private async handleFWalletLogin(user: User, basePayload: BasePayload) {
+  private async handleFWalletLogin(
+    user: User,
+    basePayload: BasePayload,
+    isGenerated?: string
+  ) {
+    // FWallet doesn't have last_login field, but we use the parameter for consistency
+    console.log('FWallet login, isGenerated:', isGenerated);
     const userWithRole = await this.fWalletsRepository.findByUserId(user.id);
     if (!userWithRole) {
       return createResponse('NotFound', null, 'FWallet not found');
@@ -307,9 +345,12 @@ export class AuthService {
 
   private async handleRestaurantOwnerLogin(
     user: User,
-    basePayload: BasePayload
+    basePayload: BasePayload,
+    isGenerated?: string
   ) {
     try {
+      // Restaurant owner doesn't have last_login field in current schema
+      console.log('Restaurant owner login, isGenerated:', isGenerated);
       // Find restaurant without loading problematic relations
       const userWithRole = await this.restaurantsRepository.findByOwnerId(
         user.id
@@ -368,17 +409,25 @@ export class AuthService {
     }
   }
 
-  private async handleCustomerCareLogin(user: User, basePayload: BasePayload) {
+  private async handleCustomerCareLogin(
+    user: User,
+    basePayload: BasePayload,
+    isGenerated?: string
+  ) {
+    // Update last login for customer care
+    console.log('Customer care login, isGenerated:', isGenerated);
     const userWithRole = await this.customerCareRepository.findByUserId(
       user.id
     );
     if (!userWithRole) {
-      return createResponse(
-        'NotFound',
-        null,
-        'Customer Care representative not found'
-      );
+      return createResponse('NotFound', null, 'Customer care not found');
     }
+
+    // Update last login timestamp
+    const timestamps = this.generateRandomTimestamps(isGenerated);
+    await this.customerCareRepository.update(userWithRole.id, {
+      last_login: timestamps.last_login
+    });
 
     const customerCarePayload = {
       ...basePayload,
@@ -409,8 +458,11 @@ export class AuthService {
   private async handleAdminLogin(
     user: User,
     basePayload: BasePayload,
-    type: Enum_UserType
+    type: Enum_UserType,
+    isGenerated?: string
   ) {
+    // Admin doesn't have last_login field in current schema
+    console.log('Admin login, isGenerated:', isGenerated);
     const admin = await this.adminService.findOneByUserId(user.id);
     if (!admin.data) {
       return createResponse('NotFound', null, `${type} not found`);
@@ -452,6 +504,8 @@ export class AuthService {
     type: Enum_UserType,
     isGenerated?: string
   ) {
+    const timestamps = this.generateRandomTimestamps(isGenerated);
+
     if (existingUser && Array.isArray(existingUser.user_type)) {
       const userTypes = existingUser.user_type.map(t => String(t));
       if (userTypes.includes(String(type))) {
@@ -481,7 +535,10 @@ export class AuthService {
         newUserWithRole = await this.customersRepository.create({
           ...userData,
           password: existingUser.password,
-          user_id: existingUser.id
+          user_id: existingUser.id,
+          created_at: timestamps.created_at,
+          updated_at: timestamps.updated_at,
+          last_login: timestamps.last_login
         });
         break;
 
@@ -525,7 +582,10 @@ export class AuthService {
           rating: {
             average_rating: 0,
             review_count: 0
-          }
+          },
+          created_at: timestamps.created_at,
+          updated_at: timestamps.updated_at,
+          last_login: timestamps.last_login
         });
 
         // Get complete driver data
@@ -806,6 +866,7 @@ export class AuthService {
         type
       });
 
+      const timestamps = this.generateRandomTimestamps(isGenerated);
       const newUserData = {
         id: `USR_${uuidv4()}`,
         email,
@@ -815,8 +876,8 @@ export class AuthService {
         last_name: userData.last_name,
         verification_code: Math.floor(Math.random() * 1000000),
         is_verified: false,
-        created_at: new Date(),
-        updated_at: new Date(),
+        created_at: new Date(timestamps.created_at * 1000),
+        updated_at: new Date(timestamps.updated_at * 1000),
         user_type: [type]
       };
 
@@ -850,8 +911,9 @@ export class AuthService {
               last_name: userData.last_name,
               phone: userData.phone,
               address: userData.address || {},
-              created_at: Math.floor(Date.now() / 1000),
-              updated_at: Math.floor(Date.now() / 1000)
+              created_at: timestamps.created_at,
+              updated_at: timestamps.updated_at,
+              last_login: timestamps.last_login
             };
 
             console.log('Creating customer with data:', customerData);
@@ -927,7 +989,10 @@ export class AuthService {
               rating: {
                 average_rating: 0,
                 review_count: 0
-              }
+              },
+              created_at: timestamps.created_at,
+              updated_at: timestamps.updated_at,
+              last_login: timestamps.last_login
             };
 
             console.log('Creating driver with data:', driverData);
@@ -1086,9 +1151,9 @@ export class AuthService {
             assigned_tickets: [],
             available_for_work: false,
             is_assigned: false,
-            created_at: Math.floor(Date.now() / 1000),
-            updated_at: Math.floor(Date.now() / 1000),
-            last_login: Math.floor(Date.now() / 1000)
+            created_at: timestamps.created_at,
+            updated_at: timestamps.updated_at,
+            last_login: timestamps.last_login
           });
           break;
 
@@ -1108,8 +1173,8 @@ export class AuthService {
             last_name: userData.last_name,
             permissions: [],
             status: AdminStatus.ACTIVE,
-            created_at: Math.floor(Date.now() / 1000),
-            updated_at: Math.floor(Date.now() / 1000)
+            created_at: timestamps.created_at,
+            updated_at: timestamps.updated_at
           });
           if (newUserWithRole.EC !== 'OK') {
             return newUserWithRole;
@@ -1214,5 +1279,33 @@ export class AuthService {
     });
 
     return createResponse('OK', null, 'Password reset successfully');
+  }
+
+  private generateRandomTimestamps(isGenerated?: string): {
+    created_at: number;
+    updated_at: number;
+    last_login: number;
+  } {
+    if (isGenerated === 'true') {
+      // Generate random timestamp within last 2 months (60 days)
+      const now = Math.floor(Date.now() / 1000);
+      const twoMonthsAgo = now - 60 * 24 * 60 * 60; // 60 days in seconds
+      const randomTimestamp =
+        Math.floor(Math.random() * (now - twoMonthsAgo)) + twoMonthsAgo;
+
+      return {
+        created_at: randomTimestamp,
+        updated_at: randomTimestamp,
+        last_login: randomTimestamp
+      };
+    } else {
+      // Use current timestamp
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      return {
+        created_at: currentTimestamp,
+        updated_at: currentTimestamp,
+        last_login: currentTimestamp
+      };
+    }
   }
 }

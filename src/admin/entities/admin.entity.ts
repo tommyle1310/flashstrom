@@ -39,6 +39,9 @@ export class Admin {
   @Column('jsonb', { nullable: true })
   avatar: { url: string; key: string };
 
+  @Column({ name: 'last_login' })
+  last_login: number;
+
   @Column('text', { array: true })
   permissions: AdminPermission[];
 
