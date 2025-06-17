@@ -12,7 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import * as bcryptjs from 'bcryptjs';
 import { createResponse } from 'src/utils/createResponse';
 import { Enum_UserType, BasePayload } from 'src/types/Payload';
-import { AdminRole, AdminStatus } from 'src/utils/types/admin';
+import { AdminRole, AdminStatus, RolePermissions } from 'src/utils/types/admin';
 import { CreateFWalletDto } from 'src/fwallets/dto/create-fwallet.dto';
 import { CreateRestaurantDto } from 'src/restaurants/dto/create-restaurant.dto';
 import { User } from 'src/users/entities/user.entity';
@@ -1171,7 +1171,7 @@ export class AuthService {
             role,
             first_name: userData.first_name,
             last_name: userData.last_name,
-            permissions: [],
+            permissions: RolePermissions[role],
             status: AdminStatus.ACTIVE,
             created_at: timestamps.created_at,
             updated_at: timestamps.updated_at

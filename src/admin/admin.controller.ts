@@ -6,7 +6,8 @@ import {
   Patch,
   Param,
   Delete,
-  UseGuards
+  UseGuards,
+  Req
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { CreateAdminDto } from './dto/create-admin.dto';
@@ -63,10 +64,15 @@ export class AdminController {
     @Param('entityType')
     entityType: 'Customer' | 'CustomerCare' | 'Driver' | 'Restaurant',
     @Param('entityId') entityId: string,
-    @Body('adminId') adminId: string,
+    @Req() req: any,
     @Body('reason') reason?: string
   ) {
-    return this.adminService.banAccount(entityType, entityId, adminId, reason);
+    return this.adminService.banAccount(
+      entityType,
+      entityId,
+      req.admin.id,
+      reason
+    );
   }
 
   @Patch('permissions/:id')
@@ -75,12 +81,12 @@ export class AdminController {
   updatePermissions(
     @Param('id') adminId: string,
     @Body() updatePermissionsDto: UpdatePermissionsDto,
-    @Body('requesterId') requesterId: string
+    @Req() req: any
   ) {
     return this.adminService.updatePermissions(
       adminId,
       updatePermissionsDto,
-      requesterId
+      req.admin.id
     );
   }
 }
