@@ -9,6 +9,7 @@ import { FWallet } from 'src/fwallets/entities/fwallet.entity';
 import { DataSource, EntityManager } from 'typeorm';
 import { createClient } from 'redis';
 import { OrdersService } from 'src/orders/orders.service';
+import { FLASHFOOD_FINANCE } from 'src/utils/constants';
 
 const logger = new Logger('TransactionService');
 
@@ -724,6 +725,59 @@ export class TransactionService {
         'ServerError',
         null,
         'Failed to update transaction status'
+      );
+    }
+  }
+
+  async getFlashfoodFinanceMoneyFlow(
+    startDate: number,
+    endDate: number
+  ): Promise<ApiResponse<any[]>> {
+    try {
+      const { id: financeWalletId } = FLASHFOOD_FINANCE;
+
+      // Query for money flow grouped by date
+      const result = await this.dataSource
+        .createQueryBuilder()
+        .select([
+          "TO_CHAR(TO_TIMESTAMP(t.created_at), 'YYYY-MM-DD') as date",
+          'SUM(CASE WHEN t.destination = :walletId THEN t.amount ELSE 0 END) as money_in',
+          'SUM(CASE WHEN t.fwallet_id = :walletId THEN t.amount ELSE 0 END) as money_out'
+        ])
+        .from('transactions', 't')
+        .where('t.created_at BETWEEN :startDate AND :endDate', {
+          startDate,
+          endDate
+        })
+        .andWhere('(t.destination = :walletId OR t.fwallet_id = :walletId)', {
+          walletId: financeWalletId
+        })
+        .andWhere('t.status = :status', { status: 'COMPLETED' })
+        .groupBy("TO_CHAR(TO_TIMESTAMP(t.created_at), 'YYYY-MM-DD')")
+        .orderBy("TO_CHAR(TO_TIMESTAMP(t.created_at), 'YYYY-MM-DD')")
+        .setParameters({
+          walletId: financeWalletId
+        })
+        .getRawMany();
+
+      // Format the results
+      const formattedResult = result.map(item => ({
+        date: item.date,
+        money_in: Number(parseFloat(item.money_in).toFixed(2)) || 0,
+        money_out: Number(parseFloat(item.money_out).toFixed(2)) || 0
+      }));
+
+      return createResponse(
+        'OK',
+        formattedResult,
+        'Flashfood finance money flow retrieved successfully'
+      );
+    } catch (error) {
+      logger.error('Error getting Flashfood finance money flow:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error retrieving Flashfood finance money flow'
       );
     }
   }
