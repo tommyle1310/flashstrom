@@ -313,58 +313,99 @@ export class CustomersService {
     updateCustomerDto: UpdateCustomerDto
   ): Promise<ApiResponse<Customer>> {
     const start = Date.now();
+    const timeout = 30000; // 30 second timeout
+
     try {
-      const cacheKey = `customer:${id}`;
-      const restaurantsCacheKey = `restaurants:customer:${id}`; // Key cache của getAllRestaurants
-      let customer: Customer | null = null;
+      // Wrap the entire operation in a timeout
+      const updateOperation = this.performUpdate(id, updateCustomerDto, start);
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(
+          () => reject(new Error('Update operation timed out')),
+          timeout
+        );
+      });
 
-      const cached = await this.redisService.get(cacheKey);
-      if (cached) {
-        customer = JSON.parse(cached);
-        logger.log(`Fetch customer (cache) took ${Date.now() - start}ms`);
-      } else {
-        customer = await this.customerRepository.findById(id);
-        if (customer) {
-          await this.redisService.setNx(
-            cacheKey,
-            JSON.stringify(customer),
-            7200 * 1000
-          );
-          logger.log(`Stored customer in Redis: ${cacheKey}`);
-        }
-        logger.log(`Fetch customer took ${Date.now() - start}ms`);
-      }
-
-      if (!customer) {
-        return createResponse('NotFound', null, 'Customer not found');
-      }
-
-      Object.assign(customer, updateCustomerDto);
-
-      const saveStart = Date.now();
-      const updatedCustomer = await this.customerRepository.save(customer);
-      await this.redisService.setNx(
-        cacheKey,
-        JSON.stringify(updatedCustomer),
-        7200 * 1000
-      );
-      await this.redisService.del(restaurantsCacheKey); // Xóa cache của getAllRestaurants
-      logger.log(`Save customer took ${Date.now() - saveStart}ms`);
-
-      logger.log(`Update customer took ${Date.now() - start}ms`);
-      return createResponse(
-        'OK',
-        updatedCustomer,
-        'Customer updated successfully'
-      );
+      return (await Promise.race([
+        updateOperation,
+        timeoutPromise
+      ])) as ApiResponse<Customer>;
     } catch (error: any) {
       logger.error('Error updating customer:', error);
       return createResponse(
         'ServerError',
         null,
-        'An error occurred while updating the customer'
+        `An error occurred while updating the customer: ${error.message}`
       );
     }
+  }
+
+  private async performUpdate(
+    id: string,
+    updateCustomerDto: UpdateCustomerDto,
+    start: number
+  ): Promise<ApiResponse<Customer>> {
+    const cacheKey = `customer:${id}`;
+    const restaurantsCacheKey = `restaurants:customer:${id}`;
+    let customer: Customer | null = null;
+
+    // Try to get customer from cache first
+    try {
+      const cached = await this.redisService.get(cacheKey);
+      if (cached) {
+        customer = JSON.parse(cached);
+        logger.log(`Fetch customer (cache) took ${Date.now() - start}ms`);
+      }
+    } catch (cacheError) {
+      logger.warn('Redis cache read error, continuing with DB:', cacheError);
+    }
+
+    // If not in cache, get from database with timeout
+    if (!customer) {
+      const dbStart = Date.now();
+      customer = (await Promise.race([
+        this.customerRepository.findById(id),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Database query timed out')), 10000)
+        )
+      ])) as Customer | null;
+      logger.log(`Fetch customer from DB took ${Date.now() - dbStart}ms`);
+    }
+
+    if (!customer) {
+      return createResponse('NotFound', null, 'Customer not found');
+    }
+
+    // Update customer data
+    Object.assign(customer, updateCustomerDto);
+
+    // Save to database with timeout
+    const saveStart = Date.now();
+    const updatedCustomer = (await Promise.race([
+      this.customerRepository.save(customer),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Database save timed out')), 15000)
+      )
+    ])) as Customer;
+    logger.log(`Save customer took ${Date.now() - saveStart}ms`);
+
+    // Update cache in background (don't wait for it)
+    Promise.all([
+      this.redisService.set(
+        cacheKey,
+        JSON.stringify(updatedCustomer),
+        7200 * 1000
+      ),
+      this.redisService.del(restaurantsCacheKey)
+    ]).catch(cacheError => {
+      logger.warn('Cache update error (non-blocking):', cacheError);
+    });
+
+    logger.log(`Update customer took ${Date.now() - start}ms`);
+    return createResponse(
+      'OK',
+      updatedCustomer,
+      'Customer updated successfully'
+    );
   }
 
   async toggleFavoriteRestaurant(
@@ -613,6 +654,7 @@ export class CustomersService {
               id: true,
               street: true,
               city: true,
+              nationality: true,
               postal_code: true,
               location: { lat: true, lng: true }
             }
@@ -1084,6 +1126,51 @@ export class CustomersService {
         'ServerError',
         null,
         'Error fetching paginated customers'
+      );
+    }
+  }
+
+  // Simple update method without cache operations for debugging
+  async updateSimple(
+    id: string,
+    updateCustomerDto: UpdateCustomerDto
+  ): Promise<ApiResponse<Customer>> {
+    const start = Date.now();
+    try {
+      logger.log(`Starting simple update for customer ${id}`);
+
+      // Get customer from database
+      const customer = await this.customerRepository.findById(id);
+      if (!customer) {
+        logger.log(`Customer ${id} not found`);
+        return createResponse('NotFound', null, 'Customer not found');
+      }
+
+      logger.log(`Found customer ${id}, updating...`);
+
+      // Update customer data
+      Object.assign(customer, updateCustomerDto);
+      customer.updated_at = Math.floor(Date.now() / 1000);
+
+      // Save directly to database without cache operations
+      const updatedCustomer = await this.dataSource
+        .getRepository(Customer)
+        .save(customer);
+
+      logger.log(
+        `Update completed for customer ${id} in ${Date.now() - start}ms`
+      );
+      return createResponse(
+        'OK',
+        updatedCustomer,
+        'Customer updated successfully'
+      );
+    } catch (error: any) {
+      logger.error(`Error updating customer ${id}:`, error);
+      return createResponse(
+        'ServerError',
+        null,
+        `An error occurred while updating the customer: ${error.message}`
       );
     }
   }

@@ -48,9 +48,26 @@ export class CustomersRepository {
 
   async save(customer: Customer): Promise<Customer> {
     const savedCustomer = await this.customerRepository.save(customer);
-    await redis.del(`customer:${customer.id}`);
-    await redis.del(`customer:user:${customer.user_id}`);
+
+    // Clear cache in background without blocking the response
+    Promise.all([
+      this.clearCacheKey(`customer:${customer.id}`),
+      this.clearCacheKey(`customer:user:${customer.user_id}`)
+    ]).catch(cacheError => {
+      logger.warn('Cache clear error (non-blocking):', cacheError);
+    });
+
     return savedCustomer;
+  }
+
+  private async clearCacheKey(key: string): Promise<void> {
+    try {
+      if (redis.isReady) {
+        await redis.del(key);
+      }
+    } catch (error) {
+      logger.warn(`Failed to clear cache key ${key}:`, error);
+    }
   }
 
   async create(createCustomerDto: CreateCustomerDto): Promise<Customer> {

@@ -279,6 +279,7 @@ export class AuthService {
       const customerPayload = {
         ...basePayload,
         id: userWithRole.id,
+        phone: userWithRole.phone,
         logged_in_as: Enum_UserType.CUSTOMER,
         fWallet_id: fwallet.id,
         fWallet_balance: fwallet.balance,

@@ -175,6 +175,14 @@ export class CustomersController {
     );
   }
 
+  @Patch('/debug/:id')
+  updateSimple(
+    @Param('id') id: string,
+    @Body() updateCustomerDto: UpdateCustomerDto
+  ) {
+    return this.customersService.updateSimple(id, updateCustomerDto);
+  }
+
   @Patch(':id')
   update(
     @Param('id') id: string,
