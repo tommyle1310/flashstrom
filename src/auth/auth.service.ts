@@ -471,6 +471,8 @@ export class AuthService {
     const adminPayload = {
       ...basePayload,
       id: admin.data.id,
+      first_name: admin.data.first_name || basePayload.first_name,
+      last_name: admin.data.last_name || basePayload.last_name,
       logged_in_as: type,
       user_id: admin.data.user_id,
       role: admin.data.role,

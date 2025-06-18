@@ -34,6 +34,8 @@ export interface SearchResult {
   user_email?: string;
   created_at: number;
   last_login?: number;
+  is_banned?: boolean;
+  avatar?: { url: string; key: string };
 }
 
 @Injectable()
@@ -302,6 +304,18 @@ export class UsersService {
     const queryBuilder = this.customerRepository
       .createQueryBuilder('customer')
       .leftJoinAndSelect('customer.user', 'user')
+      .leftJoin(
+        'banned_accounts',
+        'ban',
+        'ban.entity_id = customer.id AND ban.entity_type = :entityType',
+        {
+          entityType: 'Customer'
+        }
+      )
+      .addSelect(
+        'CASE WHEN ban.id IS NOT NULL THEN true ELSE false END',
+        'customer_is_banned'
+      )
       .where(
         `(
         LOWER(customer.first_name) LIKE :searchTerm OR
@@ -328,7 +342,8 @@ export class UsersService {
       user_email: customer.user?.email,
       avatar: customer.avatar,
       created_at: customer.created_at,
-      last_login: customer.last_login
+      last_login: customer.last_login,
+      is_banned: (customer as any).customer_is_banned || false
     }));
 
     return { results, count };
@@ -342,6 +357,18 @@ export class UsersService {
     const queryBuilder = this.driverRepository
       .createQueryBuilder('driver')
       .leftJoinAndSelect('driver.user', 'user')
+      .leftJoin(
+        'banned_accounts',
+        'ban',
+        'ban.entity_id = driver.id AND ban.entity_type = :entityType',
+        {
+          entityType: 'Driver'
+        }
+      )
+      .addSelect(
+        'CASE WHEN ban.id IS NOT NULL THEN true ELSE false END',
+        'driver_is_banned'
+      )
       .where(
         `(
         LOWER(driver.first_name) LIKE :searchTerm OR
@@ -376,7 +403,8 @@ export class UsersService {
         user_email: driver.user?.email,
         created_at: driver.created_at,
         avatar: driver.avatar,
-        last_login: driver.last_login
+        last_login: driver.last_login,
+        is_banned: (driver as any).driver_is_banned || false
       };
     });
 
@@ -391,6 +419,18 @@ export class UsersService {
     const queryBuilder = this.restaurantRepository
       .createQueryBuilder('restaurant')
       .leftJoinAndSelect('restaurant.owner', 'user')
+      .leftJoin(
+        'banned_accounts',
+        'ban',
+        'ban.entity_id = restaurant.id AND ban.entity_type = :entityType',
+        {
+          entityType: 'Restaurant'
+        }
+      )
+      .addSelect(
+        'CASE WHEN ban.id IS NOT NULL THEN true ELSE false END',
+        'restaurant_is_banned'
+      )
       .where(
         `(
         LOWER(restaurant.restaurant_name) LIKE :searchTerm OR
@@ -425,10 +465,10 @@ export class UsersService {
         phone: defaultPhone,
         email: defaultEmail,
         avatar: restaurant.avatar,
-
         user_email: restaurant.owner?.email,
         created_at: restaurant.created_at,
-        last_login: restaurant.last_login
+        last_login: restaurant.last_login,
+        is_banned: (restaurant as any).restaurant_is_banned || false
       };
     });
 
@@ -443,6 +483,18 @@ export class UsersService {
     const queryBuilder = this.customerCareRepository
       .createQueryBuilder('customer_care')
       .leftJoinAndSelect('customer_care.user_id', 'user')
+      .leftJoin(
+        'banned_accounts',
+        'ban',
+        'ban.entity_id = customer_care.id AND ban.entity_type = :entityType',
+        {
+          entityType: 'CustomerCare'
+        }
+      )
+      .addSelect(
+        'CASE WHEN ban.id IS NOT NULL THEN true ELSE false END',
+        'customer_care_is_banned'
+      )
       .where(
         `(
         LOWER(customer_care.first_name) LIKE :searchTerm OR
@@ -479,7 +531,8 @@ export class UsersService {
         email: defaultEmail,
         user_email: customerCare.user_id?.email,
         created_at: customerCare.created_at,
-        last_login: customerCare.last_login
+        last_login: customerCare.last_login,
+        is_banned: (customerCare as any).customer_care_is_banned || false
       };
     });
 
@@ -494,6 +547,18 @@ export class UsersService {
     const queryBuilder = this.adminRepository
       .createQueryBuilder('admin')
       .leftJoinAndSelect('admin.user', 'user')
+      .leftJoin(
+        'banned_accounts',
+        'ban',
+        'ban.entity_id = admin.id AND ban.entity_type = :entityType',
+        {
+          entityType: 'Admin'
+        }
+      )
+      .addSelect(
+        'CASE WHEN ban.id IS NOT NULL THEN true ELSE false END',
+        'admin_is_banned'
+      )
       .where(
         `(
         LOWER(admin.first_name) LIKE :searchTerm OR
@@ -518,7 +583,8 @@ export class UsersService {
       user_email: admin.user?.email,
       avatar: admin.avatar,
       created_at: admin.created_at,
-      last_login: admin.last_login
+      last_login: admin.last_login,
+      is_banned: (admin as any).admin_is_banned || false
     }));
 
     return { results, count };
