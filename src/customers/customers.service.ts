@@ -18,6 +18,7 @@ import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 import { DataSource, ILike, In } from 'typeorm';
 import { Order } from 'src/orders/entities/order.entity';
 import { NotificationsRepository } from 'src/notifications/notifications.repository';
+import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
 export interface AddressPopulate {
   id?: string;
   street?: string;
@@ -743,7 +744,24 @@ export class CustomersService {
       const restaurants = await this.restaurantRepository.findAll();
       logger.log(`Restaurants fetch took ${Date.now() - restaurantsStart}ms`);
 
-      // 4. Tính toán và ưu tiên nhà hàng
+      // 4. Fetch ratings for all restaurants
+      const ratingsStart = Date.now();
+      const ratingsRepository = this.dataSource.getRepository(RatingsReview);
+      const restaurantRatings = await ratingsRepository
+        .createQueryBuilder('rating')
+        .select('rating.rr_recipient_restaurant_id', 'restaurant_id')
+        .addSelect('AVG(rating.food_rating)', 'avg_rating')
+        .where('rating.recipient_type = :type', { type: 'restaurant' })
+        .groupBy('rating.rr_recipient_restaurant_id')
+        .getRawMany();
+
+      const ratingsMap = new Map();
+      restaurantRatings.forEach(rating => {
+        ratingsMap.set(rating.restaurant_id, parseFloat(rating.avg_rating));
+      });
+      logger.log(`Ratings fetch took ${Date.now() - ratingsStart}ms`);
+
+      // 5. Tính toán và ưu tiên nhà hàng
       const prioritizationStart = Date.now();
       const prioritizedRestaurants = restaurants
         .map(restaurant => {
@@ -756,7 +774,13 @@ export class CustomersService {
             | undefined;
 
           if (!customerLocation || !restaurantAddress?.location) {
-            return { ...restaurant, priorityScore: 0 };
+            return {
+              ...restaurant,
+              priorityScore: 0,
+              distance: 0,
+              estimated_time: 0,
+              avg_rating: ratingsMap.get(restaurant.id) || 0
+            };
           }
 
           const restaurantLocation = restaurantAddress.location;
@@ -779,6 +803,9 @@ export class CustomersService {
             restaurantLocation.lng
           );
 
+          // Calculate estimated time (in minutes) - assuming average speed of 30 km/h
+          const estimated_time = Math.round((distance / 30) * 60);
+
           const distanceWeight = 1 / (distance + 1);
 
           const priorityScore =
@@ -786,13 +813,16 @@ export class CustomersService {
 
           return {
             ...restaurant,
-            priorityScore
+            priorityScore,
+            distance: parseFloat(distance.toFixed(2)), // Round to 2 decimal places
+            estimated_time,
+            avg_rating: ratingsMap.get(restaurant.id) || 0
           };
         })
         .sort((a, b) => b.priorityScore - a.priorityScore);
       logger.log(`Prioritization took ${Date.now() - prioritizationStart}ms`);
 
-      // 5. Lưu kết quả vào cache
+      // 6. Lưu kết quả vào cache
       const cacheSaveStart = Date.now();
       const cacheSaved = await this.redisService.setNx(
         cacheKey,

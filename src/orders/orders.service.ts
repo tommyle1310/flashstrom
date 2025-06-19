@@ -967,6 +967,7 @@ export class OrdersService {
         driver_id: savedOrder.driver_id,
         restaurant_id: savedOrder.restaurant_id,
         restaurantAddress,
+        customer_note: savedOrder.customer_note,
         customerAddress,
         order_items: populatedOrderItems,
         total_amount: savedOrder.total_amount,

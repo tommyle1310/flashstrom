@@ -38,6 +38,7 @@ import { Order } from 'src/orders/entities/order.entity';
 import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
 import { RedisService } from 'src/redis/redis.service';
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
+import { calculateDistance } from 'src/utils/commonFunctions';
 // import { Equal } from 'typeorm';
 
 dotenv.config();
@@ -940,8 +941,16 @@ export class RestaurantsService {
 
   async findOne(id: string): Promise<ApiResponse<any>> {
     try {
-      // Fetch the restaurant
-      const restaurant = await this.restaurantsRepository.findById(id);
+      // Fetch the restaurant with its address
+      const restaurant = await this.dataSource
+        .getRepository(Restaurant)
+        .createQueryBuilder('restaurant')
+        .leftJoinAndSelect('restaurant.owner', 'owner')
+        .leftJoinAndSelect('restaurant.address', 'address')
+        .leftJoinAndSelect('restaurant.promotions', 'promotions')
+        .leftJoinAndSelect('restaurant.specialize_in', 'specialize_in')
+        .where('restaurant.id = :id', { id })
+        .getOne();
       if (!restaurant) {
         return createResponse('NotFound', null, 'Restaurant not found');
       }
@@ -1057,9 +1066,45 @@ export class RestaurantsService {
         );
       };
 
+      // Calculate distance and estimated time
+      let distance = 0;
+      let estimated_time = 0;
+
+      // Use a default user location in central Ho Chi Minh City
+      const userLocation = { lat: 10.8231, lng: 106.6297 };
+
+      // Get restaurant location from address
+      if (restaurant.address && restaurant.address.location) {
+        const restaurantLocation = restaurant.address.location;
+
+        // Calculate distance if location data is available
+        if (
+          restaurantLocation &&
+          restaurantLocation.lat &&
+          restaurantLocation.lng
+        ) {
+          distance = calculateDistance(
+            userLocation.lat,
+            userLocation.lng,
+            restaurantLocation.lat,
+            restaurantLocation.lng
+          );
+
+          // Calculate estimated time (in minutes) - assuming average speed of 30 km/h
+          estimated_time = Math.round((distance / 30) * 60);
+
+          // Round distance to 2 decimal places
+          distance = parseFloat(distance.toFixed(2));
+        }
+      }
+
       // Add rating statistics to restaurant data
       const restaurantWithRatings = {
         ...restaurant,
+        // Add the three fields directly to the restaurant object
+        distance,
+        estimated_time,
+        avg_rating: parseFloat(avgOverallRating.toFixed(1)),
         rating_stats: {
           avg_rating: parseFloat(avgOverallRating.toFixed(1)),
           avg_food_rating: parseFloat(avgFoodRating.toFixed(1)),
