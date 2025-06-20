@@ -6,6 +6,7 @@ import {
   OrderStatus,
   OrderTrackingInfo,
   OrderCancellationReason
+  // OrderItem
 } from './entities/order.entity';
 import { createResponse, ApiResponse } from 'src/utils/createResponse';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
@@ -952,10 +953,18 @@ export class OrdersService {
             `Variant ID ${item.variant_id} not found for order ${savedOrder.id}`
           );
         }
-        return {
+
+        // Get the menu item to access its avatar
+        const menuItem = menuItemMap.get(item.item_id);
+
+        // Create a new object with all properties from the original item plus the additional ones
+        const result = {
           ...item,
-          menu_item_variant: variant
+          menu_item_variant: variant,
+          avatar: menuItem ? (menuItem as any).avatar : null // Add the avatar from the menu item
         };
+
+        return result;
       });
 
       const trackingUpdate = {
@@ -1602,7 +1611,7 @@ export class OrdersService {
       });
 
       if (redisResult === 'OK') {
-        this.notifyOrderStatus(trackingUpdate as any);
+        this.notifyOrderStatus(updatedOrder as any);
         this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
         logger.log('check tracking update', trackingUpdate);
       } else {
@@ -1727,7 +1736,7 @@ export class OrdersService {
       });
 
       if (redisResult === 'OK') {
-        this.notifyOrderStatus(trackingUpdate as any);
+        this.notifyOrderStatus(updatedOrder as any);
         this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
         logger.log('check tracking update', trackingUpdate);
       } else {
@@ -1886,7 +1895,7 @@ export class OrdersService {
       logger.log('Order saved successfully:', updatedOrder);
 
       logger.log('Notifying order status update');
-      await this.notifyOrderStatus(updatedOrder);
+      await this.notifyOrderStatus(updatedOrder as any);
       logger.log('Order status notification sent');
 
       return createResponse(
