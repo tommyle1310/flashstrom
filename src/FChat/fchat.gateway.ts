@@ -18,6 +18,8 @@ import { Enum_UserType } from 'src/types/Payload';
 import { RoomType } from './entities/chat-room.entity';
 import { MessageType } from './entities/message.entity';
 import { RedisService } from 'src/redis/redis.service';
+import { ChatbotService, ChatbotResponse } from './chatbot.service';
+import { SupportChatService, SupportSession } from './support-chat.service';
 
 @WebSocketGateway({
   namespace: 'chat',
@@ -51,11 +53,15 @@ export class FchatGateway
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
     private eventEmitter: EventEmitter2,
-    private readonly redisService: RedisService
+    private readonly redisService: RedisService,
+    private readonly chatbotService: ChatbotService,
+    private readonly supportChatService: SupportChatService
   ) {}
 
   afterInit() {
     console.log('Chat Gateway initialized!');
+    // Initialize support sessions from Redis
+    this.supportChatService.initializeFromRedis();
   }
 
   private async validateToken(client: Socket): Promise<any> {
@@ -990,6 +996,366 @@ export class FchatGateway
     } finally {
       // Giải phóng khóa
       await this.redisService.del(lockKey);
+    }
+  }
+
+  // ============ SUPPORT CHAT & CHATBOT FUNCTIONALITY ============
+
+  @SubscribeMessage('startSupportChat')
+  async handleStartSupportChat(@ConnectedSocket() client: Socket) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      // Check if user already has an active support session
+      const existingSession = this.supportChatService.getUserActiveSession(
+        userData.id
+      );
+      if (existingSession) {
+        client.emit('supportChatStarted', {
+          sessionId: existingSession.sessionId,
+          chatMode: existingSession.chatMode,
+          status: existingSession.status
+        });
+        return existingSession;
+      }
+
+      // Create new support session
+      const session = await this.supportChatService.startSupportSession(
+        userData.id,
+        userData.logged_in_as
+      );
+
+      // Join support room
+      await client.join(`support_${session.sessionId}`);
+
+      // Send welcome message from chatbot
+      const greeting = this.chatbotService.getGreeting();
+      client.emit('chatbotMessage', {
+        sessionId: session.sessionId,
+        message: greeting.message,
+        type: greeting.type,
+        options: greeting.options,
+        timestamp: new Date().toISOString(),
+        sender: 'FlashFood Bot'
+      });
+
+      client.emit('supportChatStarted', {
+        sessionId: session.sessionId,
+        chatMode: session.chatMode,
+        status: session.status
+      });
+
+      return session;
+    } catch (error: any) {
+      console.error('Error starting support chat:', error);
+      throw new WsException(error.message || 'Failed to start support chat');
+    }
+  }
+
+  @SubscribeMessage('sendSupportMessage')
+  async handleSupportMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { sessionId: string; message: string }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      const session = this.supportChatService.getSession(data.sessionId);
+      if (!session || session.userId !== userData.id) {
+        throw new WsException('Invalid session');
+      }
+
+      // Emit user message to room
+      this.server.to(`support_${data.sessionId}`).emit('userMessage', {
+        sessionId: data.sessionId,
+        message: data.message,
+        timestamp: new Date().toISOString(),
+        sender: userData.id,
+        senderType: userData.logged_in_as
+      });
+
+      if (session.chatMode === 'bot') {
+        // Get chatbot response
+        const response = this.chatbotService.getResponse(data.message);
+
+        if (response.type === 'transfer') {
+          // User wants to connect to human
+          const connected = await this.supportChatService.requestHumanAgent(
+            data.sessionId
+          );
+
+          if (connected) {
+            client.emit('chatbotMessage', {
+              sessionId: data.sessionId,
+              message:
+                "✅ You've been connected to a customer care representative!",
+              type: 'text',
+              timestamp: new Date().toISOString(),
+              sender: 'FlashFood Bot'
+            });
+          } else {
+            const queueStatus = this.supportChatService.getQueueStatus();
+            client.emit('chatbotMessage', {
+              sessionId: data.sessionId,
+              message: `⏳ All our agents are currently busy. You're in position ${queueStatus.position} in the queue. Estimated wait time: ${queueStatus.estimatedWait} minutes.\n\nI can continue helping you while you wait!`,
+              type: 'text',
+              timestamp: new Date().toISOString(),
+              sender: 'FlashFood Bot'
+            });
+          }
+        } else {
+          // Send chatbot response
+          setTimeout(() => {
+            client.emit('chatbotMessage', {
+              sessionId: data.sessionId,
+              message: response.message,
+              type: response.type,
+              options: response.options,
+              timestamp: new Date().toISOString(),
+              sender: 'FlashFood Bot'
+            });
+          }, 1000); // Simulate typing delay
+        }
+      } else if (session.chatMode === 'human' && session.agentId) {
+        // Forward message to agent
+        const agentSocket = this.userSockets.get(session.agentId);
+        if (agentSocket) {
+          agentSocket.emit('customerMessage', {
+            sessionId: data.sessionId,
+            message: data.message,
+            timestamp: new Date().toISOString(),
+            customerId: userData.id,
+            customerType: userData.logged_in_as
+          });
+        }
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error handling support message:', error);
+      throw new WsException(error.message || 'Failed to send message');
+    }
+  }
+
+  @SubscribeMessage('agentJoinSession')
+  async handleAgentJoinSession(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { sessionId: string }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      // Verify user is an agent/admin
+      if (
+        userData.logged_in_as !== 'CUSTOMER_CARE_REPRESENTATIVE' &&
+        userData.logged_in_as !== 'ADMIN'
+      ) {
+        throw new WsException('Unauthorized - Agent access required');
+      }
+
+      const session = this.supportChatService.getSession(data.sessionId);
+      if (!session) {
+        throw new WsException('Session not found');
+      }
+
+      // Join support room
+      await client.join(`support_${data.sessionId}`);
+
+      // Make agent available for future sessions
+      await this.supportChatService.agentAvailable(userData.id);
+
+      client.emit('agentJoinedSession', {
+        sessionId: data.sessionId,
+        customerId: session.userId,
+        customerType: session.userType
+      });
+
+      // Notify customer that agent joined
+      const customerSocket = this.userSockets.get(session.userId);
+      if (customerSocket) {
+        customerSocket.emit('agentConnected', {
+          sessionId: data.sessionId,
+          agentId: userData.id,
+          message: '👋 A customer care representative has joined the chat!'
+        });
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error agent joining session:', error);
+      throw new WsException(error.message || 'Failed to join session');
+    }
+  }
+
+  @SubscribeMessage('sendAgentMessage')
+  async handleAgentMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { sessionId: string; message: string }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      const session = this.supportChatService.getSession(data.sessionId);
+      if (!session || session.agentId !== userData.id) {
+        throw new WsException('Invalid session or unauthorized');
+      }
+
+      // Send message to customer
+      const customerSocket = this.userSockets.get(session.userId);
+      if (customerSocket) {
+        customerSocket.emit('agentMessage', {
+          sessionId: data.sessionId,
+          message: data.message,
+          timestamp: new Date().toISOString(),
+          agentId: userData.id,
+          sender: 'Customer Care'
+        });
+      }
+
+      // Also emit to room for logging
+      this.server.to(`support_${data.sessionId}`).emit('agentMessage', {
+        sessionId: data.sessionId,
+        message: data.message,
+        timestamp: new Date().toISOString(),
+        agentId: userData.id,
+        sender: 'Customer Care'
+      });
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error sending agent message:', error);
+      throw new WsException(error.message || 'Failed to send message');
+    }
+  }
+
+  @SubscribeMessage('endSupportSession')
+  async handleEndSupportSession(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { sessionId: string }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      const session = this.supportChatService.getSession(data.sessionId);
+      if (!session) {
+        throw new WsException('Session not found');
+      }
+
+      // Verify user is participant
+      if (session.userId !== userData.id && session.agentId !== userData.id) {
+        throw new WsException('Unauthorized to end this session');
+      }
+
+      // End the session
+      await this.supportChatService.endSession(data.sessionId);
+
+      // Notify all participants
+      this.server.to(`support_${data.sessionId}`).emit('sessionEnded', {
+        sessionId: data.sessionId,
+        timestamp: new Date().toISOString()
+      });
+
+      // Leave room
+      client.leave(`support_${data.sessionId}`);
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error ending support session:', error);
+      throw new WsException(error.message || 'Failed to end session');
+    }
+  }
+
+  @SubscribeMessage('switchChatMode')
+  async handleSwitchChatMode(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { sessionId: string; mode: 'bot' | 'human' }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      const session = this.supportChatService.getSession(data.sessionId);
+      if (!session || session.userId !== userData.id) {
+        throw new WsException('Invalid session');
+      }
+
+      const success = await this.supportChatService.switchChatMode(
+        data.sessionId,
+        data.mode
+      );
+
+      if (success && data.mode === 'human') {
+        client.emit('chatModeChanged', {
+          sessionId: data.sessionId,
+          mode: 'human',
+          message: '✅ Switched to human agent mode!'
+        });
+      } else if (success && data.mode === 'bot') {
+        client.emit('chatModeChanged', {
+          sessionId: data.sessionId,
+          mode: 'bot',
+          message: '🤖 Switched back to bot mode!'
+        });
+      } else {
+        const queueStatus = this.supportChatService.getQueueStatus();
+        client.emit('chatModeChanged', {
+          sessionId: data.sessionId,
+          mode: 'human',
+          message: `⏳ Added to queue. Position: ${queueStatus.position}, Estimated wait: ${queueStatus.estimatedWait} minutes`
+        });
+      }
+
+      return { success };
+    } catch (error: any) {
+      console.error('Error switching chat mode:', error);
+      throw new WsException(error.message || 'Failed to switch mode');
+    }
+  }
+
+  // Event listeners for support system
+  @OnEvent('agentAssigned')
+  async handleAgentAssigned(data: {
+    sessionId: string;
+    userId: string;
+    agentId: string;
+    userType: string;
+  }) {
+    // Notify customer that agent was assigned
+    const customerSocket = this.userSockets.get(data.userId);
+    if (customerSocket) {
+      customerSocket.emit('agentAssigned', {
+        sessionId: data.sessionId,
+        agentId: data.agentId,
+        message: "✅ You've been connected to a customer care representative!"
+      });
+    }
+
+    // Notify agent
+    const agentSocket = this.userSockets.get(data.agentId);
+    if (agentSocket) {
+      agentSocket.emit('newCustomerAssigned', {
+        sessionId: data.sessionId,
+        customerId: data.userId,
+        customerType: data.userType,
+        message: '📞 New customer assigned to you!'
+      });
     }
   }
 }
