@@ -64,7 +64,7 @@ export class DriversService {
       const start = Date.now();
       const drivers = await this.driverEntityRepository.find({
         select: ['id', 'available_for_work'],
-        take: 5000 // Giảm để tránh vượt quota Upstash
+        take: 10 // Giảm để tránh vượt quota Upstash
       });
       const batchSize = 1000;
       for (let i = 0; i < drivers.length; i += batchSize) {
