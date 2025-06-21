@@ -14,6 +14,8 @@ import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
 import { RedisService } from 'src/redis/redis.service';
 import { Admin } from 'src/admin/entities/admin.entity';
+import { ChatbotService } from './chatbot.service';
+import { SupportChatService } from './support-chat.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -33,7 +35,9 @@ import { Admin } from 'src/admin/entities/admin.entity';
     JwtService,
     UsersService,
     RedisService,
-    UserRepository
+    UserRepository,
+    ChatbotService,
+    SupportChatService
   ],
   exports: [FchatService]
 })

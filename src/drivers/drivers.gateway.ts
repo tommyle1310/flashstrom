@@ -3229,6 +3229,7 @@ export class DriversGateway
       if (order.customer_id) {
         await this.redisService.del(`orders:customer:${order.customer_id}`);
       }
+      this.redisService.del(`orders:customer:${order.customer_id}`);
 
       logToFile('Created transaction', {
         orderId: order.id,
