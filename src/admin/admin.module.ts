@@ -4,6 +4,7 @@ import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { Admin } from './entities/admin.entity';
 import { AdminRepository } from './admin.repository';
+import { AdminGateway } from './admin.gateway';
 import { UsersModule } from '../users/users.module';
 import { BannedAccount } from 'src/banned-account/entities/banned-account.entity';
 import { AuthService } from 'src/auth/auth.service';
@@ -33,7 +34,9 @@ import { Order } from 'src/orders/entities/order.entity';
 import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
 import { User } from 'src/users/entities/user.entity';
 import { UserRepository } from 'src/users/users.repository';
-import { AdminControllerFake } from './admin.controller.fake';
+import { AdminFakeController } from './admin.controller-fake';
+import { JwtService } from '@nestjs/jwt';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Module({
   imports: [
@@ -73,6 +76,8 @@ import { AdminControllerFake } from './admin.controller.fake';
     },
     AdminService,
     AdminRepository,
+    AdminGateway,
+    JwtService,
     EmailService,
     CartItemsService,
     CartItemsRepository,
@@ -87,6 +92,6 @@ import { AdminControllerFake } from './admin.controller.fake';
     DriversRepository,
     CustomerCaresRepository
   ],
-  exports: [AdminService, AdminRepository]
+  exports: [AdminService, AdminRepository, AdminGateway]
 })
 export class AdminModule {}

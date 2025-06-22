@@ -908,14 +908,20 @@ export class OrdersService {
       if (redisResult === 'OK') {
         this.notifyOrderStatus(trackingUpdate as any);
         this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
-        this.eventEmitter.emit('newOrderForRestaurant', {
-          restaurant_id: savedOrder.restaurant_id,
-          order: trackingUpdate
-        });
+
+        // Emit admin notification for new order creation
+        if (!isGenerated) {
+          this.eventEmitter.emit('newly_created_entity_notification', {
+            entity_name: 'Order'
+          });
+          logger.log('Emitted newly_created_entity_notification for new Order');
+        }
+
         logger.log('check tracking update', trackingUpdate);
       } else {
         logger.log(`Event ${eventId} already emitted, skipped`);
       }
+
       logger.log(`Emit events took ${Date.now() - emitStart}ms`);
       logger.log(`Total execution took ${Date.now() - start}ms`);
 

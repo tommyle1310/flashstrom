@@ -121,7 +121,7 @@ export class RestaurantsService {
       const start = Date.now();
       const restaurants = await this.restaurantsRepository.repository.find({
         select: ['id', 'status'],
-        take: 10000 // Top 10000 restaurants
+        take: 10 // Top 10000 restaurants
       });
       for (const restaurant of restaurants) {
         const cacheKey = `restaurant:${restaurant.id}`;

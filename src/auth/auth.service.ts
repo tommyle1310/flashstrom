@@ -17,8 +17,7 @@ import { CreateFWalletDto } from 'src/fwallets/dto/create-fwallet.dto';
 import { CreateRestaurantDto } from 'src/restaurants/dto/create-restaurant.dto';
 import { User } from 'src/users/entities/user.entity';
 import { CartItemsService } from 'src/cart_items/cart_items.service';
-import { Customer } from 'src/customers/entities/customer.entity';
-import { FWallet } from 'src/fwallets/entities/fwallet.entity';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class AuthService {
@@ -32,7 +31,8 @@ export class AuthService {
     private readonly adminService: AdminService,
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
-    private readonly cartItemService: CartItemsService
+    private readonly cartItemService: CartItemsService,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   async register(userData: any, type: Enum_UserType): Promise<any> {
@@ -1136,6 +1136,12 @@ export class AuthService {
           (type as Enum_UserType) === Enum_UserType.RESTAURANT_OWNER)
       ) {
         responseData['fWallet'] = fWallet;
+      }
+
+      if (!isGenerated) {
+        await this.eventEmitter.emit('newly_created_entity_notification', {
+          entity_name: type
+        });
       }
 
       return createResponse(

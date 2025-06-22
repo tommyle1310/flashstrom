@@ -67,6 +67,7 @@ import { Transaction } from './transactions/entities/transaction.entity';
 import { OnlineSessionsRepository } from './online-sessions/online-session.repository';
 import { AddressBook } from './address_book/entities/address_book.entity';
 import { CustomersGateway } from './customers/customers.gateway';
+import { AdminGateway } from './admin/admin.gateway';
 import { CustomerCareInquiriesModule } from './customer_cares_inquires/customer_cares_inquires.module';
 import { CustomerCareInquiry } from './customer_cares_inquires/entities/customer_care_inquiry.entity';
 import { RestaurantStatsModule } from './restaurant_stats_records/restaurant_stats_records.module';
@@ -165,6 +166,7 @@ import { AdminChartModule } from './admin_chart/admin_chart.module';
     EmailService,
     DriversGateway,
     CustomersGateway,
+    AdminGateway,
     OrdersService,
     OnlineSessionsRepository,
     FinanceRulesRepository,
