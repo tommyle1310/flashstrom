@@ -18,6 +18,7 @@ import { createResponse } from 'src/utils/createResponse'; // Import createRespo
 import { MenuItemsService } from 'src/menu_items/menu_items.service';
 import { AdminService } from 'src/admin/admin.service';
 import { PromotionsService } from 'src/promotions/promotions.service';
+import { CustomerCareService } from 'src/customer_cares/customer_cares.service';
 
 @Controller('upload')
 export class UploadController {
@@ -29,7 +30,8 @@ export class UploadController {
     private readonly adminService: AdminService,
     private readonly promotionService: PromotionsService,
     private readonly customerService: CustomersService,
-    private readonly menuItemService: MenuItemsService
+    private readonly menuItemService: MenuItemsService,
+    private readonly customerCareService: CustomerCareService
   ) {}
 
   @Post('avatar')
@@ -69,6 +71,12 @@ export class UploadController {
         break;
       case Enum_AvatarType.ADMIN:
         updatedEntity = await this.adminService.updateEntityAvatar(
+          uploadResult,
+          entityId
+        );
+        break;
+      case Enum_AvatarType.CUSTOMER_CARE_REPRESENTATIVE:
+        updatedEntity = await this.customerCareService.updateEntityAvatar(
           uploadResult,
           entityId
         );

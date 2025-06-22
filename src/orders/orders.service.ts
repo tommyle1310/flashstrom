@@ -6,6 +6,7 @@ import {
   OrderStatus,
   OrderTrackingInfo,
   OrderCancellationReason
+  // OrderItem
 } from './entities/order.entity';
 import { createResponse, ApiResponse } from 'src/utils/createResponse';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
@@ -854,6 +855,31 @@ export class OrdersService {
       // 6. Gửi sự kiện
       const emitStart = Date.now();
       const eventId = `${savedOrder.id}-${Date.now()}`;
+
+      // Populate menu_item_variant for order_items in the tracking update
+      const populatedOrderItems = savedOrder.order_items.map(item => {
+        const variant = item.variant_id
+          ? variantMap.get(item.variant_id)
+          : null;
+        if (item.variant_id && !variant) {
+          logger.warn(
+            `Variant ID ${item.variant_id} not found for order ${savedOrder.id}`
+          );
+        }
+
+        // Get the menu item to access its avatar
+        const menuItem = menuItemMap.get(item.item_id);
+
+        // Create a new object with all properties from the original item plus the additional ones
+        const result = {
+          ...item,
+          menu_item_variant: variant,
+          avatar: menuItem ? (menuItem as any).avatar : null // Add the avatar from the menu item
+        };
+
+        return result;
+      });
+
       const trackingUpdate = {
         orderId: savedOrder.id,
         status: savedOrder.status,
@@ -863,6 +889,7 @@ export class OrdersService {
         driver_id: savedOrder.driver_id,
         restaurant_id: savedOrder.restaurant_id,
         restaurantAddress,
+        customer_note: savedOrder.customer_note,
         customerAddress,
         order_items: savedOrder.order_items,
         total_amount: savedOrder.total_amount,
@@ -1467,7 +1494,7 @@ export class OrdersService {
       });
 
       if (redisResult === 'OK') {
-        this.notifyOrderStatus(trackingUpdate as any);
+        this.notifyOrderStatus(updatedOrder as any);
         this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
         logger.log('check tracking update', trackingUpdate);
       } else {
@@ -1592,7 +1619,7 @@ export class OrdersService {
       });
 
       if (redisResult === 'OK') {
-        this.notifyOrderStatus(trackingUpdate as any);
+        this.notifyOrderStatus(updatedOrder as any);
         this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
         logger.log('check tracking update', trackingUpdate);
       } else {
@@ -1751,7 +1778,7 @@ export class OrdersService {
       logger.log('Order saved successfully:', updatedOrder);
 
       logger.log('Notifying order status update');
-      await this.notifyOrderStatus(updatedOrder);
+      await this.notifyOrderStatus(updatedOrder as any);
       logger.log('Order status notification sent');
 
       return createResponse(

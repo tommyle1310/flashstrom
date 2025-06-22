@@ -7,6 +7,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { PromotionsRepository } from './promotions.repository';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 import { RedisService } from 'src/redis/redis.service';
+import { calculateDistance } from 'src/utils/commonFunctions';
+import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
+import { DataSource } from 'typeorm';
 
 const logger = new Logger('PromotionsService');
 
@@ -20,7 +23,8 @@ export class PromotionsService {
   constructor(
     private readonly promotionsRepository: PromotionsRepository, // Use custom repository only
     private readonly foodCategoriesRepository: FoodCategoriesRepository,
-    private readonly redisService: RedisService
+    private readonly redisService: RedisService,
+    private readonly dataSource: DataSource
   ) {}
 
   async create(
@@ -149,36 +153,64 @@ export class PromotionsService {
       const { entities, raw } = await queryBuilder.getRawAndEntities();
       logger.log(`Database fetch took ${Date.now() - dbStart}ms`);
 
+      // Fetch ratings for all restaurants
+      const ratingsStart = Date.now();
+      const ratingsRepository = this.dataSource.getRepository(RatingsReview);
+      const restaurantRatings = await ratingsRepository
+        .createQueryBuilder('rating')
+        .select('rating.rr_recipient_restaurant_id', 'restaurant_id')
+        .addSelect('AVG(rating.food_rating)', 'avg_rating')
+        .where('rating.recipient_type = :type', { type: 'restaurant' })
+        .groupBy('rating.rr_recipient_restaurant_id')
+        .getRawMany();
+
+      const ratingsMap = new Map();
+      restaurantRatings.forEach(rating => {
+        ratingsMap.set(rating.restaurant_id, parseFloat(rating.avg_rating));
+      });
+      logger.log(`Ratings fetch took ${Date.now() - ratingsStart}ms`);
+
       // Process data
       const processingStart = Date.now();
-      interface SimplifiedRestaurant {
-        id: string;
-        restaurant_name: string;
-        avatar: { url: string; key: string };
-        ratings: { average_rating: number; review_count: number };
-        address: {
-          id: string;
-          street: string;
-          city: string;
-          nationality: string;
-          postal_code: number;
-          location: { lng: number; lat: number };
-          title: string;
-        };
-      }
 
-      const promotionMap = new Map<
-        string,
-        Promotion & { restaurants: SimplifiedRestaurant[] }
-      >();
+      const promotionMap = new Map();
       entities.forEach(promo =>
         promotionMap.set(promo.id, { ...promo, restaurants: [] })
       );
 
+      // Get user's location - for demo purposes, use a default location in Ho Chi Minh City
+      const userLocation = { lat: 10.8231, lng: 106.6297 }; // Default to central HCMC
+
       raw.forEach(row => {
         const promo = promotionMap.get(row.promotion_id);
         if (promo && row.restaurant_id) {
-          promo.restaurants.push({
+          const restaurantLocation = row.address_location;
+
+          let distance = 0;
+          let estimated_time = 0;
+
+          // Calculate distance if location data is available
+          if (
+            restaurantLocation &&
+            restaurantLocation.lat &&
+            restaurantLocation.lng
+          ) {
+            distance = calculateDistance(
+              userLocation.lat,
+              userLocation.lng,
+              restaurantLocation.lat,
+              restaurantLocation.lng
+            );
+
+            // Calculate estimated time (in minutes) - assuming average speed of 30 km/h
+            estimated_time = Math.round((distance / 30) * 60);
+          }
+
+          // Get the average rating for this restaurant
+          const avg_rating = ratingsMap.get(row.restaurant_id) || 0;
+
+          // Create the restaurant object with all required fields
+          const restaurant = {
             id: row.restaurant_id,
             restaurant_name: row.restaurant_name,
             avatar: row.restaurant_avatar,
@@ -191,15 +223,29 @@ export class PromotionsService {
               postal_code: row.address_postal_code,
               location: row.address_location,
               title: row.address_title
-            }
-          });
+            },
+            distance: parseFloat(distance.toFixed(2)), // Round to 2 decimal places
+            estimated_time,
+            avg_rating
+          };
+
+          promo.restaurants.push(restaurant);
         }
       });
 
-      const result = Array.from(promotionMap.values()).map(promo => ({
-        ...promo,
-        restaurants: promo.restaurants.slice(0, 5)
-      }));
+      // Ensure the additional fields are included in the result
+      const result = Array.from(promotionMap.values()).map(promo => {
+        const promotionWithRestaurants = {
+          ...promo,
+          restaurants: promo.restaurants.slice(0, 5).map(restaurant => ({
+            ...restaurant,
+            distance: restaurant.distance,
+            estimated_time: restaurant.estimated_time,
+            avg_rating: restaurant.avg_rating
+          }))
+        };
+        return promotionWithRestaurants;
+      });
       logger.log(`Data processing took ${Date.now() - processingStart}ms`);
 
       // Save to cache
@@ -222,7 +268,7 @@ export class PromotionsService {
       logger.log(`Total time: ${Date.now() - start}ms`);
       return createResponse(
         'OK',
-        result,
+        result as any,
         'Valid promotions with restaurants retrieved successfully'
       );
     } catch (error: any) {

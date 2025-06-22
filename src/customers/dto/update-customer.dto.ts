@@ -55,6 +55,10 @@ export class UpdateCustomerDto extends PartialType(CreateCustomerDto) {
   last_name?: string;
 
   @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   address_ids?: string[];

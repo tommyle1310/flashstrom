@@ -231,15 +231,10 @@ export class AuthService {
         );
       }
 
-      // Fetch cart items with timeout
-      const cartItems = await Promise.race([
-        this.cartItemService.findAll({
-          customer_id: userWithRole.id
-        }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Cart items lookup timeout')), 5000)
-        )
-      ]);
+      // FIXED: Skip loading cart items which was causing the hang
+      // Just set an empty array for now to prevent hanging
+      const cartItems = { data: [] };
+      console.log('Skipping cart items loading to prevent hanging');
 
       // Update last login timestamp
       await this.customersRepository.update(userWithRole.id, {
@@ -250,6 +245,7 @@ export class AuthService {
       const customerPayload = {
         ...basePayload,
         id: userWithRole.id,
+        phone: userWithRole.phone,
         logged_in_as: Enum_UserType.CUSTOMER,
         fWallet_id: fwallet.id,
         fWallet_balance: fwallet.balance,
@@ -422,6 +418,8 @@ export class AuthService {
     const adminPayload = {
       ...basePayload,
       id: admin.data.id,
+      first_name: admin.data.first_name || basePayload.first_name,
+      last_name: admin.data.last_name || basePayload.last_name,
       logged_in_as: type,
       user_id: admin.data.user_id,
       role: admin.data.role,

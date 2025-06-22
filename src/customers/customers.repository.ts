@@ -9,12 +9,98 @@ import { FoodCategory } from 'src/food_categories/entities/food_category.entity'
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { createClient } from 'redis';
 
-const logger = new Logger('OrdersService');
+const logger = new Logger('CustomersRepository');
 
+// FIXED: Improved Redis connection handling with timeout and error handling
 const redis = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
+  url: process.env.REDIS_URL || 'redis://localhost:6379',
+  socket: {
+    connectTimeout: 5000, // 5 second timeout
+    reconnectStrategy: retries => {
+      if (retries > 3) {
+        logger.warn(
+          'Redis connection failed after multiple attempts, giving up'
+        );
+        return new Error('Redis connection failed');
+      }
+      return Math.min(retries * 100, 3000); // Increasing backoff
+    }
+  }
 });
-redis.connect().catch(err => logger.error('Redis connection error:', err));
+
+// Track Redis connection state
+let redisConnected = false;
+
+// Connect to Redis with proper error handling
+redis
+  .connect()
+  .then(() => {
+    redisConnected = true;
+    logger.log('Redis connected successfully');
+  })
+  .catch(err => {
+    redisConnected = false;
+    logger.error('Redis connection error:', err);
+  });
+
+// Handle disconnection events
+redis.on('error', err => {
+  redisConnected = false;
+  logger.error('Redis error:', err);
+});
+
+redis.on('connect', () => {
+  redisConnected = true;
+  logger.log('Redis connected');
+});
+
+// Safe Redis operations that won't hang
+async function safeRedisGet(key: string): Promise<string | null> {
+  if (!redisConnected) return null;
+  try {
+    return await Promise.race([
+      redis.get(key),
+      new Promise<null>((_, reject) =>
+        setTimeout(() => reject(new Error('Redis operation timed out')), 1000)
+      )
+    ]);
+  } catch (error) {
+    logger.warn(`Redis get operation failed for key ${key}:`, error);
+    return null;
+  }
+}
+
+async function safeRedisSet(
+  key: string,
+  value: string,
+  ttl: number
+): Promise<void> {
+  if (!redisConnected) return;
+  try {
+    await Promise.race([
+      redis.setEx(key, ttl, value),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Redis operation timed out')), 1000)
+      )
+    ]);
+  } catch (error) {
+    logger.warn(`Redis set operation failed for key ${key}:`, error);
+  }
+}
+
+async function safeRedisDelete(key: string): Promise<void> {
+  if (!redisConnected) return;
+  try {
+    await Promise.race([
+      redis.del(key),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Redis operation timed out')), 1000)
+      )
+    ]);
+  } catch (error) {
+    logger.warn(`Redis del operation failed for key ${key}:`, error);
+  }
+}
 
 @Injectable()
 export class CustomersRepository {
@@ -32,9 +118,26 @@ export class CustomersRepository {
 
   async save(customer: Customer): Promise<Customer> {
     const savedCustomer = await this.customerRepository.save(customer);
-    await redis.del(`customer:${customer.id}`);
-    await redis.del(`customer:user:${customer.user_id}`);
+
+    // Clear cache in background without blocking the response
+    Promise.all([
+      this.clearCacheKey(`customer:${customer.id}`),
+      this.clearCacheKey(`customer:user:${customer.user_id}`)
+    ]).catch(cacheError => {
+      logger.warn('Cache clear error (non-blocking):', cacheError);
+    });
+
     return savedCustomer;
+  }
+
+  private async clearCacheKey(key: string): Promise<void> {
+    try {
+      if (redis.isReady) {
+        await redis.del(key);
+      }
+    } catch (error) {
+      logger.warn(`Failed to clear cache key ${key}:`, error);
+    }
   }
 
   async create(createCustomerDto: CreateCustomerDto): Promise<Customer> {
@@ -117,20 +220,65 @@ export class CustomersRepository {
 
   async findByUserId(userId: string): Promise<Customer> {
     const cacheKey = `customer:user:${userId}`;
-    const cached = await redis.get(cacheKey);
-    console.log('echck cached', cached);
-    if (cached) {
-      return JSON.parse(cached);
-    }
-    const customer = await this.customerRepository.findOne({
-      where: { user_id: userId },
-      relations: ['address']
-      // select: ['id', 'user_id']
-    });
 
-    if (customer) {
-      await redis.setEx(cacheKey, 3600, JSON.stringify(customer));
+    try {
+      // Use safe Redis get that won't hang
+      const cached = await safeRedisGet(cacheKey);
+      if (cached) {
+        logger.log('Returning customer from cache');
+        return JSON.parse(cached);
+      }
+    } catch (cacheError) {
+      logger.warn('Redis cache read error:', cacheError);
+      // Continue to database query if cache fails
     }
+
+    logger.log('Fetching customer from database for userId:', userId);
+    const startTime = Date.now();
+
+    try {
+      const customer = await this.customerRepository.findOne({
+        where: { user_id: userId },
+        // Removed relations to speed up the query for login
+        relations: ['address']
+      });
+
+      const queryTime = Date.now() - startTime;
+      logger.log(
+        `Database query completed in ${queryTime}ms for userId: ${userId}`
+      );
+
+      return await this.handleCustomerResult(customer, cacheKey, queryTime);
+    } catch (dbError) {
+      const queryTime = Date.now() - startTime;
+      logger.error(
+        `Database query failed after ${queryTime}ms for userId: ${userId}`,
+        dbError
+      );
+      throw dbError;
+    }
+  }
+
+  private async handleCustomerResult(
+    customer: Customer,
+    cacheKey: string,
+    queryTime: number
+  ): Promise<Customer> {
+    if (customer) {
+      try {
+        // Use safe Redis set that won't hang
+        await safeRedisSet(cacheKey, JSON.stringify(customer), 3600);
+        logger.log(`Customer cached successfully (query took ${queryTime}ms)`);
+      } catch (cacheError) {
+        logger.warn('Redis cache write error:', cacheError);
+        // Don't fail if caching fails
+      }
+    }
+
+    logger.log(
+      `Returning customer from database (${queryTime}ms):`,
+      customer ? 'Found' : 'Not found'
+    );
     return customer;
   }
 
@@ -175,8 +323,8 @@ export class CustomersRepository {
     customer.updated_at = Math.floor(Date.now() / 1000);
 
     const updatedCustomer = await this.customerRepository.save(customer);
-    await redis.del(`customer:${id}`);
-    await redis.del(`customer:user:${customer.user_id}`);
+    await safeRedisDelete(`customer:${id}`);
+    await safeRedisDelete(`customer:user:${customer.user_id}`);
     return updatedCustomer;
   }
 
@@ -184,8 +332,8 @@ export class CustomersRepository {
     const customer = await this.findById(id);
     await this.customerRepository.delete(id);
     if (customer) {
-      await redis.del(`customer:${id}`);
-      await redis.del(`customer:user:${customer.user_id}`);
+      await safeRedisDelete(`customer:${id}`);
+      await safeRedisDelete(`customer:user:${customer.user_id}`);
     }
   }
 

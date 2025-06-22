@@ -37,6 +37,19 @@ export class TransactionsController {
     return this.transactionsService.findAllPaginated(parsedPage, parsedLimit);
   }
 
+  @Get('finance/money-flow')
+  getFlashfoodFinanceMoneyFlow(
+    @Query('start_date') startDate: string,
+    @Query('end_date') endDate: string
+  ) {
+    const startTimestamp = Math.floor(new Date(startDate).getTime() / 1000);
+    const endTimestamp = Math.floor(new Date(endDate).getTime() / 1000);
+    return this.transactionsService.getFlashfoodFinanceMoneyFlow(
+      startTimestamp,
+      endTimestamp
+    );
+  }
+
   @Get(':id')
   findTransactionById(@Param('id') id: string) {
     return this.transactionsService.findTransactionById(id); // Use the findTransactionById method in FWalletService

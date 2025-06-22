@@ -9,10 +9,63 @@ import { createClient } from 'redis';
 
 const logger = new Logger('CartItemsRepository');
 
+// FIXED: Improved Redis connection handling with timeout and error handling
 const redis = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
+  url: process.env.REDIS_URL || 'redis://localhost:6379',
+  socket: {
+    connectTimeout: 5000, // 5 second timeout
+    reconnectStrategy: retries => {
+      if (retries > 3) {
+        logger.warn(
+          'Redis connection failed after multiple attempts, giving up'
+        );
+        return new Error('Redis connection failed');
+      }
+      return Math.min(retries * 100, 3000); // Increasing backoff
+    }
+  }
 });
-redis.connect().catch(err => logger.error('Redis connection error:', err));
+
+// Track Redis connection state
+let redisConnected = false;
+
+// Connect to Redis with proper error handling
+redis
+  .connect()
+  .then(() => {
+    redisConnected = true;
+    logger.log('Redis connected successfully');
+  })
+  .catch(err => {
+    redisConnected = false;
+    logger.error('Redis connection error:', err);
+  });
+
+// Handle disconnection events
+redis.on('error', err => {
+  redisConnected = false;
+  logger.error('Redis error:', err);
+});
+
+redis.on('connect', () => {
+  redisConnected = true;
+  logger.log('Redis connected');
+});
+
+// Safe Redis operations that won't hang
+async function safeRedisDelete(key: string): Promise<void> {
+  if (!redisConnected) return;
+  try {
+    await Promise.race([
+      redis.del(key),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Redis operation timed out')), 1000)
+      )
+    ]);
+  } catch (error) {
+    logger.warn(`Redis del operation failed for key ${key}:`, error);
+  }
+}
 
 @Injectable()
 export class CartItemsRepository {
@@ -26,8 +79,8 @@ export class CartItemsRepository {
     try {
       const cartItem = this.repository.create(createDto);
       const savedItem = await this.repository.save(cartItem);
-      // Invalidate cache
-      await redis.del(`cart_items:${createDto.customer_id}`);
+      // Invalidate cache safely
+      await safeRedisDelete(`cart_items:${createDto.customer_id}`);
       return savedItem;
     } catch (error) {
       logger.error('Error creating cart item:', error);
@@ -112,9 +165,9 @@ export class CartItemsRepository {
         updated_at: Math.floor(Date.now() / 1000)
       });
       const updatedItem = await this.findById(id);
-      // Invalidate cache
+      // Invalidate cache safely
       if (updatedItem) {
-        await redis.del(`cart_items:${updatedItem.customer_id}`);
+        await safeRedisDelete(`cart_items:${updatedItem.customer_id}`);
       }
       return updatedItem;
     } catch (error) {
@@ -128,7 +181,7 @@ export class CartItemsRepository {
       const item = await this.findById(id);
       const result = await this.repository.delete(id);
       if (item) {
-        await redis.del(`cart_items:${item.customer_id}`);
+        await safeRedisDelete(`cart_items:${item.customer_id}`);
       }
       return result.affected > 0;
     } catch (error) {

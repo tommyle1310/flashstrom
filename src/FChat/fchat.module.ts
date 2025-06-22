@@ -13,6 +13,7 @@ import { Driver } from 'src/drivers/entities/driver.entity';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
 import { RedisService } from 'src/redis/redis.service';
+import { Admin } from 'src/admin/entities/admin.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -21,6 +22,7 @@ import { RedisService } from 'src/redis/redis.service';
       User,
       Customer,
       Driver,
+      Admin,
       Restaurant,
       CustomerCare
     ])

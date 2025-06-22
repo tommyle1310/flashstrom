@@ -37,6 +37,8 @@ import * as dotenv from 'dotenv';
 import { Order } from 'src/orders/entities/order.entity';
 import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
 import { RedisService } from 'src/redis/redis.service';
+import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
+import { calculateDistance } from 'src/utils/commonFunctions';
 // import { Equal } from 'typeorm';
 
 dotenv.config();
@@ -610,66 +612,16 @@ export class RestaurantsService {
   private calculateDiscountedPrice(
     originalPrice: number,
     promotion: Promotion
-  ): number | null {
-    console.log(`\n>> calculateDiscountedPrice called with:`);
-    console.log(`- Original price: ${originalPrice}`);
-    console.log(`- Promotion ID: ${promotion.id}`);
-    console.log(`- Discount type: ${promotion.discount_type}`);
-    console.log(`- Discount value: ${promotion.discount_value}`);
-
-    const discountValue = Number(promotion.discount_value);
-    const minimumOrderValue = Number(promotion.minimum_order_value || 0);
-
-    // Check if numeric values are valid
-    if (isNaN(originalPrice) || isNaN(discountValue)) {
-      console.log('>> Error: Invalid numeric values for price or discount');
-      return null;
-    }
-
-    // Optional: Check if promotion is active (can skip if handled elsewhere)
-    const now = Math.floor(Date.now() / 1000);
-    if (
-      promotion.status !== 'ACTIVE' ||
-      now < Number(promotion.start_date) ||
-      now > Number(promotion.end_date)
-    ) {
-      console.log(
-        `>> Promotion not active - status: ${promotion.status}, timeframe: ${now} not in ${promotion.start_date}-${promotion.end_date}`
-      );
-      return null;
-    }
-
-    // Check minimum order value (assuming it applies to individual items)
-    if (minimumOrderValue > 0 && originalPrice < minimumOrderValue) {
-      console.log(
-        `>> Price ${originalPrice} below minimum order value ${minimumOrderValue}`
-      );
-      return null; // Skip discount if price doesn't meet minimum
-    }
-
+  ): number {
     let discountedPrice: number;
     if (promotion.discount_type === 'PERCENTAGE') {
-      discountedPrice = originalPrice * (1 - discountValue / 100);
-      console.log(
-        `>> Percentage discount: ${discountValue}% off ${originalPrice} = ${discountedPrice}`
-      );
+      discountedPrice = originalPrice * (1 - promotion.discount_value / 100);
     } else if (promotion.discount_type === 'FIXED') {
-      discountedPrice = originalPrice - discountValue;
-      // Ensure non-negative price
-      discountedPrice = Math.max(0, discountedPrice);
-      console.log(
-        `>> Fixed discount: ${discountValue} off ${originalPrice} = ${discountedPrice}`
-      );
+      discountedPrice = originalPrice - promotion.discount_value;
     } else {
-      // BOGO: Skip for now
-      console.log(`>> Unsupported discount type: ${promotion.discount_type}`);
-      return null;
+      return originalPrice;
     }
-
-    // Round to 2 decimal places
-    const roundedPrice = Number(discountedPrice.toFixed(2));
-    console.log(`>> Final discounted price (rounded): ${roundedPrice}`);
-    return roundedPrice;
+    return Math.max(0, Number(discountedPrice.toFixed(2)));
   }
 
   async getMenuItemsForRestaurant(restaurantId: string): Promise<any> {
@@ -677,55 +629,27 @@ export class RestaurantsService {
     const cacheKey = `menu_items:${restaurantId}`;
 
     try {
-      // Try to get from Redis cache first
-      const cachedMenuItems = await redis.get(cacheKey);
-      if (cachedMenuItems) {
-        logger.log(`Cache hit for menu items of restaurant ${restaurantId}`);
-        return createResponse(
-          'OK',
-          JSON.parse(cachedMenuItems),
-          'Fetched menu items for the restaurant (from cache)'
-        );
-      }
-
-      logger.log(`Cache miss for menu items of restaurant ${restaurantId}`);
+      // First, clear any existing cache for this restaurant's menu items
+      await redis.del(cacheKey);
+      logger.log(`Cleared cache for menu items of restaurant ${restaurantId}`);
 
       // Fetch restaurant with promotions
-      const restaurant =
-        await this.restaurantsRepository.findById(restaurantId);
+      const restaurant = await this.restaurantsRepository.findOne({
+        where: { id: restaurantId },
+        relations: ['promotions', 'promotions.food_categories']
+      });
+
       if (!restaurant) {
         return createResponse('NotFound', null, 'Restaurant not found');
       }
       logger.log('Restaurant found:', restaurant.id);
-
-      // Log promotions details
-      logger.log(
-        'Restaurant promotions:',
-        restaurant.promotions ? restaurant.promotions.length : 0
-      );
-      if (restaurant.promotions && restaurant.promotions.length > 0) {
-        restaurant.promotions.forEach((promo, index) => {
-          logger.log(`Promotion ${index + 1}:`, {
-            id: promo.id,
-            name: promo.name,
-            status: promo.status,
-            discount_type: promo.discount_type,
-            discount_value: promo.discount_value,
-            start_date: new Date(Number(promo.start_date) * 1000).toISOString(),
-            end_date: new Date(Number(promo.end_date) * 1000).toISOString(),
-            current_time: new Date().toISOString(),
-            food_categories: promo.food_category_ids || []
-          });
-        });
-      }
+      logger.log('Restaurant promotions:', restaurant.promotions?.length || 0);
 
       // Fetch all menu items, including variants
       const menuItemsResult =
         await this.menuItemsService.findByRestaurantId(restaurantId);
-      logger.log('Menu items result:', menuItemsResult);
 
       if (!menuItemsResult || !menuItemsResult.data) {
-        logger.log('No menu items result or data found');
         return createResponse(
           'OK',
           [],
@@ -737,16 +661,11 @@ export class RestaurantsService {
       const menuItems = (menuItemsResult.data || []).filter(
         (item: MenuItem) => item.availability
       );
-      logger.log(
-        'Filtered menu items count (availability true):',
-        menuItems.length
-      );
+      logger.log('Filtered menu items count:', menuItems.length);
 
       // If restaurant has no promotions, cache and return filtered menu items
       if (!restaurant.promotions || restaurant.promotions.length === 0) {
-        logger.log(
-          'No promotions found for restaurant, returning filtered menu items'
-        );
+        logger.log('No promotions found for restaurant');
         // Cache the result
         await redis.setEx(cacheKey, 3600, JSON.stringify(menuItems)); // Cache for 1 hour
         return createResponse(
@@ -756,23 +675,23 @@ export class RestaurantsService {
         );
       }
 
+      const now = Math.floor(Date.now() / 1000);
+      logger.log(`Current timestamp: ${now}`);
+
       // Process promotions for each menu item and variant
       const processedMenuItems: MenuItemResponse[] = menuItems.map(
         (item: MenuItem) => {
-          console.log(
-            `\n--- Processing menu item: ${item.id} - ${item.name} ---`
-          );
-          console.log(`Original price: ${item.price}`);
+          logger.log(`Processing menu item: ${item.id} - ${item.name}`);
 
-          // Start with original price before applying any promotion
-          let currentItemPrice = Number(item.price);
+          // Initialize with original price
+          let itemPriceAfterPromotion: number | null = null;
           const processedVariants: MenuItemVariantResponse[] = [];
           const itemCategories = item.category || [];
-          console.log('Item categories:', itemCategories);
+          logger.log(`Item categories: ${JSON.stringify(itemCategories)}`);
 
+          // Find applicable promotions for this menu item
           const applicablePromotions = restaurant.promotions.filter(
             promotion => {
-              const now = Math.floor(Date.now() / 1000);
               const isActive =
                 promotion.status === 'ACTIVE' &&
                 now >= Number(promotion.start_date) &&
@@ -783,145 +702,67 @@ export class RestaurantsService {
                 itemCategories.includes(fcId)
               );
 
-              console.log(`Checking promotion ${promotion.id}:`, {
-                status: promotion.status,
-                isTimeValid: `${now} between ${promotion.start_date}-${promotion.end_date}: ${isActive}`,
-                hasMatchingCategory: hasMatchingCategory,
-                foodCategories: promotionCategories,
-                isApplicable: isActive && hasMatchingCategory
-              });
+              logger.log(
+                `Checking promotion ${promotion.id}: active=${isActive}, hasMatchingCategory=${hasMatchingCategory}, categories=${JSON.stringify(promotionCategories)}`
+              );
 
               return isActive && hasMatchingCategory;
             }
           );
 
-          console.log(
-            `Found ${applicablePromotions.length} applicable promotions for item ${item.id}`
+          logger.log(
+            `Found ${applicablePromotions.length} applicable promotions`
           );
 
-          // Biến để theo dõi xem có promotion nào thực sự thay đổi giá hay không
-          let isPromotionApplied = false;
-
-          // Apply all promotions cumulatively for MenuItem
+          // Apply promotions to the menu item
           if (applicablePromotions.length > 0) {
-            // Sort promotions to apply percentage discounts first, then fixed discounts
-            const sortedPromotions = [...applicablePromotions].sort((a, b) => {
-              if (
-                a.discount_type === 'PERCENTAGE' &&
-                b.discount_type !== 'PERCENTAGE'
-              )
-                return -1;
-              if (
-                a.discount_type !== 'PERCENTAGE' &&
-                b.discount_type === 'PERCENTAGE'
-              )
-                return 1;
-              return 0;
-            });
-
-            sortedPromotions.forEach(promotion => {
-              console.log(
-                `\nApplying promotion ${promotion.id} to item ${item.id}:`
-              );
-              console.log(`- Current price: ${currentItemPrice}`);
-              console.log(`- Discount type: ${promotion.discount_type}`);
-              console.log(`- Discount value: ${promotion.discount_value}`);
-              console.log(
-                `- Minimum order value: ${promotion.minimum_order_value || 'none'}`
-              );
-
+            applicablePromotions.forEach(promotion => {
               const discountedPrice = this.calculateDiscountedPrice(
-                currentItemPrice,
+                Number(item.price),
                 promotion
               );
 
-              console.log(`- Calculated discounted price: ${discountedPrice}`);
+              logger.log(
+                `Applied promotion ${promotion.id} to item ${item.id}: original=${item.price}, discounted=${discountedPrice}`
+              );
 
-              if (discountedPrice !== null) {
-                console.log(
-                  `- Applied promotion: new price ${discountedPrice} (was: ${currentItemPrice})`
-                );
-                currentItemPrice = discountedPrice;
-                isPromotionApplied = true; // Đánh dấu rằng promotion đã được áp dụng
+              if (
+                itemPriceAfterPromotion === null ||
+                discountedPrice < itemPriceAfterPromotion
+              ) {
+                itemPriceAfterPromotion = discountedPrice;
               }
             });
           }
 
-          console.log(
-            `Final price after all promotions for item ${item.id}: ${currentItemPrice}`
-          );
-
-          // Process variants, filtering for availability: true
+          // Process variants with the same promotion logic
           if (item.variants && item.variants.length > 0) {
-            console.log(
-              `\nProcessing ${item.variants.length} variants for item ${item.id}`
-            );
-
             item.variants
               .filter((variant: MenuItemVariant) => variant.availability)
               .forEach((variant: MenuItemVariant) => {
-                console.log(
-                  `\n--- Processing variant: ${variant.id} - ${variant.variant} ---`
-                );
-                console.log(`Original price: ${variant.price}`);
-
-                // Start with original variant price
-                let currentVariantPrice = Number(variant.price);
-                let isVariantPromotionApplied = false;
+                let variantPriceAfterPromotion: number | null = null;
 
                 if (applicablePromotions.length > 0) {
-                  // Sort promotions to apply percentage discounts first, then fixed discounts
-                  const sortedPromotions = [...applicablePromotions].sort(
-                    (a, b) => {
-                      if (
-                        a.discount_type === 'PERCENTAGE' &&
-                        b.discount_type !== 'PERCENTAGE'
-                      )
-                        return -1;
-                      if (
-                        a.discount_type !== 'PERCENTAGE' &&
-                        b.discount_type === 'PERCENTAGE'
-                      )
-                        return 1;
-                      return 0;
-                    }
-                  );
-
-                  sortedPromotions.forEach(promotion => {
-                    console.log(
-                      `\nApplying promotion ${promotion.id} to variant ${variant.id}:`
-                    );
-                    console.log(`- Current price: ${currentVariantPrice}`);
-                    console.log(`- Discount type: ${promotion.discount_type}`);
-                    console.log(
-                      `- Discount value: ${promotion.discount_value}`
-                    );
-
+                  applicablePromotions.forEach(promotion => {
                     const discountedPrice = this.calculateDiscountedPrice(
-                      currentVariantPrice,
+                      Number(variant.price),
                       promotion
                     );
 
-                    console.log(
-                      `- Calculated discounted price: ${discountedPrice}`
+                    logger.log(
+                      `Applied promotion ${promotion.id} to variant ${variant.id}: original=${variant.price}, discounted=${discountedPrice}`
                     );
 
-                    if (discountedPrice !== null) {
-                      console.log(
-                        `- Applied promotion: new price ${discountedPrice} (was: ${currentVariantPrice})`
-                      );
-                      currentVariantPrice = discountedPrice;
-                      isVariantPromotionApplied = true; // Đánh dấu rằng promotion đã được áp dụng cho variant
+                    if (
+                      variantPriceAfterPromotion === null ||
+                      discountedPrice < variantPriceAfterPromotion
+                    ) {
+                      variantPriceAfterPromotion = discountedPrice;
                     }
                   });
                 }
 
-                console.log(
-                  `Final price after all promotions for variant ${variant.id}: ${currentVariantPrice}`
-                );
-
-                // Chỉ thêm price_after_applied_promotion nếu promotion thực sự được áp dụng
-                const variantResponse: MenuItemVariantResponse = {
+                processedVariants.push({
                   id: variant.id,
                   menu_id: variant.menu_id,
                   variant: variant.variant,
@@ -932,19 +773,13 @@ export class RestaurantsService {
                   price: variant.price,
                   discount_rate: variant.discount_rate,
                   created_at: variant.created_at,
-                  updated_at: variant.updated_at
-                };
-
-                if (isVariantPromotionApplied) {
-                  variantResponse.price_after_applied_promotion =
-                    currentVariantPrice;
-                }
-
-                processedVariants.push(variantResponse);
+                  updated_at: variant.updated_at,
+                  price_after_applied_promotion: variantPriceAfterPromotion
+                });
               });
           }
 
-          // Chỉ thêm price_after_applied_promotion nếu promotion thực sự được áp dụng
+          // Create the menu item response with price_after_applied_promotion
           const itemResponse: MenuItemResponse = {
             id: item.id,
             restaurant_id: item.restaurant_id,
@@ -959,13 +794,13 @@ export class RestaurantsService {
             purchase_count: item.purchase_count,
             created_at: item.created_at,
             updated_at: item.updated_at,
-            variants: processedVariants
+            variants: processedVariants,
+            price_after_applied_promotion: itemPriceAfterPromotion
           };
 
-          if (isPromotionApplied) {
-            itemResponse.price_after_applied_promotion = currentItemPrice;
-          }
-
+          logger.log(
+            `Final item price after promotions: ${itemPriceAfterPromotion}`
+          );
           return itemResponse;
         }
       );
@@ -1106,14 +941,206 @@ export class RestaurantsService {
 
   async findOne(id: string): Promise<ApiResponse<any>> {
     try {
-      const restaurant = await this.restaurantsRepository.findById(id);
+      // Fetch the restaurant with its address
+      const restaurant = await this.dataSource
+        .getRepository(Restaurant)
+        .createQueryBuilder('restaurant')
+        .leftJoinAndSelect('restaurant.owner', 'owner')
+        .leftJoinAndSelect('restaurant.address', 'address')
+        .leftJoinAndSelect('restaurant.promotions', 'promotions')
+        .leftJoinAndSelect('restaurant.specialize_in', 'specialize_in')
+        .where('restaurant.id = :id', { id })
+        .getOne();
       if (!restaurant) {
         return createResponse('NotFound', null, 'Restaurant not found');
       }
 
+      // Use direct query to get ratings and reviews for this specific restaurant
+      const ratingsReviews = await this.dataSource
+        .getRepository(RatingsReview)
+        .createQueryBuilder('review')
+        .leftJoinAndSelect('review.reviewer_customer', 'reviewer_customer')
+        .leftJoinAndSelect('review.reviewer_driver', 'reviewer_driver')
+        .leftJoinAndSelect('review.reviewer_restaurant', 'reviewer_restaurant')
+        .leftJoinAndSelect(
+          'review.reviewer_customercare',
+          'reviewer_customercare'
+        )
+        .leftJoinAndSelect('review.order', 'order')
+        .where('review.rr_recipient_restaurant_id = :restaurantId', {
+          restaurantId: id
+        })
+        .andWhere('review.recipient_type = :recipientType', {
+          recipientType: 'restaurant'
+        })
+        .getMany();
+
+      logger.log(
+        `Found ${ratingsReviews.length} reviews where restaurant ${id} is the recipient`
+      );
+
+      // For debugging, log the IDs of the reviews
+      if (ratingsReviews.length > 0) {
+        logger.log('Review IDs:', ratingsReviews.map(r => r.id).join(', '));
+      } else {
+        logger.log('No reviews found for this restaurant');
+      }
+
+      // Calculate rating statistics
+      const totalReviews = ratingsReviews.length;
+      let avgFoodRating = 0;
+      let avgDeliveryRating = 0;
+      let avgOverallRating = 0;
+
+      if (totalReviews > 0) {
+        const validFoodRatings = ratingsReviews.filter(
+          review =>
+            review.food_rating !== null && review.food_rating !== undefined
+        );
+        const validDeliveryRatings = ratingsReviews.filter(
+          review =>
+            review.delivery_rating !== null &&
+            review.delivery_rating !== undefined
+        );
+
+        const totalFoodRating = validFoodRatings.reduce(
+          (sum, review) => sum + review.food_rating,
+          0
+        );
+        const totalDeliveryRating = validDeliveryRatings.reduce(
+          (sum, review) => sum + review.delivery_rating,
+          0
+        );
+
+        avgFoodRating =
+          validFoodRatings.length > 0
+            ? totalFoodRating / validFoodRatings.length
+            : 0;
+        avgDeliveryRating =
+          validDeliveryRatings.length > 0
+            ? totalDeliveryRating / validDeliveryRatings.length
+            : 0;
+
+        // Calculate overall rating as average of food and delivery
+        const validRatingsCount =
+          (validFoodRatings.length > 0 ? 1 : 0) +
+          (validDeliveryRatings.length > 0 ? 1 : 0);
+        if (validRatingsCount > 0) {
+          avgOverallRating =
+            (avgFoodRating + avgDeliveryRating) / validRatingsCount;
+        }
+      }
+
+      // Get reviewer details based on reviewer_type
+      const getReviewerDetails = review => {
+        try {
+          switch (review.reviewer_type) {
+            case 'customer':
+              return review.reviewer_customer;
+            case 'driver':
+              return review.reviewer_driver;
+            case 'restaurant':
+              return review.reviewer_restaurant;
+            case 'customerCare':
+              return review.reviewer_customercare;
+            default:
+              return null;
+          }
+        } catch (error) {
+          console.error('Error getting reviewer details:', error);
+          return null;
+        }
+      };
+
+      // Get reviewer name safely
+      const getReviewerName = reviewer => {
+        if (!reviewer) return 'Anonymous';
+
+        // Try different properties based on entity type
+        return (
+          reviewer.name ||
+          reviewer.owner_name ||
+          reviewer.customer_name ||
+          reviewer.restaurant_name ||
+          'Anonymous'
+        );
+      };
+
+      // Calculate distance and estimated time
+      let distance = 0;
+      let estimated_time = 0;
+
+      // Use a default user location in central Ho Chi Minh City
+      const userLocation = { lat: 10.8231, lng: 106.6297 };
+
+      // Get restaurant location from address
+      if (restaurant.address && restaurant.address.location) {
+        const restaurantLocation = restaurant.address.location;
+
+        // Calculate distance if location data is available
+        if (
+          restaurantLocation &&
+          restaurantLocation.lat &&
+          restaurantLocation.lng
+        ) {
+          distance = calculateDistance(
+            userLocation.lat,
+            userLocation.lng,
+            restaurantLocation.lat,
+            restaurantLocation.lng
+          );
+
+          // Calculate estimated time (in minutes) - assuming average speed of 30 km/h
+          estimated_time = Math.round((distance / 30) * 60);
+
+          // Round distance to 2 decimal places
+          distance = parseFloat(distance.toFixed(2));
+        }
+      }
+
+      // Add rating statistics to restaurant data
+      const restaurantWithRatings = {
+        ...restaurant,
+        // Add the three fields directly to the restaurant object
+        distance,
+        estimated_time,
+        avg_rating: parseFloat(avgOverallRating.toFixed(1)),
+        rating_stats: {
+          avg_rating: parseFloat(avgOverallRating.toFixed(1)),
+          avg_food_rating: parseFloat(avgFoodRating.toFixed(1)),
+          avg_delivery_rating: parseFloat(avgDeliveryRating.toFixed(1)),
+          total_reviews: totalReviews,
+          reviews: ratingsReviews.map(review => {
+            const reviewer = getReviewerDetails(review);
+            return {
+              id: review.id,
+              reviewer_type: review.reviewer_type,
+              reviewer: reviewer
+                ? {
+                    id: reviewer?.id || null,
+                    name: getReviewerName(reviewer),
+                    avatar: reviewer?.avatar || null
+                  }
+                : {
+                    id: null,
+                    name: 'Anonymous',
+                    avatar: null
+                  },
+              food_rating: review.food_rating || 0,
+              delivery_rating: review.delivery_rating || 0,
+              food_review: review.food_review || '',
+              delivery_review: review.delivery_review || '',
+              images: review.images || [],
+              created_at: review.created_at,
+              order_id: review.order_id
+            };
+          })
+        }
+      };
+
       return createResponse(
         'OK',
-        restaurant,
+        restaurantWithRatings,
         'Restaurant retrieved successfully'
       );
     } catch (error: any) {
