@@ -833,6 +833,9 @@ export class RestaurantsGateway
       await this.server
         .to(`restaurant_${restaurantId}`)
         .emit('notifyOrderStatus', trackingUpdate);
+      await this.server
+        .to(`restaurant_${restaurantId}`)
+        .emit('incomingOrderForRestaurant', trackingUpdate);
       this.logger.log(
         `Emitted notifyOrderStatus to restaurant_${restaurantId}`
       );

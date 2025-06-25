@@ -67,12 +67,6 @@ export class FchatGateway
   private async validateToken(client: Socket): Promise<any> {
     try {
       let authHeader = client.handshake.headers.auth as string;
-      console.log(
-        'check anything heẻể?? ',
-        client.handshake.auth,
-        client.handshake.headers,
-        client.handshake
-      );
       if (!authHeader && client.handshake.auth && client.handshake.auth) {
         authHeader = client.handshake.auth.token;
       }
@@ -470,6 +464,7 @@ export class FchatGateway
       if (!user) {
         throw new WsException('Unauthorized');
       }
+      console.log('check wahgt data', data, data.roomId);
 
       const cacheKey = `chat_history:${data.roomId}`;
       const ttl = 3600; // Cache 1 giờ
@@ -769,8 +764,8 @@ export class FchatGateway
     if (chatType === 'ORDER') {
       const validOrderCombinations = {
         CUSTOMER: ['DRIVER', 'RESTAURANT_OWNER'],
-        DRIVER: ['CUSTOMER'],
-        RESTAURANT_OWNER: ['CUSTOMER'],
+        DRIVER: ['CUSTOMER', 'RESTAURANT_OWNER'],
+        RESTAURANT_OWNER: ['CUSTOMER', 'DRIVER'],
         ADMIN: ['CUSTOMER', 'DRIVER', 'RESTAURANT_OWNER']
       };
       return validOrderCombinations[userType]?.includes(recipientType) || false;
