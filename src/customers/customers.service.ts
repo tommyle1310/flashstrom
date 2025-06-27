@@ -19,6 +19,7 @@ import { DataSource, ILike, In } from 'typeorm';
 import { Order } from 'src/orders/entities/order.entity';
 import { NotificationsRepository } from 'src/notifications/notifications.repository';
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
+import { MenuItemVariant } from 'src/menu_item_variants/entities/menu_item_variant.entity';
 export interface AddressPopulate {
   id?: string;
   street?: string;
@@ -1002,6 +1003,9 @@ export class CustomersService {
           cancellation_title: true,
           cancellation_description: true,
           cancelled_at: true,
+          service_fee: true,
+          sub_total: true,
+          discount_amount: true,
           restaurant: {
             id: true,
             restaurant_name: true,
@@ -1066,13 +1070,55 @@ export class CustomersService {
       const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
       logger.log(`MenuItems fetch took ${Date.now() - menuItemsStart}ms`);
 
+      // 5.1 Batch query MenuItemVariants
+      const variantsStart = Date.now();
+      const allVariantIds = orders.flatMap(order =>
+        order.order_items
+          .filter(item => item.variant_id)
+          .map(item => item.variant_id)
+      );
+
+      // Only query if there are variant IDs
+      let menuItemVariantMap = new Map();
+      if (allVariantIds.length > 0) {
+        const menuItemVariants = await this.dataSource
+          .getRepository(MenuItemVariant)
+          .find({
+            where: { id: In(allVariantIds) },
+            select: {
+              id: true,
+              menu_id: true,
+              variant: true,
+              description: true,
+              avatar: { url: true, key: true },
+              price: true,
+              discount_rate: true
+            }
+          });
+        menuItemVariantMap = new Map(
+          menuItemVariants.map(variant => [variant.id, variant])
+        );
+      }
+      logger.log(`MenuItemVariants fetch took ${Date.now() - variantsStart}ms`);
+
       // 6. Populate orders
       const processingStart = Date.now();
       const populatedOrders = orders.map(order => {
-        const populatedOrderItems = order.order_items.map(item => ({
-          ...item,
-          menu_item: menuItemMap.get(item.item_id) || null
-        }));
+        const populatedOrderItems = order.order_items.map(item => {
+          // Get the menu item
+          const menuItem = menuItemMap.get(item.item_id) || null;
+
+          // Get the menu item variant if it exists
+          const menuItemVariant = item.variant_id
+            ? menuItemVariantMap.get(item.variant_id) || null
+            : null;
+
+          return {
+            ...item,
+            menu_item: menuItem,
+            menu_item_variant: menuItemVariant
+          };
+        });
 
         const restaurantSpecializations =
           specializationMap.get(order.restaurant_id) || [];
