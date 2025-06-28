@@ -47,6 +47,61 @@ export const ResponseStatus = {
     httpCode: 400,
     message: 'Expired',
     code: -9
+  },
+  VOUCHER_NOT_FOUND: {
+    httpCode: 404,
+    message: 'Voucher not found',
+    code: -10
+  },
+  VOUCHER_EXPIRED: {
+    httpCode: 400,
+    message: 'Voucher has expired',
+    code: -11
+  },
+  VOUCHER_NOT_ACTIVE: {
+    httpCode: 400,
+    message: 'Voucher is not active',
+    code: -12
+  },
+  VOUCHER_USAGE_LIMIT_REACHED: {
+    httpCode: 400,
+    message: 'Voucher usage limit reached',
+    code: -13
+  },
+  VOUCHER_TIME_RESTRICTION: {
+    httpCode: 400,
+    message: 'Voucher cannot be used at this time',
+    code: -14
+  },
+  VOUCHER_DAY_RESTRICTION: {
+    httpCode: 400,
+    message: 'Voucher cannot be used today',
+    code: -15
+  },
+  VOUCHER_MINIMUM_ORDER_NOT_MET: {
+    httpCode: 400,
+    message: 'Minimum order value not met for voucher',
+    code: -16
+  },
+  VOUCHER_CUSTOMER_USAGE_LIMIT: {
+    httpCode: 400,
+    message: 'Customer has reached usage limit for this voucher',
+    code: -17
+  },
+  VOUCHER_RESTAURANT_RESTRICTION: {
+    httpCode: 400,
+    message: 'Voucher not applicable to this restaurant',
+    code: -18
+  },
+  VOUCHER_CATEGORY_RESTRICTION: {
+    httpCode: 400,
+    message: 'Voucher not applicable to items in order',
+    code: -19
+  },
+  VOUCHER_MAX_LIMIT_EXCEEDED: {
+    httpCode: 400,
+    message: 'Maximum 2 vouchers can be applied per order',
+    code: -20
   }
 };
 

@@ -75,6 +75,9 @@ import { CustomerCareService } from 'src/customer_cares/customer_cares.service';
 import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
 import { CustomerCaresRepository } from 'src/customer_cares/customer_cares.repository';
 import { CustomerCareInquiriesRepository } from 'src/customer_cares_inquires/customer_cares_inquires.repository';
+import { Voucher } from 'src/vouchers/entities/voucher.entity';
+import { VouchersRepository } from 'src/vouchers/vouchers.repository';
+import { VouchersService } from 'src/vouchers/vouchers.service';
 
 @Module({
   imports: [
@@ -96,6 +99,7 @@ import { CustomerCareInquiriesRepository } from 'src/customer_cares_inquires/cus
       Order,
       DriverProgressStage,
       CustomerCareInquiry,
+      Voucher,
       FinanceRule,
       Admin,
       Transaction,
@@ -156,7 +160,9 @@ import { CustomerCareInquiriesRepository } from 'src/customer_cares_inquires/cus
     PromotionsRepository,
     NotificationsRepository,
     AddressBookRepository,
+    VouchersRepository,
     FoodCategoriesRepository,
+    VouchersService,
     DriverProgressStagesRepository,
     RestaurantsRepository,
     OrdersService,

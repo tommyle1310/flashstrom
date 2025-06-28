@@ -13,6 +13,7 @@ import { FwalletsModule } from './fwallets/fwallets.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { FoodCategoriesModule } from './food_categories/food_categories.module';
 import { PromotionsModule } from './promotions/promotions.module';
+import { VouchersModule } from './vouchers/vouchers.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
 import { MenuItemsModule } from './menu_items/menu_items.module';
 import { MenuItemVariantsModule } from './menu_item_variants/menu_item_variants.module';
@@ -121,6 +122,7 @@ import { LocationModule } from './realtime-location';
     AdminChartModule,
     FoodCategoriesModule,
     PromotionsModule,
+    VouchersModule,
     RestaurantsModule,
     MenuItemsModule,
     MenuItemVariantsModule,

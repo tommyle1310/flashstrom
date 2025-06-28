@@ -1,7 +1,14 @@
 // update-order.dto.ts
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateOrderDto } from './create-order.dto';
-import { IsString, IsEnum, IsNumber, Min, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsNumber,
+  Min,
+  IsOptional,
+  IsArray
+} from 'class-validator';
 
 export class UpdateOrderDto extends PartialType(CreateOrderDto) {
   @IsOptional()
@@ -133,6 +140,6 @@ export class UpdateOrderDto extends PartialType(CreateOrderDto) {
     | 'DELIVERED';
 
   @IsOptional()
-  @IsString()
-  promotion_applied?: string; // Thêm field này, khớp với CreateOrderDto
+  @IsArray()
+  vouchers_applied?: string[]; // Array of voucher IDs, max 2 vouchers
 }

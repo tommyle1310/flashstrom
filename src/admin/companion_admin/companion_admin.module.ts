@@ -77,6 +77,9 @@ import { CustomerCareInquiriesRepository } from 'src/customer_cares_inquires/cus
 import { CustomerCareInquiriesService } from 'src/customer_cares_inquires/customer_cares_inquires.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { Admin } from '../entities/admin.entity';
+import { VouchersService } from 'src/vouchers/vouchers.service';
+import { VouchersRepository } from 'src/vouchers/vouchers.repository';
+import { Voucher } from 'src/vouchers/entities/voucher.entity';
 
 @Module({
   imports: [
@@ -89,6 +92,7 @@ import { Admin } from '../entities/admin.entity';
       CustomerCareInquiry,
       MenuItem,
       FinanceRule,
+      Voucher,
       MenuItemVariant,
       Order,
       BannedAccount,
@@ -140,11 +144,13 @@ import { Admin } from '../entities/admin.entity';
     DriversService,
     NotificationsRepository,
     DriverStatsService,
+    VouchersRepository,
     OnlineSessionsRepository,
     OnlineSessionsService,
     AddressBookService,
     OrdersService,
     CustomersService,
+    VouchersService,
     DriversGateway,
     DriverProgressStagesService,
     RestaurantsRepository,

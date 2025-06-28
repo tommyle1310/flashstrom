@@ -131,7 +131,7 @@ export class CreateOrderDto {
     | 'DELIVERY_FAILED'
     | 'DELIVERED';
 
-  @IsString()
+  @IsArray()
   @IsOptional()
-  promotion_applied?: string; // Chỉ một promotion ID, không phải mảng
+  vouchers_applied?: string[]; // Array of voucher IDs, max 2 vouchers
 }

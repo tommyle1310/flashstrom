@@ -160,6 +160,7 @@ export class CustomersGateway implements OnGatewayInit {
         ...order,
         order_items: order.order_items,
         orderId: order.orderId,
+        discount_amount: order.discount_amount,
         distance,
         status: order.status,
         customer_note: order.customer_note,

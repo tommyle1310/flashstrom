@@ -22,7 +22,7 @@ import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { TransactionService } from 'src/transactions/transactions.service';
 import { CreateTransactionDto } from 'src/transactions/dto/create-transaction.dto';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
-import { Promotion } from 'src/promotions/entities/promotion.entity';
+import { VouchersService } from 'src/vouchers/vouchers.service';
 import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { DriverStatsService } from 'src/driver_stats_records/driver_stats_records.service';
@@ -76,7 +76,8 @@ export class OrdersService {
     private readonly fWalletsRepository: FWalletsRepository,
     private readonly eventEmitter: EventEmitter2,
     private readonly driverService: DriversService,
-    private readonly redisService: RedisService
+    private readonly redisService: RedisService,
+    private readonly vouchersService: VouchersService
   ) {
     logger.log('OrdersService constructor called');
     logger.log('Checking injected dependencies:');
@@ -223,8 +224,7 @@ export class OrdersService {
         customerAddress,
         restaurantAddress,
         menuItems,
-        variants,
-        promotion;
+        variants;
       try {
         [
           customer,
@@ -232,8 +232,7 @@ export class OrdersService {
           customerAddress,
           restaurantAddress,
           menuItems,
-          variants,
-          promotion
+          variants
         ] = await Promise.all([
           (async () => {
             const start = Date.now();
@@ -350,26 +349,7 @@ export class OrdersService {
             logger.log(`Fetch variants took ${Date.now() - start}ms`);
             return variants;
           })(),
-          createOrderDto.promotion_applied
-            ? (async () => {
-                const start = Date.now();
-                const cacheKey = `promotion:${createOrderDto.promotion_applied}`;
-                const cached = await redis.get(cacheKey);
-                if (cached) {
-                  logger.log(
-                    `Fetch promotion (cache) took ${Date.now() - start}ms`
-                  );
-                  return JSON.parse(cached);
-                }
-                const promo = await this.dataSource
-                  .getRepository(Promotion)
-                  .findOne({ where: { id: createOrderDto.promotion_applied } });
-                if (promo)
-                  await redis.setEx(cacheKey, 7200, JSON.stringify(promo));
-                logger.log(`Fetch promotion took ${Date.now() - start}ms`);
-                return promo;
-              })()
-            : Promise.resolve(null)
+          Promise.resolve(null) // Vouchers will be handled separately
         ]);
       } catch (err) {
         logger.error('Error during batch fetch:', err);
@@ -381,8 +361,7 @@ export class OrdersService {
         customerAddress,
         restaurantAddress,
         menuItems,
-        variants,
-        promotion
+        variants
       });
       logger.log(`Data fetch took ${Date.now() - fetchStart}ms`);
 
@@ -518,11 +497,10 @@ export class OrdersService {
         return createResponse('NotFound', null, `Wallet not found`);
       }
 
-      // 4. Tính giá và áp dụng promotion
-      // const calcStart = Date.now();
+      // 4. Calculate price and apply vouchers
       let customerSubTotal = 0;
       let restaurantSubTotal = 0;
-      let appliedPromotion: Promotion | null = null;
+      let appliedVouchers: any[] = [];
 
       let distance = 0;
       if (customerAddress?.location && restaurantAddress?.location) {
@@ -542,14 +520,14 @@ export class OrdersService {
           throw new Error(`Menu item ${item.item_id} not found`);
         }
 
-        // Lấy giá từ variant mới nhất trong CSDL
+        // Get price from latest variant in database
         let originalPrice = item.price_at_time_of_order;
         if (item.variant_id) {
           const variant = variantMap.get(item.variant_id) as MenuItemVariant;
           if (!variant) {
             throw new Error(`Variant ${item.variant_id} not found`);
           }
-          originalPrice = variant.price; // Giá mới nhất từ CSDL
+          originalPrice = variant.price; // Latest price from database
           logger.log(`Using variant price for ${item.name}: ${originalPrice}`);
         } else {
           logger.warn(
@@ -557,42 +535,11 @@ export class OrdersService {
           );
         }
         restaurantSubTotal += originalPrice * item.quantity;
-
-        // Áp dụng khuyến mãi cho customerSubTotal
-        let discountedPrice = originalPrice;
-        if (
-          promotion &&
-          createOrderDto.promotion_applied &&
-          (menuItem as MenuItem & { category: string[] }).category?.some(cat =>
-            promotion.food_category_ids.includes(cat)
-          )
-        ) {
-          const now = Math.floor(Date.now() / 1000);
-          if (
-            promotion.start_date <= now &&
-            promotion.end_date >= now &&
-            promotion.status === 'ACTIVE'
-          ) {
-            appliedPromotion = promotion;
-            if (promotion.discount_type === 'PERCENTAGE') {
-              discountedPrice =
-                originalPrice * (1 - promotion.discount_value / 100);
-            } else if (promotion.discount_type === 'FIXED') {
-              discountedPrice = Math.max(
-                0,
-                originalPrice - promotion.discount_value
-              );
-            }
-            discountedPrice = Number(discountedPrice.toFixed(2));
-          }
-        }
-
-        customerSubTotal += discountedPrice * item.quantity;
+        customerSubTotal += originalPrice * item.quantity;
 
         return {
           ...item,
-          price_after_applied_promotion: discountedPrice,
-          price_at_time_of_order: originalPrice // Lưu giá CSDL vào đơn hàng
+          price_at_time_of_order: originalPrice // Save database price to order
         };
       });
 
@@ -600,6 +547,125 @@ export class OrdersService {
         createOrderDto.delivery_fee + createOrderDto.service_fee;
       customerSubTotal = Number(customerSubTotal.toFixed(2));
       restaurantSubTotal = Number(restaurantSubTotal.toFixed(2));
+
+      // Validate and apply vouchers if provided
+      let discountAmount = 0;
+      if (
+        createOrderDto.vouchers_applied &&
+        createOrderDto.vouchers_applied.length > 0
+      ) {
+        // Get food category IDs from order items
+        const foodCategoryIds = createOrderDto.order_items.map(
+          item => item.item_id
+        );
+
+        // First validate vouchers
+        const validationResults =
+          await this.vouchersService.validateVouchersForOrder(
+            createOrderDto.vouchers_applied,
+            createOrderDto.customer_id,
+            customerSubTotal,
+            createOrderDto.delivery_fee,
+            createOrderDto.restaurant_id,
+            foodCategoryIds
+          );
+
+        // Check if any validation failed
+        const hasErrors = validationResults.some(result => !result.isValid);
+        if (hasErrors) {
+          // Find the first validation error to return specific error code
+          const firstError = validationResults.find(result => !result.isValid);
+          const firstErrorMessage =
+            firstError?.errors[0] || 'Unknown voucher error';
+
+          // Map specific error messages to error codes
+          if (firstErrorMessage.includes('Maximum 2 vouchers')) {
+            return createResponse(
+              'VOUCHER_MAX_LIMIT_EXCEEDED',
+              null,
+              firstErrorMessage
+            );
+          } else if (firstErrorMessage.includes('not found')) {
+            return createResponse('VOUCHER_NOT_FOUND', null, firstErrorMessage);
+          } else if (firstErrorMessage.includes('has expired')) {
+            return createResponse('VOUCHER_EXPIRED', null, firstErrorMessage);
+          } else if (firstErrorMessage.includes('is not active')) {
+            return createResponse(
+              'VOUCHER_NOT_ACTIVE',
+              null,
+              firstErrorMessage
+            );
+          } else if (firstErrorMessage.includes('usage limit reached')) {
+            return createResponse(
+              'VOUCHER_USAGE_LIMIT_REACHED',
+              null,
+              firstErrorMessage
+            );
+          } else if (
+            firstErrorMessage.includes('cannot be used at this time')
+          ) {
+            return createResponse(
+              'VOUCHER_TIME_RESTRICTION',
+              null,
+              firstErrorMessage
+            );
+          } else if (firstErrorMessage.includes('cannot be used today')) {
+            return createResponse(
+              'VOUCHER_DAY_RESTRICTION',
+              null,
+              firstErrorMessage
+            );
+          } else if (firstErrorMessage.includes('Minimum order value')) {
+            return createResponse(
+              'VOUCHER_MINIMUM_ORDER_NOT_MET',
+              null,
+              firstErrorMessage
+            );
+          } else if (firstErrorMessage.includes('reached the usage limit')) {
+            return createResponse(
+              'VOUCHER_CUSTOMER_USAGE_LIMIT',
+              null,
+              firstErrorMessage
+            );
+          } else if (
+            firstErrorMessage.includes('not applicable to this restaurant') ||
+            firstErrorMessage.includes('cannot be used with this restaurant')
+          ) {
+            return createResponse(
+              'VOUCHER_RESTAURANT_RESTRICTION',
+              null,
+              firstErrorMessage
+            );
+          } else if (
+            firstErrorMessage.includes('not applicable to items') ||
+            firstErrorMessage.includes('cannot be used with items')
+          ) {
+            return createResponse(
+              'VOUCHER_CATEGORY_RESTRICTION',
+              null,
+              firstErrorMessage
+            );
+          } else {
+            return createResponse(
+              'InvalidFormatInput',
+              null,
+              firstErrorMessage
+            );
+          }
+        }
+
+        // Apply validated vouchers
+        const voucherResult = await this.vouchersService.applyVouchersToOrder(
+          validationResults,
+          customerSubTotal,
+          createOrderDto.delivery_fee
+        );
+
+        discountAmount = voucherResult.totalDiscount;
+        appliedVouchers = voucherResult.appliedVouchers;
+        customerSubTotal -= discountAmount;
+        customerSubTotal = Number(customerSubTotal.toFixed(2));
+      }
 
       // REMOVED: Total amount validation - createOrderDto.total_amount already includes promotion deductions
       // The frontend sends the final amount after applying promotions/discounts
@@ -660,10 +726,22 @@ export class OrdersService {
           }
 
           const orderData: DeepPartial<Order> = {
-            ...createOrderDto,
+            customer_id: createOrderDto.customer_id,
+            restaurant_id: createOrderDto.restaurant_id,
+            payment_method: createOrderDto.payment_method,
+            payment_status: createOrderDto.payment_status,
+            customer_location: createOrderDto.customer_location,
+            restaurant_location: createOrderDto.restaurant_location,
+            customer_note: createOrderDto.customer_note,
+            restaurant_note: createOrderDto.restaurant_note,
+            delivery_time: createOrderDto.delivery_time,
             total_amount: customerSubTotal,
+            delivery_fee: createOrderDto.delivery_fee,
+            service_fee: createOrderDto.service_fee,
+            sub_total: createOrderDto.sub_total,
             order_items: updatedOrderItems,
-            promotions_applied: appliedPromotion ? [appliedPromotion] : [],
+            discount_amount: discountAmount,
+            vouchers_applied: appliedVouchers,
             status: (createOrderDto.status ||
               OrderStatus.PENDING) as OrderStatus,
             tracking_info: (createOrderDto.tracking_info ||
@@ -985,7 +1063,7 @@ export class OrdersService {
         discount_amount: savedOrder.discount_amount,
         delivery_fee: savedOrder.delivery_fee,
         service_fee: savedOrder.service_fee,
-        promotions_applied: savedOrder.promotions_applied,
+        vouchers_applied: savedOrder.vouchers_applied,
         restaurant_avatar: restaurant.avatar || null,
         eventId
       };
@@ -1158,18 +1236,14 @@ export class OrdersService {
         return createResponse('NotFound', null, 'Order not found');
       }
 
-      let promotionsApplied: Promotion[] = order.promotions_applied || [];
-      if (updateOrderDto.promotion_applied) {
-        const promotion = await manager.getRepository(Promotion).findOne({
-          where: { id: updateOrderDto.promotion_applied }
-        });
-        promotionsApplied = promotion ? [promotion] : [];
-      }
+      // Note: Voucher updates should be handled separately via voucher endpoints
+      // Remove vouchers_applied from updateOrderDto to avoid conflicts
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { vouchers_applied, ...updateData } = updateOrderDto;
 
       const updatedData: DeepPartial<Order> = {
         ...order,
-        ...updateOrderDto,
-        promotions_applied: promotionsApplied,
+        ...updateData,
         status: updateOrderDto.status
           ? (updateOrderDto.status as OrderStatus)
           : order.status,
@@ -1605,10 +1679,11 @@ export class OrdersService {
         restaurantAddress,
         customerAddress,
         order_items: updatedOrder.order_items,
+        discount_amount: updatedOrder.discount_amount,
         total_amount: updatedOrder.total_amount,
         delivery_fee: updatedOrder.delivery_fee,
         service_fee: updatedOrder.service_fee,
-        promotions_applied: updatedOrder.promotions_applied,
+        vouchers_applied: updatedOrder.vouchers_applied,
         restaurant_avatar: restaurant.avatar || null,
         eventId
       };
@@ -1724,6 +1799,7 @@ export class OrdersService {
         status: updatedOrder.status,
         tracking_info: updatedOrder.tracking_info,
         updated_at: updatedOrder.updated_at,
+        discount_amount: updatedOrder.discount_amount,
         customer_id: updatedOrder.customer_id,
         driver_id: updatedOrder.driver_id,
         restaurant_id: updatedOrder.restaurant_id,
@@ -1733,7 +1809,7 @@ export class OrdersService {
         total_amount: updatedOrder.total_amount,
         delivery_fee: updatedOrder.delivery_fee,
         service_fee: updatedOrder.service_fee,
-        promotions_applied: updatedOrder.promotions_applied,
+        vouchers_applied: updatedOrder.vouchers_applied,
         restaurant_avatar: restaurant.avatar || null,
         eventId
       };

@@ -7,8 +7,7 @@ import {
   OneToMany,
   ManyToMany,
   ManyToOne,
-  JoinColumn,
-  JoinTable
+  JoinColumn
 } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
@@ -17,7 +16,7 @@ import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { Customer } from 'src/customers/entities/customer.entity';
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
-import { Promotion } from 'src/promotions/entities/promotion.entity';
+import { Voucher } from 'src/vouchers/entities/voucher.entity';
 import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 
 export enum OrderTrackingInfo {
@@ -198,21 +197,8 @@ export class Order {
   @OneToMany(() => RatingsReview, ratingReview => ratingReview.order)
   ratings_reviews: RatingsReview[];
 
-  @ManyToMany(() => Promotion, promotion => promotion.restaurants, {
-    nullable: true
-  })
-  @JoinTable({
-    name: 'order_promotions',
-    joinColumn: {
-      name: 'order_id',
-      referencedColumnName: 'id'
-    },
-    inverseJoinColumn: {
-      name: 'promotion_id',
-      referencedColumnName: 'id'
-    }
-  })
-  promotions_applied: Promotion[];
+  @Column('jsonb', { nullable: true, default: [] })
+  vouchers_applied: Voucher[];
 
   @Column({ nullable: true })
   cancelled_by: 'customer' | 'restaurant' | 'driver';

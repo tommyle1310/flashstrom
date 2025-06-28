@@ -142,7 +142,6 @@ export class LocationGateway
     data: {
       driver_location: { lng: number; lat: number };
       destination: { lng: number; lat: number };
-      customerId: string; // Required - the specific customer to notify
     }
   ) {
     try {
@@ -167,21 +166,8 @@ export class LocationGateway
         typeof data.destination.lat !== 'number' ||
         typeof data.destination.lng !== 'number'
       ) {
-        throw new WsException('Invalid location data provided');
+        throw new WsException('Invalid location data');
       }
-
-      // Validate customerId is provided
-      if (!data.customerId) {
-        throw new WsException('Customer ID is required');
-      }
-
-      logger.log(
-        `Driver ${driverId} updating location for customer ${data.customerId}`,
-        {
-          driver_location: data.driver_location,
-          destination: data.destination
-        }
-      );
 
       // Store driver's current location
       this.activeDrivers.set(driverId, {
@@ -195,75 +181,34 @@ export class LocationGateway
         data.destination
       );
 
-      // Prepare the location update payload
       const locationPayload = {
         driverId: driverId,
         lat: data.driver_location.lat,
         lng: data.driver_location.lng,
-        eta: Math.round(eta), // ETA tính bằng phút
-        timestamp: new Date().toISOString()
+        eta: Math.round(eta) // ETA tính bằng phút
       };
 
+      // Emit to ALL customers who are listening to this driver (using rooms)
+      this.server
+        .to(`driver_location_${driverId}`)
+        .emit('driverCurrentLocation', locationPayload);
+
       logger.log(
-        `Driver ${driverId} location update with ETA: ${Math.round(eta)} minutes`
+        `Driver ${driverId} updated location to (${data.driver_location.lat}, ${data.driver_location.lng}) with ETA: ${Math.round(eta)} minutes`
       );
 
-      // Emit to the specific customer
-      const customerSocket = this.customerSockets.get(data.customerId);
-      if (customerSocket) {
-        customerSocket.emit('driverCurrentLocation', locationPayload);
-        logger.log(`Emitted location update to customer ${data.customerId}`);
-
-        // Emit acknowledgment back to driver
-        client.emit('locationUpdateAck', {
-          success: true,
-          driverId: driverId,
-          customerId: data.customerId,
-          eta: Math.round(eta),
-          timestamp: locationPayload.timestamp,
-          message: 'Location updated successfully'
-        });
-
-        return {
-          success: true,
-          driverId: driverId,
-          customerId: data.customerId,
-          eta: Math.round(eta),
-          customerNotified: true
-        };
-      } else {
-        logger.warn(
-          `Customer ${data.customerId} not connected to location tracking`
-        );
-
-        // Emit acknowledgment back to driver with warning
-        client.emit('locationUpdateAck', {
-          success: false,
-          driverId: driverId,
-          customerId: data.customerId,
-          eta: Math.round(eta),
-          timestamp: locationPayload.timestamp,
-          message: 'Customer not connected to location tracking'
-        });
-
-        return {
-          success: false,
-          driverId: driverId,
-          customerId: data.customerId,
-          eta: Math.round(eta),
-          customerNotified: false,
-          error: 'Customer not connected'
-        };
-      }
+      // Acknowledge to the driver
+      client.emit('locationUpdateAck', {
+        success: true,
+        message: 'Location updated successfully',
+        eta: Math.round(eta)
+      });
     } catch (error: any) {
       logger.error('Error updating driver location:', error.message);
-      client.emit('locationUpdateError', {
+      client.emit('locationUpdateAck', {
         success: false,
-        error: error.message || 'Failed to update location'
+        message: error.message
       });
-      throw new WsException(
-        error.message || 'Failed to update driver location'
-      );
     }
   }
 
@@ -306,6 +251,96 @@ export class LocationGateway
     } catch (error: any) {
       logger.error('Error getting active drivers:', error.message);
       throw new WsException(error.message || 'Failed to get active drivers');
+    }
+  }
+
+  @SubscribeMessage('subscribeToDriverLocation')
+  async handleSubscribeToDriverLocation(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { driverId: string }
+  ) {
+    try {
+      const userData = client.data.user;
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      // Only customers can subscribe to driver locations
+      if (userData.logged_in_as !== 'CUSTOMER') {
+        throw new WsException(
+          'Only customers can subscribe to driver locations'
+        );
+      }
+
+      if (!data.driverId) {
+        throw new WsException('Driver ID is required');
+      }
+
+      // Join customer to driver-specific room for targeted updates
+      await client.join(`driver_location_${data.driverId}`);
+
+      logger.log(
+        `Customer ${userData.id} subscribed to driver ${data.driverId} location updates`
+      );
+
+      // Send current driver location if available
+      const currentLocation = this.activeDrivers.get(data.driverId);
+      if (currentLocation) {
+        client.emit('driverCurrentLocation', {
+          driverId: data.driverId,
+          lat: currentLocation.lat,
+          lng: currentLocation.lng,
+          eta: null // ETA will be calculated on next update
+        });
+      }
+
+      client.emit('subscriptionAck', {
+        success: true,
+        driverId: data.driverId,
+        message: 'Successfully subscribed to driver location updates'
+      });
+    } catch (error: any) {
+      logger.error('Error subscribing to driver location:', error.message);
+      client.emit('subscriptionAck', {
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  @SubscribeMessage('unsubscribeFromDriverLocation')
+  async handleUnsubscribeFromDriverLocation(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { driverId: string }
+  ) {
+    try {
+      const userData = client.data.user;
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      if (!data.driverId) {
+        throw new WsException('Driver ID is required');
+      }
+
+      // Leave the driver-specific room
+      await client.leave(`driver_location_${data.driverId}`);
+
+      logger.log(
+        `Customer ${userData.id} unsubscribed from driver ${data.driverId} location updates`
+      );
+
+      client.emit('unsubscriptionAck', {
+        success: true,
+        driverId: data.driverId,
+        message: 'Successfully unsubscribed from driver location updates'
+      });
+    } catch (error: any) {
+      logger.error('Error unsubscribing from driver location:', error.message);
+      client.emit('unsubscriptionAck', {
+        success: false,
+        message: error.message
+      });
     }
   }
 }

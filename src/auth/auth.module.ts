@@ -77,6 +77,9 @@ import { OrdersService } from 'src/orders/orders.service';
 import { DriversGateway } from 'src/drivers/drivers.gateway';
 import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_progress_stages.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
+import { VouchersService } from 'src/vouchers/vouchers.service';
+import { VouchersRepository } from 'src/vouchers/vouchers.repository';
+import { Voucher } from 'src/vouchers/entities/voucher.entity';
 @Module({
   imports: [
     JwtModule.register({
@@ -89,6 +92,7 @@ import { NotificationsService } from 'src/notifications/notifications.service';
       Promotion,
       Notification,
       AddressBook,
+      Voucher,
       FoodCategory,
       Customer,
       FWallet,
@@ -145,12 +149,13 @@ import { NotificationsService } from 'src/notifications/notifications.service';
     OrdersService,
     DriversGateway,
     DriverProgressStagesService,
-
+    VouchersService,
     DriverStatsService,
     UsersService,
     DriverProgressStagesRepository,
     OnlineSessionsRepository,
     OnlineSessionsService,
+    VouchersRepository,
     NotificationsService,
     NotificationsRepository,
     TransactionsRepository,

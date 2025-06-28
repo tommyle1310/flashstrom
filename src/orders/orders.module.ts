@@ -24,6 +24,9 @@ import { User } from 'src/users/entities/user.entity';
 import { UserRepository } from 'src/users/users.repository';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { PromotionsRepository } from 'src/promotions/promotions.repository';
+import { VouchersService } from 'src/vouchers/vouchers.service';
+import { VouchersRepository } from 'src/vouchers/vouchers.repository';
+import { Voucher } from 'src/vouchers/entities/voucher.entity';
 import { MenuItemsService } from 'src/menu_items/menu_items.service';
 import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_variants.service';
 import { DriversRepository } from 'src/drivers/drivers.repository';
@@ -83,6 +86,7 @@ import { NotificationsService } from 'src/notifications/notifications.service';
       OnlineSession,
       Admin,
       Promotion,
+      Voucher,
       DriverProgressStage,
       FWallet,
       CartItem
@@ -116,6 +120,8 @@ import { NotificationsService } from 'src/notifications/notifications.service';
     DriversRepository,
     NotificationsService,
     PromotionsRepository,
+    VouchersService,
+    VouchersRepository,
     MenuItemsService,
     DriverProgressStagesService,
     MenuItemVariantsService,

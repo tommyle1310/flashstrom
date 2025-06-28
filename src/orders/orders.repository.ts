@@ -1,40 +1,39 @@
 import { Injectable } from '@nestjs/common';
-import { Repository, In, DeepPartial } from 'typeorm';
+import { Repository, DeepPartial } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order, OrderStatus, OrderTrackingInfo } from './entities/order.entity';
-import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 
 @Injectable()
 export class OrdersRepository {
   constructor(
     @InjectRepository(Order)
-    private repository: Repository<Order>,
-    @InjectRepository(Promotion)
-    private promotionRepository: Repository<Promotion>
+    private repository: Repository<Order>
   ) {}
 
   async create(createDto: CreateOrderDto): Promise<Order> {
-    // Xử lý promotion_applied nếu có
-    let promotionsApplied: Promotion[] = [];
-    if (createDto.promotion_applied) {
-      // Sửa từ promotions_applied thành promotion_applied
-      const promotion = await this.promotionRepository.findOne({
-        where: {
-          id: createDto.promotion_applied // Chỉ query một ID
-        }
-      });
-      if (promotion) {
-        promotionsApplied = [promotion]; // Gán thành mảng Promotion[]
-      }
-    }
-
-    // Tạo orderData với type đúng
+    // Vouchers are handled by VouchersService, not in repository
+    // The vouchers_applied field will be populated by the service layer
     const orderData: DeepPartial<Order> = {
-      ...createDto,
+      customer_id: createDto.customer_id,
+      restaurant_id: createDto.restaurant_id,
+      payment_method: createDto.payment_method,
+      payment_status: createDto.payment_status,
+      customer_location: createDto.customer_location,
+      restaurant_location: createDto.restaurant_location,
+      customer_note: createDto.customer_note,
+      restaurant_note: createDto.restaurant_note,
+      delivery_time: createDto.delivery_time,
+      total_amount: createDto.total_amount,
+      delivery_fee: createDto.delivery_fee,
+      service_fee: createDto.service_fee,
+      sub_total: createDto.sub_total,
+      discount_amount: createDto.discount_amount,
+      order_items: createDto.order_items,
       status: createDto.status as OrderStatus,
       tracking_info: createDto.tracking_info as OrderTrackingInfo,
-      promotions_applied: promotionsApplied // Gán Promotion[]
+      order_time: createDto.order_time,
+      vouchers_applied: [] // Will be populated by service layer
     };
 
     const order = this.repository.create(orderData);
@@ -89,20 +88,8 @@ export class OrdersRepository {
       .where('id = :id', { id })
       .execute();
 
-    // Nếu có promotions_applied trong updateDto, xử lý riêng
-    if (updateDto.promotions_applied?.length > 0) {
-      const promotionsApplied = await this.promotionRepository.find({
-        where: {
-          id: In(updateDto.promotions_applied)
-        }
-      });
-      const order = await this.repository.findOne({
-        where: { id },
-        relations: ['promotions_applied']
-      });
-      order.promotions_applied = promotionsApplied;
-      await this.repository.save(order);
-    }
+    // Note: Voucher updates should be handled separately via VouchersService
+    // This repository only handles basic order field updates
 
     return await this.findById(id);
   }
