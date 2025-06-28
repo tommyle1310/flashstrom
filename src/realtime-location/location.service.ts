@@ -1,12 +1,13 @@
 // location.service.ts
 import { Injectable } from '@nestjs/common';
+import { AVERAGE_SPEED_KM_H } from 'src/utils/constants';
 
 @Injectable()
 export class LocationService {
   calculateDriverETA(
     driverLocation: { lat: number; lng: number },
     destination: { lat: number; lng: number },
-    averageSpeedKmH: number = 40
+    averageSpeedKmH: number = AVERAGE_SPEED_KM_H
   ): number {
     const distance = this.calculateDistance(
       driverLocation.lat,
