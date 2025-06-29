@@ -12,6 +12,8 @@ import { User } from 'src/users/entities/user.entity';
 import { UserRepository } from 'src/users/users.repository';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
+import { OnlineSession } from 'src/online-sessions/entities/online-session.entity';
+import { Transaction } from 'src/transactions/entities/transaction.entity';
 
 @Module({
   imports: [
@@ -22,7 +24,9 @@ import { AddressBookRepository } from 'src/address_book/address_book.repository'
       FoodCategory,
       User,
       AddressBook,
-      Restaurant
+      Restaurant,
+      OnlineSession,
+      Transaction
     ])
   ],
   controllers: [RestaurantStatsController],

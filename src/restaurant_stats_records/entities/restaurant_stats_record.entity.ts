@@ -15,7 +15,7 @@ export class RestaurantStatsRecord {
   restaurant_id: string;
 
   @Column()
-  period_type: string; // daily, weekly, monthly
+  period_type: string; // hourly, daily, weekly, monthly
 
   @Column('bigint')
   period_start: number;
@@ -23,6 +23,7 @@ export class RestaurantStatsRecord {
   @Column('bigint')
   period_end: number;
 
+  // Basic Stats
   @Column('float', { default: 0 })
   total_orders: number;
 
@@ -41,6 +42,31 @@ export class RestaurantStatsRecord {
   @Column('float', { default: 0 })
   total_online_hours: number;
 
+  // Enhanced Analytics
+  @Column('float', { default: 0 })
+  average_order_value: number;
+
+  @Column('float', { default: 0 })
+  order_completion_rate: number; // percentage of completed vs total orders
+
+  @Column('float', { default: 0 })
+  revenue_growth_rate: number; // percentage change from previous period
+
+  @Column('jsonb', { default: {} })
+  peak_hours_analysis: {
+    busiest_hour: number; // 0-23
+    peak_hours: number[]; // array of busy hours
+    hourly_distribution: {
+      [hour: string]: {
+        orders: number;
+        revenue: number;
+        avg_order_value: number;
+      };
+    };
+    peak_revenue_hour: number;
+    slowest_hour: number;
+  };
+
   @Column('jsonb', { default: {} })
   rating_summary: {
     average_food_rating: number;
@@ -55,6 +81,7 @@ export class RestaurantStatsRecord {
       '4': number;
       '5': number;
     };
+    rating_trend: number; // percentage change from previous period
   };
 
   @Column('jsonb', { default: {} })
@@ -62,6 +89,12 @@ export class RestaurantStatsRecord {
     completed: number;
     cancelled: number;
     rejected: number;
+    pending: number;
+    preparing: number;
+    in_progress: number;
+    ready_for_pickup: number;
+    dispatched: number;
+    delivered: number;
   };
 
   @Column('jsonb', { default: {} })
@@ -70,7 +103,42 @@ export class RestaurantStatsRecord {
     name: string;
     quantity: number;
     revenue: number;
+    avg_rating?: number;
+    growth_rate?: number; // percentage change from previous period
   }[];
+
+  @Column('jsonb', { default: {} })
+  revenue_insights: {
+    total_revenue: number;
+    previous_period_revenue: number;
+    growth_amount: number;
+    growth_percentage: number;
+    trend: 'up' | 'down' | 'stable';
+    comparison_period: string;
+    best_day?: string; // for weekly/monthly stats
+    worst_day?: string;
+    daily_average?: number;
+  };
+
+  @Column('jsonb', { default: {} })
+  performance_metrics: {
+    avg_preparation_time: number; // in minutes
+    avg_delivery_time: number; // in minutes
+    customer_satisfaction_score: number; // 0-100
+    repeat_customer_rate: number;
+    peak_efficiency_score: number; // orders per hour during peak
+  };
+
+  @Column('jsonb', { default: {} })
+  financial_breakdown: {
+    gross_revenue: number;
+    net_revenue: number; // after commissions
+    delivery_fees_earned: number;
+    tips_received: number;
+    commission_paid: number;
+    refunds_issued: number;
+    avg_transaction_value: number;
+  };
 
   @CreateDateColumn()
   created_at: Date;
