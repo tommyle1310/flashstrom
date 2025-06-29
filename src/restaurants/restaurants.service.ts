@@ -38,7 +38,6 @@ import { Order } from 'src/orders/entities/order.entity';
 import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
 import { RedisService } from 'src/redis/redis.service';
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
-import { calculateDistance } from 'src/utils/commonFunctions';
 // import { Equal } from 'typeorm';
 
 dotenv.config();
@@ -1009,178 +1008,82 @@ export class RestaurantsService {
         logger.log('No reviews found for this restaurant');
       }
 
-      // Calculate rating statistics
+      // Calculate average ratings
+      const calculationStart = Date.now();
       const totalReviews = ratingsReviews.length;
-      let avgFoodRating = 0;
-      let avgDeliveryRating = 0;
-      let avgOverallRating = 0;
 
-      if (totalReviews > 0) {
-        const validFoodRatings = ratingsReviews.filter(
-          review =>
-            review.food_rating !== null && review.food_rating !== undefined
-        );
-        const validDeliveryRatings = ratingsReviews.filter(
-          review =>
-            review.delivery_rating !== null &&
-            review.delivery_rating !== undefined
-        );
+      // Calculate food ratings only for reviews with food_rating
+      const validFoodRatings = ratingsReviews.filter(
+        review =>
+          typeof review.food_rating === 'number' && review.food_rating >= 0
+      );
+      const validDeliveryRatings = ratingsReviews.filter(
+        review =>
+          typeof review.delivery_rating === 'number' &&
+          review.delivery_rating >= 0
+      );
 
-        const totalFoodRating = validFoodRatings.reduce(
-          (sum, review) => sum + review.food_rating,
-          0
-        );
-        const totalDeliveryRating = validDeliveryRatings.reduce(
-          (sum, review) => sum + review.delivery_rating,
-          0
-        );
+      const totalFoodRating = validFoodRatings.reduce(
+        (sum, review) => sum + Math.min(5, Math.max(0, review.food_rating)),
+        0
+      );
+      const totalDeliveryRating = validDeliveryRatings.reduce(
+        (sum, review) => sum + Math.min(5, Math.max(0, review.delivery_rating)),
+        0
+      );
 
-        avgFoodRating =
-          validFoodRatings.length > 0
-            ? totalFoodRating / validFoodRatings.length
-            : 0;
-        avgDeliveryRating =
-          validDeliveryRatings.length > 0
-            ? totalDeliveryRating / validDeliveryRatings.length
-            : 0;
+      const averageFoodRating =
+        validFoodRatings.length > 0
+          ? totalFoodRating / validFoodRatings.length
+          : 0;
+      const averageDeliveryRating =
+        validDeliveryRatings.length > 0
+          ? totalDeliveryRating / validDeliveryRatings.length
+          : 0;
 
-        // Calculate overall rating as average of food and delivery
-        const validRatingsCount =
-          (validFoodRatings.length > 0 ? 1 : 0) +
-          (validDeliveryRatings.length > 0 ? 1 : 0);
-        if (validRatingsCount > 0) {
-          avgOverallRating =
-            (avgFoodRating + avgDeliveryRating) / validRatingsCount;
-        }
-      }
-
-      // Get reviewer details based on reviewer_type
-      const getReviewerDetails = review => {
-        try {
-          switch (review.reviewer_type) {
-            case 'customer':
-              return review.reviewer_customer;
-            case 'driver':
-              return review.reviewer_driver;
-            case 'restaurant':
-              return review.reviewer_restaurant;
-            case 'customerCare':
-              return review.reviewer_customercare;
-            default:
-              return null;
-          }
-        } catch (error) {
-          console.error('Error getting reviewer details:', error);
-          return null;
-        }
+      const response = {
+        restaurant_id: id,
+        total_reviews: totalReviews,
+        average_food_rating: parseFloat(
+          Math.min(5, averageFoodRating).toFixed(2)
+        ),
+        average_delivery_rating: parseFloat(
+          Math.min(5, averageDeliveryRating).toFixed(2)
+        ),
+        reviews: ratingsReviews.map(review => ({
+          id: review.id,
+          reviewer_type: review.reviewer_type,
+          reviewer:
+            review.reviewer_type === 'customer'
+              ? review.reviewer_customer
+              : review.reviewer_driver,
+          food_rating: Math.min(5, Math.max(0, review.food_rating)),
+          delivery_rating: Math.min(5, Math.max(0, review.delivery_rating)),
+          food_review: review.food_review,
+          delivery_review: review.delivery_review,
+          images: review.images,
+          created_at: review.created_at,
+          order_id: review.order_id
+        }))
       };
-
-      // Get reviewer name safely
-      const getReviewerName = reviewer => {
-        if (!reviewer) return 'Anonymous';
-
-        // Try different properties based on entity type
-        return (
-          reviewer.name ||
-          reviewer.owner_name ||
-          reviewer.customer_name ||
-          reviewer.restaurant_name ||
-          'Anonymous'
-        );
-      };
-
-      // Calculate distance and estimated time
-      let distance = 0;
-      let estimated_time = 0;
-
-      // Use a default user location in central Ho Chi Minh City
-      const userLocation = { lat: 10.8231, lng: 106.6297 };
-
-      // Get restaurant location from address
-      if (restaurant.address && restaurant.address.location) {
-        const restaurantLocation = restaurant.address.location;
-
-        // Calculate distance if location data is available
-        if (
-          restaurantLocation &&
-          restaurantLocation.lat &&
-          restaurantLocation.lng
-        ) {
-          distance = calculateDistance(
-            userLocation.lat,
-            userLocation.lng,
-            restaurantLocation.lat,
-            restaurantLocation.lng
-          );
-
-          // Calculate estimated time (in minutes) - assuming average speed of 30 km/h
-          estimated_time = Math.round((distance / 30) * 60);
-
-          // Round distance to 2 decimal places
-          distance = parseFloat(distance.toFixed(2));
-        }
-      }
-
-      // Add rating statistics to restaurant data
-      const restaurantWithRatings = {
-        ...restaurant,
-        // Add the three fields directly to the restaurant object
-        distance,
-        estimated_time,
-        avg_rating: parseFloat(avgOverallRating.toFixed(1)),
-        rating_stats: {
-          avg_rating: parseFloat(avgOverallRating.toFixed(1)),
-          avg_food_rating: parseFloat(avgFoodRating.toFixed(1)),
-          avg_delivery_rating: parseFloat(avgDeliveryRating.toFixed(1)),
-          total_reviews: totalReviews,
-          reviews: ratingsReviews.map(review => {
-            const reviewer = getReviewerDetails(review);
-            return {
-              id: review.id,
-              reviewer_type: review.reviewer_type,
-              reviewer: reviewer
-                ? {
-                    id: reviewer?.id || null,
-                    name: getReviewerName(reviewer),
-                    avatar: reviewer?.avatar || null
-                  }
-                : {
-                    id: null,
-                    name: 'Anonymous',
-                    avatar: null
-                  },
-              food_rating: review.food_rating || 0,
-              delivery_rating: review.delivery_rating || 0,
-              food_review: review.food_review || '',
-              delivery_review: review.delivery_review || '',
-              images: review.images || [],
-              created_at: review.created_at,
-              order_id: review.order_id
-            };
-          })
-        }
-      };
+      logger.log(`Calculation took ${Date.now() - calculationStart}ms`);
 
       // Cache the result
       const cacheSaveStart = Date.now();
       try {
-        await redis.setEx(
-          cacheKey,
-          cacheTtl,
-          JSON.stringify(restaurantWithRatings)
-        );
+        await redis.setEx(cacheKey, cacheTtl, JSON.stringify(response));
         logger.log(
-          `Restaurant details cached successfully (${Date.now() - cacheSaveStart}ms)`
+          `Ratings cached successfully (${Date.now() - cacheSaveStart}ms)`
         );
       } catch (cacheError) {
-        logger.warn('Failed to cache restaurant details:', cacheError);
+        logger.warn('Failed to cache ratings:', cacheError);
       }
 
       logger.log(`Total processing time: ${Date.now() - start}ms`);
       return createResponse(
         'OK',
-        restaurantWithRatings,
-        'Restaurant retrieved successfully'
+        response,
+        'Restaurant ratings and reviews retrieved successfully'
       );
     } catch (error: any) {
       logger.error('Error finding restaurant:', error);
@@ -1436,7 +1339,6 @@ export class RestaurantsService {
           .leftJoinAndSelect('order.driver', 'driver')
           .leftJoinAndSelect('order.customerAddress', 'customerAddress')
           .leftJoinAndSelect('order.restaurantAddress', 'restaurantAddress')
-          .leftJoinAndSelect('order.promotions_applied', 'promotions')
           .where('order.restaurant_id = :restaurantId', { restaurantId })
           .andWhere('order.status = :status', { status: OrderStatus.CANCELLED })
           .orderBy('order.created_at', 'DESC')
@@ -1449,7 +1351,6 @@ export class RestaurantsService {
           .leftJoinAndSelect('order.driver', 'driver')
           .leftJoinAndSelect('order.customerAddress', 'customerAddress')
           .leftJoinAndSelect('order.restaurantAddress', 'restaurantAddress')
-          .leftJoinAndSelect('order.promotions_applied', 'promotions')
           .where('order.restaurant_id = :restaurantId', { restaurantId })
           .andWhere('order.status != :status', {
             status: OrderStatus.CANCELLED
@@ -1632,44 +1533,61 @@ export class RestaurantsService {
 
       // Calculate average ratings
       const calculationStart = Date.now();
-      const totalReviews = ratingsReviews?.filter(
-        item => !item?.delivery_review || !item?.delivery_rating
-      )?.length;
-      const totalFoodRating = ratingsReviews.reduce(
-        (sum, review) => sum + review.food_rating,
+      const totalReviews = ratingsReviews.length;
+
+      // Calculate food ratings only for reviews with food_rating
+      const validFoodRatings = ratingsReviews.filter(
+        review =>
+          typeof review.food_rating === 'number' && review.food_rating >= 0
+      );
+      const validDeliveryRatings = ratingsReviews.filter(
+        review =>
+          typeof review.delivery_rating === 'number' &&
+          review.delivery_rating >= 0
+      );
+
+      const totalFoodRating = validFoodRatings.reduce(
+        (sum, review) => sum + Math.min(5, Math.max(0, review.food_rating)),
         0
       );
-      const totalDeliveryRating = ratingsReviews.reduce(
-        (sum, review) => sum + review.delivery_rating,
+      const totalDeliveryRating = validDeliveryRatings.reduce(
+        (sum, review) => sum + Math.min(5, Math.max(0, review.delivery_rating)),
         0
       );
+
       const averageFoodRating =
-        totalReviews > 0 ? totalFoodRating / totalReviews : 0;
+        validFoodRatings.length > 0
+          ? totalFoodRating / validFoodRatings.length
+          : 0;
       const averageDeliveryRating =
-        totalReviews > 0 ? totalDeliveryRating / totalReviews : 0;
+        validDeliveryRatings.length > 0
+          ? totalDeliveryRating / validDeliveryRatings.length
+          : 0;
 
       const response = {
         restaurant_id: restaurantId,
         total_reviews: totalReviews,
-        average_food_rating: parseFloat(averageFoodRating.toFixed(2)),
-        average_delivery_rating: parseFloat(averageDeliveryRating.toFixed(2)),
-        reviews: ratingsReviews
-          .map(review => ({
-            id: review.id,
-            reviewer_type: review.reviewer_type,
-            reviewer:
-              review.reviewer_type === 'customer'
-                ? review.reviewer_customer
-                : review.reviewer_driver,
-            food_rating: review.food_rating,
-            delivery_rating: review.delivery_rating,
-            food_review: review.food_review,
-            delivery_review: review.delivery_review,
-            images: review.images,
-            created_at: review.created_at,
-            order_id: review.order_id
-          }))
-          ?.filter(item => !item?.delivery_review || !item?.delivery_rating)
+        average_food_rating: parseFloat(
+          Math.min(5, averageFoodRating).toFixed(2)
+        ),
+        average_delivery_rating: parseFloat(
+          Math.min(5, averageDeliveryRating).toFixed(2)
+        ),
+        reviews: ratingsReviews.map(review => ({
+          id: review.id,
+          reviewer_type: review.reviewer_type,
+          reviewer:
+            review.reviewer_type === 'customer'
+              ? review.reviewer_customer
+              : review.reviewer_driver,
+          food_rating: Math.min(5, Math.max(0, review.food_rating)),
+          delivery_rating: Math.min(5, Math.max(0, review.delivery_rating)),
+          food_review: review.food_review,
+          delivery_review: review.delivery_review,
+          images: review.images,
+          created_at: review.created_at,
+          order_id: review.order_id
+        }))
       };
       logger.log(`Calculation took ${Date.now() - calculationStart}ms`);
 
