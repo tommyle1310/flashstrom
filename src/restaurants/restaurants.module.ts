@@ -53,6 +53,8 @@ import { DriverProgressStagesService } from 'src/driver_progress_stages/driver_p
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { Notification } from 'src/notifications/entities/notification.entity';
 import { NotificationsRepository } from 'src/notifications/notifications.repository';
+import { Driver } from 'src/drivers/entities/driver.entity';
+import { DriversRepository } from 'src/drivers/drivers.repository';
 
 @Module({
   imports: [
@@ -67,6 +69,7 @@ import { NotificationsRepository } from 'src/notifications/notifications.reposit
       FinanceRule,
       OnlineSession,
       RatingsReview,
+      Driver,
       Admin,
       DriverProgressStage,
       User,
@@ -93,6 +96,7 @@ import { NotificationsRepository } from 'src/notifications/notifications.reposit
     NotificationsRepository,
     FoodCategoriesRepository,
     UserRepository,
+    DriversRepository,
     FinanceRulesService,
     OnlineSessionsRepository,
     DriverProgressStagesRepository,

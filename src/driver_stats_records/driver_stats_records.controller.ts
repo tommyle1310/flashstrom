@@ -8,18 +8,28 @@ export class DriverStatsController {
   @Get(':driverId')
   async getStats(
     @Param('driverId') driverId: string,
-    @Query('start_date') startDate: string,
-    @Query('end_date') endDate: string,
-    @Query('aggregate') aggregate?: string
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Query('aggregate') aggregate?: string,
+    @Query('forceRefresh') forceRefresh?: string
   ) {
-    const start = Math.floor(new Date(startDate).getTime() / 1000);
-    const end = Math.floor(new Date(endDate).getTime() / 1000);
+    console.log('[CONTROLLER DEBUG] Received parameters:', {
+      driverId,
+      startDate,
+      endDate,
+      aggregate,
+      forceRefresh
+    });
+
     const isAggregate = aggregate === 'true';
+    const isForceRefresh = forceRefresh === 'true';
+
     return this.driverStatsService.getStatsForDriver(
       driverId,
-      start,
-      end,
-      isAggregate
+      startDate, // Pass as string - let service handle conversion
+      endDate, // Pass as string - let service handle conversion
+      isAggregate,
+      isForceRefresh
     );
   }
 }
