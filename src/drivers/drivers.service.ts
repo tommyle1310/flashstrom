@@ -930,15 +930,20 @@ export class DriversService {
       // Get specializations
       const specializationsStart = Date.now();
       const restaurantIds = orders.map(order => order.restaurant_id);
-      const specializations = await this.dataSource
-        .createQueryBuilder()
-        .select('rs.restaurant_id', 'restaurant_id')
-        .addSelect('array_agg(fc.name)', 'specializations')
-        .from('restaurant_specializations', 'rs')
-        .leftJoin('food_categories', 'fc', 'fc.id = rs.food_category_id')
-        .where('rs.restaurant_id IN (:...restaurantIds)', { restaurantIds })
-        .groupBy('rs.restaurant_id')
-        .getRawMany();
+      
+      // Handle empty restaurantIds array to prevent SQL syntax error
+      let specializations = [];
+      if (restaurantIds.length > 0) {
+        specializations = await this.dataSource
+          .createQueryBuilder()
+          .select('rs.restaurant_id', 'restaurant_id')
+          .addSelect('array_agg(fc.name)', 'specializations')
+          .from('restaurant_specializations', 'rs')
+          .leftJoin('food_categories', 'fc', 'fc.id = rs.food_category_id')
+          .where('rs.restaurant_id IN (:...restaurantIds)', { restaurantIds })
+          .groupBy('rs.restaurant_id')
+          .getRawMany();
+      }
       const specializationMap = new Map(
         specializations.map(spec => [spec.restaurant_id, spec.specializations])
       );

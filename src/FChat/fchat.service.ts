@@ -691,7 +691,7 @@ export class FchatService {
         'customerCareSender.avatar',
         'customerCareSender.contact_phone'
       ])
-      .where('message.roomId IN (:...roomIds)', {
+      .where(rooms.length > 0 ? 'message.roomId IN (:...roomIds)' : '1=0', {
         roomIds: rooms.map(room => room.id)
       })
       .orderBy('message.timestamp', 'DESC')
@@ -703,7 +703,7 @@ export class FchatService {
       .select('message.roomId', 'roomId')
       .addSelect('COUNT(*)', 'count')
       .where('message.senderId = :userId', { userId })
-      .andWhere('message.roomId IN (:...roomIds)', {
+      .andWhere(rooms.length > 0 ? 'message.roomId IN (:...roomIds)' : '1=0', {
         roomIds: rooms.map(room => room.id)
       })
       .groupBy('message.roomId')

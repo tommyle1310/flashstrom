@@ -60,6 +60,18 @@ export class RedisService {
     }
   }
 
+  async setEx(key: string, seconds: number, value: string): Promise<boolean> {
+    try {
+      await this.connect();
+      // Convert seconds to milliseconds for PX option
+      const result = await this.client.set(key, value, { PX: seconds * 1000 });
+      return result === 'OK';
+    } catch (err) {
+      console.error('[RedisService] setEx error:', err);
+      return false;
+    }
+  }
+
   async setNx(key: string, value: string, ttl: number): Promise<boolean> {
     try {
       await this.connect();

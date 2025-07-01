@@ -1196,15 +1196,20 @@ export class OrdersService {
     }));
 
     if (updates.length > 0) {
-      await manager
-        .createQueryBuilder()
-        .update(MenuItem)
-        .set({
-          purchase_count: () => `COALESCE(purchase_count, 0) + 1`,
-          updated_at: Math.floor(Date.now() / 1000)
-        })
-        .where('id IN (:...ids)', { ids: updates.map(u => u.id) })
-        .execute();
+      const itemIds = updates.map(u => u.id);
+      
+      // Handle empty itemIds array to prevent SQL syntax error
+      if (itemIds.length > 0) {
+        await this.dataSource
+          .createQueryBuilder()
+          .update(MenuItem)
+          .set({
+            purchase_count: () => `COALESCE(purchase_count, 0) + 1`,
+            updated_at: Math.floor(Date.now() / 1000)
+          })
+          .where('id IN (:...ids)', { ids: itemIds })
+          .execute();
+      }
     }
   }
 

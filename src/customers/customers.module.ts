@@ -33,6 +33,8 @@ import { RedisService } from 'src/redis/redis.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { AdminRepository } from 'src/admin/admin.repository';
 import { Admin } from 'src/admin/entities/admin.entity';
+import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
+import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -45,7 +47,8 @@ import { Admin } from 'src/admin/entities/admin.entity';
       Promotion,
       CartItem,
       Notification,
-      Order
+      Order,
+      MenuItem
     ]),
     forwardRef(() => CartItemsModule),
     UsersModule,
@@ -69,7 +72,8 @@ import { Admin } from 'src/admin/entities/admin.entity';
     PromotionsRepository,
     CartItemsRepository,
     OrdersRepository,
-    JwtService
+    JwtService,
+    MenuItemsRepository
   ],
   exports: [CustomersService, CustomersGateway, CustomersRepository]
 })

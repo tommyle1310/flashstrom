@@ -7,19 +7,21 @@ import {
 import { Customer } from './entities/customer.entity';
 import { createResponse, ApiResponse } from 'src/utils/createResponse';
 import { UserRepository } from '../users/users.repository';
-// import { AddressBookRepository } from 'src/address_book/address_book.repository';
-// import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
+import { AddressBookRepository } from 'src/address_book/address_book.repository';
+import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { CustomersRepository } from './customers.repository';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
-// import { OrdersRepository } from 'src/orders/orders.repository';
+// OrdersRepository is imported in the module but not used in this service
 import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 import { DataSource, ILike, In } from 'typeorm';
 import { Order } from 'src/orders/entities/order.entity';
 import { NotificationsRepository } from 'src/notifications/notifications.repository';
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
 import { MenuItemVariant } from 'src/menu_item_variants/entities/menu_item_variant.entity';
+import { SearchDto, SearchEntityType, SearchResultDto } from './dto/search.dto';
+import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
 export interface AddressPopulate {
   id?: string;
   street?: string;
@@ -29,12 +31,17 @@ export interface AddressPopulate {
     lat?: number;
     lng?: number;
   };
+  title?: string;
+  nationality?: string;
 }
 import { createClient } from 'redis';
 import * as dotenv from 'dotenv';
 import { RedisService } from 'src/redis/redis.service';
 
 dotenv.config();
+
+// Cache key for search results
+const SEARCH_CACHE_KEY_PREFIX = 'search:';
 
 const redis = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379'
@@ -50,7 +57,10 @@ export class CustomersService {
     private readonly dataSource: DataSource,
     private readonly customerRepository: CustomersRepository,
     private readonly notificationsRepository: NotificationsRepository,
-    private readonly redisService: RedisService // Thêm RedisService
+    private readonly redisService: RedisService,
+    private readonly foodCategoriesRepository: FoodCategoriesRepository,
+    private readonly menuItemsRepository: MenuItemsRepository,
+    private readonly addressBookRepository: AddressBookRepository
   ) {}
 
   async onModuleInit() {
@@ -155,6 +165,233 @@ export class CustomersService {
     }
   }
 
+  /**
+   * Search across restaurants, menu items, and food categories
+   * @param searchDto Search parameters
+   * @returns Array of search results with standardized format
+   */
+  async search(searchDto: SearchDto): Promise<ApiResponse<SearchResultDto[]>> {
+    try {
+      const { keyword, type, page, limit } = searchDto;
+      const skip = (page - 1) * limit;
+
+      // Try to get from cache first
+      const cacheKey = `${SEARCH_CACHE_KEY_PREFIX}${type}:${keyword}:${page}:${limit}`;
+      const cachedResults = await this.redisService.get(cacheKey);
+
+      if (cachedResults) {
+        return createResponse(
+          'OK',
+          JSON.parse(cachedResults),
+          'Search results retrieved from cache'
+        );
+      }
+
+      let results: SearchResultDto[] = [];
+
+      // Search based on entity type
+      if (
+        type === SearchEntityType.ALL ||
+        type === SearchEntityType.RESTAURANT
+      ) {
+        const restaurants = await this.searchRestaurants(keyword, skip, limit);
+        results = [...results, ...restaurants];
+      }
+
+      if (
+        type === SearchEntityType.ALL ||
+        type === SearchEntityType.MENU_ITEM
+      ) {
+        const menuItems = await this.searchMenuItems(keyword, skip, limit);
+        results = [...results, ...menuItems];
+      }
+
+      if (
+        type === SearchEntityType.ALL ||
+        type === SearchEntityType.FOOD_CATEGORY
+      ) {
+        const foodCategories = await this.searchFoodCategories(
+          keyword,
+          skip,
+          limit
+        );
+        results = [...results, ...foodCategories];
+      }
+
+      // Cache results for 5 minutes
+      await this.redisService.setEx(cacheKey, 300, JSON.stringify(results));
+
+      return createResponse(
+        'OK',
+        results,
+        'Search results retrieved successfully'
+      );
+    } catch (error: any) {
+      logger.error(`Error in search: ${error.message}`, error.stack);
+      return createResponse(
+        'ServerError',
+        null,
+        `Error searching: ${error.message}`
+      );
+    }
+  }
+
+  /**
+   * Search restaurants by keyword
+   */
+  private async searchRestaurants(
+    keyword: string,
+    skip: number,
+    limit: number
+  ): Promise<SearchResultDto[]> {
+    // Sanitize the keyword to prevent SQL injection
+    const sanitizedKeyword = keyword.replace(/[\\%\_]/g, char => `\\${char}`);
+
+    const restaurants = await this.restaurantRepository.repository.find({
+      where: [
+        { restaurant_name: ILike(`%${sanitizedKeyword}%`) },
+        { owner_name: ILike(`%${sanitizedKeyword}%`) },
+        { description: ILike(`%${sanitizedKeyword}%`) }
+      ],
+      relations: ['address', 'specialize_in'],
+      skip,
+      take: limit
+    });
+
+    // Get ratings for restaurants
+    const restaurantIds = restaurants.map(r => r.id);
+    
+    // Handle empty restaurantIds array to prevent SQL syntax error
+    let ratingsReviews = [];
+    if (restaurantIds.length > 0) {
+      ratingsReviews = await this.dataSource
+        .getRepository(RatingsReview)
+        .createQueryBuilder('rr')
+        .where('rr.rr_recipient_restaurant_id IN (:...ids)', {
+          ids: restaurantIds
+        })
+        .getMany();
+    }
+
+    // Map ratings to restaurants
+    const ratingsMap = {};
+    ratingsReviews.forEach(review => {
+      const restaurantId = review.rr_recipient_restaurant_id;
+      if (!ratingsMap[restaurantId]) {
+        ratingsMap[restaurantId] = {
+          count: 0,
+          foodRatingSum: 0,
+          deliveryRatingSum: 0
+        };
+      }
+      ratingsMap[restaurantId].count++;
+      ratingsMap[restaurantId].foodRatingSum += review.food_rating;
+      ratingsMap[restaurantId].deliveryRatingSum += review.delivery_rating;
+    });
+
+    return restaurants.map(restaurant => {
+      const ratings = ratingsMap[restaurant.id] || {
+        count: 0,
+        foodRatingSum: 0,
+        deliveryRatingSum: 0
+      };
+      const avgFoodRating =
+        ratings.count > 0 ? ratings.foodRatingSum / ratings.count : 0;
+      const avgDeliveryRating =
+        ratings.count > 0 ? ratings.deliveryRatingSum / ratings.count : 0;
+
+      return {
+        id: restaurant.id,
+        avatar: restaurant.avatar,
+        type: 'restaurant',
+        display_name: restaurant.restaurant_name,
+        address: restaurant.address,
+        restaurant_name: restaurant.restaurant_name,
+        owner_name: restaurant.owner_name,
+        total_orders: restaurant.total_orders,
+        ratings_reviews_record: {
+          count: ratings.count,
+          avg_food_rating: avgFoodRating,
+          avg_delivery_rating: avgDeliveryRating,
+          avg_rating: (avgFoodRating + avgDeliveryRating) / 2
+        },
+        specialize_in: restaurant.specialize_in,
+        status: restaurant.status
+      };
+    });
+  }
+
+  /**
+   * Search menu items by keyword
+   */
+  private async searchMenuItems(
+    keyword: string,
+    skip: number,
+    limit: number
+  ): Promise<SearchResultDto[]> {
+    // Sanitize the keyword to prevent SQL injection
+    const sanitizedKeyword = keyword.replace(/[\\%\_]/g, char => `\\${char}`);
+
+    const menuItems = await this.dataSource
+      .getRepository(MenuItem)
+      .createQueryBuilder('mi')
+      .leftJoinAndSelect('mi.restaurant', 'restaurant')
+      .leftJoinAndSelect('restaurant.address', 'address')
+      .where('mi.name ILIKE :keyword', { keyword: `%${sanitizedKeyword}%` })
+      .orWhere('mi.description ILIKE :keyword', {
+        keyword: `%${sanitizedKeyword}%`
+      })
+      .skip(skip)
+      .take(limit)
+      .getMany();
+
+    return menuItems.map(item => ({
+      id: item.id,
+      avatar: item.avatar,
+      type: 'menu_item',
+      display_name: item.name,
+      address: item.restaurant?.address,
+      name: item.name,
+      price: item.price,
+      category: item.category,
+      purchase_count: item.purchase_count,
+      restaurant_id: item.restaurant_id,
+      restaurant_name: item.restaurant?.restaurant_name
+    }));
+  }
+
+  /**
+   * Search food categories by keyword
+   */
+  private async searchFoodCategories(
+    keyword: string,
+    skip: number,
+    limit: number
+  ): Promise<SearchResultDto[]> {
+    // Sanitize the keyword to prevent SQL injection
+    const sanitizedKeyword = keyword.replace(/[\\%\_]/g, char => `\\${char}`);
+
+    const foodCategories = await this.dataSource
+      .getRepository(FoodCategory)
+      .createQueryBuilder('fc')
+      .where('fc.name ILIKE :keyword', { keyword: `%${sanitizedKeyword}%` })
+      .orWhere('fc.description ILIKE :keyword', {
+        keyword: `%${sanitizedKeyword}%`
+      })
+      .skip(skip)
+      .take(limit)
+      .getMany();
+
+    return foodCategories.map(category => ({
+      id: category.id,
+      avatar: category.avatar,
+      type: 'food_category',
+      display_name: category.name,
+      name: category.name,
+      description: category.description
+    }));
+  }
+
   async searchRestaurantsByKeyword(
     keyword: string,
     page: number = 1,
@@ -163,12 +400,14 @@ export class CustomersService {
     try {
       // Chuẩn hóa keyword: loại bỏ khoảng trắng thừa và chuyển thành lowercase
       const searchKeyword = keyword.trim().toLowerCase();
+      // Sanitize the keyword to prevent SQL injection
+      const sanitizedKeyword = searchKeyword.replace(/[\\%\_]/g, char => `\\${char}`);
 
       // 1. Tìm restaurant theo restaurant_name
       const restaurantsByName = await this.restaurantRepository.repository.find(
         {
           where: {
-            restaurant_name: ILike(`%${searchKeyword}%`) // Sử dụng ILike thay cho $ilike
+            restaurant_name: ILike(`%${sanitizedKeyword}%`) // Sử dụng ILike thay cho $ilike
           },
           relations: ['specialize_in', 'address'] // Populate specialize_in và address
         }
@@ -179,7 +418,7 @@ export class CustomersService {
         .getRepository(FoodCategory)
         .find({
           where: {
-            name: ILike(`%${searchKeyword}%`) // Sử dụng ILike
+            name: ILike(`%${sanitizedKeyword}%`) // Sử dụng ILike
           }
         });
 
@@ -1030,15 +1269,20 @@ export class CustomersService {
       // 4. Lấy specializations
       const specializationsStart = Date.now();
       const restaurantIds = orders.map(order => order.restaurant_id);
-      const specializations = await this.dataSource
-        .createQueryBuilder()
-        .select('rs.restaurant_id', 'restaurant_id')
-        .addSelect('array_agg(fc.name)', 'specializations')
-        .from('restaurant_specializations', 'rs')
-        .leftJoin('food_categories', 'fc', 'fc.id = rs.food_category_id')
-        .where('rs.restaurant_id IN (:...restaurantIds)', { restaurantIds })
-        .groupBy('rs.restaurant_id')
-        .getRawMany();
+      
+      // Handle empty restaurantIds array to prevent SQL syntax error
+      let specializations = [];
+      if (restaurantIds.length > 0) {
+        specializations = await this.dataSource
+          .createQueryBuilder()
+          .select('rs.restaurant_id', 'restaurant_id')
+          .addSelect('array_agg(fc.name)', 'specializations')
+          .from('restaurant_specializations', 'rs')
+          .leftJoin('food_categories', 'fc', 'fc.id = rs.food_category_id')
+          .where('rs.restaurant_id IN (:...restaurantIds)', { restaurantIds })
+          .groupBy('rs.restaurant_id')
+          .getRawMany();
+      }
       const specializationMap = new Map(
         specializations.map(spec => [spec.restaurant_id, spec.specializations])
       );

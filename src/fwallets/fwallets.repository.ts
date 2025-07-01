@@ -34,10 +34,14 @@ export class FWalletsRepository {
     manager?: EntityManager
   ): Promise<FWallet[]> {
     const repo = manager ? manager.getRepository(FWallet) : this.repository;
+    
+    // Sanitize the query to prevent SQL injection
+    const sanitizedQuery = query.replace(/[\\%\_]/g, char => `\\${char}`);
+    
     return await repo.find({
       where: [
-        { first_name: Like(`%${query}%`) },
-        { last_name: Like(`%${query}%`) }
+        { first_name: Like(`%${sanitizedQuery}%`) },
+        { last_name: Like(`%${sanitizedQuery}%`) }
       ],
       relations: ['user']
     });

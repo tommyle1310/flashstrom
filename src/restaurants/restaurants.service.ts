@@ -1010,7 +1010,7 @@ export class RestaurantsService {
 
       // Calculate average ratings
       const calculationStart = Date.now();
-      const totalReviews = ratingsReviews.length;
+      // const totalReviews = ratingsReviews.length;
 
       // Calculate food ratings only for reviews with food_rating
       const validFoodRatings = ratingsReviews.filter(
@@ -1042,29 +1042,69 @@ export class RestaurantsService {
           : 0;
 
       const response = {
-        restaurant_id: id,
-        total_reviews: totalReviews,
-        average_food_rating: parseFloat(
-          Math.min(5, averageFoodRating).toFixed(2)
-        ),
-        average_delivery_rating: parseFloat(
-          Math.min(5, averageDeliveryRating).toFixed(2)
-        ),
-        reviews: ratingsReviews.map(review => ({
-          id: review.id,
-          reviewer_type: review.reviewer_type,
-          reviewer:
-            review.reviewer_type === 'customer'
-              ? review.reviewer_customer
-              : review.reviewer_driver,
-          food_rating: Math.min(5, Math.max(0, review.food_rating)),
-          delivery_rating: Math.min(5, Math.max(0, review.delivery_rating)),
-          food_review: review.food_review,
-          delivery_review: review.delivery_review,
-          images: review.images,
-          created_at: review.created_at,
-          order_id: review.order_id
-        }))
+        address_id: restaurant.address?.id,
+        address: restaurant.address,
+        total_orders: restaurant.total_orders || 0,
+        description: restaurant.description || '',
+        avatar: restaurant.avatar || { url: '', key: '' },
+        contact_email: restaurant.contact_email || [],
+        contact_phone: restaurant.contact_phone || [],
+        owner_id: restaurant.owner?.id,
+        promotions: restaurant.promotions || [],
+        restaurant_name: restaurant.restaurant_name,
+        ratings:
+          ratingsReviews.length > 0
+            ? {
+                average_rating: averageFoodRating,
+                review_count: ratingsReviews.length
+              }
+            : null,
+        specialize_in: restaurant.specialize_in || [],
+        status: {
+          is_open: restaurant.status.is_open,
+          is_active: restaurant.status.is_active,
+          is_accepted_orders: restaurant.status.is_accepted_orders
+        },
+        opening_hours: restaurant.opening_hours,
+        rating_stats: {
+          avg_rating: (averageFoodRating + averageDeliveryRating) / 2,
+          avg_food_rating: averageFoodRating,
+          avg_delivery_rating: averageDeliveryRating,
+          total_reviews: ratingsReviews.length,
+          reviews: ratingsReviews.map(review => ({
+            id: review.id,
+            reviewer_type: review.reviewer_type,
+            reviewer: {
+              id:
+                review.reviewer_customer?.id ||
+                review.reviewer_driver?.id ||
+                review.reviewer_restaurant?.id ||
+                review.reviewer_customercare?.id,
+              name:
+                (review.reviewer_customer
+                  ? `${review.reviewer_customer?.first_name} ${review.reviewer_customer?.last_name}`
+                  : 'Anonymus') ||
+                (review.reviewer_driver
+                  ? `${review.reviewer_driver?.first_name} ${review.reviewer_driver?.last_name}`
+                  : 'Anonymus') ||
+                (review.reviewer_restaurant
+                  ? `${review.reviewer_customercare?.first_name} ${review.reviewer_customercare?.last_name}`
+                  : 'Anonymus'),
+              avatar:
+                review.reviewer_customer?.avatar ||
+                review.reviewer_driver?.avatar ||
+                review.reviewer_restaurant?.avatar ||
+                review.reviewer_customercare?.avatar
+            },
+            food_rating: review.food_rating,
+            delivery_rating: review.delivery_rating,
+            food_review: review.food_review,
+            delivery_review: review.delivery_review,
+            images: review.images,
+            created_at: review.created_at,
+            order_id: review.order_id
+          }))
+        }
       };
       logger.log(`Calculation took ${Date.now() - calculationStart}ms`);
 

@@ -22,6 +22,7 @@ import { AddressBookService } from 'src/address_book/address_book.service';
 import { CreateAddressBookDto } from 'src/address_book/dto/create-address_book.dto';
 import { ApiResponse } from 'src/utils/createResponse';
 import { Customer } from './entities/customer.entity';
+import { SearchDto } from './dto/search.dto';
 
 @Controller('customers')
 export class CustomersController {
@@ -75,6 +76,18 @@ export class CustomersController {
       page,
       limit
     );
+  }
+
+  @Get('/search')
+  search(@Query() searchDto: SearchDto) {
+    if (!searchDto.keyword) {
+      return {
+        status: 'BadRequest',
+        data: null,
+        message: 'Keyword is required'
+      };
+    }
+    return this.customersService.search(searchDto);
   }
 
   // Trong file customers.controller.ts
