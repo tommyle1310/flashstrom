@@ -7,6 +7,10 @@ import { CreateFinanceRuleDto } from './dto/create-finance_rule.dto';
 import { UpdateFinanceRuleDto } from './dto/update-finance_rule.dto';
 import { createResponse, ApiResponse } from 'src/utils/createResponse';
 import { AdminRepository } from 'src/admin/admin.repository';
+import { TargetUser } from 'src/notifications/entities/notification.entity';
+import { IMAGE_LINKS } from 'src/assets/image_urls';
+import { ADMIN_MOCK } from 'src/utils/constants';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Injectable()
 export class FinanceRulesService {
@@ -16,7 +20,8 @@ export class FinanceRulesService {
     private readonly financeRulesRepository: FinanceRulesRepository,
     private readonly adminRepository: AdminRepository,
     @InjectRepository(FinanceRule)
-    private financeRuleEntityRepository: Repository<FinanceRule>
+    private financeRuleEntityRepository: Repository<FinanceRule>,
+    private readonly notificationsService: NotificationsService
   ) {}
 
   async create(
@@ -38,6 +43,46 @@ export class FinanceRulesService {
       // Tạo finance rule
       const newFinanceRule =
         await this.financeRulesRepository.create(createFinanceRuleDto);
+
+      const driverNotificationData = {
+        avatar: {
+          url: IMAGE_LINKS.ORDER_DELIVERED,
+          key: 'finance-rule-updated'
+        },
+        title: 'Updated Driver earning calculation',
+        desc: `Updated Driver earning calculation (01/07/2025)`,
+        image: null,
+        link: ``,
+        target_user: [TargetUser.DRIVER],
+        created_by_id: ADMIN_MOCK.admin_id
+      };
+      const restaurantNotificationData = {
+        avatar: {
+          url: IMAGE_LINKS.ORDER_DELIVERED,
+          key: 'finance-rule-updated'
+        },
+        title: 'Updated Restaurant earning calculation',
+        desc: `Updated Restaurant earning calculation (01/07/2025)`,
+        image: null,
+        link: ``,
+        target_user: [TargetUser.RESTAURANT],
+        created_by_id: ADMIN_MOCK.admin_id
+      };
+
+      const driverNotificationResponse = await this.notificationsService.create(
+        driverNotificationData
+      );
+      const restaurantNotificationResponse =
+        await this.notificationsService.create(restaurantNotificationData);
+
+      if (
+        restaurantNotificationResponse.EC === 0 &&
+        driverNotificationResponse.EC === 0
+      ) {
+        console.log('Restaurant notification created successfully');
+      } else {
+        console.log('Failed to create restaurant notification');
+      }
       return createResponse(
         'OK',
         newFinanceRule,

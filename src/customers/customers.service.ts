@@ -260,7 +260,7 @@ export class CustomersService {
 
     // Get ratings for restaurants
     const restaurantIds = restaurants.map(r => r.id);
-    
+
     // Handle empty restaurantIds array to prevent SQL syntax error
     let ratingsReviews = [];
     if (restaurantIds.length > 0) {
@@ -401,7 +401,10 @@ export class CustomersService {
       // Chuẩn hóa keyword: loại bỏ khoảng trắng thừa và chuyển thành lowercase
       const searchKeyword = keyword.trim().toLowerCase();
       // Sanitize the keyword to prevent SQL injection
-      const sanitizedKeyword = searchKeyword.replace(/[\\%\_]/g, char => `\\${char}`);
+      const sanitizedKeyword = searchKeyword.replace(
+        /[\\%\_]/g,
+        char => `\\${char}`
+      );
 
       // 1. Tìm restaurant theo restaurant_name
       const restaurantsByName = await this.restaurantRepository.repository.find(
@@ -1269,7 +1272,7 @@ export class CustomersService {
       // 4. Lấy specializations
       const specializationsStart = Date.now();
       const restaurantIds = orders.map(order => order.restaurant_id);
-      
+
       // Handle empty restaurantIds array to prevent SQL syntax error
       let specializations = [];
       if (restaurantIds.length > 0) {

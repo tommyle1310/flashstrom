@@ -14,6 +14,9 @@ import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { PromotionsRepository } from 'src/promotions/promotions.repository';
 import { UserRepository } from 'src/users/users.repository';
 import { User } from 'src/users/entities/user.entity';
+import { Notification } from 'src/notifications/entities/notification.entity';
+import { NotificationsService } from 'src/notifications/notifications.service';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
 
 @Module({
   imports: [
@@ -23,6 +26,7 @@ import { User } from 'src/users/entities/user.entity';
       Admin,
       Order,
       User,
+      Notification,
       Promotion
     ])
   ],
@@ -34,7 +38,9 @@ import { User } from 'src/users/entities/user.entity';
     OrdersRepository,
     PromotionsRepository,
     AdminRepository,
-    UserRepository
+    UserRepository,
+    NotificationsService,
+    NotificationsRepository
   ]
 })
 export class FinanceRulesModule {}

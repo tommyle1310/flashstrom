@@ -3342,6 +3342,39 @@ export class DriversGateway
           });
         }
       }
+      if (orderWithRelations.driver) {
+        const driverNotificationData = {
+          avatar: {
+            url: IMAGE_LINKS.ORDER_DELIVERED,
+            key: 'delivery-complete'
+          },
+          title: 'You have completed an order! ✅',
+          desc: `Congratulations! You have successfully completed order #${order.id}.`,
+          image: null,
+          link: `/orders/${order.id}`,
+          target_user: [TargetUser.DRIVER],
+          created_by_id: ADMIN_MOCK.admin_id,
+          target_user_id:
+            orderWithRelations.driver.id || orderWithRelations.driver_id
+        };
+
+        const restaurantNotificationResponse =
+          await this.notificationsService.create(driverNotificationData);
+
+        if (restaurantNotificationResponse.EC === 0) {
+          logToFile('Restaurant notification created successfully', {
+            orderId: order.id,
+            restaurantId: orderWithRelations.restaurant.id,
+            notificationId: restaurantNotificationResponse.data.id
+          });
+        } else {
+          logToFile('Failed to create restaurant notification', {
+            orderId: order.id,
+            restaurantId: orderWithRelations.restaurant.id,
+            error: restaurantNotificationResponse.EM
+          });
+        }
+      }
     } catch (error: any) {
       logToFile('Error creating delivery completion notifications', {
         orderId: order.id,
