@@ -35,7 +35,10 @@ export class FAQsRepository {
   }
 
   async update(id: string, updateData: UpdateFAQDto): Promise<void> {
-    await this.faqRepository.update(id, updateData);
+    await this.faqRepository.update(id, {
+      ...updateData,
+      target_user: updateData.target_user
+    });
   }
 
   async delete(id: string): Promise<{ affected?: number }> {

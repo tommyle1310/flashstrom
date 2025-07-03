@@ -1,3 +1,5 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminController } from './admin.controller';
@@ -35,12 +37,13 @@ import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
 import { User } from 'src/users/entities/user.entity';
 import { UserRepository } from 'src/users/users.repository';
 import { AdminFakeController } from './admin.controller-fake';
-import { JwtService } from '@nestjs/jwt';
+import { JwtModule, JwtService } from '@nestjs/jwt';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RedisService } from 'src/redis/redis.service';
 
 @Module({
   imports: [
+    JwtModule,
     TypeOrmModule.forFeature([
       Admin,
       BannedAccount,

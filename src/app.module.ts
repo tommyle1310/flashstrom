@@ -78,10 +78,14 @@ import { NotificationsService } from './notifications/notifications.service';
 import { NotificationsRepository } from './notifications/notifications.repository';
 import { Notification } from './notifications/entities/notification.entity';
 import { LocationModule } from './realtime-location';
+import { ConfigModule } from '@nestjs/config';
+import { AdminChatbotModule } from './admin_chatbot/admin_chatbot.module';
 
 @Global()
 @Module({
   imports: [
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }), // Explicitly specify .env file
+
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'default-secret',
       signOptions: { expiresIn: '30d' },
@@ -165,7 +169,8 @@ import { LocationModule } from './realtime-location';
     DriverStatsRecordsModule,
     RestaurantStatsModule,
     BannedAccountModule,
-    NotificationsModule
+    NotificationsModule,
+    AdminChatbotModule
   ],
   controllers: [AppController],
   providers: [
