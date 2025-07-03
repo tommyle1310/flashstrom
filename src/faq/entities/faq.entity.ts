@@ -61,13 +61,8 @@ export class FAQ {
   })
   status: FAQStatus;
 
-  @Column({
-    type: 'enum',
-    enum: FAQTargetUser,
-    array: true, // Định nghĩa là mảng enum
-    default: [] // Mặc định là mảng rỗng
-  })
-  target_user: FAQTargetUser[]; // Thêm field target_user
+  @Column('text', { array: true, nullable: true })
+  target_user: string[];
 
   @Column({ type: 'bigint' })
   created_at: number;

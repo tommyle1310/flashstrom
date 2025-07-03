@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete
+} from '@nestjs/common';
 import { BannedAccountService } from './banned-account.service';
 import { CreateBannedAccountDto } from './dto/create-banned-account.dto';
 import { UpdateBannedAccountDto } from './dto/update-banned-account.dto';
@@ -23,7 +31,10 @@ export class BannedAccountController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateBannedAccountDto: UpdateBannedAccountDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateBannedAccountDto: UpdateBannedAccountDto
+  ) {
     return this.bannedAccountService.update(+id, updateBannedAccountDto);
   }
 

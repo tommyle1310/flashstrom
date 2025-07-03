@@ -12,9 +12,11 @@ export class FAQsService {
 
   async create(createFAQDto: CreateFAQDto): Promise<ApiResponse<FAQ>> {
     try {
-      const savedFAQ = await this.faqsRepository.create({
-        ...createFAQDto
-      });
+      const faqToCreate = {
+        ...createFAQDto,
+        target_user: createFAQDto.target_user
+      };
+      const savedFAQ = await this.faqsRepository.create(faqToCreate);
       return createResponse('OK', savedFAQ, 'FAQ created successfully');
     } catch (error: any) {
       console.log('error', error);
