@@ -1,19 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, Like, FindManyOptions } from 'typeorm';
 import { RedisService } from '../redis/redis.service';
 import {
   ChatbotResponse,
-  ResponseType
+  ResponseType,
+  ActionCode
 } from './entities/chatbot_response.entity';
 import { ChatbotGuide } from './entities/chatbot_guide.entity';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { CreateChatbotResponseDto } from './dto/create-chatbot_response.dto';
 import { UpdateChatbotResponseDto } from './dto/update-chatbot_response.dto';
+import { SearchChatbotResponseDto } from './dto/search-chatbot_response.dto';
+import { ApiResponse, createResponse } from 'src/utils/createResponse';
 
 export interface AdminBotResponse {
   content: string | any[] | any;
+  action_code?: ActionCode;
   type: 'TEXT' | 'OPTIONS' | 'GUIDE' | 'ORDER' | 'INQUIRY' | 'ACTION_RESULT';
 }
 
@@ -25,7 +29,7 @@ export interface ChatbotSession {
 }
 
 export interface ActionHandler {
-  action_code: string;
+  action_code: ActionCode;
   handler: (params?: any) => Promise<AdminBotResponse>;
   description: string;
 }
@@ -34,7 +38,7 @@ export interface ActionHandler {
 export class AdminChatbotService {
   private readonly logger = new Logger(AdminChatbotService.name);
   private sessions = new Map<string, ChatbotSession>();
-  private actionHandlers: Map<string, ActionHandler> = new Map();
+  private actionHandlers: Map<ActionCode, ActionHandler> = new Map();
 
   constructor(
     @InjectRepository(ChatbotResponse)
@@ -52,32 +56,32 @@ export class AdminChatbotService {
 
   private initializeActionHandlers(): void {
     // Register action handlers
-    this.actionHandlers.set('FIND_ORDER_BY_ID', {
-      action_code: 'FIND_ORDER_BY_ID',
+    this.actionHandlers.set(ActionCode.FIND_ORDER_BY_ID, {
+      action_code: ActionCode.FIND_ORDER_BY_ID,
       handler: this.findOrderById.bind(this),
       description: 'Find order by ID'
     });
 
-    this.actionHandlers.set('GET_CUSTOMERS_REGISTERED_TODAY', {
-      action_code: 'GET_CUSTOMERS_REGISTERED_TODAY',
+    this.actionHandlers.set(ActionCode.GET_CUSTOMERS_REGISTERED_TODAY, {
+      action_code: ActionCode.GET_CUSTOMERS_REGISTERED_TODAY,
       handler: this.getCustomersRegisteredToday.bind(this),
       description: 'Get customers registered today'
     });
 
-    this.actionHandlers.set('GET_TOTAL_ORDERS_TODAY', {
-      action_code: 'GET_TOTAL_ORDERS_TODAY',
+    this.actionHandlers.set(ActionCode.GET_TOTAL_ORDERS_TODAY, {
+      action_code: ActionCode.GET_TOTAL_ORDERS_TODAY,
       handler: this.getTotalOrdersToday.bind(this),
       description: 'Get total orders count for today'
     });
 
-    this.actionHandlers.set('GET_GROSS_REVENUE_TODAY', {
-      action_code: 'GET_GROSS_REVENUE_TODAY',
+    this.actionHandlers.set(ActionCode.GET_GROSS_REVENUE_TODAY, {
+      action_code: ActionCode.GET_GROSS_REVENUE_TODAY,
       handler: this.getGrossRevenueToday.bind(this),
       description: 'Get total gross revenue for today'
     });
 
-    this.actionHandlers.set('GET_PENDING_ORDERS', {
-      action_code: 'GET_PENDING_ORDERS',
+    this.actionHandlers.set(ActionCode.GET_PENDING_ORDERS, {
+      action_code: ActionCode.GET_PENDING_ORDERS,
       handler: this.getPendingOrders.bind(this),
       description: 'Get all pending orders'
     });
@@ -254,6 +258,7 @@ export class AdminChatbotService {
             restaurant: order.restaurant?.restaurant_name
           }))
         },
+        action_code: ActionCode.FIND_ORDER_BY_ID,
         type: 'ACTION_RESULT'
       };
     } catch (error) {
@@ -290,6 +295,7 @@ export class AdminChatbotService {
             phone: customer.phone || 'N/A'
           }))
         },
+        action_code: ActionCode.GET_CUSTOMERS_REGISTERED_TODAY,
         type: 'ACTION_RESULT'
       };
     } catch (error) {
@@ -323,6 +329,7 @@ export class AdminChatbotService {
           count: orderCount,
           date: today.toDateString()
         },
+        action_code: ActionCode.GET_TOTAL_ORDERS_TODAY,
         type: 'ACTION_RESULT'
       };
     } catch (error) {
@@ -369,6 +376,7 @@ export class AdminChatbotService {
           orderCount: orders.length,
           date: today.toDateString()
         },
+        action_code: ActionCode.GET_GROSS_REVENUE_TODAY,
         type: 'ACTION_RESULT'
       };
     } catch (error) {
@@ -409,6 +417,7 @@ export class AdminChatbotService {
               : 'Not assigned'
           }))
         },
+        action_code: ActionCode.GET_PENDING_ORDERS,
         type: 'ACTION_RESULT'
       };
     } catch (error) {
@@ -421,7 +430,7 @@ export class AdminChatbotService {
   }
 
   public async getHelp(): Promise<AdminBotResponse> {
-    const helpResponse = await this.chatbotResponseRepository.find({
+    const helpResponse = await this.chatbotResponseRepository.findOne({
       where: {
         response_type: ResponseType.OPTIONS,
         keyword: 'help'
@@ -431,11 +440,7 @@ export class AdminChatbotService {
       return this.getFallbackResponse();
     }
     return {
-      content: helpResponse?.map(response => ({
-        id: response.id,
-        text: response.response_text,
-        next_id: null
-      })),
+      content: helpResponse?.options,
       type: 'OPTIONS'
     };
   }
@@ -577,9 +582,14 @@ export class AdminChatbotService {
 
   async createBotResponse(
     createDto: CreateChatbotResponseDto
-  ): Promise<ChatbotResponse> {
+  ): Promise<ApiResponse<ChatbotResponse>> {
     const response = this.chatbotResponseRepository.create(createDto);
-    return this.chatbotResponseRepository.save(response);
+    await this.chatbotResponseRepository.save(response);
+    return createResponse(
+      'OK',
+      response,
+      'Created new chatbot response succesfully'
+    );
   }
 
   async updateBotResponse(
@@ -588,5 +598,120 @@ export class AdminChatbotService {
   ): Promise<ChatbotResponse> {
     await this.chatbotResponseRepository.update(id, updateDto);
     return this.chatbotResponseRepository.findOne({ where: { id } });
+  }
+
+  async searchBotResponses(searchDto: SearchChatbotResponseDto): Promise<{
+    data: ChatbotResponse[];
+    total: number;
+    message: string;
+  }> {
+    try {
+      // If getall is true, return all responses
+      if (searchDto.getall) {
+        const [responses, total] =
+          await this.chatbotResponseRepository.findAndCount({
+            order: { created_at: 'DESC' }
+          });
+
+        return {
+          data: responses,
+          total,
+          message: `Retrieved all ${total} chatbot responses`
+        };
+      }
+
+      // Build search conditions
+      const findOptions: FindManyOptions<ChatbotResponse> = {
+        where: {},
+        order: { created_at: 'DESC' }
+      };
+
+      // Add specific field filters
+      if (searchDto.keyword) {
+        findOptions.where['keyword'] = Like(`%${searchDto.keyword}%`);
+      }
+
+      if (searchDto.response_type) {
+        findOptions.where['response_type'] = searchDto.response_type;
+      }
+
+      if (searchDto.action_code) {
+        findOptions.where['action_code'] = searchDto.action_code;
+      }
+
+      if (searchDto.is_active !== undefined) {
+        findOptions.where['is_active'] = searchDto.is_active;
+      }
+
+      // Handle general search term (search in keyword or response_text)
+      if (searchDto.search) {
+        const searchTerm = `%${searchDto.search}%`;
+        const queryBuilder =
+          this.chatbotResponseRepository.createQueryBuilder('response');
+
+        queryBuilder.where(
+          '(response.keyword ILIKE :searchTerm OR response.response_text ILIKE :searchTerm)',
+          { searchTerm }
+        );
+
+        // Add other filters to query builder if they exist
+        if (searchDto.response_type) {
+          queryBuilder.andWhere('response.response_type = :responseType', {
+            responseType: searchDto.response_type
+          });
+        }
+
+        if (searchDto.action_code) {
+          queryBuilder.andWhere('response.action_code = :actionCode', {
+            actionCode: searchDto.action_code
+          });
+        }
+
+        if (searchDto.is_active !== undefined) {
+          queryBuilder.andWhere('response.is_active = :isActive', {
+            isActive: searchDto.is_active
+          });
+        }
+
+        queryBuilder.orderBy('response.created_at', 'DESC');
+
+        const [responses, total] = await queryBuilder.getManyAndCount();
+
+        return {
+          data: responses,
+          total,
+          message:
+            total > 0
+              ? `Found ${total} responses matching "${searchDto.search}"`
+              : `No responses found matching "${searchDto.search}"`
+        };
+      }
+
+      // If no search term but have other filters
+      if (Object.keys(findOptions.where).length > 0) {
+        const [responses, total] =
+          await this.chatbotResponseRepository.findAndCount(findOptions);
+
+        return {
+          data: responses,
+          total,
+          message:
+            total > 0
+              ? `Found ${total} responses matching the specified filters`
+              : 'No responses found matching the specified filters'
+        };
+      }
+
+      // If no filters provided, return empty result with message
+      return {
+        data: [],
+        total: 0,
+        message:
+          'Please provide search parameters or use getall=true to retrieve all responses'
+      };
+    } catch (error) {
+      this.logger.error('Error searching chatbot responses:', error);
+      throw new Error('Failed to search chatbot responses');
+    }
   }
 }

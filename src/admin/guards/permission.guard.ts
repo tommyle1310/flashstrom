@@ -51,7 +51,9 @@ export class PermissionGuard implements CanActivate {
     }
 
     try {
-      const payload = this.jwtService.verify(token);
+      const payload = this.jwtService.verify(token, {
+        secret: process.env.JWT_SECRET
+      });
       // Dùng 'id' thay vì 'adminId' để khớp với payload
       const adminId = payload.id;
       if (!adminId) {

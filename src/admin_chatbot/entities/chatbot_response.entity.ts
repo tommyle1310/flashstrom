@@ -16,6 +16,14 @@ export enum ResponseType {
   ACTION = 'ACTION'
 }
 
+export enum ActionCode {
+  FIND_ORDER_BY_ID = 'FIND_ORDER_BY_ID',
+  GET_CUSTOMERS_REGISTERED_TODAY = 'GET_CUSTOMERS_REGISTERED_TODAY',
+  GET_TOTAL_ORDERS_TODAY = 'GET_TOTAL_ORDERS_TODAY',
+  GET_GROSS_REVENUE_TODAY = 'GET_GROSS_REVENUE_TODAY',
+  GET_PENDING_ORDERS = 'GET_PENDING_ORDERS'
+}
+
 export interface ChatbotOption {
   id: number;
   text: string;
@@ -45,8 +53,12 @@ export class ChatbotResponse {
   @Column({ type: 'integer', nullable: true })
   parent_id: number;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  action_code: string;
+  @Column({
+    type: 'enum',
+    enum: ActionCode,
+    nullable: true
+  })
+  action_code: ActionCode;
 
   @ManyToOne(() => ChatbotResponse, { nullable: true })
   @JoinColumn({ name: 'parent_id' })

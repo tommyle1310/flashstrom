@@ -124,7 +124,7 @@ export class RestaurantsGateway
             this.logger.warn(
               `[RestaurantsGateway] Retrying Redis connection (${retryCount}/${maxRetries})...`
             );
-            setTimeout(connectRedis, 2000);
+            setTimeout(connectRedis, 30000);
           } else {
             this.logger.error(
               '[RestaurantsGateway] Failed to initialize Redis adapter after retries:',

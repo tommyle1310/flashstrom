@@ -65,6 +65,7 @@ import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
 import { Server } from 'socket.io';
 import { TransactionsModule } from 'src/transactions/transactions.module';
 import { NotificationsService } from 'src/notifications/notifications.service';
+import { AdminGateway } from 'src/admin/admin.gateway';
 
 @Module({
   imports: [
@@ -132,6 +133,7 @@ import { NotificationsService } from 'src/notifications/notifications.service';
     CustomersGateway,
     DriversGateway,
     RestaurantsGateway,
+    AdminGateway,
     TransactionsRepository,
     JwtService,
     EventEmitter2,

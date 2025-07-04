@@ -47,7 +47,4 @@ export class UpdatePermissionsDto {
   @IsArray()
   @IsEnum(AdminPermission, { each: true })
   permissions: AdminPermission[];
-
-  @IsString()
-  requesterId: string;
 }
