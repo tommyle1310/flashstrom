@@ -1074,16 +1074,17 @@ export class OrdersService {
       });
       logger.log(`Emitting event ${eventId} with redisResult: ${redisResult}`);
       if (redisResult === 'OK') {
-        this.notifyOrderStatus(trackingUpdate as any);
-        this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
+        await this.notifyOrderStatus(trackingUpdate as any);
+        await this.eventEmitter.emit(
+          'listenUpdateOrderTracking',
+          trackingUpdate
+        );
 
         // Emit admin notification for new order creation
-        if (!isGenerated) {
-          this.eventEmitter.emit('newly_created_entity_notification', {
-            entity_name: 'Order'
-          });
-          logger.log('Emitted newly_created_entity_notification for new Order');
-        }
+        await this.eventEmitter.emit('newly_created_entity_notification', {
+          entity_name: 'Order'
+        });
+        logger.log('Emitted newly_created_entity_notification for new Order');
 
         logger.log('check tracking update', trackingUpdate);
       } else {
@@ -1197,7 +1198,7 @@ export class OrdersService {
 
     if (updates.length > 0) {
       const itemIds = updates.map(u => u.id);
-      
+
       // Handle empty itemIds array to prevent SQL syntax error
       if (itemIds.length > 0) {
         await this.dataSource

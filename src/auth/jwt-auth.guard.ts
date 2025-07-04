@@ -8,7 +8,8 @@ export class JwtAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const authorization = request.headers['authorization'];
+    const authorization =
+      request.headers['authorization'] || request.headers['Authorization'];
 
     if (!authorization) {
       request.response = createResponse(
@@ -29,8 +30,27 @@ export class JwtAuthGuard implements CanActivate {
       return false;
     }
 
+    console.log(
+      'chdck swwhat jwt payload',
+      // payload,
+      'token',
+      token,
+      'key',
+      process.env.JWT_SECRET
+    );
+
     try {
-      const payload = this.jwtService.verify(token);
+      const payload = this.jwtService.verify(token, {
+        secret: process.env.JWT_SECRET
+      });
+      console.log(
+        'chdck swwhat jwt payload',
+        payload,
+        'token',
+        token,
+        'key',
+        process.env.JWT_SECRET
+      );
       // Dùng 'id' thay vì 'adminId' để khớp với payload
       const userId = payload.id;
       if (!userId) {

@@ -4,6 +4,6 @@ import { BannedAccountController } from './banned-account.controller';
 
 @Module({
   controllers: [BannedAccountController],
-  providers: [BannedAccountService],
+  providers: [BannedAccountService]
 })
 export class BannedAccountModule {}
