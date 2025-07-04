@@ -513,6 +513,7 @@ export class AuthService {
 
     if (existingUser && Array.isArray(existingUser.user_type)) {
       const userTypes = existingUser.user_type.map(t => String(t));
+      console.log('dhdkcutype ', userTypes, 'check type payload  ', type);
       if (userTypes.includes(String(type))) {
         return createResponse(
           'DuplicatedRecord',

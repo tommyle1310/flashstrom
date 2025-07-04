@@ -8,9 +8,9 @@ import { Type_Delivery_Order } from 'src/types/Driver';
 import { calculateDistance } from 'src/utils/commonFunctions';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { DriversRepository } from './drivers.repository';
-import { Order } from 'src/orders/entities/order.entity';
+import { Order, OrderStatus } from 'src/orders/entities/order.entity';
 import { OrdersRepository } from 'src/orders/orders.repository';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository, Between } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
 import { OnlineSessionsService } from 'src/online-sessions/online-sessions.service';
@@ -22,9 +22,11 @@ import { ToggleDriverAvailabilityDto } from './dto/driver-availability.dto';
 import { OnlineSession } from 'src/online-sessions/entities/online-session.entity';
 import * as dotenv from 'dotenv';
 import { RedisService } from 'src/redis/redis.service';
-import { In } from 'typeorm';
-import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
+// import { In } from 'typeorm';
+// import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
 import { DRIVER_MOCK } from 'src/utils/constants';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
+import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
 
 dotenv.config();
 
@@ -46,13 +48,18 @@ export class DriversService {
     @InjectRepository(Driver)
     private driverEntityRepository: Repository<Driver>,
     private readonly ordersRepository: OrdersRepository,
+    @InjectRepository(Order)
+    private readonly orderServiceRepository: Repository<Order>,
     private readonly driverStatsService: DriverStatsService,
     private readonly addressRepository: AddressBookRepository,
     private readonly driverProgressStageRepository: DriverProgressStagesRepository,
+    @InjectRepository(DriverProgressStage)
+    private readonly driverProgressStageServiceRepository: Repository<DriverProgressStage>,
     private readonly onlineSessionsService: OnlineSessionsService,
     private readonly dataSource: DataSource,
     private readonly ratingsReviewsRepository: RatingsReviewsRepository,
-    private readonly redisService: RedisService
+    private readonly redisService: RedisService,
+    private readonly notificationsRepository: NotificationsRepository
   ) {}
 
   async onModuleInit() {
@@ -842,207 +849,103 @@ export class DriversService {
   }
 
   async getAllOrders(driverId: string): Promise<ApiResponse<any>> {
-    const cacheKey = `orders:driver:${driverId}`;
-    const ttl = 300; // Cache 5 minutes (300 seconds)
+    const cacheKey = `driver:notifications:${driverId}`;
+    const cacheTtl = 300; // 5 minutes (notifications change frequently)
     const start = Date.now();
 
     try {
-      // Check cache first
+      // Try to get from cache first
       const cacheStart = Date.now();
       const cachedData = await this.redisService.get(cacheKey);
       if (cachedData) {
-        logger.log(`Fetched orders from cache in ${Date.now() - cacheStart}ms`);
+        logger.log(
+          `Cache hit for driver notifications ${driverId} in ${Date.now() - cacheStart}ms`
+        );
         logger.log(`Total time (cache): ${Date.now() - start}ms`);
+        const cachedNotifications = JSON.parse(cachedData);
         return createResponse(
           'OK',
-          JSON.parse(cachedData),
-          'Fetched orders from cache successfully'
+          cachedNotifications,
+          `Fetched ${cachedNotifications.length} notifications from cache for driver ${driverId}`
         );
       }
-      logger.log(`Cache miss for ${cacheKey}`);
 
-      // Check driver exists
+      logger.log(`Cache miss for driver notifications: ${driverId}`);
+
+      // Kiểm tra driver có tồn tại không
       const driverStart = Date.now();
       const driver = await this.driversRepository.findById(driverId);
       if (!driver) {
-        logger.log(`Driver fetch took ${Date.now() - driverStart}ms`);
         return createResponse('NotFound', null, 'Driver not found');
       }
-      logger.log(`Driver fetch took ${Date.now() - driverStart}ms`);
+      logger.log(`Driver validation took ${Date.now() - driverStart}ms`);
 
-      // Get orders with optimized fields
-      const ordersStart = Date.now();
-      const orders = await this.dataSource.getRepository(Order).find({
-        where: { driver_id: driverId },
-        relations: [
-          'restaurant',
-          'customer',
-          'restaurantAddress',
-          'customerAddress'
-        ],
-        select: {
-          id: true,
-          customer_id: true,
-          restaurant_id: true,
-          driver_id: true,
-          status: true,
-          total_amount: true,
-          payment_status: true,
-          payment_method: true,
-          customer_location: true,
-          restaurant_location: true,
-          order_items: true,
-          customer_note: true,
-          restaurant_note: true,
-          distance: true,
-          delivery_fee: true,
-          updated_at: true,
-          order_time: true,
-          delivery_time: true,
-          tracking_info: true,
-          cancelled_by: true,
-          cancelled_by_id: true,
-          cancellation_reason: true,
-          cancellation_title: true,
-          cancellation_description: true,
-          cancelled_at: true,
-          restaurant: {
-            id: true,
-            restaurant_name: true,
-            address_id: true,
-            avatar: { url: true, key: true }
-          }
-        }
-      });
-      logger.log(`Orders fetch took ${Date.now() - ordersStart}ms`);
-
-      if (!orders || orders.length === 0) {
-        const response = createResponse(
-          'OK',
-          [],
-          'No orders found for this driver'
-        );
-        await this.redisService.setNx(cacheKey, JSON.stringify([]), ttl * 1000);
-        logger.log(`Stored empty orders in cache: ${cacheKey}`);
-        return response;
-      }
-
-      // Get specializations
-      const specializationsStart = Date.now();
-      const restaurantIds = orders.map(order => order.restaurant_id);
-      
-      // Handle empty restaurantIds array to prevent SQL syntax error
-      let specializations = [];
-      if (restaurantIds.length > 0) {
-        specializations = await this.dataSource
-          .createQueryBuilder()
-          .select('rs.restaurant_id', 'restaurant_id')
-          .addSelect('array_agg(fc.name)', 'specializations')
-          .from('restaurant_specializations', 'rs')
-          .leftJoin('food_categories', 'fc', 'fc.id = rs.food_category_id')
-          .where('rs.restaurant_id IN (:...restaurantIds)', { restaurantIds })
-          .groupBy('rs.restaurant_id')
-          .getRawMany();
-      }
-      const specializationMap = new Map(
-        specializations.map(spec => [spec.restaurant_id, spec.specializations])
+      // Fetch notifications in parallel for better performance
+      const notificationsStart = Date.now();
+      const [specificNotifications, broadcastNotifications] = await Promise.all(
+        [
+          // Lấy thông báo chỉ định riêng cho driver (target_user_id = driverId)
+          this.notificationsRepository.findSpecificNotifications(driverId),
+          // Lấy thông báo broadcast cho vai trò DRIVER
+          this.notificationsRepository.findBroadcastNotifications('DRIVER')
+        ]
       );
       logger.log(
-        `Specializations fetch took ${Date.now() - specializationsStart}ms`
+        `Notifications fetch took ${Date.now() - notificationsStart}ms`
       );
 
-      // Batch query MenuItem
-      const menuItemsStart = Date.now();
-      const allItemIds = orders.flatMap(order =>
-        order.order_items.map(item => item.item_id)
+      logger.log('Fetching broadcast notifications for DRIVER...');
+      logger.log(
+        `Found ${broadcastNotifications.length} broadcast notifications`
       );
-      const menuItems = await this.dataSource.getRepository(MenuItem).find({
-        where: { id: In(allItemIds) },
-        select: {
-          id: true,
-          name: true,
-          price: true,
-          avatar: { url: true, key: true },
-          restaurant: {
-            id: true,
-            restaurant_name: true,
-            address_id: true,
-            avatar: { url: true, key: true }
-          }
-        },
-        relations: ['restaurant']
-      });
-      const menuItemMap = new Map(menuItems.map(item => [item.id, item]));
-      logger.log(`MenuItems fetch took ${Date.now() - menuItemsStart}ms`);
 
-      // Populate orders
+      // Process notifications
       const processingStart = Date.now();
-      const populatedOrders = orders.map(order => {
-        const populatedOrderItems = order.order_items.map(item => ({
-          ...item,
-          menu_item: menuItemMap.get(item.item_id) || null
-        }));
-
-        const restaurantSpecializations =
-          specializationMap.get(order.restaurant_id) || [];
-
-        const baseOrder = {
-          ...order,
-          order_items: populatedOrderItems,
-          customer_address: order.customerAddress,
-          restaurant_address: order.restaurantAddress,
-          restaurant: {
-            ...order.restaurant,
-            specialize_in: restaurantSpecializations
-          }
-        };
-
-        if (
-          order.status === 'CANCELLED' ||
-          order.tracking_info === 'CANCELLED'
-        ) {
-          return {
-            ...baseOrder,
-            cancelled_by: order.cancelled_by,
-            cancelled_by_id: order.cancelled_by_id,
-            cancellation_reason: order.cancellation_reason,
-            cancellation_title: order.cancellation_title,
-            cancellation_description: order.cancellation_description,
-            cancelled_at: order.cancelled_at
-          };
-        }
-
-        return baseOrder;
-      });
-      logger.log(`Orders processing took ${Date.now() - processingStart}ms`);
-
-      // Store in cache
-      const cacheSaveStart = Date.now();
-      const cacheSaved = await this.redisService.setNx(
-        cacheKey,
-        JSON.stringify(populatedOrders),
-        ttl * 1000
+      // Gộp hai danh sách thông báo và loại bỏ trùng lặp
+      const allNotifications = [
+        ...specificNotifications,
+        ...broadcastNotifications
+      ];
+      const uniqueNotificationsMap = new Map(
+        allNotifications.map(n => [n.id, n])
       );
-      if (cacheSaved) {
-        logger.log(
-          `Stored orders in cache: ${cacheKey} (took ${Date.now() - cacheSaveStart}ms)`
+      const uniqueNotifications = Array.from(uniqueNotificationsMap.values());
+
+      // Sắp xếp theo thời gian tạo (mới nhất trước)
+      const sortedNotifications = uniqueNotifications.sort(
+        (a, b) => b.created_at - a.created_at
+      );
+      logger.log(
+        `Notifications processing took ${Date.now() - processingStart}ms`
+      );
+
+      // Cache the result
+      const cacheSaveStart = Date.now();
+      try {
+        await this.redisService.set(
+          cacheKey,
+          JSON.stringify(sortedNotifications),
+          cacheTtl * 1000
         );
-      } else {
-        logger.warn(`Failed to store orders in cache: ${cacheKey}`);
+        logger.log(
+          `Notifications cached successfully (${Date.now() - cacheSaveStart}ms)`
+        );
+      } catch (cacheError) {
+        logger.warn('Failed to cache notifications:', cacheError);
       }
 
-      logger.log(`Total DB fetch and processing took ${Date.now() - start}ms`);
+      logger.log(`Total processing time: ${Date.now() - start}ms`);
       return createResponse(
         'OK',
-        populatedOrders,
-        'Fetched orders successfully'
+        sortedNotifications,
+        `Fetched ${sortedNotifications.length} notifications for driver ${driverId}`
       );
     } catch (error: any) {
-      logger.error(`Error fetching orders: ${error.message}`, error.stack);
+      logger.error('Error fetching notifications for driver:', error);
       return createResponse(
         'ServerError',
         null,
-        'An error occurred while fetching orders'
+        'An error occurred while fetching notifications'
       );
     }
   }
@@ -1084,5 +987,250 @@ export class DriversService {
         'Error fetching paginated drivers'
       );
     }
+  }
+
+  async getNotifications(driverId: string): Promise<ApiResponse<any>> {
+    const start = Date.now();
+    const cacheKey = `driver:notifications:${driverId}`;
+    const cacheTtl = 300; // 5 minutes (notifications change frequently)
+
+    try {
+      // Try to get from cache first
+      const cacheStart = Date.now();
+      const cachedData = await this.redisService.get(cacheKey);
+      if (cachedData) {
+        logger.log(
+          `Cache hit for driver notifications ${driverId} in ${Date.now() - cacheStart}ms`
+        );
+        logger.log(`Total time (cache): ${Date.now() - start}ms`);
+        const cachedNotifications = JSON.parse(cachedData);
+        return createResponse(
+          'OK',
+          cachedNotifications,
+          `Fetched ${cachedNotifications.length} notifications from cache for driver ${driverId}`
+        );
+      }
+
+      logger.log(`Cache miss for driver notifications: ${driverId}`);
+
+      // Kiểm tra driver có tồn tại không
+      const driverStart = Date.now();
+      const driver = await this.driversRepository.findById(driverId);
+      if (!driver) {
+        return createResponse('NotFound', null, 'Driver not found');
+      }
+      logger.log(`Driver validation took ${Date.now() - driverStart}ms`);
+
+      // Fetch notifications in parallel for better performance
+      const notificationsStart = Date.now();
+      const [specificNotifications, broadcastNotifications] = await Promise.all(
+        [
+          // Lấy thông báo chỉ định riêng cho driver (target_user_id = driverId)
+          this.notificationsRepository.findSpecificNotifications(driverId),
+          // Lấy thông báo broadcast cho vai trò DRIVER
+          this.notificationsRepository.findBroadcastNotifications('DRIVER')
+        ]
+      );
+      logger.log(
+        `Notifications fetch took ${Date.now() - notificationsStart}ms`
+      );
+
+      logger.log('Fetching broadcast notifications for DRIVER...');
+      logger.log(
+        `Found ${broadcastNotifications.length} broadcast notifications`
+      );
+
+      // Process notifications
+      const processingStart = Date.now();
+      // Gộp hai danh sách thông báo và loại bỏ trùng lặp
+      const allNotifications = [
+        ...specificNotifications,
+        ...broadcastNotifications
+      ];
+      const uniqueNotificationsMap = new Map(
+        allNotifications.map(n => [n.id, n])
+      );
+      const uniqueNotifications = Array.from(uniqueNotificationsMap.values());
+
+      // Sắp xếp theo thời gian tạo (mới nhất trước)
+      const sortedNotifications = uniqueNotifications.sort(
+        (a, b) => b.created_at - a.created_at
+      );
+      logger.log(
+        `Notifications processing took ${Date.now() - processingStart}ms`
+      );
+
+      // Cache the result
+      const cacheSaveStart = Date.now();
+      try {
+        await this.redisService.set(
+          cacheKey,
+          JSON.stringify(sortedNotifications),
+          cacheTtl * 1000
+        );
+        logger.log(
+          `Notifications cached successfully (${Date.now() - cacheSaveStart}ms)`
+        );
+      } catch (cacheError) {
+        logger.warn('Failed to cache notifications:', cacheError);
+      }
+
+      logger.log(`Total processing time: ${Date.now() - start}ms`);
+      return createResponse(
+        'OK',
+        sortedNotifications,
+        `Fetched ${sortedNotifications.length} notifications for driver ${driverId}`
+      );
+    } catch (error: any) {
+      logger.error('Error fetching notifications for restaurant:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while fetching notifications'
+      );
+    }
+  }
+
+  async getDailyAnalytics(
+    driverId: string,
+    dateStr: string,
+    forceRefresh: boolean = false
+  ): Promise<ApiResponse<any>> {
+    try {
+      // Validate driver exists
+      const driver = await this.driversRepository.findById(driverId);
+      if (!driver) {
+        return createResponse('NotFound', null, 'Driver not found');
+      }
+
+      // Parse the date string to get start and end timestamps for the day
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        return createResponse(
+          'InvalidFormatInput',
+          null,
+          'Invalid date format'
+        );
+      }
+
+      // Set to start of day (00:00:00) in the local timezone (+7)
+      const tzOffset = 7 * 3600; // +07:00 timezone offset in seconds
+      date.setHours(0, 0, 0, 0);
+      const startTimestamp = Math.floor(date.getTime() / 1000) - tzOffset;
+
+      // Set to end of day (23:59:59)
+      const endDate = new Date(date);
+      endDate.setHours(23, 59, 59, 999);
+      const endTimestamp = Math.floor(endDate.getTime() / 1000) - tzOffset;
+
+      // Check Redis cache first
+      const cacheKey = `driver:${driverId}:daily_analytics:${dateStr}`;
+
+      // If force_refresh is true, skip cache check
+      if (!forceRefresh) {
+        const cachedData = await redis.get(cacheKey);
+        if (cachedData) {
+          return createResponse(
+            'OK',
+            JSON.parse(cachedData),
+            'Data retrieved from cache'
+          );
+        }
+      } else {
+        // If force_refresh is true, clear the cache for this key
+        await redis.del(cacheKey);
+      }
+
+      // Get completed orders for the day
+      const completedOrders = await this.orderServiceRepository.find({
+        where: {
+          driver_id: driverId,
+          status: OrderStatus.DELIVERED,
+          updated_at: Between(startTimestamp, endTimestamp)
+        }
+      });
+
+      // Get driver progress stages for the day
+      const driverProgressStages =
+        await this.driverProgressStageServiceRepository.find({
+          where: {
+            driver_id: driverId,
+            updated_at: Between(startTimestamp, endTimestamp)
+          },
+          relations: ['orders']
+        });
+
+      // Calculate analytics
+      let totalEarnings = 0;
+      let totalTips = 0;
+      let totalDistanceTravelled = 0;
+      let totalTimeSpent = 0;
+      let orderCount = 0;
+
+      // Calculate from orders
+      if (completedOrders.length > 0) {
+        orderCount = completedOrders.length;
+        totalEarnings = completedOrders.reduce(
+          (sum, order) => sum + Number(order.driver_wage || 0),
+          0
+        );
+        totalTips = completedOrders.reduce(
+          (sum, order) => sum + Number(order.driver_tips || 0),
+          0
+        );
+      }
+
+      // Calculate from driver progress stages
+      if (driverProgressStages.length > 0) {
+        // Sum up total distance travelled from all stages
+        totalDistanceTravelled = driverProgressStages.reduce(
+          (sum, stage) => sum + Number(stage.total_distance_travelled || 0),
+          0
+        );
+
+        // Sum up total time spent from all stages
+        totalTimeSpent = driverProgressStages.reduce(
+          (sum, stage) => sum + Number(stage.actual_time_spent || 0),
+          0
+        );
+      }
+
+      // Calculate average time spent per order
+      const averageTimePerOrder =
+        orderCount > 0 ? totalTimeSpent / orderCount : 0;
+
+      // Format the response
+      const result = {
+        date: dateStr,
+        total_earn: this.formatNumber(totalEarnings),
+        total_tip: this.formatNumber(totalTips),
+        total_distance_travelled: this.formatNumber(totalDistanceTravelled),
+        average_time_spent_on_each_order:
+          this.formatNumber(averageTimePerOrder),
+        order_count: orderCount
+      };
+
+      // Cache the result for 1 hour
+      await redis.setEx(cacheKey, 3600, JSON.stringify(result));
+
+      return createResponse(
+        'OK',
+        result,
+        forceRefresh
+          ? 'Daily analytics refreshed successfully'
+          : 'Daily analytics retrieved successfully'
+      );
+    } catch (error) {
+      logger.error('Error retrieving daily analytics:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error retrieving daily analytics'
+      );
+    }
+  }
+
+  private formatNumber(value: number): number {
+    return Number(value.toFixed(2));
   }
 }

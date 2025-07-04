@@ -133,6 +133,26 @@ export class DriversController {
     return this.driversService.getAllOrders(id);
   }
 
+  @Get('notifications/:driverId')
+  getNotifications(@Param('driverId') driverId: string) {
+    return this.driversService.getNotifications(driverId);
+  }
+
+  @Get('daily-analytics/:driverId')
+  async getDailyAnalytics(
+    @Param('driverId') driverId: string,
+    @Query('date') date?: string,
+    @Query('force_refresh') forceRefresh?: string
+  ) {
+    // If date is not provided, use current date
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    return this.driversService.getDailyAnalytics(
+      driverId,
+      targetDate,
+      forceRefresh === 'true'
+    );
+  }
+
   @Get(':id')
   findDriverById(@Param('id') id: string) {
     return this.driversService.findDriverById(id);

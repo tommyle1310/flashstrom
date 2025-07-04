@@ -203,4 +203,9 @@ export class RestaurantsController {
       parsedLimit
     );
   }
+
+  @Get('/notifications/:restaurantId')
+  getNotifications(@Param('restaurantId') restaurantId: string) {
+    return this.restaurantsService.getNotifications(restaurantId);
+  }
 }
