@@ -73,6 +73,11 @@ interface MenuItemResponse {
   description: string | null;
   price: number;
   category: string[];
+  categoryDetails?: {
+    id: string;
+    name: string;
+    avatar: { url: string; key: string };
+  }[];
   avatar: { key: string; url: string } | null;
   availability: boolean;
   suggest_notes: string[];
@@ -628,7 +633,13 @@ export class RestaurantsService {
   async getMenuItemsForRestaurant(restaurantId: string): Promise<any> {
     const start = Date.now();
     const cacheKey = `menu_items:${restaurantId}`;
-
+    // if (cacheKey) {
+    //   return createResponse(
+    //     'OK',
+    //     JSON.parse(await redis.get(cacheKey)),
+    //     'Fetched menu items for the restaurant from cache'
+    //   );
+    // }
     try {
       // First, clear any existing cache for this restaurant's menu items
       await redis.del(cacheKey);
@@ -663,6 +674,27 @@ export class RestaurantsService {
         (item: MenuItem) => item.availability
       );
       logger.log('Filtered menu items count:', menuItems.length);
+
+      // Collect all category IDs from menu items
+      const allCategoryIds = new Set<string>();
+      menuItems.forEach((item: MenuItem) => {
+        if (item.category && item.category.length > 0) {
+          item.category.forEach(categoryId => allCategoryIds.add(categoryId));
+        }
+      });
+      // Fetch all food categories in one query
+      const categoryIds = Array.from(allCategoryIds);
+
+      const foodCategories =
+        categoryIds.length > 0
+          ? await this.foodCategoryRepository.findByIds(categoryIds)
+          : [];
+
+      // Create a map for quick lookup
+      const categoryMap = new Map<string, FoodCategory>();
+      foodCategories.forEach(category => {
+        categoryMap.set(category.id, category);
+      });
 
       // If restaurant has no promotions, cache and return filtered menu items
       if (!restaurant.promotions || restaurant.promotions.length === 0) {
@@ -780,6 +812,10 @@ export class RestaurantsService {
               });
           }
 
+          const categoryDetails = itemCategories.map(categoryId =>
+            categoryMap.get(categoryId)
+          );
+
           // Create the menu item response with price_after_applied_promotion
           const itemResponse: MenuItemResponse = {
             id: item.id,
@@ -788,6 +824,11 @@ export class RestaurantsService {
             description: item.description,
             price: item.price,
             category: item.category,
+            categoryDetails: categoryDetails?.map(item => ({
+              id: item.id,
+              avatar: item.avatar,
+              name: item.name
+            })),
             avatar: item.avatar,
             availability: item.availability,
             suggest_notes: item.suggest_notes,
