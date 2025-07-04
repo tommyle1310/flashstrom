@@ -40,7 +40,9 @@ export class JwtAuthGuard implements CanActivate {
     );
 
     try {
-      const payload = this.jwtService.verify(token);
+      const payload = this.jwtService.verify(token, {
+        secret: process.env.JWT_SECRET
+      });
       console.log(
         'chdck swwhat jwt payload',
         payload,

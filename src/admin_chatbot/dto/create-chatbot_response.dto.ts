@@ -8,7 +8,7 @@ import {
   IsBoolean
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ResponseType } from '../entities/chatbot_response.entity';
+import { ResponseType, ActionCode } from '../entities/chatbot_response.entity';
 
 // Define ChatbotOption as a class for @Type() compatibility
 export class ChatbotOption {
@@ -44,8 +44,8 @@ export class CreateChatbotResponseDto {
   parent_id?: number;
 
   @IsOptional()
-  @IsString()
-  action_code?: string;
+  @IsEnum(ActionCode)
+  action_code?: ActionCode;
 
   @IsOptional()
   @IsBoolean()

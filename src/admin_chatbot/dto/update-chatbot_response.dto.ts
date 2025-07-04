@@ -8,7 +8,7 @@ import {
   ValidateNested
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ResponseType } from '../entities/chatbot_response.entity';
+import { ResponseType, ActionCode } from '../entities/chatbot_response.entity';
 import { ChatbotOption } from './create-chatbot_response.dto'; // Reference the class from the other DTO
 
 export class UpdateChatbotResponseDto {
@@ -35,8 +35,8 @@ export class UpdateChatbotResponseDto {
   parent_id?: number;
 
   @IsOptional()
-  @IsString()
-  action_code?: string;
+  @IsEnum(ActionCode)
+  action_code?: ActionCode;
 
   @IsOptional()
   @IsBoolean()
