@@ -169,7 +169,7 @@ export class DriversGateway
             console.warn(
               `[DriversGateway] Retrying Redis connection (${retryCount}/${maxRetries})...`
             );
-            setTimeout(connectRedis, 30000);
+            setTimeout(connectRedis, 150000);
           } else {
             console.error(
               '[DriversGateway] Failed to initialize Redis adapter after retries:',

@@ -31,7 +31,7 @@ dotenv.config();
 const logger = new Logger('DriversService');
 
 const redis = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
+  url: 'rediss://default:AT_LAAIjcDFkNjA0ZmNiNTJiOTc0NzJjYTY1ZjllM2RhNTFhYjZlNHAxMA@direct-woodcock-16331.upstash.io:6379'
 });
 redis.connect().catch(err => logger.error('Redis connection error:', err));
 
@@ -930,7 +930,7 @@ export class DriversService {
       // Get specializations
       const specializationsStart = Date.now();
       const restaurantIds = orders.map(order => order.restaurant_id);
-      
+
       // Handle empty restaurantIds array to prevent SQL syntax error
       let specializations = [];
       if (restaurantIds.length > 0) {

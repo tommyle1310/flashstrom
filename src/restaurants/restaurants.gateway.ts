@@ -113,8 +113,10 @@ export class RestaurantsGateway
             await subClient.connect();
             this.logger.log('[RestaurantsGateway] Redis subClient connected');
           }
+          console.log('check server', this.server);
+          console.log('check pubclient', pubClient);
           const redisAdapter = createAdapter(pubClient, subClient);
-          this.server.adapter(redisAdapter);
+          this.server?.adapter(redisAdapter);
           this.logger.log(
             '[RestaurantsGateway] Socket.IO Redis adapter initialized successfully'
           );
@@ -124,7 +126,7 @@ export class RestaurantsGateway
             this.logger.warn(
               `[RestaurantsGateway] Retrying Redis connection (${retryCount}/${maxRetries})...`
             );
-            setTimeout(connectRedis, 30000);
+            setTimeout(connectRedis, 150000);
           } else {
             this.logger.error(
               '[RestaurantsGateway] Failed to initialize Redis adapter after retries:',

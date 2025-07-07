@@ -45,7 +45,7 @@ dotenv.config();
 const logger = new Logger('RestaurantsService');
 
 const redis = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
+  url: 'rediss://default:AT_LAAIjcDFkNjA0ZmNiNTJiOTc0NzJjYTY1ZjllM2RhNTFhYjZlNHAxMA@direct-woodcock-16331.upstash.io:6379'
 });
 redis.connect().catch(err => logger.error('Redis connection error:', err));
 

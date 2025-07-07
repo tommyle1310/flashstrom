@@ -12,12 +12,63 @@ import { Customer } from 'src/customers/entities/customer.entity';
 import { Driver } from 'src/drivers/entities/driver.entity';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
+import { Admin } from 'src/admin/entities/admin.entity';
 
 export enum MessageType {
   TEXT = 'TEXT',
   IMAGE = 'IMAGE',
   VIDEO = 'VIDEO',
-  ORDER_INFO = 'ORDER_INFO'
+  ORDER_INFO = 'ORDER_INFO',
+  ORDER_REFERENCE = 'ORDER_REFERENCE', // For referencing/tagging orders
+  GROUP_INVITATION = 'GROUP_INVITATION', // For group chat invitations
+  SYSTEM_MESSAGE = 'SYSTEM_MESSAGE', // System notifications (user joined, left, etc.)
+  ADMIN_NOTIFICATION = 'ADMIN_NOTIFICATION', // Admin-specific notifications
+  FILE = 'FILE', // File attachments
+  VOICE = 'VOICE', // Voice messages
+  LOCATION = 'LOCATION', // Location sharing
+  CONTACT = 'CONTACT' // Contact sharing
+}
+
+export interface OrderReference {
+  orderId: string;
+  orderStatus?: string;
+  customerName?: string;
+  restaurantName?: string;
+  totalAmount?: number;
+  issueDescription?: string;
+  urgencyLevel?: 'low' | 'medium' | 'high' | 'critical';
+}
+
+export interface GroupInvitationData {
+  inviteId: string;
+  groupId: string;
+  groupName: string;
+  invitedBy: string;
+  inviterName: string;
+  expiresAt: Date;
+  message?: string;
+}
+
+export interface SystemMessageData {
+  type:
+    | 'USER_JOINED'
+    | 'USER_LEFT'
+    | 'USER_PROMOTED'
+    | 'USER_DEMOTED'
+    | 'GROUP_CREATED'
+    | 'GROUP_RENAMED'
+    | 'ORDER_ESCALATED';
+  userId?: string;
+  userName?: string;
+  additionalInfo?: Record<string, any>;
+}
+
+export interface FileAttachment {
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  fileUrl: string;
+  thumbnailUrl?: string;
 }
 
 @Entity('messages')
@@ -58,6 +109,11 @@ export class Message {
   @JoinColumn({ name: 'sender_id' })
   customerCareSender: CustomerCare;
 
+  // Add support for admin senders
+  @ManyToOne(() => Admin, { nullable: true })
+  @JoinColumn({ name: 'sender_id' })
+  adminSender: Admin;
+
   @Column()
   content: string;
 
@@ -68,6 +124,49 @@ export class Message {
     default: MessageType.TEXT
   })
   messageType: MessageType;
+
+  // Order reference metadata
+  @Column('jsonb', { nullable: true })
+  orderReference: OrderReference;
+
+  // Group invitation metadata
+  @Column('jsonb', { nullable: true })
+  groupInvitationData: GroupInvitationData;
+
+  // System message metadata
+  @Column('jsonb', { nullable: true })
+  systemMessageData: SystemMessageData;
+
+  // File attachment metadata
+  @Column('jsonb', { nullable: true })
+  fileAttachment: FileAttachment;
+
+  // Reply to message functionality
+  @Column({ nullable: true })
+  replyToMessageId: string;
+
+  @ManyToOne(() => Message, { nullable: true })
+  @JoinColumn({ name: 'replyToMessageId' })
+  replyToMessage: Message;
+
+  // Message reactions (like, dislike, etc.)
+  @Column('jsonb', { nullable: true, default: {} })
+  reactions: Record<string, string[]>; // { "👍": ["userId1", "userId2"], "👎": ["userId3"] }
+
+  // Message editing
+  @Column({ type: 'boolean', default: false })
+  isEdited: boolean;
+
+  @Column({ nullable: true })
+  editedAt: Date;
+
+  // Message priority for admin messages
+  @Column({
+    type: 'enum',
+    enum: ['low', 'medium', 'high', 'critical'],
+    nullable: true
+  })
+  priority: 'low' | 'medium' | 'high' | 'critical';
 
   @CreateDateColumn()
   timestamp: Date;
