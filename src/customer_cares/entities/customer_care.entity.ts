@@ -22,6 +22,10 @@ export class CustomerCare {
   @JoinColumn({ name: 'user_id' })
   user_id: User;
 
+  @OneToOne(() => User)
+  @JoinColumn({ name: 'user_id' })
+  user: User;
+
   @Column('jsonb', { nullable: true })
   contact_email: Array<{
     title: string;

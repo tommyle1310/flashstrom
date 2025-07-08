@@ -15,7 +15,7 @@ import { Logger } from '@nestjs/common';
 import { AdminRole } from 'src/utils/types/admin';
 
 @WebSocketGateway({
-  namespace: 'admin-chat',
+  namespace: 'admin-chatbot',
   cors: {
     origin: ['*', 'http://localhost:3000', 'http://localhost:1310'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

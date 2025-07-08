@@ -32,7 +32,7 @@ import { DriverStatsService } from 'src/driver_stats_records/driver_stats_record
 import { FinanceRulesService } from 'src/finance_rules/finance_rules.service';
 import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
 import { TransactionService } from 'src/transactions/transactions.service';
-import { FLASHFOOD_FINANCE, ADMIN_MOCK } from 'src/utils/constants';
+import { FLASHFOOD_FINANCE, SUPER_ADMIN_MOCK } from 'src/utils/constants';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { TargetUser } from 'src/notifications/entities/notification.entity';
@@ -3287,7 +3287,7 @@ export class DriversGateway
           image: null,
           link: `/orders/${order.id}`,
           target_user: [TargetUser.CUSTOMER],
-          created_by_id: ADMIN_MOCK.admin_id,
+          created_by_id: SUPER_ADMIN_MOCK.admin_id,
           target_user_id: orderWithRelations.customer.id
         };
 
@@ -3321,7 +3321,7 @@ export class DriversGateway
           image: null,
           link: `/orders/${order.id}`,
           target_user: [TargetUser.RESTAURANT],
-          created_by_id: ADMIN_MOCK.admin_id,
+          created_by_id: SUPER_ADMIN_MOCK.admin_id,
           target_user_id: orderWithRelations.restaurant.id
         };
 
@@ -3353,7 +3353,7 @@ export class DriversGateway
           image: null,
           link: `/orders/${order.id}`,
           target_user: [TargetUser.DRIVER],
-          created_by_id: ADMIN_MOCK.admin_id,
+          created_by_id: SUPER_ADMIN_MOCK.admin_id,
           target_user_id:
             orderWithRelations.driver.id || orderWithRelations.driver_id
         };

@@ -409,13 +409,17 @@ export class AdminChatService {
     messageDto: SendAdminMessageDto
   ): Promise<Message> {
     // Verify sender is admin
-    const sender = await this.adminRepository.findOne({
+    const senderAdmin = await this.adminRepository.findOne({
+      where: { id: senderId },
+      relations: ['user']
+    });
+    const senderCc = await this.customerCareRepository.findOne({
       where: { id: senderId },
       relations: ['user']
     });
 
-    if (!sender) {
-      throw new Error('Sender is not a valid admin');
+    if (!senderAdmin && !senderCc) {
+      throw new Error('Sender is not a valid admin or customer care');
     }
 
     // Verify room exists and sender is participant
@@ -466,7 +470,7 @@ export class AdminChatService {
     const message = this.messageRepository.create({
       roomId: messageDto.roomId,
       senderId,
-      senderType: this.getUserTypeForParticipant(sender),
+      senderType: this.getUserTypeForParticipant(senderAdmin || senderCc),
       content: messageDto.content,
       messageType: (messageDto.messageType as MessageType) || MessageType.TEXT,
       orderReference: messageDto.orderReference,
@@ -474,7 +478,8 @@ export class AdminChatService {
       replyToMessageId: messageDto.replyToMessageId,
       priority: messageDto.priority,
       readBy: [senderId],
-      adminSender: sender
+      adminSender: senderAdmin ? senderAdmin : undefined,
+      customerCareSender: senderCc ? senderCc : undefined
     });
 
     const savedMessage = await this.messageRepository.save(message);

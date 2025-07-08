@@ -140,9 +140,24 @@ export const MENU_ITEM_MOCK = {
 export const MENU_ITEM_VARIANT_MOCK = {
   id: 'FF_MENU_ITEM_VARIANT_57a31677-ada6-484b-b706-291b71bd613d'
 };
-export const ADMIN_MOCK = {
+export const SUPER_ADMIN_MOCK = {
   admin_id: 'FF_ADMIN_ea42a109-ec7a-4014-ada2-a050c9e817ed',
-  user_id: 'USR_dfdb430a-4506-401f-8242-634ea8d9735e'
+  user_id: 'USR_dfdb430a-4506-401f-8242-634ea8d9735e',
+  email: 'superadmin@gmail.com'
+};
+export const FINANCE_ADMIN_MOCK = {
+  email: 'financeadmin_c6f3a1e0@flashfood.com',
+  admin_id: 'FF_ADMIN_815e87f7-1bd3-4926-9c0e-19870f500d74',
+  user_id: 'USR_8f730d82-edee-44de-8e5f-283191c00c65'
+};
+export const COMPANION_ADMIN_MOCK = {
+  admin_id: 'FF_ADMIN_f5b1df0b-7427-4d37-8b6c-46cd08b65a71',
+  user_id: 'USR_f9adc293-4ebd-40e5-b6e4-8e41ca84a677',
+  email: 'companionadmin_db4e45ce@flashfood.com'
+};
+export const CUSTOMER_CARE_MOCK = {
+  customer_care_id: 'FF_CC_320571da-59d0-483a-9c39-912d2a72b256',
+  user_id: 'USR_a54d53f3-239c-4a21-83ac-20d7cfd1c150'
 };
 export const DRIVER_MOCK = {
   driver_id: 'FF_DRI_d561f2ba-b3a8-4190-8221-ec2a86c85010',

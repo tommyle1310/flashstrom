@@ -649,6 +649,7 @@ export class AdminChatGateway
       if (data.taggedUsers && data.taggedUsers.length > 0) {
         for (const taggedUserId of data.taggedUsers) {
           const taggedSocket = this.adminSockets.get(taggedUserId);
+          console.log('taggedSocket', taggedSocket);
           if (taggedSocket) {
             taggedSocket.emit('userTagged', {
               roomId: data.roomId,
