@@ -175,15 +175,23 @@ export class AdminChatService {
       where: { id: In(sendInvitationDto.invitedUserIds) },
       relations: ['user']
     });
+    const invitedCC = await this.customerCareRepository.find({
+      where: { id: In(sendInvitationDto.invitedUserIds) },
+      relations: ['user']
+    });
 
-    if (invitedAdmins.length !== sendInvitationDto.invitedUserIds.length) {
+    const allValidParticipants = [...invitedAdmins, ...invitedCC];
+
+    if (
+      allValidParticipants.length !== sendInvitationDto.invitedUserIds.length
+    ) {
       throw new Error('Some invited users are not valid admins');
     }
 
     // Filter out users already in group
     const currentParticipantIds = group.participants.map(p => p.userId);
-    const newInvitees = invitedAdmins.filter(
-      admin => !currentParticipantIds.includes(admin.id)
+    const newInvitees = allValidParticipants.filter(
+      participant => !currentParticipantIds.includes(participant.id)
     );
 
     if (newInvitees.length === 0) {
@@ -805,6 +813,175 @@ export class AdminChatService {
   }
 
   // ============ UTILITY METHODS ============
+
+  async getRoomMessages(
+    userId: string,
+    roomId: string,
+    limit: number = 50,
+    offset: number = 0,
+    beforeMessageId?: string
+  ): Promise<{
+    messages: any[];
+    hasMore: boolean;
+    total: number;
+  }> {
+    // First verify user has access to this room
+    const room = await this.roomRepository.findOne({
+      where: { id: roomId }
+    });
+
+    if (!room) {
+      throw new Error('Chat room not found');
+    }
+
+    const isParticipant = room.participants.some(p => p.userId === userId);
+    if (!isParticipant) {
+      throw new Error('User is not a participant in this chat');
+    }
+
+    // Build query for messages
+    const queryBuilder = this.messageRepository
+      .createQueryBuilder('message')
+      .leftJoinAndSelect('message.adminSender', 'adminSender')
+      .leftJoinAndSelect('message.customerCareSender', 'customerCareSender')
+      .leftJoinAndSelect('message.replyToMessage', 'replyToMessage')
+      .leftJoinAndSelect('replyToMessage.adminSender', 'replyAdminSender')
+      .leftJoinAndSelect('replyToMessage.customerCareSender', 'replyCcSender')
+      .where('message.roomId = :roomId', { roomId });
+
+    // If beforeMessageId is provided, get messages before that message (for pagination)
+    if (beforeMessageId) {
+      const beforeMessage = await this.messageRepository.findOne({
+        where: { id: beforeMessageId }
+      });
+      if (beforeMessage) {
+        queryBuilder.andWhere('message.timestamp < :beforeTimestamp', {
+          beforeTimestamp: beforeMessage.timestamp
+        });
+      }
+    }
+
+    // Get total count for pagination
+    const total = await queryBuilder.getCount();
+
+    // Get paginated messages
+    const messages = await queryBuilder
+      .orderBy('message.timestamp', 'DESC')
+      .limit(limit)
+      .offset(offset)
+      .getMany();
+
+    // Format messages for response
+    const formattedMessages = messages.map(message => {
+      const sender = message.adminSender || message.customerCareSender;
+
+      return {
+        id: message.id,
+        roomId: message.roomId,
+        senderId: message.senderId,
+        senderType: message.senderType,
+        content: message.content,
+        messageType: message.messageType,
+        orderReference: message.orderReference,
+        fileAttachment: message.fileAttachment,
+        replyToMessageId: message.replyToMessageId,
+        priority: message.priority,
+        timestamp: message.timestamp,
+        readBy: message.readBy,
+        reactions: message.reactions,
+        isEdited: message.isEdited,
+        editedAt: message.editedAt,
+        systemMessageData: message.systemMessageData,
+        groupInvitationData: message.groupInvitationData,
+        senderDetails: sender
+          ? {
+              id: sender.id,
+              name: `${sender.first_name || ''} ${sender.last_name || ''}`.trim(),
+              avatar: sender.avatar?.url || null,
+              role: message.adminSender?.role || null
+            }
+          : null,
+        replyToMessage: message.replyToMessage
+          ? {
+              id: message.replyToMessage.id,
+              content: message.replyToMessage.content,
+              messageType: message.replyToMessage.messageType,
+              timestamp: message.replyToMessage.timestamp,
+              senderDetails:
+                message.replyToMessage.adminSender ||
+                message.replyToMessage.customerCareSender
+                  ? {
+                      id: (
+                        message.replyToMessage.adminSender ||
+                        message.replyToMessage.customerCareSender
+                      ).id,
+                      name: `${(message.replyToMessage.adminSender || message.replyToMessage.customerCareSender).first_name || ''} ${(message.replyToMessage.adminSender || message.replyToMessage.customerCareSender).last_name || ''}`.trim()
+                    }
+                  : null
+            }
+          : null
+      };
+    });
+
+    // Reverse to get chronological order (oldest first)
+    formattedMessages.reverse();
+
+    const hasMore = offset + limit < total;
+
+    return {
+      messages: formattedMessages,
+      hasMore,
+      total
+    };
+  }
+
+  async markMessagesAsRead(
+    userId: string,
+    roomId: string,
+    messageIds?: string[]
+  ): Promise<{ success: boolean; markedCount: number }> {
+    // Verify user has access to room
+    const room = await this.roomRepository.findOne({
+      where: { id: roomId }
+    });
+
+    if (!room) {
+      throw new Error('Chat room not found');
+    }
+
+    const isParticipant = room.participants.some(p => p.userId === userId);
+    if (!isParticipant) {
+      throw new Error('User is not a participant in this chat');
+    }
+
+    // Build query to get messages to mark as read
+    const queryBuilder = this.messageRepository
+      .createQueryBuilder('message')
+      .where('message.roomId = :roomId', { roomId })
+      .andWhere('NOT(:userId = ANY(message.readBy))', { userId });
+
+    // If specific message IDs provided, only mark those
+    if (messageIds && messageIds.length > 0) {
+      queryBuilder.andWhere('message.id IN (:...messageIds)', { messageIds });
+    }
+
+    const messagesToUpdate = await queryBuilder.getMany();
+
+    // Update each message to add userId to readBy array
+    let markedCount = 0;
+    for (const message of messagesToUpdate) {
+      if (!message.readBy.includes(userId)) {
+        message.readBy.push(userId);
+        await this.messageRepository.save(message);
+        markedCount++;
+      }
+    }
+
+    return {
+      success: true,
+      markedCount
+    };
+  }
 
   private async createSystemMessage(
     roomId: string,

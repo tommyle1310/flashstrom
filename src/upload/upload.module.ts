@@ -78,6 +78,7 @@ import { CustomerCareInquiriesRepository } from 'src/customer_cares_inquires/cus
 import { Voucher } from 'src/vouchers/entities/voucher.entity';
 import { VouchersRepository } from 'src/vouchers/vouchers.repository';
 import { VouchersService } from 'src/vouchers/vouchers.service';
+import { ChatRoom } from 'src/FChat/entities/chat-room.entity';
 
 @Module({
   imports: [
@@ -105,7 +106,8 @@ import { VouchersService } from 'src/vouchers/vouchers.service';
       Transaction,
       CustomerCare,
       DriverStatsRecord,
-      FWallet
+      FWallet,
+      ChatRoom
     ]),
     CustomersModule,
     DriversModule,

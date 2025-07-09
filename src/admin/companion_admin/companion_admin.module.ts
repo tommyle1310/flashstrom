@@ -80,6 +80,7 @@ import { Admin } from '../entities/admin.entity';
 import { VouchersService } from 'src/vouchers/vouchers.service';
 import { VouchersRepository } from 'src/vouchers/vouchers.repository';
 import { Voucher } from 'src/vouchers/entities/voucher.entity';
+import { ChatRoom } from 'src/FChat/entities/chat-room.entity';
 
 @Module({
   imports: [
@@ -108,7 +109,8 @@ import { Voucher } from 'src/vouchers/entities/voucher.entity';
       Admin,
       DriverStatsRecord,
       RatingsReview,
-      DriverProgressStage
+      DriverProgressStage,
+      ChatRoom
     ]),
     AdminModule,
     RestaurantsModule,
@@ -177,6 +179,7 @@ import { Voucher } from 'src/vouchers/entities/voucher.entity';
     MenuItemVariantsService,
     AddressBookRepository,
     DriversRepository,
+
     {
       provide: 'SOCKET_SERVER',
       useFactory: () => {

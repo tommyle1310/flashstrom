@@ -348,3 +348,82 @@ export class PendingInvitationResponseDto {
   message?: string;
   participantCount: number;
 }
+
+// DTO for getting room messages
+export class GetRoomMessagesDto {
+  @IsUUID()
+  roomId: string;
+
+  @IsOptional()
+  @IsNumber()
+  limit?: number = 50;
+
+  @IsOptional()
+  @IsNumber()
+  offset?: number = 0;
+
+  @IsOptional()
+  @IsUUID()
+  beforeMessageId?: string; // For cursor-based pagination
+}
+
+// DTO for marking messages as read
+export class MarkMessagesAsReadDto {
+  @IsUUID()
+  roomId: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  messageIds?: string[]; // If not provided, marks all unread messages in room
+}
+
+// Response DTO for room messages
+export class RoomMessagesResponseDto {
+  roomId: string;
+  messages: MessageResponseDto[];
+  hasMore: boolean;
+  total: number;
+  pagination: {
+    limit: number;
+    offset: number;
+    beforeMessageId?: string;
+  };
+}
+
+// Response DTO for individual message
+export class MessageResponseDto {
+  id: string;
+  roomId: string;
+  senderId: string;
+  senderType: Enum_UserType;
+  content: string;
+  messageType: string;
+  orderReference?: OrderReferenceDto;
+  fileAttachment?: FileAttachmentDto;
+  replyToMessageId?: string;
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  timestamp: Date;
+  readBy: string[];
+  reactions?: Record<string, string[]>;
+  isEdited: boolean;
+  editedAt?: Date;
+  systemMessageData?: any;
+  groupInvitationData?: any;
+  senderDetails?: {
+    id: string;
+    name: string;
+    avatar?: string;
+    role?: string;
+  };
+  replyToMessage?: {
+    id: string;
+    content: string;
+    messageType: string;
+    timestamp: Date;
+    senderDetails?: {
+      id: string;
+      name: string;
+    };
+  };
+}

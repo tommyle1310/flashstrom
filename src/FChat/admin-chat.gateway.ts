@@ -546,6 +546,126 @@ export class AdminChatGateway
 
   // ============ MESSAGING SYSTEM ============
 
+  @SubscribeMessage('getRoomMessages')
+  async handleGetRoomMessages(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      roomId: string;
+      limit?: number;
+      offset?: number;
+      beforeMessageId?: string;
+    }
+  ) {
+    try {
+      const adminId = this.getAdminId(client);
+      if (!adminId) {
+        throw new WsException('Unauthorized');
+      }
+
+      console.log(
+        `📚 Admin ${adminId} requesting messages for room ${data.roomId}`
+      );
+
+      const result = await this.adminChatService.getRoomMessages(
+        adminId,
+        data.roomId,
+        data.limit || 50,
+        data.offset || 0,
+        data.beforeMessageId
+      );
+
+      client.emit('roomMessages', {
+        roomId: data.roomId,
+        messages: result.messages,
+        hasMore: result.hasMore,
+        total: result.total,
+        pagination: {
+          limit: data.limit || 50,
+          offset: data.offset || 0,
+          beforeMessageId: data.beforeMessageId
+        },
+        timestamp: new Date().toISOString()
+      });
+
+      console.log(
+        `✅ Sent ${result.messages.length} messages for room ${data.roomId}`
+      );
+      return { success: true, messageCount: result.messages.length };
+    } catch (error: any) {
+      console.error('❌ Error getting room messages:', error);
+      client.emit('roomMessagesError', {
+        error: error.message,
+        roomId: data.roomId,
+        timestamp: new Date().toISOString()
+      });
+      throw new WsException(error.message || 'Failed to get room messages');
+    }
+  }
+
+  @SubscribeMessage('markMessagesAsRead')
+  async handleMarkMessagesAsRead(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      roomId: string;
+      messageIds?: string[];
+    }
+  ) {
+    try {
+      const adminId = this.getAdminId(client);
+      if (!adminId) {
+        throw new WsException('Unauthorized');
+      }
+
+      console.log(
+        `📖 Admin ${adminId} marking messages as read in room ${data.roomId}`
+      );
+
+      const result = await this.adminChatService.markMessagesAsRead(
+        adminId,
+        data.roomId,
+        data.messageIds
+      );
+
+      // Determine room type and name for real-time notification
+      const adminChats = await this.adminChatService.getAdminChats(adminId);
+      const currentRoom = adminChats.find(r => r.id === data.roomId);
+
+      if (currentRoom) {
+        const roomName = this.getRoomName(currentRoom.type, data.roomId);
+
+        // Notify other participants that messages have been read
+        client.to(roomName).emit('messagesMarkedAsRead', {
+          roomId: data.roomId,
+          readBy: adminId,
+          readByName:
+            `${client.data.admin.first_name || ''} ${client.data.admin.last_name || ''}`.trim(),
+          messageIds: data.messageIds,
+          markedCount: result.markedCount,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      client.emit('messagesMarkedAsRead', {
+        success: true,
+        roomId: data.roomId,
+        markedCount: result.markedCount,
+        timestamp: new Date().toISOString()
+      });
+
+      return result;
+    } catch (error: any) {
+      console.error('❌ Error marking messages as read:', error);
+      client.emit('markMessagesAsReadError', {
+        error: error.message,
+        roomId: data.roomId,
+        timestamp: new Date().toISOString()
+      });
+      throw new WsException(error.message || 'Failed to mark messages as read');
+    }
+  }
+
   @SubscribeMessage('sendMessage')
   async handleSendMessage(
     @ConnectedSocket() client: Socket,
@@ -1064,19 +1184,34 @@ export class AdminChatGateway
         throw new WsException('Unauthorized');
       }
 
-      // Update message read status (implement in service if needed)
-      // For now, just emit the read receipt
-      const roomName =
-        this.getRoomName('ADMIN_GROUP', data.roomId) ||
-        this.getRoomName('ADMIN_DIRECT', data.roomId);
+      console.log(
+        `📖 Admin ${adminId} marking single message ${data.messageId} as read`
+      );
 
-      client.to(roomName).emit('messageRead', {
-        messageId: data.messageId,
-        readBy: adminId,
-        readByName:
-          `${client.data.admin.first_name || ''} ${client.data.admin.last_name || ''}`.trim(),
-        timestamp: new Date().toISOString()
-      });
+      // Use the new service method to mark specific message as read
+      const result = await this.adminChatService.markMessagesAsRead(
+        adminId,
+        data.roomId,
+        [data.messageId]
+      );
+
+      // Determine room type and name for real-time notification
+      const adminChats = await this.adminChatService.getAdminChats(adminId);
+      const currentRoom = adminChats.find(r => r.id === data.roomId);
+
+      if (currentRoom) {
+        const roomName = this.getRoomName(currentRoom.type, data.roomId);
+
+        // Notify other participants that message has been read
+        client.to(roomName).emit('messageRead', {
+          messageId: data.messageId,
+          roomId: data.roomId,
+          readBy: adminId,
+          readByName:
+            `${client.data.admin.first_name || ''} ${client.data.admin.last_name || ''}`.trim(),
+          timestamp: new Date().toISOString()
+        });
+      }
 
       return { success: true };
     } catch (error: any) {
