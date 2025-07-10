@@ -29,7 +29,8 @@ export class PermissionGuard implements CanActivate {
       return false;
     }
 
-    const authorization = request.headers['authorization'];
+    const authorization =
+      request.headers['authorization'] || request.headers['Authorization'];
 
     if (!authorization) {
       request.response = createResponse(
@@ -49,13 +50,13 @@ export class PermissionGuard implements CanActivate {
       );
       return false;
     }
-
     try {
       const payload = this.jwtService.verify(token, {
         secret: process.env.JWT_SECRET
       });
+      console.log('checl paykaied', payload);
       // Dùng 'id' thay vì 'adminId' để khớp với payload
-      const adminId = payload.id;
+      const adminId = payload.id || payload.adminId;
       if (!adminId) {
         request.response = createResponse(
           'Forbidden',

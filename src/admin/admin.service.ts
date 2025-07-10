@@ -15,7 +15,11 @@ import {
 import { User } from 'src/users/entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BannedAccount } from 'src/banned-account/entities/banned-account.entity';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { SearchInternalUserDto } from './dto/search-internal-user.dto';
+import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
+import { SearchGroupChatMembersDto } from './dto/search-group-chat-members.dto';
+import { ChatRoom } from 'src/FChat/entities/chat-room.entity';
 
 @Injectable()
 export class AdminService {
@@ -23,8 +27,203 @@ export class AdminService {
     private readonly adminRepository: AdminRepository,
     private readonly usersService: UsersService,
     @InjectRepository(BannedAccount)
-    private readonly bannedAccountRepository: Repository<BannedAccount>
+    private readonly bannedAccountRepository: Repository<BannedAccount>,
+    @InjectRepository(Admin)
+    private readonly adminEntityRepository: Repository<Admin>,
+    @InjectRepository(CustomerCare)
+    private readonly customerCareRepository: Repository<CustomerCare>,
+    @InjectRepository(ChatRoom)
+    private readonly chatRoomRepository: Repository<ChatRoom>
   ) {}
+
+  async searchGroupChatMembers(
+    groupId: string,
+    searchDto: SearchGroupChatMembersDto
+  ): Promise<ApiResponse<any[]>> {
+    try {
+      const { keyword } = searchDto;
+
+      const chatRoom = await this.chatRoomRepository.findOne({
+        where: { id: groupId }
+      });
+
+      if (!chatRoom) {
+        return createResponse('NotFound', null, 'Group chat not found');
+      }
+
+      const participants = chatRoom.participants || [];
+      if (participants.length === 0) {
+        return createResponse('OK', [], 'No participants in this group chat');
+      }
+
+      const adminIds = participants
+        .filter(p => p.userId.startsWith('FF_ADMIN_'))
+        .map(p => p.userId);
+      const customerCareIds = participants
+        .filter(p => p.userId.startsWith('FF_CC_'))
+        .map(p => p.userId);
+
+      const admins =
+        adminIds.length > 0
+          ? await this.adminEntityRepository.find({
+              where: { id: In(adminIds) },
+              relations: ['user']
+            })
+          : [];
+
+      const customerCares =
+        customerCareIds.length > 0
+          ? await this.customerCareRepository.find({
+              where: { id: In(customerCareIds) },
+              relations: ['user']
+            })
+          : [];
+
+      const participantMap = new Map(participants.map(p => [p.userId, p]));
+
+      let detailedParticipants = [];
+
+      admins.forEach(admin => {
+        const participantInfo = participantMap.get(admin.id);
+        if (participantInfo) {
+          detailedParticipants.push({
+            userId: admin.id,
+            firstName: admin.first_name,
+            lastName: admin.last_name,
+            email: admin.user?.email,
+            phone: admin.user?.phone,
+            avatar: admin.avatar,
+            roleInChat: participantInfo.role,
+            userType: participantInfo.userType,
+            joinedAt: participantInfo.joinedAt
+          });
+        }
+      });
+
+      customerCares.forEach(cc => {
+        const participantInfo = participantMap.get(cc.id);
+        if (participantInfo) {
+          detailedParticipants.push({
+            userId: cc.id,
+            firstName: cc.first_name,
+            lastName: cc.last_name,
+            email: cc.user?.email,
+            phone: cc.user?.phone,
+            avatar: cc.avatar,
+            roleInChat: participantInfo.role,
+            userType: participantInfo.userType,
+            joinedAt: participantInfo.joinedAt
+          });
+        }
+      });
+
+      if (keyword) {
+        const lowercasedKeyword = keyword.toLowerCase();
+        detailedParticipants = detailedParticipants.filter(
+          p =>
+            (p.firstName &&
+              p.firstName.toLowerCase().includes(lowercasedKeyword)) ||
+            (p.lastName &&
+              p.lastName.toLowerCase().includes(lowercasedKeyword)) ||
+            (p.email && p.email.toLowerCase().includes(lowercasedKeyword)) ||
+            (p.phone && p.phone.toLowerCase().includes(lowercasedKeyword)) ||
+            p.userId.toLowerCase().includes(lowercasedKeyword)
+        );
+      }
+
+      return createResponse(
+        'OK',
+        detailedParticipants,
+        'Successfully retrieved group chat members'
+      );
+    } catch (error) {
+      console.error('Error searching group chat members:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while searching for group chat members'
+      );
+    }
+  }
+
+  async searchInternalUsers(
+    searchDto: SearchInternalUserDto
+  ): Promise<ApiResponse<(Admin | CustomerCare)[]>> {
+    try {
+      const { keyword, role } = searchDto;
+
+      if (!keyword) {
+        if (role === 'admin') {
+          const admins = await this.adminEntityRepository.find({
+            relations: ['user']
+          });
+          return createResponse('OK', admins, 'Admins retrieved successfully');
+        } else if (role === 'customer_care') {
+          const customerCares = await this.customerCareRepository.find({
+            relations: ['user']
+          });
+          return createResponse(
+            'OK',
+            customerCares,
+            'Customer Cares retrieved successfully'
+          );
+        } else {
+          const admins = await this.adminEntityRepository.find({
+            relations: ['user']
+          });
+          const customerCares = await this.customerCareRepository.find({
+            relations: ['user']
+          });
+          return createResponse(
+            'OK',
+            [...admins, ...customerCares],
+            'Internal users retrieved successfully'
+          );
+        }
+      }
+
+      const results = [];
+
+      if (!role || role === 'admin') {
+        const adminQuery = this.adminEntityRepository
+          .createQueryBuilder('admin')
+          .leftJoinAndSelect('admin.user', 'user')
+          .where('admin.id ILIKE :keyword', { keyword: `%${keyword}%` })
+          .orWhere('admin.first_name ILIKE :keyword', {
+            keyword: `%${keyword}%`
+          })
+          .orWhere('admin.last_name ILIKE :keyword', {
+            keyword: `%${keyword}%`
+          })
+          .orWhere('user.email ILIKE :keyword', { keyword: `%${keyword}%` })
+          .orWhere('user.phone ILIKE :keyword', { keyword: `%${keyword}%` });
+
+        results.push(...(await adminQuery.getMany()));
+      }
+
+      if (!role || role === 'customer_care') {
+        const customerCareQuery = this.customerCareRepository
+          .createQueryBuilder('cc')
+          .leftJoinAndSelect('cc.user', 'user')
+          .where('cc.id ILIKE :keyword', { keyword: `%${keyword}%` })
+          .orWhere('cc.first_name ILIKE :keyword', { keyword: `%${keyword}%` })
+          .orWhere('cc.last_name ILIKE :keyword', { keyword: `%${keyword}%` })
+          .orWhere('user.email ILIKE :keyword', { keyword: `%${keyword}%` })
+          .orWhere('user.phone ILIKE :keyword', { keyword: `%${keyword}%` });
+
+        results.push(...(await customerCareQuery.getMany()));
+      }
+
+      return createResponse('OK', results, 'Search results');
+    } catch (error) {
+      console.log(error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error searching internal users'
+      );
+    }
+  }
 
   async create(createAdminDto: CreateAdminDto): Promise<ApiResponse<Admin>> {
     try {

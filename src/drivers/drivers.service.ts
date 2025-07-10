@@ -33,10 +33,12 @@ dotenv.config();
 const logger = new Logger('DriversService');
 
 const redis = createClient({
+
   url:
     process.env.REDIS_URL ||
     'iss://default:AT_LAAIjcDFkNjA0ZmNiNTJiOTc0NzJjYTY1ZjllM2RhNTFhYjZlNHAxMA@direct-woodcock-16331.upstash.io:6379' ||
     'redis://localhost:6379'
+
 });
 redis.connect().catch(err => logger.error('Redis connection error:', err));
 
@@ -881,17 +883,106 @@ export class DriversService {
       if (!driver) {
         return createResponse('NotFound', null, 'Driver not found');
       }
-      logger.log(`Driver validation took ${Date.now() - driverStart}ms`);
+logger.log(`Driver validation took ${Date.now() - driverStart}ms`);
 
-      // Fetch notifications in parallel for better performance
-      const notificationsStart = Date.now();
-      const [specificNotifications, broadcastNotifications] = await Promise.all(
-        [
-          // Lấy thông báo chỉ định riêng cho driver (target_user_id = driverId)
-          this.notificationsRepository.findSpecificNotifications(driverId),
-          // Lấy thông báo broadcast cho vai trò DRIVER
-          this.notificationsRepository.findBroadcastNotifications('DRIVER')
-        ]
+  // Fetch orders
+  const ordersStart = Date.now();
+  const orders = await this.dataSource.getRepository(Order).find({
+    where: { driver_id: driverId },
+    relations: [
+      'restaurant',
+      'customer',
+      'restaurantAddress',
+      'customerAddress'
+    ],
+    select: {
+      id: true,
+      customer_id: true,
+      restaurant_id: true,
+      driver_id: true,
+      status: true,
+      total_amount: true,
+      payment_status: true,
+      payment_method: true,
+      customer_location: true,
+      restaurant_location: true,
+      order_items: true,
+      customer_note: true,
+      restaurant_note: true,
+      distance: true,
+      delivery_fee: true,
+      updated_at: true,
+      order_time: true,
+      delivery_time: true,
+      tracking_info: true,
+      cancelled_by: true,
+      cancelled_by_id: true,
+      cancellation_reason: true,
+      cancellation_title: true,
+      cancellation_description: true,
+      cancelled_at: true,
+      restaurant: {
+        id: true,
+        restaurant_name: true,
+        address_id: true,
+        avatar: { url: true, key: true }
+      }
+    }
+  });
+  logger.log(`Orders fetch took ${Date.now() - ordersStart}ms`);
+
+  // Handle empty orders
+  if (!orders || orders.length === 0) {
+    const response = createResponse('OK', { orders: [], specializations: [], notifications: [] }, 'No orders found for this driver');
+    await this.redisService.setNx(cacheKey, JSON.stringify(response), ttl * 1000);
+    logger.log(`Stored empty data in cache: ${cacheKey}`);
+    return response;
+  }
+
+  // Fetch specializations
+  const specializationsStart = Date.now();
+  const restaurantIds = orders.map(order => order.restaurant_id);
+  let specializations = [];
+  if (restaurantIds.length > 0) {
+    specializations = await this.dataSource
+      .createQueryBuilder()
+      .select('rs.restaurant_id', 'restaurant_id')
+      .addSelect('array_agg(fc.name)', 'specializations')
+      .from('restaurant_specializations', 'rs')
+      .leftJoin('food_categories', 'fc', 'fc.id = rs.food_category_id')
+      .where('rs.restaurant_id IN (:...restaurantIds)', { restaurantIds })
+      .groupBy('rs.restaurant_id')
+      .getRawMany();
+  }
+  const specializationMap = new Map(
+    specializations.map(spec => [spec.restaurant_id, spec.specializations])
+  );
+  logger.log(`Specializations fetch took ${Date.now() - specializationsStart}ms`);
+
+  // Fetch notifications in parallel
+  const notificationsStart = Date.now();
+  const [specificNotifications, broadcastNotifications] = await Promise.all([
+    this.notificationsRepository.findSpecificNotifications(driverId),
+    this.notificationsRepository.findBroadcastNotifications('DRIVER')
+  ]);
+  logger.log(`Notifications fetch took ${Date.now() - notificationsStart}ms`);
+
+  // Combine response
+  const response = createResponse('OK', {
+    orders,
+    specializations: Object.fromEntries(specializationMap),
+    notifications: {
+      specific: specificNotifications,
+      broadcast: broadcastNotifications
+    }
+  }, 'Data fetched successfully');
+
+  // Store in cache
+  await this.redisService.setNx(cacheKey, JSON.stringify(response), ttl * 1000);
+  logger.log(`Stored data in cache: ${cacheKey}`);
+
+  return response;
+}
       );
       logger.log(
         `Notifications fetch took ${Date.now() - notificationsStart}ms`

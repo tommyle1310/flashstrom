@@ -20,6 +20,8 @@ import { MessageType } from './entities/message.entity';
 import { RedisService } from 'src/redis/redis.service';
 import { ChatbotService } from './chatbot.service';
 import { SupportChatService } from './support-chat.service';
+import { AdminChatService } from './admin-chat.service';
+import { AdminRole } from 'src/utils/types/admin';
 
 @WebSocketGateway({
   namespace: 'chat',
@@ -55,7 +57,8 @@ export class FchatGateway
     private eventEmitter: EventEmitter2,
     private readonly redisService: RedisService,
     private readonly chatbotService: ChatbotService,
-    private readonly supportChatService: SupportChatService
+    private readonly supportChatService: SupportChatService,
+    private readonly adminChatService: AdminChatService
   ) {}
 
   afterInit() {
@@ -791,6 +794,11 @@ export class FchatGateway
     this.userSockets.delete(client.data.user?.id);
     this.fchatService.removeConnection(client.id);
     this.redisService.del(`user:${userId}`);
+
+    // Cleanup admin chat rooms
+    if (userId) {
+      this.cleanupAdminChatRooms(userId);
+    }
   }
 
   private getUserType(userId: string): Enum_UserType {
@@ -1603,7 +1611,8 @@ export class FchatGateway
     data: {
       sessionId: string;
       reason: string;
-      targetTier?: 'tier2' | 'tier3' | 'supervisor';
+      targetTier: string;
+      currentPriority: string;
     }
   ) {
     try {
@@ -1615,7 +1624,7 @@ export class FchatGateway
       const success = await this.supportChatService.escalateSession(
         data.sessionId,
         data.reason,
-        data.targetTier
+        data.targetTier as 'tier2' | 'tier3' | 'supervisor'
       );
 
       if (success) {
@@ -1623,6 +1632,7 @@ export class FchatGateway
           sessionId: data.sessionId,
           reason: data.reason,
           targetTier: data.targetTier,
+          currentPriority: data.currentPriority,
           timestamp: new Date().toISOString()
         });
       }
@@ -2093,6 +2103,632 @@ export class FchatGateway
     } catch (error: any) {
       console.error('Error switching chat mode:', error);
       throw new WsException(error.message || 'Failed to switch mode');
+    }
+  }
+
+  // ============ ADMIN CHAT FUNCTIONALITY ============
+
+  @SubscribeMessage('createAdminGroup')
+  async handleCreateAdminGroup(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      groupName: string;
+      groupDescription?: string;
+      groupAvatar?: string;
+      initialParticipants?: string[];
+      allowedRoles?: string[];
+      category?: string;
+      tags?: string[];
+      isPublic?: boolean;
+      maxParticipants?: number;
+    }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      // Verify user is admin
+      if (!this.isAdmin(userData.logged_in_as)) {
+        throw new WsException('Only admins can create admin groups');
+      }
+
+      const group = await this.adminChatService.createAdminGroup(userData.id, {
+        ...data,
+        allowedRoles: data.allowedRoles as AdminRole[]
+      });
+
+      // Join creator to the group room
+      await client.join(`admin_group_${group.id}`);
+
+      // Join initial participants to the group room and notify them
+      if (data.initialParticipants) {
+        for (const participantId of data.initialParticipants) {
+          const participantSocket = this.userSockets.get(participantId);
+          if (participantSocket) {
+            await participantSocket.join(`admin_group_${group.id}`);
+            participantSocket.emit('adminGroupCreated', {
+              groupId: group.id,
+              groupName: group.groupName,
+              createdBy: userData.id,
+              createdByName:
+                `${userData.first_name || ''} ${userData.last_name || ''}`.trim()
+            });
+          }
+        }
+      }
+
+      client.emit('adminGroupCreated', {
+        groupId: group.id,
+        groupName: group.groupName,
+        participants: group.participants.length,
+        success: true
+      });
+
+      return { success: true, groupId: group.id };
+    } catch (error: any) {
+      console.error('Error creating admin group:', error);
+      client.emit('adminGroupError', { error: error.message });
+      throw new WsException(error.message || 'Failed to create admin group');
+    }
+  }
+
+  @SubscribeMessage('sendGroupInvitation')
+  async handleSendGroupInvitation(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      groupId: string;
+      invitedUserIds: string[];
+      message?: string;
+      expiresAt?: string;
+    }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      if (!this.isAdmin(userData.logged_in_as)) {
+        throw new WsException('Only admins can send group invitations');
+      }
+
+      const result = await this.adminChatService.sendGroupInvitation(
+        userData.id,
+        data
+      );
+
+      // Notify invited users
+      for (const invitedUserId of data.invitedUserIds) {
+        const invitedSocket = this.userSockets.get(invitedUserId);
+        if (invitedSocket) {
+          invitedSocket.emit('groupInvitationReceived', {
+            groupId: data.groupId,
+            invitedBy: userData.id,
+            inviterName:
+              `${userData.first_name || ''} ${userData.last_name || ''}`.trim(),
+            message: data.message
+          });
+        }
+      }
+
+      client.emit('groupInvitationSent', result);
+      return result;
+    } catch (error: any) {
+      console.error('Error sending group invitation:', error);
+      client.emit('groupInvitationError', { error: error.message });
+      throw new WsException(error.message || 'Failed to send group invitation');
+    }
+  }
+
+  @SubscribeMessage('respondToGroupInvitation')
+  async handleRespondToGroupInvitation(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      inviteId: string;
+      response: 'ACCEPT' | 'DECLINE';
+      reason?: string;
+    }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      if (!this.isAdmin(userData.logged_in_as)) {
+        throw new WsException('Only admins can respond to invitations');
+      }
+
+      const result = await this.adminChatService.respondToInvitation(
+        userData.id,
+        data
+      );
+
+      if (result.success && result.groupId && data.response === 'ACCEPT') {
+        // Join user to group room
+        await client.join(`admin_group_${result.groupId}`);
+
+        // Notify other group members
+        this.server
+          .to(`admin_group_${result.groupId}`)
+          .emit('userJoinedGroup', {
+            groupId: result.groupId,
+            userId: userData.id,
+            userName:
+              `${userData.first_name || ''} ${userData.last_name || ''}`.trim()
+          });
+      }
+
+      client.emit('invitationResponse', result);
+      return result;
+    } catch (error: any) {
+      console.error('Error responding to invitation:', error);
+      client.emit('invitationError', { error: error.message });
+      throw new WsException(error.message || 'Failed to respond to invitation');
+    }
+  }
+
+  @SubscribeMessage('startDirectAdminChat')
+  async handleStartDirectAdminChat(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      withAdminId: string;
+      category?: string;
+      priority?: 'low' | 'medium' | 'high' | 'critical';
+      initialOrderReference?: {
+        orderId: string;
+        issueDescription?: string;
+        urgencyLevel?: 'low' | 'medium' | 'high' | 'critical';
+      };
+    }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      if (!this.isAdmin(userData.logged_in_as)) {
+        throw new WsException('Only admins can start admin chats');
+      }
+
+      const directChat = await this.adminChatService.startDirectAdminChat(
+        userData.id,
+        data
+      );
+
+      // Join both users to the chat room
+      await client.join(`admin_direct_${directChat.id}`);
+
+      const otherUserSocket = this.userSockets.get(data.withAdminId);
+      if (otherUserSocket) {
+        await otherUserSocket.join(`admin_direct_${directChat.id}`);
+        otherUserSocket.emit('directAdminChatStarted', {
+          chatId: directChat.id,
+          withUser: userData.id,
+          withUserName:
+            `${userData.first_name || ''} ${userData.last_name || ''}`.trim(),
+          category: data.category,
+          priority: data.priority
+        });
+      }
+
+      client.emit('directAdminChatStarted', {
+        chatId: directChat.id,
+        withUser: data.withAdminId,
+        category: data.category,
+        priority: data.priority
+      });
+
+      return { success: true, chatId: directChat.id };
+    } catch (error: any) {
+      console.error('Error starting direct admin chat:', error);
+      client.emit('directChatError', { error: error.message });
+      throw new WsException(error.message || 'Failed to start direct chat');
+    }
+  }
+
+  @SubscribeMessage('sendAdminMessage')
+  async handleSendAdminMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      roomId: string;
+      content: string;
+      messageType?:
+        | 'TEXT'
+        | 'IMAGE'
+        | 'VIDEO'
+        | 'FILE'
+        | 'ORDER_REFERENCE'
+        | 'ADMIN_NOTIFICATION';
+      orderReference?: {
+        orderId: string;
+        orderStatus?: string;
+        customerName?: string;
+        restaurantName?: string;
+        totalAmount?: number;
+        issueDescription?: string;
+        urgencyLevel?: 'low' | 'medium' | 'high' | 'critical';
+      };
+      priority?: 'low' | 'medium' | 'high' | 'critical';
+      replyToMessageId?: string;
+      fileAttachment?: {
+        fileName: string;
+        fileSize: number;
+        fileType: string;
+        fileUrl: string;
+        thumbnailUrl?: string;
+      };
+    }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      // Verify user is an agent
+      if (
+        userData.logged_in_as !== 'CUSTOMER_CARE_REPRESENTATIVE' &&
+        userData.logged_in_as !== 'ADMIN'
+      ) {
+        throw new WsException('Unauthorized - Agent access required');
+      }
+
+      const session = await this.adminChatService.getAdminChats(userData.id);
+      const currentRoom = session.find(r => r.id === data.roomId);
+      const roomName =
+        currentRoom?.type === 'ADMIN_GROUP'
+          ? `admin_group_${data.roomId}`
+          : `admin_direct_${data.roomId}`;
+
+      const message = await this.adminChatService.sendAdminMessage(
+        userData.id,
+        data
+      );
+
+      // Format message for real-time emission
+      const formattedMessage = {
+        id: message.id,
+        roomId: message.roomId,
+        senderId: message.senderId,
+        senderType: message.senderType,
+        content: message.content,
+        messageType: message.messageType,
+        orderReference: message.orderReference,
+        fileAttachment: message.fileAttachment,
+        replyToMessageId: message.replyToMessageId,
+        priority: message.priority,
+        timestamp: message.timestamp.toISOString(),
+        readBy: message.readBy,
+        senderDetails: {
+          id: userData.id,
+          name: `${userData.first_name || ''} ${userData.last_name || ''}`.trim(),
+          avatar: userData.avatar,
+          role: userData.role
+        }
+      };
+
+      // Emit to all participants in the room
+      this.server.to(roomName).emit('newAdminMessage', formattedMessage);
+
+      // Special handling for order references
+      if (data.orderReference) {
+        this.server.to(roomName).emit('orderReferenced', {
+          roomId: data.roomId,
+          orderId: data.orderReference.orderId,
+          messageId: message.id,
+          urgencyLevel: data.orderReference.urgencyLevel
+        });
+      }
+
+      return { success: true, messageId: message.id };
+    } catch (error: any) {
+      console.error('Error sending admin message:', error);
+      client.emit('adminMessageError', { error: error.message });
+      throw new WsException(error.message || 'Failed to send admin message');
+    }
+  }
+
+  @SubscribeMessage('getAdminChats')
+  async handleGetAdminChats(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data?: {
+      query?: string;
+      category?: string;
+      tags?: string[];
+      roomType?: 'ADMIN_DIRECT' | 'ADMIN_GROUP';
+      orderId?: string;
+      limit?: number;
+      offset?: number;
+    }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      if (!this.isAdmin(userData.logged_in_as)) {
+        throw new WsException('Only admins can access admin chats');
+      }
+
+      const chats = await this.adminChatService.getAdminChats(
+        userData.id,
+        data
+      );
+
+      client.emit('adminChatsList', {
+        chats,
+        total: chats.length,
+        timestamp: new Date().toISOString()
+      });
+
+      return { success: true, chats };
+    } catch (error: any) {
+      console.error('Error getting admin chats:', error);
+      client.emit('adminChatsError', { error: error.message });
+      throw new WsException(error.message || 'Failed to get admin chats');
+    }
+  }
+
+  @SubscribeMessage('getPendingInvitations')
+  async handleGetPendingInvitations(@ConnectedSocket() client: Socket) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      if (!this.isAdmin(userData.logged_in_as)) {
+        throw new WsException('Only admins can access invitations');
+      }
+
+      const invitations = await this.adminChatService.getPendingInvitations(
+        userData.id
+      );
+
+      client.emit('pendingInvitations', {
+        invitations,
+        count: invitations.length,
+        timestamp: new Date().toISOString()
+      });
+
+      return { success: true, invitations };
+    } catch (error: any) {
+      console.error('Error getting pending invitations:', error);
+      client.emit('pendingInvitationsError', { error: error.message });
+      throw new WsException(
+        error.message || 'Failed to get pending invitations'
+      );
+    }
+  }
+
+  @SubscribeMessage('updateGroupSettings')
+  async handleUpdateGroupSettings(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      groupId: string;
+      groupName?: string;
+      groupDescription?: string;
+      groupAvatar?: string;
+      allowedRoles?: string[];
+      category?: string;
+      tags?: string[];
+      isPublic?: boolean;
+      maxParticipants?: number;
+    }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      if (!this.isAdmin(userData.logged_in_as)) {
+        throw new WsException('Only admins can update group settings');
+      }
+
+      const updatedGroup = await this.adminChatService.updateGroupSettings(
+        userData.id,
+        {
+          ...data,
+          allowedRoles: data.allowedRoles as AdminRole[]
+        }
+      );
+
+      // Notify all group members about settings update
+      this.server
+        .to(`admin_group_${data.groupId}`)
+        .emit('groupSettingsUpdated', {
+          groupId: data.groupId,
+          updatedBy: userData.id,
+          updatedByName:
+            `${userData.first_name || ''} ${userData.last_name || ''}`.trim(),
+          changes: data,
+          timestamp: new Date().toISOString()
+        });
+
+      client.emit('groupSettingsUpdated', {
+        success: true,
+        group: updatedGroup
+      });
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error updating group settings:', error);
+      client.emit('groupSettingsError', { error: error.message });
+      throw new WsException(error.message || 'Failed to update group settings');
+    }
+  }
+
+  @SubscribeMessage('manageGroupParticipant')
+  async handleManageGroupParticipant(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      groupId: string;
+      participantId: string;
+      action: 'PROMOTE' | 'DEMOTE' | 'REMOVE';
+      newRole?: 'CREATOR' | 'ADMIN' | 'MEMBER';
+      reason?: string;
+    }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      if (!this.isAdmin(userData.logged_in_as)) {
+        throw new WsException('Only admins can manage group participants');
+      }
+
+      const result = await this.adminChatService.manageGroupParticipant(
+        userData.id,
+        data
+      );
+
+      // Notify all group members about the action
+      this.server.to(`admin_group_${data.groupId}`).emit('participantManaged', {
+        groupId: data.groupId,
+        participantId: data.participantId,
+        action: data.action,
+        newRole: data.newRole,
+        managedBy: userData.id,
+        managerName:
+          `${userData.first_name || ''} ${userData.last_name || ''}`.trim(),
+        reason: data.reason,
+        timestamp: new Date().toISOString()
+      });
+
+      // If participant was removed, remove them from room
+      if (data.action === 'REMOVE') {
+        const participantSocket = this.userSockets.get(data.participantId);
+        if (participantSocket) {
+          participantSocket.leave(`admin_group_${data.groupId}`);
+          participantSocket.emit('removedFromGroup', {
+            groupId: data.groupId,
+            reason: data.reason,
+            removedBy: userData.id
+          });
+        }
+      }
+
+      client.emit('participantManaged', result);
+      return result;
+    } catch (error: any) {
+      console.error('Error managing group participant:', error);
+      client.emit('participantManageError', { error: error.message });
+      throw new WsException(error.message || 'Failed to manage participant');
+    }
+  }
+
+  @SubscribeMessage('getOrderDetails')
+  async handleGetOrderDetails(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { orderId: string }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      if (!this.isAdmin(userData.logged_in_as)) {
+        throw new WsException('Only admins can access order details');
+      }
+
+      const orderDetails = await this.adminChatService.getOrderDetails(
+        data.orderId
+      );
+
+      if (!orderDetails) {
+        throw new WsException('Order not found');
+      }
+
+      client.emit('orderDetails', {
+        orderId: data.orderId,
+        details: orderDetails,
+        timestamp: new Date().toISOString()
+      });
+
+      return { success: true, orderDetails };
+    } catch (error: any) {
+      console.error('Error getting order details:', error);
+      client.emit('orderDetailsError', { error: error.message });
+      throw new WsException(error.message || 'Failed to get order details');
+    }
+  }
+
+  @SubscribeMessage('getChatsByOrderId')
+  async handleGetChatsByOrderId(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { orderId: string }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      if (!this.isAdmin(userData.logged_in_as)) {
+        throw new WsException('Only admins can access order-related chats');
+      }
+
+      const chats = await this.adminChatService.getChatsByOrderId(data.orderId);
+
+      client.emit('orderRelatedChats', {
+        orderId: data.orderId,
+        chats,
+        count: chats.length,
+        timestamp: new Date().toISOString()
+      });
+
+      return { success: true, chats };
+    } catch (error: any) {
+      console.error('Error getting chats by order ID:', error);
+      client.emit('orderChatsError', { error: error.message });
+      throw new WsException(
+        error.message || 'Failed to get order-related chats'
+      );
+    }
+  }
+
+  // ============ ADMIN UTILITY METHODS ============
+
+  private isAdmin(userType: string): boolean {
+    return [
+      'SUPER_ADMIN',
+      'FINANCE_ADMIN',
+      'COMPANION_ADMIN',
+      'CUSTOMER_CARE_REPRESENTATIVE',
+      'ADMIN'
+    ].includes(userType);
+  }
+
+  // Update the existing handleDisconnect to clean up admin chat rooms
+  private async cleanupAdminChatRooms(userId: string): Promise<void> {
+    // Leave all admin group rooms
+    const userSocket = this.userSockets.get(userId);
+    if (userSocket) {
+      const rooms = Array.from(userSocket.rooms);
+      for (const room of rooms) {
+        if (
+          room.startsWith('admin_group_') ||
+          room.startsWith('admin_direct_')
+        ) {
+          userSocket.leave(room);
+        }
+      }
     }
   }
 }

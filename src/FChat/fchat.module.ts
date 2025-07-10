@@ -1,23 +1,24 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import { FchatGateway } from './fchat.gateway';
 import { FchatService } from './fchat.service';
+import { AdminChatService } from './admin-chat.service';
+import { AdminChatGateway } from './admin-chat.gateway';
 import { ChatbotService } from './chatbot.service';
 import { SupportChatService } from './support-chat.service';
 import { Message } from './entities/message.entity';
 import { ChatRoom } from './entities/chat-room.entity';
-import { Customer } from 'src/customers/entities/customer.entity';
-import { Driver } from 'src/drivers/entities/driver.entity';
-import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
-import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
-import { User } from 'src/users/entities/user.entity';
-import { UsersService } from 'src/users/users.service';
-import { RedisService } from 'src/redis/redis.service';
-import { UserRepository } from 'src/users/users.repository';
-import { AdminRepository } from 'src/admin/admin.repository';
-import { Admin } from 'src/admin/entities/admin.entity';
+import { Customer } from '../customers/entities/customer.entity';
+import { Driver } from '../drivers/entities/driver.entity';
+import { Restaurant } from '../restaurants/entities/restaurant.entity';
+import { CustomerCare } from '../customer_cares/entities/customer_care.entity';
+import { Admin } from '../admin/entities/admin.entity';
+import { Order } from '../orders/entities/order.entity';
+import { User } from '../users/entities/user.entity';
+import { RedisService } from '../redis/redis.service';
+import { AdminModule } from 'src/admin/admin.module';
+import { UsersModule } from 'src/users/users.module';
 
 @Module({
   imports: [
@@ -28,34 +29,26 @@ import { Admin } from 'src/admin/entities/admin.entity';
       Driver,
       Restaurant,
       CustomerCare,
-      User,
-      Admin
+      Admin,
+      Order,
+      User
     ]),
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'default-secret',
+      secret: process.env.JWT_SECRET || 'fallback-secret',
       signOptions: { expiresIn: '24h' }
     }),
-    EventEmitterModule.forRoot({
-      global: true,
-      wildcard: false,
-      delimiter: '.',
-      newListener: false,
-      removeListener: false,
-      maxListeners: 10,
-      verboseMemoryLeak: false,
-      ignoreErrors: false
-    })
+    UsersModule,
+    AdminModule
   ],
   providers: [
     FchatGateway,
+    AdminChatGateway,
     FchatService,
+    AdminChatService,
     ChatbotService,
     SupportChatService,
-    UsersService,
-    RedisService,
-    UserRepository,
-    AdminRepository
+    RedisService
   ],
-  exports: [FchatService, ChatbotService, SupportChatService]
+  exports: [FchatService, AdminChatService, ChatbotService, SupportChatService]
 })
 export class FchatModule {}

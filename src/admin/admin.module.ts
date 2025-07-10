@@ -40,6 +40,7 @@ import { AdminFakeController } from './admin.controller-fake';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RedisService } from 'src/redis/redis.service';
+import { ChatRoom } from 'src/FChat/entities/chat-room.entity';
 
 @Module({
   imports: [
@@ -59,7 +60,8 @@ import { RedisService } from 'src/redis/redis.service';
       Restaurant,
       Order,
       User,
-      CustomerCare
+      CustomerCare,
+      ChatRoom
     ]),
     UsersModule
   ],

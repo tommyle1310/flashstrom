@@ -9,7 +9,7 @@ import { createResponse, ApiResponse } from 'src/utils/createResponse';
 import { AdminRepository } from 'src/admin/admin.repository';
 import { TargetUser } from 'src/notifications/entities/notification.entity';
 import { IMAGE_LINKS } from 'src/assets/image_urls';
-import { ADMIN_MOCK } from 'src/utils/constants';
+import { SUPER_ADMIN_MOCK } from 'src/utils/constants';
 import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Injectable()
@@ -54,7 +54,7 @@ export class FinanceRulesService {
         image: null,
         link: ``,
         target_user: [TargetUser.DRIVER],
-        created_by_id: ADMIN_MOCK.admin_id
+        created_by_id: SUPER_ADMIN_MOCK.admin_id
       };
       const restaurantNotificationData = {
         avatar: {
@@ -66,7 +66,7 @@ export class FinanceRulesService {
         image: null,
         link: ``,
         target_user: [TargetUser.RESTAURANT],
-        created_by_id: ADMIN_MOCK.admin_id
+        created_by_id: SUPER_ADMIN_MOCK.admin_id
       };
 
       const driverNotificationResponse = await this.notificationsService.create(

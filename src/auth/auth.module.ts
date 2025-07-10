@@ -80,6 +80,7 @@ import { NotificationsService } from 'src/notifications/notifications.service';
 import { VouchersService } from 'src/vouchers/vouchers.service';
 import { VouchersRepository } from 'src/vouchers/vouchers.repository';
 import { Voucher } from 'src/vouchers/entities/voucher.entity';
+import { ChatRoom } from 'src/FChat/entities/chat-room.entity';
 @Module({
   imports: [
     JwtModule.register({
@@ -109,7 +110,8 @@ import { Voucher } from 'src/vouchers/entities/voucher.entity';
       MenuItemVariant,
       Order,
       CartItem,
-      CustomerCare
+      CustomerCare,
+      ChatRoom
     ]),
 
     // Add Mongoose models

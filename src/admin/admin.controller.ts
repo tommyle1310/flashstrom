@@ -7,7 +7,9 @@ import {
   Param,
   Delete,
   UseGuards,
-  Req
+  Req,
+  Query,
+  ParseUUIDPipe
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { CreateAdminDto } from './dto/create-admin.dto';
@@ -17,6 +19,8 @@ import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { PermissionGuard } from './guards/permission.guard'; // Đã fix đường dẫn
 import { Permissions } from './decorators/permissions.decorator';
 import { AdminPermission, AdminRole } from 'src/utils/types/admin';
+import { SearchInternalUserDto } from './dto/search-internal-user.dto';
+import { SearchGroupChatMembersDto } from './dto/search-group-chat-members.dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard)
@@ -38,6 +42,19 @@ export class AdminController {
   @Get('by-role/:role')
   findAllByRole(@Param('role') role: AdminRole) {
     return this.adminService.findAllByRole(role);
+  }
+
+  @Get('internal-users/search')
+  searchInternalUsers(@Query() searchDto: SearchInternalUserDto) {
+    return this.adminService.searchInternalUsers(searchDto);
+  }
+
+  @Get('group-chat/:groupId/members')
+  searchGroupChatMembers(
+    @Param('groupId', new ParseUUIDPipe()) groupId: string,
+    @Query() searchDto: SearchGroupChatMembersDto
+  ) {
+    return this.adminService.searchGroupChatMembers(groupId, searchDto);
   }
 
   @Get(':id')

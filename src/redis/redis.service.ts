@@ -11,7 +11,7 @@ export class RedisService {
 
   constructor() {
     this.client = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379', // Thêm giá trị mặc định
+      url: 'rediss://default:AT_LAAIjcDFkNjA0ZmNiNTJiOTc0NzJjYTY1ZjllM2RhNTFhYjZlNHAxMA@direct-woodcock-16331.upstash.io:6379',
       socket: {
         reconnectStrategy: retries => Math.min(retries * 200, 5000),
         connectTimeout: 15000
