@@ -973,7 +973,13 @@ export class AdminChatService {
                           message.replyToMessage.adminSender ||
                           message.replyToMessage.customerCareSender
                         ).id,
-                        name: `${(message.replyToMessage.adminSender || message.replyToMessage.customerCareSender).first_name || ''} ${(message.replyToMessage.adminSender || message.replyToMessage.customerCareSender).last_name || ''}`.trim()
+                        name: `${(message.replyToMessage.adminSender || message.replyToMessage.customerCareSender).first_name || ''} ${(message.replyToMessage.adminSender || message.replyToMessage.customerCareSender).last_name || ''}`.trim(),
+                        avatar:
+                          (
+                            message.replyToMessage.adminSender ||
+                            message.replyToMessage.customerCareSender
+                          ).avatar?.url || null,
+                        role: message.replyToMessage.adminSender?.role || null
                       }
                     : null
               }
