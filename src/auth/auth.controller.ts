@@ -45,13 +45,13 @@ export class AuthController {
     console.log('check regis res', registrationResponse);
 
     // If registration is successful
-    if (registrationResponse?.data?.data) {
-      const code = await this.emailService.sendVerificationEmail(
-        userData.email
-      ); // Send email to the user's email
-      await this.usersService.update(registrationResponse.data.data.user_id, {
-        verification_code: code
-      });
+    if (registrationResponse?.data?.data && !isGenerated) {
+      // const code = await this.emailService.sendVerificationEmail(
+      //   userData.email
+      // ); // Send email to the user's email
+      // await this.usersService.update(registrationResponse.data.data.user_id, {
+      //   verification_code: code
+      // });
 
       return createResponse(
         'OK',
@@ -82,13 +82,13 @@ export class AuthController {
     );
 
     // If registration is successful
-    if (registrationResponse?.data?.data) {
-      const code = await this.emailService.sendVerificationEmail(
-        userData.email
-      ); // Send email to the user's email
-      await this.usersService.update(registrationResponse.data.data.user_id, {
-        verification_code: code
-      });
+    if (registrationResponse?.data?.data && !isGenerated) {
+      // const code = await this.emailService.sendVerificationEmail(
+      //   userData.email
+      // ); // Send email to the user's email
+      // await this.usersService.update(registrationResponse.data.data.user_id, {
+      //   verification_code: code
+      // });
 
       return createResponse(
         'OK',
@@ -96,7 +96,7 @@ export class AuthController {
         'Registration successful, verification email sent'
       );
     } else {
-      return registrationResponse?.data;
+      return registrationResponse;
     }
   }
 
@@ -162,7 +162,7 @@ export class AuthController {
     );
     console.log('check res', registrationResponse);
     // If registration is successful
-    if (registrationResponse?.data?.data) {
+    if (registrationResponse?.data?.data && !isGenerated) {
       const code = await this.emailService.sendVerificationEmail(
         userData.email
       ); // Send email to the user's email
@@ -198,7 +198,7 @@ export class AuthController {
     );
 
     // If registration is successful
-    if (registrationResponse?.data?.data) {
+    if (registrationResponse?.data?.data && !isGenerated) {
       const code = await this.emailService.sendVerificationEmail(
         userData.email
       ); // Send email to the user's email
@@ -234,7 +234,7 @@ export class AuthController {
     );
 
     // If registration is successful
-    if (registrationResponse?.data?.data) {
+    if (registrationResponse?.data?.data && !isGenerated) {
       const code = await this.emailService.sendVerificationEmail(
         userData.email
       ); // Send email to the user's email
@@ -270,7 +270,7 @@ export class AuthController {
     );
 
     // If registration is successful
-    if (registrationResponse?.data?.data) {
+    if (registrationResponse?.data?.data && !isGenerated) {
       const code = await this.emailService.sendVerificationEmail(
         userData.email
       ); // Send email to the user's email
@@ -306,7 +306,7 @@ export class AuthController {
     );
 
     // If registration is successful
-    if (registrationResponse?.data?.data) {
+    if (registrationResponse?.data?.data && !isGenerated) {
       const code = await this.emailService.sendVerificationEmail(
         userData.email
       ); // Send email to the user's email

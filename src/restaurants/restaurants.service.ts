@@ -38,6 +38,7 @@ import { Order } from 'src/orders/entities/order.entity';
 import { RatingsReviewsRepository } from 'src/ratings_reviews/ratings_reviews.repository';
 import { RedisService } from 'src/redis/redis.service';
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
 // import { Equal } from 'typeorm';
 
 dotenv.config();
@@ -45,7 +46,11 @@ dotenv.config();
 const logger = new Logger('RestaurantsService');
 
 const redis = createClient({
-  url: 'rediss://default:AT_LAAIjcDFkNjA0ZmNiNTJiOTc0NzJjYTY1ZjllM2RhNTFhYjZlNHAxMA@direct-woodcock-16331.upstash.io:6379'
+
+  url:
+    process.env.REDIS_URL ||
+    'iss://default:AT_LAAIjcDFkNjA0ZmNiNTJiOTc0NzJjYTY1ZjllM2RhNTFhYjZlNHAxMA@direct-woodcock-16331.upstash.io:6379' ||
+    'redis://localhost:6379'
 });
 redis.connect().catch(err => logger.error('Redis connection error:', err));
 
@@ -72,6 +77,11 @@ interface MenuItemResponse {
   description: string | null;
   price: number;
   category: string[];
+  categoryDetails?: {
+    id: string;
+    name: string;
+    avatar: { url: string; key: string };
+  }[];
   avatar: { key: string; url: string } | null;
   availability: boolean;
   suggest_notes: string[];
@@ -111,7 +121,8 @@ export class RestaurantsService {
     private readonly fWalletsRepository: FWalletsRepository,
     private readonly dataSource: DataSource,
     private readonly ratingsReviewsRepository: RatingsReviewsRepository,
-    private readonly redisService: RedisService
+    private readonly redisService: RedisService,
+    private readonly notificationsRepository: NotificationsRepository
   ) {}
 
   async onModuleInit() {
@@ -626,7 +637,13 @@ export class RestaurantsService {
   async getMenuItemsForRestaurant(restaurantId: string): Promise<any> {
     const start = Date.now();
     const cacheKey = `menu_items:${restaurantId}`;
-
+    // if (cacheKey) {
+    //   return createResponse(
+    //     'OK',
+    //     JSON.parse(await redis.get(cacheKey)),
+    //     'Fetched menu items for the restaurant from cache'
+    //   );
+    // }
     try {
       // First, clear any existing cache for this restaurant's menu items
       await redis.del(cacheKey);
@@ -661,6 +678,27 @@ export class RestaurantsService {
         (item: MenuItem) => item.availability
       );
       logger.log('Filtered menu items count:', menuItems.length);
+
+      // Collect all category IDs from menu items
+      const allCategoryIds = new Set<string>();
+      menuItems.forEach((item: MenuItem) => {
+        if (item.category && item.category.length > 0) {
+          item.category.forEach(categoryId => allCategoryIds.add(categoryId));
+        }
+      });
+      // Fetch all food categories in one query
+      const categoryIds = Array.from(allCategoryIds);
+
+      const foodCategories =
+        categoryIds.length > 0
+          ? await this.foodCategoryRepository.findByIds(categoryIds)
+          : [];
+
+      // Create a map for quick lookup
+      const categoryMap = new Map<string, FoodCategory>();
+      foodCategories.forEach(category => {
+        categoryMap.set(category.id, category);
+      });
 
       // If restaurant has no promotions, cache and return filtered menu items
       if (!restaurant.promotions || restaurant.promotions.length === 0) {
@@ -778,6 +816,10 @@ export class RestaurantsService {
               });
           }
 
+          const categoryDetails = itemCategories.map(categoryId =>
+            categoryMap.get(categoryId)
+          );
+
           // Create the menu item response with price_after_applied_promotion
           const itemResponse: MenuItemResponse = {
             id: item.id,
@@ -786,6 +828,11 @@ export class RestaurantsService {
             description: item.description,
             price: item.price,
             category: item.category,
+            categoryDetails: categoryDetails?.map(item => ({
+              id: item.id,
+              avatar: item.avatar,
+              name: item.name
+            })),
             avatar: item.avatar,
             availability: item.availability,
             suggest_notes: item.suggest_notes,
@@ -1654,6 +1701,111 @@ export class RestaurantsService {
         'ServerError',
         null,
         'Error retrieving restaurant ratings and reviews'
+      );
+    }
+  }
+
+  async getNotifications(restaurantId: string): Promise<ApiResponse<any>> {
+    const start = Date.now();
+    const cacheKey = `restaurant:notifications:${restaurantId}`;
+    const cacheTtl = 300; // 5 minutes (notifications change frequently)
+
+    try {
+      // Try to get from cache first
+      const cacheStart = Date.now();
+      const cachedData = await this.redisService.get(cacheKey);
+      if (cachedData) {
+        logger.log(
+          `Cache hit for restaurant notifications ${restaurantId} in ${Date.now() - cacheStart}ms`
+        );
+        logger.log(`Total time (cache): ${Date.now() - start}ms`);
+        const cachedNotifications = JSON.parse(cachedData);
+        return createResponse(
+          'OK',
+          cachedNotifications,
+          `Fetched ${cachedNotifications.length} notifications from cache for restaurant ${restaurantId}`
+        );
+      }
+
+      logger.log(`Cache miss for restaurant notifications: ${restaurantId}`);
+
+      // Kiểm tra restaurant có tồn tại không
+      const restaurantStart = Date.now();
+      const restaurant =
+        await this.restaurantsRepository.findById(restaurantId);
+      if (!restaurant) {
+        return createResponse('NotFound', null, 'Restaurant not found');
+      }
+      logger.log(
+        `Restaurant validation took ${Date.now() - restaurantStart}ms`
+      );
+
+      // Fetch notifications in parallel for better performance
+      const notificationsStart = Date.now();
+      const [specificNotifications, broadcastNotifications] = await Promise.all(
+        [
+          // Lấy thông báo chỉ định riêng cho restaurant (target_user_id = restaurantId)
+          this.notificationsRepository.findSpecificNotifications(restaurantId),
+          // Lấy thông báo broadcast cho vai trò RESTAURANT
+          this.notificationsRepository.findBroadcastNotifications('RESTAURANT')
+        ]
+      );
+      logger.log(
+        `Notifications fetch took ${Date.now() - notificationsStart}ms`
+      );
+
+      logger.log('Fetching broadcast notifications for RESTAURANT...');
+      logger.log(
+        `Found ${broadcastNotifications.length} broadcast notifications`
+      );
+
+      // Process notifications
+      const processingStart = Date.now();
+      // Gộp hai danh sách thông báo và loại bỏ trùng lặp
+      const allNotifications = [
+        ...specificNotifications,
+        ...broadcastNotifications
+      ];
+      const uniqueNotificationsMap = new Map(
+        allNotifications.map(n => [n.id, n])
+      );
+      const uniqueNotifications = Array.from(uniqueNotificationsMap.values());
+
+      // Sắp xếp theo thời gian tạo (mới nhất trước)
+      const sortedNotifications = uniqueNotifications.sort(
+        (a, b) => b.created_at - a.created_at
+      );
+      logger.log(
+        `Notifications processing took ${Date.now() - processingStart}ms`
+      );
+
+      // Cache the result
+      const cacheSaveStart = Date.now();
+      try {
+        await this.redisService.set(
+          cacheKey,
+          JSON.stringify(sortedNotifications),
+          cacheTtl * 1000
+        );
+        logger.log(
+          `Notifications cached successfully (${Date.now() - cacheSaveStart}ms)`
+        );
+      } catch (cacheError) {
+        logger.warn('Failed to cache notifications:', cacheError);
+      }
+
+      logger.log(`Total processing time: ${Date.now() - start}ms`);
+      return createResponse(
+        'OK',
+        sortedNotifications,
+        `Fetched ${sortedNotifications.length} notifications for restaurant ${restaurantId}`
+      );
+    } catch (error: any) {
+      logger.error('Error fetching notifications for restaurant:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while fetching notifications'
       );
     }
   }

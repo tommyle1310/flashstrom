@@ -58,6 +58,11 @@ export class CustomersController {
     return this.customersService.getAllRestaurants(id);
   }
 
+  @Get('/popular-restaurants/:id')
+  getPopularRestaurants(@Param('id') id: string) {
+    return this.customersService.getPopularRestaurants(id);
+  }
+
   @Get('/search-restaurants')
   searchRestaurants(
     @Query('keyword') keyword: string,

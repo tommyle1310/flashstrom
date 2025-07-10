@@ -1185,6 +1185,161 @@ export class CustomersService {
     }
   }
 
+  async getPopularRestaurants(customerId: string): Promise<any> {
+    const cacheKey = `popular-restaurants:customer:${customerId}`;
+    const ttl = 3600; // Cache 1 giờ (3600 giây)
+    const start = Date.now();
+
+    try {
+      // 1. Kiểm tra cache
+      const cacheStart = Date.now();
+      const cachedData = await this.redisService.get(cacheKey);
+      if (cachedData) {
+        logger.log(
+          `Fetched popular restaurants from cache in ${Date.now() - cacheStart}ms`
+        );
+        logger.log(`Total time (cache): ${Date.now() - start}ms`);
+        return createResponse(
+          'OK',
+          JSON.parse(cachedData),
+          'Fetched popular restaurants from cache successfully'
+        );
+      }
+      logger.log(
+        `Cache miss, fetching from DB (took ${Date.now() - cacheStart}ms)`
+      );
+
+      // 2. Truy vấn customer
+      const customerStart = Date.now();
+      const customer = await this.customerRepository.findById(customerId);
+      if (!customer) {
+        logger.log(`Customer fetch took ${Date.now() - customerStart}ms`);
+        return createResponse('NotFound', null, 'Customer not found');
+      }
+      logger.log(`Customer fetch took ${Date.now() - customerStart}ms`);
+
+      const {
+        preferred_category,
+        restaurant_history,
+        address: customerAddress
+      } = customer;
+
+      const customerAddressArray = customerAddress as AddressPopulate[];
+
+      // 3. Lấy tất cả nhà hàng
+      const restaurantsStart = Date.now();
+      const restaurants = await this.restaurantRepository.findAll();
+      logger.log(`Restaurants fetch took ${Date.now() - restaurantsStart}ms`);
+
+      // 4. Fetch ratings for all restaurants
+      const ratingsStart = Date.now();
+      const ratingsRepository = this.dataSource.getRepository(RatingsReview);
+      const restaurantRatings = await ratingsRepository
+        .createQueryBuilder('rating')
+        .select('rating.rr_recipient_restaurant_id', 'restaurant_id')
+        .addSelect('AVG(rating.food_rating)', 'avg_rating')
+        .where('rating.recipient_type = :type', { type: 'restaurant' })
+        .groupBy('rating.rr_recipient_restaurant_id')
+        .getRawMany();
+
+      const ratingsMap = new Map();
+      restaurantRatings.forEach(rating => {
+        ratingsMap.set(rating.restaurant_id, parseFloat(rating.avg_rating));
+      });
+      logger.log(`Ratings fetch took ${Date.now() - ratingsStart}ms`);
+
+      // 5. Tính toán và ưu tiên nhà hàng theo total_orders
+      const prioritizationStart = Date.now();
+      const popularRestaurants = restaurants
+        .map(restaurant => {
+          const customerLocation = customerAddressArray?.[0]?.location as
+            | AddressPopulate['location']
+            | undefined;
+
+          const restaurantAddress = restaurant.address as
+            | AddressPopulate
+            | undefined;
+
+          let distance = 0;
+          let estimated_time = 0;
+
+          if (customerLocation && restaurantAddress?.location) {
+            const restaurantLocation = restaurantAddress.location;
+            distance = this.calculateDistance(
+              customerLocation.lat,
+              customerLocation.lng,
+              restaurantLocation.lat,
+              restaurantLocation.lng
+            );
+            // Calculate estimated time (in minutes) - assuming average speed of 30 km/h
+            estimated_time = Math.round((distance / 30) * 60);
+          }
+
+          const isPreferred = restaurant.specialize_in.some(category =>
+            preferred_category.includes(category as unknown as FoodCategory)
+          );
+
+          const visitHistory = restaurant_history
+            ? restaurant_history.find(
+                history => history.restaurant_id === restaurant.id
+              )
+            : null;
+          const visitCount = visitHistory ? visitHistory.count : 0;
+
+          // Tính điểm ưu tiên dựa trên total_orders, nhưng vẫn kết hợp các yếu tố khác
+          const orderWeight = restaurant.total_orders * 2;
+          const preferredWeight = (isPreferred ? 1 : 0) * 1.5;
+          const visitWeight = visitCount * 1;
+
+          const priorityScore = orderWeight + preferredWeight + visitWeight;
+
+          return {
+            ...restaurant,
+            priorityScore,
+            distance: parseFloat(distance.toFixed(2)), // Round to 2 decimal places
+            estimated_time,
+            avg_rating: ratingsMap.get(restaurant.id) || 0
+          };
+        })
+        .sort((a, b) => b.priorityScore - a.priorityScore);
+      logger.log(`Prioritization took ${Date.now() - prioritizationStart}ms`);
+
+      // 6. Lưu kết quả vào cache
+      const cacheSaveStart = Date.now();
+      const cacheSaved = await this.redisService.setNx(
+        cacheKey,
+        JSON.stringify(popularRestaurants),
+        ttl * 1000 // TTL tính bằng milliseconds
+      );
+      if (cacheSaved) {
+        logger.log(
+          `Stored popular restaurants in cache: ${cacheKey} (took ${Date.now() - cacheSaveStart}ms)`
+        );
+      } else {
+        logger.warn(
+          `Failed to store popular restaurants in cache: ${cacheKey}`
+        );
+      }
+
+      logger.log(`Total DB fetch and processing took ${Date.now() - start}ms`);
+      return createResponse(
+        'OK',
+        popularRestaurants,
+        'Fetched popular restaurants successfully'
+      );
+    } catch (error: any) {
+      logger.error(
+        `Error fetching popular restaurants: ${error.message}`,
+        error.stack
+      );
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while fetching popular restaurants'
+      );
+    }
+  }
+
   async getAllOrders(customerId: string): Promise<ApiResponse<any>> {
     const cacheKey = `orders:customer:${customerId}`;
     const ttl = 300; // Cache 5 phút (300 giây)
