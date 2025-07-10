@@ -141,6 +141,10 @@ export class Message {
   @Column('jsonb', { nullable: true })
   fileAttachment: FileAttachment;
 
+  // Tagged users in message
+  @Column('text', { array: true, nullable: true, default: [] })
+  taggedUsers: string[];
+
   // Reply to message functionality
   @Column({ nullable: true })
   replyToMessageId: string;

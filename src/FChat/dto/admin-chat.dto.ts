@@ -181,6 +181,11 @@ export class SendAdminMessageDto {
   @ValidateNested()
   @Type(() => FileAttachmentDto)
   fileAttachment?: FileAttachmentDto;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  taggedUsers?: string[];
 }
 
 // DTO for starting direct admin chat

@@ -138,15 +138,20 @@ export class AdminGateway
     this.logger.log('Received newly_created_entity_notification:', data);
     try {
       const entityName = data.entity_name;
-      if (!entityName) {
-        this.logger.error('Missing entity_name in notification data:', data);
+      const entityEmail = data.entity_email;
+      if (!entityName || !entityEmail) {
+        this.logger.error(
+          'Missing entity_name or entity_email in notification data:',
+          data
+        );
         return;
       }
 
       const notificationPayload = {
         entity_name: entityName,
+        entity_email: entityEmail,
         timestamp: Math.floor(Date.now() / 1000),
-        message: `New ${entityName} has been created`,
+        message: `New ${entityName} (${entityEmail}) has been created`,
         event_type: 'newly_created_entity_notification'
       };
 
@@ -156,13 +161,13 @@ export class AdminGateway
         .emit('newly_created_entity_notification', notificationPayload);
 
       this.logger.log(
-        `Emitted newly_created_entity_notification to admin_global for entity: ${entityName}`
+        `Emitted newly_created_entity_notification to admin_global for entity: ${entityName} with email: ${entityEmail}`
       );
 
       return {
         event: 'newly_created_entity_notification',
         data: notificationPayload,
-        message: `Notified all admins about new ${entityName}`
+        message: `Notified all admins about new ${entityName} (${entityEmail})`
       };
     } catch (error) {
       this.logger.error(

@@ -1222,7 +1222,8 @@ export class AuthService {
 
       if (!isGenerated) {
         await this.eventEmitter.emit('newly_created_entity_notification', {
-          entity_name: type
+          entity_name: type,
+          entity_email: newUser.email
         });
       }
 

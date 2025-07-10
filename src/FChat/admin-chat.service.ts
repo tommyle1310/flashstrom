@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, Like, And } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import {
   ChatRoom,
@@ -485,6 +485,7 @@ export class AdminChatService {
       fileAttachment: messageDto.fileAttachment,
       replyToMessageId: messageDto.replyToMessageId,
       priority: messageDto.priority,
+      taggedUsers: messageDto.taggedUsers || [],
       readBy: [senderId],
       adminSender: senderAdmin ? senderAdmin : undefined,
       customerCareSender: senderCc ? senderCc : undefined
@@ -497,6 +498,19 @@ export class AdminChatService {
     await this.roomRepository.save(room);
 
     return savedMessage;
+  }
+
+  async getMessageById(messageId: string): Promise<Message | null> {
+    return this.messageRepository.findOne({
+      where: { id: messageId },
+      relations: [
+        'adminSender',
+        'customerCareSender',
+        'customerSender',
+        'driverSender',
+        'restaurantSender'
+      ]
+    });
   }
 
   // ============ GROUP MANAGEMENT ============
@@ -872,56 +886,101 @@ export class AdminChatService {
       .getMany();
 
     // Format messages for response
-    const formattedMessages = messages.map(message => {
-      const sender = message.adminSender || message.customerCareSender;
+    const formattedMessages = await Promise.all(
+      messages.map(async message => {
+        const sender = message.adminSender || message.customerCareSender;
 
-      return {
-        id: message.id,
-        roomId: message.roomId,
-        senderId: message.senderId,
-        senderType: message.senderType,
-        content: message.content,
-        messageType: message.messageType,
-        orderReference: message.orderReference,
-        fileAttachment: message.fileAttachment,
-        replyToMessageId: message.replyToMessageId,
-        priority: message.priority,
-        timestamp: message.timestamp,
-        readBy: message.readBy,
-        reactions: message.reactions,
-        isEdited: message.isEdited,
-        editedAt: message.editedAt,
-        systemMessageData: message.systemMessageData,
-        groupInvitationData: message.groupInvitationData,
-        senderDetails: sender
-          ? {
-              id: sender.id,
-              name: `${sender.first_name || ''} ${sender.last_name || ''}`.trim(),
-              avatar: sender.avatar?.url || null,
-              role: message.adminSender?.role || null
-            }
-          : null,
-        replyToMessage: message.replyToMessage
-          ? {
-              id: message.replyToMessage.id,
-              content: message.replyToMessage.content,
-              messageType: message.replyToMessage.messageType,
-              timestamp: message.replyToMessage.timestamp,
-              senderDetails:
-                message.replyToMessage.adminSender ||
-                message.replyToMessage.customerCareSender
-                  ? {
-                      id: (
-                        message.replyToMessage.adminSender ||
-                        message.replyToMessage.customerCareSender
-                      ).id,
-                      name: `${(message.replyToMessage.adminSender || message.replyToMessage.customerCareSender).first_name || ''} ${(message.replyToMessage.adminSender || message.replyToMessage.customerCareSender).last_name || ''}`.trim()
-                    }
-                  : null
-            }
-          : null
-      };
-    });
+        // Populate tagged users with full details
+        let populatedTaggedUsers = [];
+        if (message.taggedUsers && message.taggedUsers.length > 0) {
+          const adminIds = message.taggedUsers.filter(id =>
+            id.startsWith('FF_ADMIN_')
+          );
+          const ccIds = message.taggedUsers.filter(id =>
+            id.startsWith('FF_CC_')
+          );
+
+          const [taggedAdmins, taggedCCs] = await Promise.all([
+            adminIds.length > 0
+              ? this.adminRepository.find({ where: { id: In(adminIds) } })
+              : [],
+            ccIds.length > 0
+              ? this.customerCareRepository.find({ where: { id: In(ccIds) } })
+              : []
+          ]);
+
+          populatedTaggedUsers = [
+            ...taggedAdmins.map(admin => ({
+              id: admin.id,
+              firstName: admin.first_name,
+              lastName: admin.last_name,
+              fullName:
+                `${admin.first_name || ''} ${admin.last_name || ''}`.trim(),
+              avatar: admin.avatar?.url,
+              role: admin.role,
+              type: 'ADMIN'
+            })),
+            ...taggedCCs.map(cc => ({
+              id: cc.id,
+              firstName: cc.first_name,
+              lastName: cc.last_name,
+              fullName: `${cc.first_name || ''} ${cc.last_name || ''}`.trim(),
+              avatar: cc.avatar?.url,
+              type: 'CUSTOMER_CARE'
+            }))
+          ];
+        }
+
+        return {
+          id: message.id,
+          roomId: message.roomId,
+          senderId: message.senderId,
+          senderType: message.senderType,
+          content: message.content,
+          messageType: message.messageType,
+          orderReference: message.orderReference,
+          fileAttachment: message.fileAttachment,
+          replyToMessageId: message.replyToMessageId,
+          priority: message.priority,
+          timestamp: message.timestamp,
+          readBy: message.readBy,
+          taggedUsers: message.taggedUsers || [],
+          taggedUsersDetails: populatedTaggedUsers,
+          reactions: message.reactions,
+          isEdited: message.isEdited,
+          editedAt: message.editedAt,
+          systemMessageData: message.systemMessageData,
+          groupInvitationData: message.groupInvitationData,
+          senderDetails: sender
+            ? {
+                id: sender.id,
+                name: `${sender.first_name || ''} ${sender.last_name || ''}`.trim(),
+                avatar: sender.avatar?.url || null,
+                role: message.adminSender?.role || null
+              }
+            : null,
+          replyToMessage: message.replyToMessage
+            ? {
+                id: message.replyToMessage.id,
+                content: message.replyToMessage.content,
+                messageType: message.replyToMessage.messageType,
+                timestamp: message.replyToMessage.timestamp,
+                senderDetails:
+                  message.replyToMessage.adminSender ||
+                  message.replyToMessage.customerCareSender
+                    ? {
+                        id: (
+                          message.replyToMessage.adminSender ||
+                          message.replyToMessage.customerCareSender
+                        ).id,
+                        name: `${(message.replyToMessage.adminSender || message.replyToMessage.customerCareSender).first_name || ''} ${(message.replyToMessage.adminSender || message.replyToMessage.customerCareSender).last_name || ''}`.trim()
+                      }
+                    : null
+              }
+            : null
+        };
+      })
+    );
 
     // Reverse to get chronological order (oldest first)
     formattedMessages.reverse();

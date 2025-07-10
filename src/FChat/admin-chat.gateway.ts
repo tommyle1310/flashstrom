@@ -14,8 +14,7 @@ import { JwtService } from '@nestjs/jwt';
 import { AdminChatService } from './admin-chat.service';
 import { UsersService } from '../users/users.service';
 import { AdminRole } from 'src/utils/types/admin';
-import { RoomType } from './entities/chat-room.entity';
-import { MessageType } from './entities/message.entity';
+import { In } from 'typeorm';
 
 @WebSocketGateway({
   namespace: 'admin-chat',
@@ -723,6 +722,78 @@ export class AdminChatGateway
 
       const roomName = this.getRoomName(currentRoom.type, data.roomId);
 
+      // Get tagged users details
+      let taggedUsersDetails = [];
+      if (data.taggedUsers && data.taggedUsers.length > 0) {
+        const adminService = this.adminChatService;
+        const adminIds = data.taggedUsers.filter(id =>
+          id.startsWith('FF_ADMIN_')
+        );
+        const ccIds = data.taggedUsers.filter(id => id.startsWith('FF_CC_'));
+
+        const [taggedAdmins, taggedCCs] = await Promise.all([
+          adminIds.length > 0
+            ? adminService['adminRepository'].find({
+                where: { id: In(adminIds) }
+              })
+            : [],
+          ccIds.length > 0
+            ? adminService['customerCareRepository'].find({
+                where: { id: In(ccIds) }
+              })
+            : []
+        ]);
+
+        taggedUsersDetails = [
+          ...taggedAdmins.map(admin => ({
+            id: admin.id,
+            firstName: admin.first_name,
+            lastName: admin.last_name,
+            fullName:
+              `${admin.first_name || ''} ${admin.last_name || ''}`.trim(),
+            avatar: admin.avatar?.url,
+            role: admin.role,
+            type: 'ADMIN'
+          })),
+          ...taggedCCs.map(cc => ({
+            id: cc.id,
+            firstName: cc.first_name,
+            lastName: cc.last_name,
+            fullName: `${cc.first_name || ''} ${cc.last_name || ''}`.trim(),
+            avatar: cc.avatar?.url,
+            type: 'CUSTOMER_CARE'
+          }))
+        ];
+      }
+
+      // get replyToMessage details
+      let replyToMessageDetails = null;
+      if (message.replyToMessageId) {
+        const repliedToMessage = await this.adminChatService.getMessageById(
+          message.replyToMessageId
+        );
+        if (repliedToMessage) {
+          let senderName = 'Unknown User';
+          if (repliedToMessage.adminSender) {
+            senderName = `${
+              repliedToMessage.adminSender.first_name || ''
+            } ${repliedToMessage.adminSender.last_name || ''}`.trim();
+          } else if (repliedToMessage.customerCareSender) {
+            senderName = `${
+              repliedToMessage.customerCareSender.first_name || ''
+            } ${repliedToMessage.customerCareSender.last_name || ''}`.trim();
+          }
+
+          replyToMessageDetails = {
+            id: repliedToMessage.id,
+            content: repliedToMessage.content,
+            senderId: repliedToMessage.senderId,
+            senderName: senderName,
+            messageType: repliedToMessage.messageType
+          };
+        }
+      }
+
       // Format message for real-time emission
       const formattedMessage = {
         id: message.id,
@@ -738,9 +809,13 @@ export class AdminChatGateway
         timestamp: message.timestamp.toISOString(),
         readBy: message.readBy,
         taggedUsers: data.taggedUsers || [],
+        taggedUsersDetails: taggedUsersDetails,
+        replyToMessageDetails,
         senderDetails: {
           id: adminId,
-          name: `${client.data.admin.first_name || ''} ${client.data.admin.last_name || ''}`.trim(),
+          name: `${client.data.admin.first_name || ''} ${
+            client.data.admin.last_name || ''
+          }`.trim(),
           avatar: client.data.admin.avatar,
           role: client.data.admin.logged_in_as
         }
@@ -1213,7 +1288,7 @@ export class AdminChatGateway
         });
       }
 
-      return { success: true };
+      return { success: true, markedCount: result.markedCount };
     } catch (error: any) {
       console.error('❌ Error marking message as read:', error);
       throw new WsException(error.message || 'Failed to mark message as read');

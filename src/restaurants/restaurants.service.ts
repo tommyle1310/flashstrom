@@ -46,7 +46,6 @@ dotenv.config();
 const logger = new Logger('RestaurantsService');
 
 const redis = createClient({
-
   url:
     process.env.REDIS_URL ||
     'iss://default:AT_LAAIjcDFkNjA0ZmNiNTJiOTc0NzJjYTY1ZjllM2RhNTFhYjZlNHAxMA@direct-woodcock-16331.upstash.io:6379' ||
