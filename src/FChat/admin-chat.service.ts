@@ -51,6 +51,9 @@ export class AdminChatService {
   private getUserTypeForParticipant(
     participant: Admin | CustomerCare
   ): Enum_UserType {
+    if (!participant) {
+      throw new Error('Participant cannot be null');
+    }
     if ('role' in participant && (participant as Admin).role) {
       return this.getAdminUserType((participant as Admin).role);
     }
@@ -226,9 +229,15 @@ export class AdminChatService {
       message: sendInvitationDto.message
     }));
 
+    // Remove any existing invitations for the same users (to allow re-inviting after decline)
+    const newInviteeIds = newInvitees.map(user => user.id);
+    const filteredExistingInvitations = (group.pendingInvitations || []).filter(
+      invitation => !newInviteeIds.includes(invitation.invitedUserId)
+    );
+
     // Update group with new invitations
     group.pendingInvitations = [
-      ...(group.pendingInvitations || []),
+      ...filteredExistingInvitations,
       ...newInvitations
     ];
     await this.roomRepository.save(group);
@@ -274,7 +283,9 @@ export class AdminChatService {
     for (const group of groups) {
       const foundInvitation = group.pendingInvitations?.find(
         inv =>
-          inv.inviteId === responseDto.inviteId && inv.invitedUserId === userId
+          inv.inviteId === responseDto.inviteId &&
+          inv.invitedUserId === userId &&
+          inv.status === GroupChatInviteStatus.PENDING
       );
       if (foundInvitation) {
         targetGroup = group;
@@ -284,15 +295,8 @@ export class AdminChatService {
     }
 
     if (!targetGroup || !invitation) {
-      throw new Error('Invitation not found');
+      throw new Error('Invitation not found or already responded to');
     }
-
-    // and also help me to tackle this problem : when a user decline a group inviitation, it currently just set that chatroom.pendinginvation of taht user has satatus DECLINED => whichh mean the next time any memeber in a gorup invite  that user, that user can never be joined group again (u udnerstand, it alwasy thsi err Invitation already responded to when acp an invattion that user already declined)
-
-    // // Check if invitation is still valid
-    // if (invitation.status !== GroupChatInviteStatus.PENDING) {
-    //   throw new Error('Invitation already responded to');
-    // }
 
     if (new Date() > invitation.expiresAt) {
       throw new Error('Invitation has expired');
@@ -306,14 +310,30 @@ export class AdminChatService {
 
     if (responseDto.response === 'ACCEPT') {
       // Add user to group participants
-      const admin = await this.adminRepository.findOne({
-        where: { id: userId },
-        relations: ['user']
-      });
+      // Check if user is admin or customer care
+      const [admin, customerCare] = await Promise.all([
+        userId.startsWith('FF_ADMIN_')
+          ? this.adminRepository.findOne({
+              where: { id: userId },
+              relations: ['user']
+            })
+          : null,
+        userId.startsWith('FF_CC_')
+          ? this.customerCareRepository.findOne({
+              where: { id: userId },
+              relations: ['user']
+            })
+          : null
+      ]);
+
+      const user = admin || customerCare;
+      if (!user) {
+        throw new Error('User not found');
+      }
 
       targetGroup.participants.push({
         userId,
-        userType: this.getUserTypeForParticipant(admin),
+        userType: this.getUserTypeForParticipant(user),
         role: 'MEMBER',
         joinedAt: new Date(),
         invitedBy: invitation.invitedBy
@@ -323,7 +343,7 @@ export class AdminChatService {
       await this.createSystemMessage(targetGroup.id, {
         type: 'USER_JOINED',
         userId,
-        userName: `${admin.first_name} ${admin.last_name}`.trim()
+        userName: `${user.first_name} ${user.last_name}`.trim()
       });
     }
 
