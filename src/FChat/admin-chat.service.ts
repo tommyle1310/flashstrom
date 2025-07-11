@@ -51,6 +51,9 @@ export class AdminChatService {
   private getUserTypeForParticipant(
     participant: Admin | CustomerCare
   ): Enum_UserType {
+    if (!participant) {
+      throw new Error('Participant cannot be null');
+    }
     if ('role' in participant && (participant as Admin).role) {
       return this.getAdminUserType((participant as Admin).role);
     }
@@ -226,9 +229,15 @@ export class AdminChatService {
       message: sendInvitationDto.message
     }));
 
+    // Remove any existing invitations for the same users (to allow re-inviting after decline)
+    const newInviteeIds = newInvitees.map(user => user.id);
+    const filteredExistingInvitations = (group.pendingInvitations || []).filter(
+      invitation => !newInviteeIds.includes(invitation.invitedUserId)
+    );
+
     // Update group with new invitations
     group.pendingInvitations = [
-      ...(group.pendingInvitations || []),
+      ...filteredExistingInvitations,
       ...newInvitations
     ];
     await this.roomRepository.save(group);
@@ -274,7 +283,9 @@ export class AdminChatService {
     for (const group of groups) {
       const foundInvitation = group.pendingInvitations?.find(
         inv =>
-          inv.inviteId === responseDto.inviteId && inv.invitedUserId === userId
+          inv.inviteId === responseDto.inviteId &&
+          inv.invitedUserId === userId &&
+          inv.status === GroupChatInviteStatus.PENDING
       );
       if (foundInvitation) {
         targetGroup = group;
@@ -284,12 +295,7 @@ export class AdminChatService {
     }
 
     if (!targetGroup || !invitation) {
-      throw new Error('Invitation not found');
-    }
-
-    // Check if invitation is still valid
-    if (invitation.status !== GroupChatInviteStatus.PENDING) {
-      throw new Error('Invitation already responded to');
+      throw new Error('Invitation not found or already responded to');
     }
 
     if (new Date() > invitation.expiresAt) {
@@ -304,14 +310,30 @@ export class AdminChatService {
 
     if (responseDto.response === 'ACCEPT') {
       // Add user to group participants
-      const admin = await this.adminRepository.findOne({
-        where: { id: userId },
-        relations: ['user']
-      });
+      // Check if user is admin or customer care
+      const [admin, customerCare] = await Promise.all([
+        userId.startsWith('FF_ADMIN_')
+          ? this.adminRepository.findOne({
+              where: { id: userId },
+              relations: ['user']
+            })
+          : null,
+        userId.startsWith('FF_CC_')
+          ? this.customerCareRepository.findOne({
+              where: { id: userId },
+              relations: ['user']
+            })
+          : null
+      ]);
+
+      const user = admin || customerCare;
+      if (!user) {
+        throw new Error('User not found');
+      }
 
       targetGroup.participants.push({
         userId,
-        userType: this.getUserTypeForParticipant(admin),
+        userType: this.getUserTypeForParticipant(user),
         role: 'MEMBER',
         joinedAt: new Date(),
         invitedBy: invitation.invitedBy
@@ -321,7 +343,7 @@ export class AdminChatService {
       await this.createSystemMessage(targetGroup.id, {
         type: 'USER_JOINED',
         userId,
-        userName: `${admin.first_name} ${admin.last_name}`.trim()
+        userName: `${user.first_name} ${user.last_name}`.trim()
       });
     }
 
@@ -1136,5 +1158,78 @@ export class AdminChatService {
 
   async getGroupById(groupId: string): Promise<ChatRoom> {
     return this.roomRepository.findOne({ where: { id: groupId } });
+  }
+
+  // ============ LEAVE GROUP FUNCTIONALITY ============
+
+  async leaveGroup(
+    userId: string,
+    groupId: string
+  ): Promise<{ success: boolean; userName: string }> {
+    // Find the group
+    const group = await this.roomRepository.findOne({
+      where: { id: groupId, type: RoomType.ADMIN_GROUP }
+    });
+
+    if (!group) {
+      throw new Error('Group not found or is not a group chat');
+    }
+
+    // Find the participant
+    const participantIndex = group.participants.findIndex(
+      p => p.userId === userId
+    );
+
+    if (participantIndex === -1) {
+      throw new Error('User is not a participant in this group');
+    }
+
+    const participant = group.participants[participantIndex];
+
+    // Prevent group creator from leaving (they must transfer ownership first)
+    if (participant.role === 'CREATOR') {
+      throw new Error(
+        'Group creator cannot leave. Please transfer ownership first or delete the group.'
+      );
+    }
+
+    // Get participant details for system message
+    const [adminUser, ccUser] = await Promise.all([
+      userId.startsWith('FF_ADMIN_')
+        ? this.adminRepository.findOne({ where: { id: userId } })
+        : null,
+      userId.startsWith('FF_CC_')
+        ? this.customerCareRepository.findOne({ where: { id: userId } })
+        : null
+    ]);
+
+    const user = adminUser || ccUser;
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const userName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+
+    // Remove participant from group
+    group.participants.splice(participantIndex, 1);
+
+    // Update last activity
+    group.lastActivity = new Date();
+
+    // Save the updated group
+    await this.roomRepository.save(group);
+
+    // Create system message
+    await this.createSystemMessage(group.id, {
+      type: 'USER_LEFT',
+      userId: userId,
+      userName: userName,
+      additionalInfo: {
+        voluntaryLeave: true,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    return { success: true, userName };
   }
 }

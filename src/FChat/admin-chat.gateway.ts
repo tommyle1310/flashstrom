@@ -992,20 +992,62 @@ export class AdminChatGateway
       }
 
       const roomName = this.getRoomName(data.roomType, data.roomId);
-      await client.leave(roomName);
 
-      client.emit('roomLeft', {
-        roomId: data.roomId,
-        roomType: data.roomType,
-        timestamp: new Date().toISOString()
-      });
+      // Handle different room types
+      if (data.roomType === 'ADMIN_GROUP') {
+        // For group chats, actually remove user from the database
+        console.log(`👋 Admin ${adminId} leaving group: ${data.roomId}`);
 
-      console.log(`👋 Admin ${adminId} left room: ${roomName}`);
+        const leaveResult = await this.adminChatService.leaveGroup(
+          adminId,
+          data.roomId
+        );
+
+        // Remove socket from WebSocket room
+        await client.leave(roomName);
+
+        // Notify other participants in the group about user leaving
+        client.to(roomName).emit('userLeftGroup', {
+          groupId: data.roomId,
+          userId: adminId,
+          userName: leaveResult.userName,
+          timestamp: new Date().toISOString()
+        });
+
+        // Confirm to the leaving user
+        client.emit('groupLeft', {
+          success: true,
+          groupId: data.roomId,
+          message: `You have left the group`,
+          timestamp: new Date().toISOString()
+        });
+
+        console.log(
+          `✅ Admin ${adminId} successfully left group: ${data.roomId}`
+        );
+      } else if (data.roomType === 'ADMIN_DIRECT') {
+        // For direct chats, just remove from socket room (you can't really "leave" a direct chat)
+        await client.leave(roomName);
+
+        client.emit('roomLeft', {
+          roomId: data.roomId,
+          roomType: data.roomType,
+          message: 'Disconnected from direct chat',
+          timestamp: new Date().toISOString()
+        });
+
+        console.log(
+          `👋 Admin ${adminId} disconnected from direct chat: ${roomName}`
+        );
+      }
+
       return { success: true };
     } catch (error: any) {
       console.error('❌ Error leaving room:', error);
       client.emit('leaveRoomError', {
         error: error.message,
+        roomId: data.roomId,
+        roomType: data.roomType,
         timestamp: new Date().toISOString()
       });
       throw new WsException(error.message || 'Failed to leave room');
