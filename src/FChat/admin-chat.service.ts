@@ -287,10 +287,12 @@ export class AdminChatService {
       throw new Error('Invitation not found');
     }
 
-    // Check if invitation is still valid
-    if (invitation.status !== GroupChatInviteStatus.PENDING) {
-      throw new Error('Invitation already responded to');
-    }
+    // and also help me to tackle this problem : when a user decline a group inviitation, it currently just set that chatroom.pendinginvation of taht user has satatus DECLINED => whichh mean the next time any memeber in a gorup invite  that user, that user can never be joined group again (u udnerstand, it alwasy thsi err Invitation already responded to when acp an invattion that user already declined)
+
+    // // Check if invitation is still valid
+    // if (invitation.status !== GroupChatInviteStatus.PENDING) {
+    //   throw new Error('Invitation already responded to');
+    // }
 
     if (new Date() > invitation.expiresAt) {
       throw new Error('Invitation has expired');
@@ -1136,5 +1138,78 @@ export class AdminChatService {
 
   async getGroupById(groupId: string): Promise<ChatRoom> {
     return this.roomRepository.findOne({ where: { id: groupId } });
+  }
+
+  // ============ LEAVE GROUP FUNCTIONALITY ============
+
+  async leaveGroup(
+    userId: string,
+    groupId: string
+  ): Promise<{ success: boolean; userName: string }> {
+    // Find the group
+    const group = await this.roomRepository.findOne({
+      where: { id: groupId, type: RoomType.ADMIN_GROUP }
+    });
+
+    if (!group) {
+      throw new Error('Group not found or is not a group chat');
+    }
+
+    // Find the participant
+    const participantIndex = group.participants.findIndex(
+      p => p.userId === userId
+    );
+
+    if (participantIndex === -1) {
+      throw new Error('User is not a participant in this group');
+    }
+
+    const participant = group.participants[participantIndex];
+
+    // Prevent group creator from leaving (they must transfer ownership first)
+    if (participant.role === 'CREATOR') {
+      throw new Error(
+        'Group creator cannot leave. Please transfer ownership first or delete the group.'
+      );
+    }
+
+    // Get participant details for system message
+    const [adminUser, ccUser] = await Promise.all([
+      userId.startsWith('FF_ADMIN_')
+        ? this.adminRepository.findOne({ where: { id: userId } })
+        : null,
+      userId.startsWith('FF_CC_')
+        ? this.customerCareRepository.findOne({ where: { id: userId } })
+        : null
+    ]);
+
+    const user = adminUser || ccUser;
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const userName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+
+    // Remove participant from group
+    group.participants.splice(participantIndex, 1);
+
+    // Update last activity
+    group.lastActivity = new Date();
+
+    // Save the updated group
+    await this.roomRepository.save(group);
+
+    // Create system message
+    await this.createSystemMessage(group.id, {
+      type: 'USER_LEFT',
+      userId: userId,
+      userName: userName,
+      additionalInfo: {
+        voluntaryLeave: true,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    return { success: true, userName };
   }
 }
