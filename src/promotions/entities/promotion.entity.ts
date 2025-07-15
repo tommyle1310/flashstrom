@@ -11,6 +11,7 @@ import { FoodCategory } from 'src/food_categories/entities/food_category.entity'
 
 export enum PromotionStatus {
   ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
   EXPIRED = 'EXPIRED',
   PENDING = 'PENDING',
   CANCELLED = 'CANCELLED'

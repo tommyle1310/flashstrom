@@ -56,11 +56,7 @@ export class OrdersController {
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<any> {
     const order = await this.ordersService.findOne(id);
-    return {
-      status: 'OK',
-      data: order,
-      message: 'Order retrieved successfully'
-    };
+    return order;
   }
 
   // Update an order by ID
@@ -70,11 +66,7 @@ export class OrdersController {
     @Body() updateOrderDto: UpdateOrderDto
   ): Promise<any> {
     const order = await this.ordersService.update(id, updateOrderDto);
-    return {
-      status: 'OK',
-      data: order,
-      message: 'Order updated successfully'
-    };
+    return order;
   }
 
   // Delete an order by ID

@@ -74,17 +74,17 @@ export class AdminController {
     return this.adminService.remove(id);
   }
 
-  @Post('ban/:entityType/:entityId')
+  @Post('toggle-ban/:entityType/:entityId')
   @UseGuards(PermissionGuard)
   @Permissions(AdminPermission.BAN_ACCOUNTS)
-  banAccount(
+  toggleBanAccount(
     @Param('entityType')
     entityType: 'Customer' | 'CustomerCare' | 'Driver' | 'Restaurant',
     @Param('entityId') entityId: string,
     @Req() req: any,
     @Body('reason') reason?: string
   ) {
-    return this.adminService.banAccount(
+    return this.adminService.toggleBanAccount(
       entityType,
       entityId,
       req.admin.id,

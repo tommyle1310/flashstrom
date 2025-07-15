@@ -10,6 +10,7 @@ import { RedisService } from 'src/redis/redis.service';
 import { calculateDistance } from 'src/utils/commonFunctions';
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
 import { DataSource } from 'typeorm';
+import { PromotionStatus } from './entities/promotion.entity';
 
 const logger = new Logger('PromotionsService');
 
@@ -371,6 +372,45 @@ export class PromotionsService {
     } catch (error: any) {
       logger.error(`Error fetching promotion: ${error.message}`, error.stack);
       return createResponse('ServerError', null, 'Error fetching promotion');
+    }
+  }
+
+  async togglePromotionStatus(id: string): Promise<ApiResponse<Promotion>> {
+    try {
+      const promotion = await this.promotionsRepository.findById(id);
+      if (!promotion) {
+        return createResponse('NotFound', null, 'Promotion not found');
+      }
+
+      const newStatus =
+        promotion.status === PromotionStatus.ACTIVE
+          ? PromotionStatus.INACTIVE
+          : PromotionStatus.ACTIVE;
+
+      await this.promotionsRepository.update(id, { status: newStatus });
+      const updatedPromotion = await this.promotionsRepository.findById(id);
+
+      // Clear relevant caches
+      await this.redisService.del(this.allPromotionsCacheKey);
+      await this.redisService.del(this.validPromotionsCacheKey);
+      await this.redisService.del(`promotion:${id}`);
+      logger.log(`Cleared caches for promotion ${id} status toggle.`);
+
+      return createResponse(
+        'OK',
+        updatedPromotion,
+        `Promotion status successfully updated to ${newStatus}`
+      );
+    } catch (error: any) {
+      logger.error(
+        `Error toggling promotion status: ${error.message}`,
+        error.stack
+      );
+      return createResponse(
+        'ServerError',
+        null,
+        'Error toggling promotion status'
+      );
     }
   }
 

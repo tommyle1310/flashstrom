@@ -865,12 +865,7 @@ export class DriversService {
           `Cache hit for driver notifications ${driverId} in ${Date.now() - cacheStart}ms`
         );
         logger.log(`Total time (cache): ${Date.now() - start}ms`);
-        const cachedNotifications = JSON.parse(cachedData);
-        return createResponse(
-          'OK',
-          cachedNotifications,
-          `Fetched ${cachedNotifications.length} notifications from cache for driver ${driverId}`
-        );
+        return JSON.parse(cachedData); // Return the cached response directly
       }
 
       logger.log(`Cache miss for driver notifications: ${driverId}`);
@@ -981,22 +976,11 @@ export class DriversService {
 
       // Process notifications
       const processingStart = Date.now();
-      // const allNotifications = [
-      //   ...specificNotifications,
-      //   ...broadcastNotifications
-      // ];
-      // const uniqueNotificationsMap = new Map(
-      //   allNotifications.map(n => [n.id, n])
-      // );
-      // const uniqueNotifications = Array.from(uniqueNotificationsMap.values());
-      // const sortedNotifications = uniqueNotifications.sort(
-      //   (a, b) => b.created_at - a.created_at
-      // );
       logger.log(
         `Notifications processing took ${Date.now() - processingStart}ms`
       );
 
-      // Combine response
+      // Create response
       const response = createResponse(
         'OK',
         {

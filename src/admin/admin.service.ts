@@ -397,12 +397,12 @@ export class AdminService {
     }
   }
 
-  async banAccount(
+  async toggleBanAccount(
     entityType: 'Customer' | 'CustomerCare' | 'Driver' | 'Restaurant',
     entityId: string,
     adminId: string,
     reason?: string
-  ): Promise<ApiResponse<BannedAccount>> {
+  ): Promise<ApiResponse<BannedAccount | null>> {
     try {
       // Check admin existence and permission
       const admin = await this.adminRepository.findById(adminId);
@@ -432,31 +432,38 @@ export class AdminService {
       const existingBan = await this.bannedAccountRepository.findOne({
         where: { entity_type: entityType, entity_id: entityId }
       });
+
       if (existingBan) {
+        // If banned, unban by deleting the record
+        await this.bannedAccountRepository.remove(existingBan);
         return createResponse(
-          'DuplicatedRecord',
+          'OK',
           null,
-          'Account already banned'
+          `${entityType} unbanned successfully`
+        );
+      } else {
+        // If not banned, create and save ban record
+        const banRecord = this.bannedAccountRepository.create({
+          entity_type: entityType,
+          entity_id: entityId,
+          banned_by: adminId,
+          reason
+        });
+        const savedBan = await this.bannedAccountRepository.save(banRecord);
+
+        return createResponse(
+          'OK',
+          savedBan,
+          `${entityType} banned successfully`
         );
       }
-
-      // Create and save ban record
-      const banRecord = this.bannedAccountRepository.create({
-        entity_type: entityType,
-        entity_id: entityId,
-        banned_by: adminId,
-        reason
-      });
-      const savedBan = await this.bannedAccountRepository.save(banRecord);
-
-      return createResponse(
-        'OK',
-        savedBan,
-        `${entityType} banned successfully`
-      );
     } catch (error: any) {
       console.log('error', error);
-      return createResponse('ServerError', null, 'Error banning account');
+      return createResponse(
+        'ServerError',
+        null,
+        'Error toggling ban status for account'
+      );
     }
   }
 

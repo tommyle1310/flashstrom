@@ -62,7 +62,12 @@ export class AdminFakeController {
     @Body('adminId') adminId: string,
     @Body('reason') reason?: string
   ) {
-    return this.adminService.banAccount(entityType, entityId, adminId, reason);
+    return this.adminService.toggleBanAccount(
+      entityType,
+      entityId,
+      adminId,
+      reason
+    );
   }
 
   @Patch('permissions/:id')

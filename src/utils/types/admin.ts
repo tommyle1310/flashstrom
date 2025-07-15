@@ -29,6 +29,7 @@ export const RolePermissions: Record<AdminRole, AdminPermission[]> = {
     AdminPermission.MANAGE_RESTAURANTS,
     AdminPermission.MANAGE_DRIVERS,
     AdminPermission.MANAGE_SUPPORT,
+    AdminPermission.BAN_ACCOUNTS,
     AdminPermission.VIEW_ANALYTICS
   ],
   [AdminRole.FINANCE_ADMIN]: [

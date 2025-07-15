@@ -49,6 +49,11 @@ export class PromotionsController {
     return this.promotionsService.findOne(id); // ID passed as string
   }
 
+  @Patch(':id/toggle-status')
+  toggleStatus(@Param('id') id: string) {
+    return this.promotionsService.togglePromotionStatus(id);
+  }
+
   // Update a promotion by ID
   @Patch(':id')
   update(
