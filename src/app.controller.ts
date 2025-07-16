@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
 import { EmailService } from './mailer/email.service';
+import { ApiResponse } from './utils/createResponse';
 
 @Controller()
 export class AppController {
@@ -12,6 +13,10 @@ export class AppController {
   @Get()
   getHello(): string {
     return this.appService.getHello();
+  }
+  @Get('clear-redis')
+  clearRedis(): Promise<ApiResponse<null>> {
+    return this.appService.clearRedis();
   }
 
   @Get('send-test-email')
