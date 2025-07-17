@@ -32,12 +32,20 @@ export class PermissionFilter {
       return response.status(HttpStatus.OK).json(apiResponse);
     }
 
-    // Fallback cho các lỗi không được xử lý
-    const errorResponse = createResponse(
-      'ServerError',
-      null,
-      exception.message || 'An unexpected error occurred'
-    );
-    return response.status(HttpStatus.OK).json(errorResponse);
+    // Fallback for unhandled errors
+    const isProduction = process.env.NODE_ENV === 'production';
+    const message = isProduction
+      ? 'An internal server error occurred.'
+      : exception.message || 'An unexpected error occurred';
+
+    // Check if it's a view rendering error and send an appropriate status code
+    if (exception.view) {
+      // This is likely a template rendering error
+      const errorResponse = createResponse('ServerError', null, message);
+      return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json(errorResponse);
+    }
+
+    const errorResponse = createResponse('ServerError', null, message);
+    return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json(errorResponse);
   }
 }

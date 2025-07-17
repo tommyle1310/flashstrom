@@ -39,6 +39,7 @@ export enum Enum_AppTheme {
 
 export type BasePayload = {
   user_id: string;
+  is_verified: boolean;
   email: string;
   user_type: Enum_UserType[];
   first_name: string;

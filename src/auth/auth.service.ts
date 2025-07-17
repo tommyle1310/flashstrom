@@ -132,6 +132,7 @@ export class AuthService {
       email: user.email,
       user_type: user.user_type,
       first_name: user.first_name,
+      is_verified: user.is_verified,
       last_name: user.last_name,
       app_preferences: user.app_preferences
     };
@@ -281,6 +282,8 @@ export class AuthService {
       const customerPayload = {
         ...basePayload,
         id: userWithRole.id,
+        first_name: userWithRole.first_name,
+        last_name: userWithRole.last_name,
         phone: userWithRole.phone,
         logged_in_as: Enum_UserType.CUSTOMER,
         fWallet_id: fwallet.id,

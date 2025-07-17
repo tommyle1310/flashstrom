@@ -27,8 +27,8 @@ export class EmailService {
     resetToken: string,
     firstName: string
   ) {
-    const resetLink = `http://localhost:1310/auth/reset-password?token=${resetToken}`;
-    const successLink = `http://localhost:1310/auth/change-password-success`;
+    const resetLink = `http://192.168.1.8:1310/auth/reset-password?token=${resetToken}`;
+    const successLink = `http://192.168.1.8:1310/auth/change-password-success`;
     const logoFlashfood = IMAGE_LINKS.LIGHT_FLASHFOOD_LOGO;
 
     // Render TSX to HTML string

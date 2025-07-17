@@ -60,8 +60,8 @@ async function bootstrap() {
   app.useGlobalFilters(new PermissionFilter());
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  // Use an absolute path to src/views
-  const viewsPath = resolve(__dirname, '..', 'src', 'views');
+  // Set the views directory
+  const viewsPath = resolve(__dirname, 'views');
   console.log('Views directory:', viewsPath);
   app.setBaseViewsDir(viewsPath);
   app.setViewEngine('hbs');
