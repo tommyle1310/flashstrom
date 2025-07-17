@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { FindOneOptions, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Driver } from './entities/driver.entity';
 import { Order } from 'src/orders/entities/order.entity';
@@ -52,8 +52,8 @@ export class DriversRepository {
     return driver || null;
   }
 
-  async findOne(conditions: object): Promise<Driver> {
-    return await this.driverEntityRepository.findOne({ where: conditions });
+  async findOne(conditions: FindOneOptions<Driver>): Promise<Driver> {
+    return await this.driverEntityRepository.findOne(conditions);
   }
 
   async findOneOrFail(conditions: { where: object }): Promise<Driver> {

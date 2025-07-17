@@ -1184,15 +1184,13 @@ export class DriversService {
         );
       }
 
-      // Set to start of day (00:00:00) in the local timezone (+7)
-      const tzOffset = 7 * 3600; // +07:00 timezone offset in seconds
-      date.setHours(0, 0, 0, 0);
-      const startTimestamp = Math.floor(date.getTime() / 1000) - tzOffset;
+      // Construct timezone-aware date strings for start and end of the day in UTC+7
+      const startOfDay = new Date(`${dateStr}T00:00:00.000+07:00`);
+      const endOfDay = new Date(`${dateStr}T23:59:59.999+07:00`);
 
-      // Set to end of day (23:59:59)
-      const endDate = new Date(date);
-      endDate.setHours(23, 59, 59, 999);
-      const endTimestamp = Math.floor(endDate.getTime() / 1000) - tzOffset;
+      // Get UNIX timestamps
+      const startTimestamp = Math.floor(startOfDay.getTime() / 1000);
+      const endTimestamp = Math.floor(endOfDay.getTime() / 1000);
 
       // Check Redis cache first
       const cacheKey = `driver:${driverId}:daily_analytics:${dateStr}`;
