@@ -1371,7 +1371,7 @@ export class OrdersService {
           if (!updatedOrder) throw new Error('Order not found in transaction');
 
           updatedOrder.driver_tips =
-            (updatedOrder.driver_tips || 0) + tipAmount;
+            Number(updatedOrder.driver_tips || 0) + Number(tipAmount);
           await transactionalEntityManager.save(Order, updatedOrder);
           logger.log(
             '✅ Updated driver_tips:',
@@ -1383,14 +1383,9 @@ export class OrdersService {
           const existingDPS = await transactionalEntityManager
             .getRepository(DriverProgressStage)
             .createQueryBuilder('dps')
+            .innerJoin('dps.orders', 'order_join')
             .where('dps.driver_id = :driverId', { driverId: order.driver_id })
-            .andWhere('dps.current_state NOT LIKE :completedState', {
-              completedState: 'delivery_complete_%'
-            })
-            .andWhere(
-              'dps.id IN (SELECT driver_progress_id FROM driver_progress_orders WHERE order_id = :orderId)',
-              { orderId }
-            )
+            .andWhere('order_join.id = :orderId', { orderId })
             .getOne();
 
           if (existingDPS) {

@@ -632,8 +632,8 @@ export class DriverStatsService {
       where: {
         driver_id: driverId,
         period_type: periodType,
-        period_start: periodStart
-      }
+        period_start: periodStart,
+      },
     });
 
     if (!stats) {
@@ -641,7 +641,7 @@ export class DriverStatsService {
         driver_id: driverId,
         period_type: periodType,
         period_start: periodStart,
-        period_end: periodEnd
+        period_end: periodEnd,
       });
     }
 
@@ -651,43 +651,48 @@ export class DriverStatsService {
       completedOrders,
       allOrders,
       reviews,
-      driverProgressStages,
-      ,
-      previousPeriodStats
+      _driverInfo,
+      previousPeriodStats,
     ] = await Promise.all([
       this.onlineSessionRepo.find({
         where: {
           driver_id: driverId,
-          start_time: Between(periodStart, periodEnd)
-        }
+          start_time: Between(periodStart, periodEnd),
+        },
       }),
       this.orderRepo.find({
         where: {
           driver_id: driverId,
           status: OrderStatus.DELIVERED,
-          updated_at: Between(periodStart, periodEnd)
-        }
+          updated_at: Between(periodStart, periodEnd),
+        },
+        select: [
+          'id',
+          'delivery_fee',
+          'driver_tips',
+          'distance',
+          'status',
+          'updated_at',
+          'created_at',
+          'order_time',
+          'restaurant_id',
+          'driver_wage',
+        ],
       }),
       this.orderRepo.find({
         where: {
           driver_id: driverId,
-          created_at: Between(periodStart, periodEnd)
-        }
+          created_at: Between(periodStart, periodEnd),
+        },
       }),
       this.ratingsReviewRepo.find({
         where: {
           rr_recipient_driver_id: driverId,
-          created_at: Between(periodStart, periodEnd)
-        }
-      }),
-      this.dpsRepo.find({
-        where: {
-          driver_id: driverId,
-          created_at: Between(periodStart, periodEnd)
-        }
+          created_at: Between(periodStart, periodEnd),
+        },
       }),
       this.driverRepo.findOne({ where: { id: driverId } }),
-      this.getPreviousPeriodStats(driverId, periodType, periodStart)
+      this.getPreviousPeriodStats(driverId, periodType, periodStart),
     ]);
 
     // Calculate basic metrics
@@ -695,13 +700,13 @@ export class DriverStatsService {
       onlineSessions,
       periodEnd
     );
-    const totalOrders = completedOrders.length;
-    const totalEarns = completedOrders.reduce(
-      (sum, order) => sum + Number(order.driver_wage || 0),
+    const totalCompletedOrders = completedOrders.length;
+    const totalEarnings = completedOrders.reduce(
+      (sum, order) => sum + (order.delivery_fee || 0),
       0
     );
     const totalTips = completedOrders.reduce(
-      (sum, order) => sum + Number(order.driver_tips || 0),
+      (sum, order) => sum + (order.driver_tips || 0),
       0
     );
     const totalDistance = completedOrders.reduce(
@@ -711,17 +716,20 @@ export class DriverStatsService {
 
     // Enhanced Analytics
     const averageEarningsPerHour =
-      totalOnlineHours > 0 ? totalEarns / totalOnlineHours : 0;
+      totalOnlineHours > 0 ? totalEarnings / totalOnlineHours : 0;
     const averageEarningsPerOrder =
-      totalOrders > 0 ? totalEarns / totalOrders : 0;
-    const averageTipsPerOrder = totalOrders > 0 ? totalTips / totalOrders : 0;
+      totalCompletedOrders > 0 ? totalEarnings / totalCompletedOrders : 0;
+    const averageTipsPerOrder =
+      totalCompletedOrders > 0 ? totalTips / totalCompletedOrders : 0;
     const orderCompletionRate =
-      allOrders.length > 0 ? (totalOrders / allOrders.length) * 100 : 0;
+      allOrders.length > 0
+        ? (totalCompletedOrders / allOrders.length) * 100
+        : 0;
 
     const previousEarnings = previousPeriodStats?.total_earns || 0;
     const earningsGrowthRate =
       previousEarnings > 0
-        ? ((totalEarns - previousEarnings) / previousEarnings) * 100
+        ? ((totalEarnings - previousEarnings) / previousEarnings) * 100
         : 0;
 
     const previousTips = previousPeriodStats?.total_tips || 0;
@@ -729,7 +737,7 @@ export class DriverStatsService {
       previousTips > 0 ? ((totalTips - previousTips) / previousTips) * 100 : 0;
 
     const distanceEfficiency =
-      totalDistance > 0 ? totalEarns / totalDistance : 0;
+      totalDistance > 0 ? totalEarnings / totalDistance : 0;
 
     // Peak Hours Analysis
     const peakHoursAnalysis = this.calculatePeakHoursAnalysis(
@@ -737,17 +745,22 @@ export class DriverStatsService {
       onlineSessions
     );
 
+    // Rating Analysis
+    const ratingAnalysis = this.calculateRatingAnalysis(
+      reviews,
+      previousPeriodStats?.rating_summary
+    );
+
     // Performance Metrics
     const performanceMetrics = this.calculatePerformanceMetrics(
       completedOrders,
-      driverProgressStages,
       reviews,
       allOrders
     );
 
     // Financial Breakdown
     const financialBreakdown = this.calculateFinancialBreakdown(
-      totalEarns,
+      totalEarnings,
       totalTips,
       totalDistance,
       completedOrders,
@@ -768,16 +781,10 @@ export class DriverStatsService {
     // Order Analytics
     const orderAnalytics = this.calculateOrderAnalytics(completedOrders);
 
-    // Rating Analysis
-    const ratingAnalysis = this.calculateRatingAnalysis(
-      reviews,
-      previousPeriodStats?.rating_summary
-    );
-
-    // Competitive Insights (simplified for now)
+    // Competitive Insights
     const competitiveInsights = this.calculateCompetitiveInsights(
       driverId,
-      totalEarns,
+      totalEarnings + totalTips,
       ratingAnalysis.average_overall_rating
     );
 
@@ -790,9 +797,9 @@ export class DriverStatsService {
     // Update stats object
     Object.assign(stats, {
       total_online_hours: this.formatNumber(totalOnlineHours),
-      total_earns: this.formatNumber(totalEarns),
+      total_earnings: this.formatNumber(totalEarnings),
       total_tips: this.formatNumber(totalTips),
-      total_orders: totalOrders,
+      total_orders: totalCompletedOrders,
       total_distance: this.formatNumber(totalDistance),
       average_earnings_per_hour: this.formatNumber(averageEarningsPerHour),
       average_earnings_per_order: this.formatNumber(averageEarningsPerOrder),
@@ -809,7 +816,7 @@ export class DriverStatsService {
       order_analytics: orderAnalytics,
       rating_summary: ratingAnalysis,
       competitive_insights: competitiveInsights,
-      time_insights: timeInsights
+      time_insights: timeInsights,
     });
 
     // Save to database
@@ -822,7 +829,6 @@ export class DriverStatsService {
       `[DEBUG] Enhanced stats updated for ${driverId} (${periodType})`
     );
   }
-
   private calculateTotalOnlineHours(
     sessions: OnlineSession[],
     periodEnd: number
@@ -1003,9 +1009,8 @@ export class DriverStatsService {
     };
   }
 
-  private calculatePerformanceMetrics(
+    private calculatePerformanceMetrics(
     orders: Order[],
-    progressStages: DriverProgressStage[],
     reviews: RatingsReview[],
     allOrders: Order[]
   ): any {
@@ -1039,7 +1044,7 @@ export class DriverStatsService {
   }
 
   private calculateFinancialBreakdown(
-    totalEarns: number,
+    totalEarnings: number,
     totalTips: number,
     totalDistance: number,
     orders: Order[],
@@ -1048,23 +1053,23 @@ export class DriverStatsService {
     const estimatedFuelCost = totalDistance * 0.5; // Simplified calculation
 
     return {
-      base_earnings: this.formatNumber(totalEarns),
+      base_earnings: this.formatNumber(totalEarnings),
       tips_earnings: this.formatNumber(totalTips),
       bonus_earnings: 0,
-      total_gross_earnings: this.formatNumber(totalEarns + totalTips),
+      total_gross_earnings: this.formatNumber(totalEarnings + totalTips),
       estimated_fuel_cost: this.formatNumber(estimatedFuelCost),
       estimated_net_earnings: this.formatNumber(
-        totalEarns + totalTips - estimatedFuelCost
+        totalEarnings + totalTips - estimatedFuelCost
       ),
       avg_earnings_per_km:
-        totalDistance > 0 ? this.formatNumber(totalEarns / totalDistance) : 0,
+        totalDistance > 0 ? this.formatNumber(totalEarnings / totalDistance) : 0,
       avg_earnings_per_minute: this.formatNumber(
-        totalEarns / Math.max(1, orders.length * 30)
+        totalEarnings / Math.max(1, orders.length * 30)
       ),
-      peak_hour_earnings: this.formatNumber(totalEarns * 0.6), // Simplified
-      off_peak_earnings: this.formatNumber(totalEarns * 0.4), // Simplified
-      weekend_earnings: this.formatNumber(totalEarns * 0.3), // Simplified
-      weekday_earnings: this.formatNumber(totalEarns * 0.7) // Simplified
+      peak_hour_earnings: this.formatNumber(totalEarnings * 0.6), // Simplified
+      off_peak_earnings: this.formatNumber(totalEarnings * 0.4), // Simplified
+      weekend_earnings: this.formatNumber(totalEarnings * 0.3), // Simplified
+      weekday_earnings: this.formatNumber(totalEarnings * 0.7) // Simplified
     };
   }
 
