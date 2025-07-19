@@ -685,17 +685,19 @@ export class AuthService {
             await this.restaurantsRepository.create(restaurantData);
           console.log('Restaurant creation result:', restaurantResult);
 
-          if (restaurantResult.EC === -2) {
+          // Assuming create returns the entity or a response object.
+          // If it's a response object with an error, it might have EC.
+          if ((restaurantResult as any).EC === -2) {
             await this.fWalletsRepository.delete(fWallet.id);
-            await this.userRepository.delete(existingUser.id);
+            // Do not delete the user, just the fwallet, as the user already exists.
             return createResponse(
               'NotFound',
               null,
-              restaurantResult.EM || 'Failed to create restaurant'
+              (restaurantResult as any).EM || 'Failed to create restaurant'
             );
           }
 
-          newUserWithRole = restaurantResult.data;
+          newUserWithRole = restaurantResult;
 
           if (newUserWithRole && fWallet) {
             console.log(
