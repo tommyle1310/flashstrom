@@ -609,31 +609,67 @@ export class ChatbotService {
       if (selectedOption) {
         // Handle the selected option
         switch (selectedOption.value) {
-          case 'vehicle_help':
+          case 'track_order':
+            context.currentFlow = 'order_tracking';
+            context.currentStep = 'get_order_id';
             return {
-              message: 'I can assist you with vehicle-related concerns.',
-              type: 'text',
-              followUpPrompt: 'How else can I assist you today?'
+              message: "I'll help you track your order! 📦",
+              type: 'form',
+              formFields: [
+                {
+                  name: 'order_id',
+                  type: 'text',
+                  label: 'Order ID',
+                  required: false
+                },
+                {
+                  name: 'phone',
+                  type: 'phone',
+                  label: 'Phone Number',
+                  required: false
+                }
+              ],
+              followUpPrompt:
+                'Provide either your Order ID or the phone number you used to place the order.'
             };
-          case 'navigation_help':
-            return {
-              message: 'I can help you with navigation and route optimization.',
-              type: 'text',
-              followUpPrompt: 'What specific navigation assistance do you need?'
-            };
-          case 'emergency':
+          case 'order_issue':
+            context.currentFlow = 'order_resolution';
+            context.currentStep = 'identify_issue';
+            return this.conversationFlows.get('order_resolution').steps[
+              'identify_issue'
+            ];
+          case 'payment_help':
+            context.currentFlow = 'payment_support';
+            context.currentStep = 'identify_payment_issue';
             return {
               message:
-                '🚨 This is an emergency support channel. What type of emergency?',
+                'I understand you need help with payment. What specific issue are you experiencing?',
               type: 'options',
               options: [
-                { text: 'Vehicle breakdown', value: 'breakdown' },
-                { text: 'Accident', value: 'accident' },
-                { text: 'Safety concern', value: 'safety' },
-                { text: 'Medical emergency', value: 'medical' }
-              ],
-              priority: 'urgent',
-              requiresHuman: true
+                { text: 'Payment method declined', value: 'payment_declined' },
+                { text: 'Wrong amount charged', value: 'wrong_charge' },
+                { text: 'Request refund', value: 'refund_request' },
+                { text: 'Update payment method', value: 'update_payment' },
+                { text: 'Other payment issue', value: 'other_payment' }
+              ]
+            };
+          case 'account_help':
+            context.currentFlow = 'account_support';
+            context.currentStep = 'identify_account_issue';
+            return {
+              message:
+                'I can help you with your account. What do you need assistance with?',
+              type: 'options',
+              options: [
+                { text: 'Update profile information', value: 'update_profile' },
+                { text: 'Change email/password', value: 'change_credentials' },
+                {
+                  text: 'Notification settings',
+                  value: 'notification_settings'
+                },
+                { text: 'Address management', value: 'manage_addresses' },
+                { text: 'Delete account', value: 'delete_account' }
+              ]
             };
           case 'human_agent':
             return {
@@ -643,8 +679,41 @@ export class ChatbotService {
               priority: 'medium',
               requiresHuman: true
             };
+          // Add handlers for driver menu options
+          case 'navigation_help':
+            context.currentFlow = 'driver_support';
+            context.currentStep = 'navigation_options';
+            return {
+              message: '🗺️ Navigation Support Available:',
+              type: 'options',
+              options: [
+                { text: 'Get best route', value: 'best_route' },
+                { text: 'Traffic alerts', value: 'traffic_alerts' },
+                { text: 'Customer location help', value: 'customer_location' },
+                { text: 'Parking assistance', value: 'parking_help' },
+                { text: 'Back to driver menu', value: 'back_to_driver_menu' }
+              ]
+            };
+          case 'current_delivery':
+            context.currentFlow = 'driver_support';
+            context.currentStep = 'order_info_options';
+            return {
+              message: '📦 Select an order to view details:',
+              type: 'options',
+              options: [
+                {
+                  text: 'Current delivery (#A7X29)',
+                  value: 'current_delivery'
+                },
+                { text: 'Next pickup (#B8Y31)', value: 'next_pickup' },
+                { text: 'Order history', value: 'order_history' },
+                { text: 'Back to driver menu', value: 'back_to_driver_menu' }
+              ]
+            };
           // Restaurant owner menu options
           case 'manage_orders':
+            context.currentFlow = 'restaurant_orders';
+            context.currentStep = 'order_management';
             return {
               message:
                 'I can help you manage your restaurant orders. What would you like to do?',
@@ -656,53 +725,8 @@ export class ChatbotService {
                 { text: 'Order issue', value: 'order_issue' }
               ]
             };
-          case 'menu_management':
-            return {
-              message: 'Let me assist you with menu management.',
-              type: 'options',
-              options: [
-                { text: 'Add new item', value: 'add_item' },
-                { text: 'Update existing item', value: 'update_item' },
-                { text: 'Remove item', value: 'remove_item' },
-                { text: 'Change prices', value: 'change_prices' }
-              ]
-            };
-          case 'view_analytics':
-            return {
-              message:
-                "I can help you understand your restaurant's performance metrics.",
-              type: 'options',
-              options: [
-                { text: 'Sales report', value: 'sales_report' },
-                { text: 'Customer feedback', value: 'customer_feedback' },
-                { text: 'Popular items', value: 'popular_items' },
-                { text: 'Delivery statistics', value: 'delivery_stats' }
-              ]
-            };
-          case 'restaurant_settings':
-            return {
-              message: 'What restaurant settings would you like to manage?',
-              type: 'options',
-              options: [
-                { text: 'Update business hours', value: 'update_hours' },
-                { text: 'Manage delivery zones', value: 'delivery_zones' },
-                { text: 'Update contact info', value: 'update_contact' },
-                { text: 'Change restaurant profile', value: 'update_profile' }
-              ]
-            };
-          case 'business_support':
-            return {
-              message:
-                'Here are some business support options for your restaurant:',
-              type: 'options',
-              options: [
-                { text: 'Marketing tips', value: 'marketing_tips' },
-                { text: 'Optimize menu', value: 'optimize_menu' },
-                { text: 'Increase sales', value: 'increase_sales' },
-                { text: 'Reduce costs', value: 'reduce_costs' }
-              ]
-            };
-          // Add other option handlers as needed
+          // Other option handlers remain the same
+          // ... existing code ...
         }
       }
     }
@@ -946,7 +970,54 @@ export class ChatbotService {
         return this.handleDriverSupportFlow(message, context);
       case 'restaurant_orders':
         return this.handleRestaurantOrdersFlow(message, context);
+      case 'order_tracking':
+        return this.handleOrderTrackingFlow(message, context);
+      case 'payment_support':
+        // Handle payment support flow
+        // For now, just return to main menu as a placeholder
+        context.currentFlow = undefined;
+        context.currentStep = undefined;
+        const userHandler = this.userTypeHandlers.get(context.userType);
+        return {
+          message:
+            'Your payment issue has been addressed. What else can I help you with today?',
+          type: 'options',
+          options: userHandler?.mainMenu || []
+        };
+      case 'account_support':
+        // Handle account support flow
+        // For now, just return to main menu as a placeholder
+        context.currentFlow = undefined;
+        context.currentStep = undefined;
+        const userHandler2 = this.userTypeHandlers.get(context.userType);
+        return {
+          message:
+            'Your account issue has been addressed. What else can I help you with today?',
+          type: 'options',
+          options: userHandler2?.mainMenu || []
+        };
       default:
+        // Check if we're in a nested flow step
+        if (
+          context.currentStep.includes('navigation_') ||
+          context.currentStep.includes('order_details_') ||
+          context.currentStep.includes('update_time_') ||
+          context.currentStep.includes('report_issue_') ||
+          context.currentStep.includes('order_info_') ||
+          context.currentStep.includes('emergency_') ||
+          context.currentStep.includes('contact_') ||
+          context.currentStep.includes('customer_unreachable_')
+        ) {
+          // Handle nested flows based on the parent flow
+          if (context.currentFlow === 'driver_support') {
+            return this.handleDriverSupportFlow(message, context);
+          } else if (context.currentFlow === 'restaurant_orders') {
+            return this.handleRestaurantOrdersFlow(message, context);
+          } else if (context.currentFlow === 'order_tracking') {
+            return this.handleOrderTrackingFlow(message, context);
+          }
+        }
+
         return this.getDefaultResponse(context);
     }
   }
@@ -1007,32 +1078,530 @@ export class ChatbotService {
     switch (context.currentStep) {
       case 'identify_need':
         if (message.toLowerCase().includes('navigation')) {
+          context.currentStep = 'navigation_options';
           return {
             message: '🗺️ Navigation Support Available:',
-            type: 'quick_reply',
-            quickReplies: [
-              'Get best route',
-              'Traffic alerts',
-              'Customer location',
-              'Emergency contacts'
+            type: 'options',
+            options: [
+              { text: 'Get best route', value: 'best_route' },
+              { text: 'Traffic alerts', value: 'traffic_alerts' },
+              { text: 'Customer location help', value: 'customer_location' },
+              { text: 'Parking assistance', value: 'parking_help' },
+              { text: 'Back to driver menu', value: 'back_to_driver_menu' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('contact')) {
+          context.currentStep = 'contact_options';
+          return {
+            message: '📱 Customer Contact Options:',
+            type: 'options',
+            options: [
+              { text: 'Call customer', value: 'call_customer' },
+              { text: 'Text customer', value: 'text_customer' },
+              {
+                text: 'Unable to reach customer',
+                value: 'customer_unreachable'
+              },
+              { text: 'Back to driver menu', value: 'back_to_driver_menu' }
+            ]
+          };
+        } else if (
+          message.toLowerCase().includes('order_info') ||
+          message.toLowerCase().includes('order detail')
+        ) {
+          context.currentStep = 'order_info_options';
+          return {
+            message: '📦 Select an order to view details:',
+            type: 'options',
+            options: [
+              { text: 'Current delivery (#A7X29)', value: 'current_delivery' },
+              { text: 'Next pickup (#B8Y31)', value: 'next_pickup' },
+              { text: 'Order history', value: 'order_history' },
+              { text: 'Back to driver menu', value: 'back_to_driver_menu' }
             ]
           };
         } else if (message.toLowerCase().includes('emergency')) {
+          context.currentStep = 'emergency_options';
           return {
-            message:
-              '🚨 This is an emergency support channel. What type of emergency?',
+            message: '🚨 Emergency Support - What type of emergency?',
             type: 'options',
             options: [
-              { text: 'Vehicle breakdown', value: 'breakdown' },
+              { text: 'Vehicle breakdown', value: 'vehicle_breakdown' },
               { text: 'Accident', value: 'accident' },
-              { text: 'Safety concern', value: 'safety' },
-              { text: 'Medical emergency', value: 'medical' }
+              { text: 'Safety concern', value: 'safety_concern' },
+              { text: 'Medical emergency', value: 'medical_emergency' },
+              { text: 'Back to driver menu', value: 'back_to_driver_menu' }
             ],
             priority: 'urgent',
             requiresHuman: true
           };
         }
         break;
+
+      case 'navigation_options':
+        if (message.toLowerCase().includes('best_route')) {
+          context.currentStep = 'best_route_options';
+          return {
+            message: '🛣️ Best Route Options:',
+            type: 'options',
+            options: [
+              { text: 'Fastest route', value: 'fastest_route' },
+              { text: 'Avoid highways', value: 'avoid_highways' },
+              { text: 'Avoid tolls', value: 'avoid_tolls' },
+              {
+                text: 'Optimize multiple deliveries',
+                value: 'optimize_deliveries'
+              },
+              {
+                text: 'Back to navigation options',
+                value: 'back_to_navigation'
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('traffic')) {
+          return {
+            message:
+              '🚦 Current Traffic Alerts in Your Area:\n\n• Heavy congestion on Main St between 5th and 9th Ave\n• Construction on Highway 101 near exit 25\n• Accident reported on Broadway and 3rd St\n\nWould you like to:',
+            type: 'options',
+            options: [
+              { text: 'Reroute to avoid traffic', value: 'reroute_traffic' },
+              { text: 'Get estimated delay time', value: 'delay_estimate' },
+              {
+                text: 'Back to navigation options',
+                value: 'back_to_navigation'
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('customer_location')) {
+          return {
+            message: '📍 Customer Location Support:',
+            type: 'options',
+            options: [
+              { text: 'Get detailed directions', value: 'detailed_directions' },
+              { text: 'Address seems incorrect', value: 'address_issue' },
+              { text: 'Building/apartment access help', value: 'access_help' },
+              {
+                text: 'Back to navigation options',
+                value: 'back_to_navigation'
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('parking')) {
+          return {
+            message: '🅿️ Parking Assistance:',
+            type: 'options',
+            options: [
+              { text: 'Find nearby parking', value: 'find_parking' },
+              { text: 'Parking rules for this area', value: 'parking_rules' },
+              { text: 'Report no parking available', value: 'no_parking' },
+              {
+                text: 'Back to navigation options',
+                value: 'back_to_navigation'
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back')) {
+          context.currentStep = 'identify_need';
+          return {
+            message: 'How can I assist you today?',
+            type: 'options',
+            options: [
+              { text: 'Navigation help', value: 'navigation' },
+              { text: 'Customer contact', value: 'contact' },
+              { text: 'Order details', value: 'order_info' },
+              { text: 'Emergency', value: 'emergency' }
+            ]
+          };
+        }
+        break;
+
+      case 'best_route_options':
+        if (message.toLowerCase().includes('fastest')) {
+          return {
+            message:
+              '🚀 Calculating fastest route to your destination...\n\nEstimated arrival time: 7:45 PM (15 minutes)\nDistance: 3.2 miles\nTraffic: Light\n\nRoute has been sent to your navigation app.',
+            type: 'options',
+            options: [
+              { text: 'Start navigation', value: 'start_navigation' },
+              { text: 'Find alternate route', value: 'alternate_route' },
+              {
+                text: 'Back to navigation options',
+                value: 'back_to_navigation'
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('avoid_highways')) {
+          return {
+            message:
+              '🛣️ Calculating route avoiding highways...\n\nEstimated arrival time: 7:52 PM (22 minutes)\nDistance: 4.1 miles\nTraffic: Moderate\n\nRoute has been sent to your navigation app.',
+            type: 'options',
+            options: [
+              { text: 'Start navigation', value: 'start_navigation' },
+              { text: 'Find alternate route', value: 'alternate_route' },
+              {
+                text: 'Back to navigation options',
+                value: 'back_to_navigation'
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('avoid_tolls')) {
+          return {
+            message:
+              '💰 Calculating route avoiding tolls...\n\nEstimated arrival time: 7:50 PM (20 minutes)\nDistance: 3.8 miles\nTraffic: Light to Moderate\n\nRoute has been sent to your navigation app.',
+            type: 'options',
+            options: [
+              { text: 'Start navigation', value: 'start_navigation' },
+              { text: 'Find alternate route', value: 'alternate_route' },
+              {
+                text: 'Back to navigation options',
+                value: 'back_to_navigation'
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('optimize')) {
+          return {
+            message:
+              '📦 Optimizing route for multiple deliveries...\n\nOptimal delivery order:\n1. 123 Main St (2 min away)\n2. 456 Oak Ave (5 min from stop 1)\n3. 789 Pine Blvd (3 min from stop 2)\n\nTotal estimated time: 35 minutes\nTotal distance: 5.3 miles',
+            type: 'options',
+            options: [
+              { text: 'Start optimized navigation', value: 'start_navigation' },
+              {
+                text: 'Reorder deliveries manually',
+                value: 'reorder_deliveries'
+              },
+              {
+                text: 'Back to navigation options',
+                value: 'back_to_navigation'
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back')) {
+          context.currentStep = 'navigation_options';
+          return {
+            message: '🗺️ Navigation Support Available:',
+            type: 'options',
+            options: [
+              { text: 'Get best route', value: 'best_route' },
+              { text: 'Traffic alerts', value: 'traffic_alerts' },
+              { text: 'Customer location help', value: 'customer_location' },
+              { text: 'Parking assistance', value: 'parking_help' },
+              { text: 'Back to driver menu', value: 'back_to_driver_menu' }
+            ]
+          };
+        }
+        break;
+
+      case 'contact_options':
+        if (message.toLowerCase().includes('call')) {
+          return {
+            message:
+              '📞 Initiating call to customer (Sarah Johnson) at (555) 123-4567...\n\nReminder: For safety, please ensure you are parked before making the call.',
+            type: 'options',
+            options: [
+              { text: 'Call completed', value: 'call_completed' },
+              { text: 'No answer', value: 'no_answer' },
+              { text: 'Wrong number', value: 'wrong_number' },
+              { text: 'Back to contact options', value: 'back_to_contact' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('text')) {
+          return {
+            message: '✉️ Send a text message to customer:',
+            type: 'form',
+            formFields: [
+              {
+                name: 'message',
+                type: 'text',
+                label: 'Message to Customer',
+                required: true
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('unreachable')) {
+          context.currentStep = 'customer_unreachable_options';
+          return {
+            message: '⚠️ Unable to reach customer. What would you like to do?',
+            type: 'options',
+            options: [
+              { text: 'Wait 5 more minutes', value: 'wait_more' },
+              { text: 'Leave at safe location', value: 'leave_safe' },
+              { text: 'Contact support', value: 'contact_support' },
+              { text: 'Cancel delivery', value: 'cancel_delivery' },
+              { text: 'Back to contact options', value: 'back_to_contact' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back')) {
+          context.currentStep = 'identify_need';
+          return {
+            message: 'How can I assist you today?',
+            type: 'options',
+            options: [
+              { text: 'Navigation help', value: 'navigation' },
+              { text: 'Customer contact', value: 'contact' },
+              { text: 'Order details', value: 'order_info' },
+              { text: 'Emergency', value: 'emergency' }
+            ]
+          };
+        }
+        break;
+
+      case 'customer_unreachable_options':
+        if (message.toLowerCase().includes('wait_more')) {
+          return {
+            message:
+              "⏱️ We'll wait 5 more minutes and then try contacting the customer again. I'll send you a reminder when it's time.",
+            type: 'options',
+            options: [
+              { text: 'Customer arrived', value: 'customer_arrived' },
+              { text: 'Still unreachable', value: 'still_unreachable' },
+              { text: 'Back to contact options', value: 'back_to_contact' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('leave_safe')) {
+          return {
+            message:
+              '📦 If you decide to leave the order at a safe location, please:\n\n1. Take a clear photo of where you left it\n2. Send the photo to the customer\n3. Add detailed description of the location\n\nWould you like to proceed?',
+            type: 'options',
+            options: [
+              { text: 'Take photo and complete delivery', value: 'take_photo' },
+              { text: 'No safe location available', value: 'no_safe_location' },
+              {
+                text: 'Back to unreachable options',
+                value: 'back_to_unreachable'
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('contact_support')) {
+          return {
+            message:
+              '👥 Connecting you with support team. Please wait a moment...',
+            type: 'transfer',
+            priority: 'medium',
+            requiresHuman: true
+          };
+        } else if (message.toLowerCase().includes('back')) {
+          context.currentStep = 'contact_options';
+          return {
+            message: '📱 Customer Contact Options:',
+            type: 'options',
+            options: [
+              { text: 'Call customer', value: 'call_customer' },
+              { text: 'Text customer', value: 'text_customer' },
+              {
+                text: 'Unable to reach customer',
+                value: 'customer_unreachable'
+              },
+              { text: 'Back to driver menu', value: 'back_to_driver_menu' }
+            ]
+          };
+        }
+        break;
+
+      case 'order_info_options':
+        if (message.toLowerCase().includes('current_delivery')) {
+          return {
+            message:
+              '📝 Order #A7X29 Details:\n\n• Customer: Sarah Johnson\n• Address: 123 Main St, Apt 4B\n• Items: Double Cheeseburger, Fries, Milkshake\n• Restaurant: Burger Joint\n• Pickup time: 7:15 PM\n• Delivery ETA: 7:30 PM\n• Special instructions: "Please knock, don\'t ring doorbell. Dog barks."',
+            type: 'options',
+            options: [
+              { text: 'Contact customer', value: 'contact_customer_A7X29' },
+              { text: 'Navigate to address', value: 'navigate_A7X29' },
+              { text: 'Report issue with order', value: 'report_issue_A7X29' },
+              { text: 'Back to order info', value: 'back_to_order_info' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('next_pickup')) {
+          return {
+            message:
+              '📝 Order #B8Y31 Details:\n\n• Customer: Mike Chen\n• Address: 456 Oak Ave\n• Items: Dragon Roll, California Roll, Miso Soup\n• Restaurant: Sushi Express\n• Pickup time: 7:45 PM\n• Delivery ETA: 8:00 PM\n• Special instructions: "Leave at door, no contact delivery please."',
+            type: 'options',
+            options: [
+              { text: 'Contact restaurant', value: 'contact_restaurant_B8Y31' },
+              {
+                text: 'Navigate to restaurant',
+                value: 'navigate_restaurant_B8Y31'
+              },
+              { text: 'Adjust pickup time', value: 'adjust_pickup_B8Y31' },
+              { text: 'Back to order info', value: 'back_to_order_info' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('history')) {
+          return {
+            message:
+              "📋 Today's Delivery History:\n\n• Order #X5Y21 - Completed at 6:15 PM\n• Order #Z7W32 - Completed at 6:45 PM\n• Order #V9U27 - Completed at 7:00 PM",
+            type: 'options',
+            options: [
+              { text: 'View earnings summary', value: 'view_earnings' },
+              { text: 'View customer ratings', value: 'view_ratings' },
+              { text: 'Back to order info', value: 'back_to_order_info' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back')) {
+          context.currentStep = 'identify_need';
+          return {
+            message: 'How can I assist you today?',
+            type: 'options',
+            options: [
+              { text: 'Navigation help', value: 'navigation' },
+              { text: 'Customer contact', value: 'contact' },
+              { text: 'Order details', value: 'order_info' },
+              { text: 'Emergency', value: 'emergency' }
+            ]
+          };
+        }
+        break;
+
+      case 'emergency_options':
+        if (message.toLowerCase().includes('vehicle_breakdown')) {
+          return {
+            message:
+              "🚨 Vehicle Breakdown Emergency\n\nYour safety is our priority. I've alerted our emergency support team, and they will contact you immediately.\n\nIn the meantime:\n1. Move to a safe location if possible\n2. Turn on hazard lights\n3. Stay in your vehicle if it's safe to do so",
+            type: 'options',
+            options: [
+              {
+                text: 'Request roadside assistance',
+                value: 'roadside_assistance'
+              },
+              { text: 'Call emergency hotline', value: 'call_emergency' },
+              { text: 'Cancel current deliveries', value: 'cancel_deliveries' }
+            ],
+            priority: 'urgent',
+            requiresHuman: true
+          };
+        } else if (message.toLowerCase().includes('accident')) {
+          return {
+            message:
+              "🚨 Accident Emergency\n\nI've alerted our emergency response team. They will contact you immediately.\n\nImportant steps to take now:\n1. Check if anyone needs medical attention\n2. Call local emergency services (911) if needed\n3. Exchange information with other parties if applicable\n4. Take photos of the scene if safe to do so",
+            type: 'options',
+            options: [
+              { text: 'Call 911', value: 'call_911' },
+              {
+                text: 'Speak to emergency support',
+                value: 'emergency_support'
+              },
+              { text: 'Report accident details', value: 'report_accident' }
+            ],
+            priority: 'urgent',
+            requiresHuman: true
+          };
+        } else if (message.toLowerCase().includes('safety')) {
+          return {
+            message:
+              "🚨 Safety Concern\n\nYour safety is our top priority. I've alerted our safety response team, and they will contact you immediately.\n\nIf you feel you're in immediate danger, please:\n1. Move to a safe, public location\n2. Call local emergency services if necessary\n3. Stay on this chat so we can assist you",
+            type: 'options',
+            options: [
+              { text: 'Call 911', value: 'call_911' },
+              { text: 'Speak to safety team', value: 'safety_team' },
+              {
+                text: 'Cancel current delivery',
+                value: 'cancel_delivery_safety'
+              }
+            ],
+            priority: 'urgent',
+            requiresHuman: true
+          };
+        } else if (message.toLowerCase().includes('medical')) {
+          return {
+            message:
+              "🚨 Medical Emergency\n\nI've alerted our emergency response team. They will contact you immediately.\n\nIf this is a life-threatening emergency:\n1. Call local emergency services (911) immediately\n2. If safe to do so, pull over and turn on hazard lights\n3. Focus on your health first - deliveries can wait",
+            type: 'options',
+            options: [
+              { text: 'Call 911', value: 'call_911' },
+              { text: 'Speak to medical support', value: 'medical_support' },
+              { text: 'Cancel all deliveries', value: 'cancel_all_medical' }
+            ],
+            priority: 'urgent',
+            requiresHuman: true
+          };
+        } else if (message.toLowerCase().includes('back')) {
+          context.currentStep = 'identify_need';
+          return {
+            message: 'How can I assist you today?',
+            type: 'options',
+            options: [
+              { text: 'Navigation help', value: 'navigation' },
+              { text: 'Customer contact', value: 'contact' },
+              { text: 'Order details', value: 'order_info' },
+              { text: 'Emergency', value: 'emergency' }
+            ]
+          };
+        }
+        break;
+    }
+
+    // Handle common navigation commands
+    if (
+      message.toLowerCase().includes('back_to_driver_menu') ||
+      message.toLowerCase().includes('back_to_navigation') ||
+      message.toLowerCase().includes('back_to_contact') ||
+      message.toLowerCase().includes('back_to_order_info') ||
+      message.toLowerCase().includes('back_to_unreachable')
+    ) {
+      // Extract the destination from the command
+      if (message.toLowerCase().includes('navigation')) {
+        context.currentStep = 'navigation_options';
+        return {
+          message: '🗺️ Navigation Support Available:',
+          type: 'options',
+          options: [
+            { text: 'Get best route', value: 'best_route' },
+            { text: 'Traffic alerts', value: 'traffic_alerts' },
+            { text: 'Customer location help', value: 'customer_location' },
+            { text: 'Parking assistance', value: 'parking_help' },
+            { text: 'Back to driver menu', value: 'back_to_driver_menu' }
+          ]
+        };
+      } else if (message.toLowerCase().includes('contact')) {
+        context.currentStep = 'contact_options';
+        return {
+          message: '📱 Customer Contact Options:',
+          type: 'options',
+          options: [
+            { text: 'Call customer', value: 'call_customer' },
+            { text: 'Text customer', value: 'text_customer' },
+            { text: 'Unable to reach customer', value: 'customer_unreachable' },
+            { text: 'Back to driver menu', value: 'back_to_driver_menu' }
+          ]
+        };
+      } else if (message.toLowerCase().includes('order_info')) {
+        context.currentStep = 'order_info_options';
+        return {
+          message: '📦 Select an order to view details:',
+          type: 'options',
+          options: [
+            { text: 'Current delivery (#A7X29)', value: 'current_delivery' },
+            { text: 'Next pickup (#B8Y31)', value: 'next_pickup' },
+            { text: 'Order history', value: 'order_history' },
+            { text: 'Back to driver menu', value: 'back_to_driver_menu' }
+          ]
+        };
+      } else if (message.toLowerCase().includes('unreachable')) {
+        context.currentStep = 'customer_unreachable_options';
+        return {
+          message: '⚠️ Unable to reach customer. What would you like to do?',
+          type: 'options',
+          options: [
+            { text: 'Wait 5 more minutes', value: 'wait_more' },
+            { text: 'Leave at safe location', value: 'leave_safe' },
+            { text: 'Contact support', value: 'contact_support' },
+            { text: 'Cancel delivery', value: 'cancel_delivery' },
+            { text: 'Back to contact options', value: 'back_to_contact' }
+          ]
+        };
+      } else {
+        // Default to main driver menu
+        context.currentStep = 'identify_need';
+        return {
+          message: 'How can I assist you today?',
+          type: 'options',
+          options: [
+            { text: 'Navigation help', value: 'navigation' },
+            { text: 'Customer contact', value: 'contact' },
+            { text: 'Order details', value: 'order_info' },
+            { text: 'Emergency', value: 'emergency' }
+          ]
+        };
+      }
     }
 
     return this.completeFlow(
@@ -1048,30 +1617,484 @@ export class ChatbotService {
     switch (context.currentStep) {
       case 'order_management':
         if (message.toLowerCase().includes('pending')) {
+          context.currentStep = 'view_pending_orders';
           return {
-            message: '📋 Here are your pending orders management options:',
-            type: 'carousel',
-            cards: [
+            message: '📋 Here are your pending orders:',
+            type: 'options',
+            options: [
               {
-                title: 'Current Orders',
-                subtitle: 'View and manage active orders',
-                buttons: [
-                  { text: 'View orders', value: 'view_orders' },
-                  { text: 'Update times', value: 'update_times' }
-                ]
+                text: 'Order #1234 - Pizza Place - $45.99',
+                value: 'order_1234'
               },
               {
-                title: 'Menu Management',
-                subtitle: 'Update availability and pricing',
-                buttons: [
-                  { text: 'Mark unavailable', value: 'mark_unavailable' },
-                  { text: 'Update prices', value: 'update_prices' }
-                ]
-              }
+                text: 'Order #5678 - Burger Joint - $32.50',
+                value: 'order_5678'
+              },
+              {
+                text: 'Order #9012 - Sushi Express - $67.25',
+                value: 'order_9012'
+              },
+              { text: 'Back to order management', value: 'back_to_orders' }
+            ]
+          };
+        } else if (
+          message.toLowerCase().includes('update') ||
+          message.toLowerCase().includes('preparation')
+        ) {
+          context.currentStep = 'update_preparation_time';
+          return {
+            message: 'Select an order to update preparation time:',
+            type: 'options',
+            options: [
+              {
+                text: 'Order #1234 - Pizza Place - Current: 15 min',
+                value: 'prep_1234'
+              },
+              {
+                text: 'Order #5678 - Burger Joint - Current: 10 min',
+                value: 'prep_5678'
+              },
+              {
+                text: 'Order #9012 - Sushi Express - Current: 20 min',
+                value: 'prep_9012'
+              },
+              { text: 'Back to order management', value: 'back_to_orders' }
+            ]
+          };
+        } else if (
+          message.toLowerCase().includes('unavailable') ||
+          message.toLowerCase().includes('mark')
+        ) {
+          context.currentStep = 'mark_items_unavailable';
+          return {
+            message: 'Select menu category to update availability:',
+            type: 'options',
+            options: [
+              { text: 'Appetizers', value: 'cat_appetizers' },
+              { text: 'Main Dishes', value: 'cat_main' },
+              { text: 'Desserts', value: 'cat_desserts' },
+              { text: 'Beverages', value: 'cat_beverages' },
+              { text: 'Back to order management', value: 'back_to_orders' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('issue')) {
+          context.currentStep = 'handle_order_issue';
+          return {
+            message: 'Select the order with an issue:',
+            type: 'options',
+            options: [
+              { text: 'Order #1234 - Pizza Place', value: 'issue_1234' },
+              { text: 'Order #5678 - Burger Joint', value: 'issue_5678' },
+              { text: 'Order #9012 - Sushi Express', value: 'issue_9012' },
+              { text: 'Back to order management', value: 'back_to_orders' }
             ]
           };
         }
         break;
+
+      case 'view_pending_orders':
+        if (
+          message.toLowerCase().includes('order_1234') ||
+          message.includes('1234')
+        ) {
+          context.currentStep = 'order_details_1234';
+          return {
+            message:
+              '📝 Order #1234 Details:\n- Customer: John Smith\n- Items: Large Pepperoni Pizza, Garlic Knots, Soda\n- Total: $45.99\n- Requested: 6:30 PM\n- Status: Preparing',
+            type: 'options',
+            options: [
+              { text: 'Mark as ready for pickup', value: 'ready_1234' },
+              { text: 'Update preparation time', value: 'update_time_1234' },
+              { text: 'Contact customer', value: 'contact_customer_1234' },
+              { text: 'Report issue with order', value: 'report_issue_1234' },
+              { text: 'Back to pending orders', value: 'back_to_pending' }
+            ]
+          };
+        } else if (
+          message.toLowerCase().includes('order_5678') ||
+          message.includes('5678')
+        ) {
+          context.currentStep = 'order_details_5678';
+          return {
+            message:
+              '📝 Order #5678 Details:\n- Customer: Sarah Johnson\n- Items: Double Cheeseburger, Fries, Milkshake\n- Total: $32.50\n- Requested: 7:00 PM\n- Status: Preparing',
+            type: 'options',
+            options: [
+              { text: 'Mark as ready for pickup', value: 'ready_5678' },
+              { text: 'Update preparation time', value: 'update_time_5678' },
+              { text: 'Contact customer', value: 'contact_customer_5678' },
+              { text: 'Report issue with order', value: 'report_issue_5678' },
+              { text: 'Back to pending orders', value: 'back_to_pending' }
+            ]
+          };
+        } else if (
+          message.toLowerCase().includes('order_9012') ||
+          message.includes('9012')
+        ) {
+          context.currentStep = 'order_details_9012';
+          return {
+            message:
+              '📝 Order #9012 Details:\n- Customer: Mike Chen\n- Items: Dragon Roll, California Roll, Miso Soup\n- Total: $67.25\n- Requested: 7:15 PM\n- Status: Preparing',
+            type: 'options',
+            options: [
+              { text: 'Mark as ready for pickup', value: 'ready_9012' },
+              { text: 'Update preparation time', value: 'update_time_9012' },
+              { text: 'Contact customer', value: 'contact_customer_9012' },
+              { text: 'Report issue with order', value: 'report_issue_9012' },
+              { text: 'Back to pending orders', value: 'back_to_pending' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back')) {
+          context.currentStep = 'order_management';
+          return this.conversationFlows.get('restaurant_orders').steps[
+            'order_management'
+          ];
+        }
+        break;
+
+      case 'order_details_1234':
+      case 'order_details_5678':
+      case 'order_details_9012':
+        const orderId = context.currentStep.split('_').pop();
+
+        if (message.toLowerCase().includes('ready')) {
+          return {
+            message: `✅ Order #${orderId} has been marked as ready for pickup. The customer will be notified.`,
+            type: 'options',
+            options: [
+              { text: 'Back to pending orders', value: 'back_to_pending' },
+              { text: 'Back to order management', value: 'back_to_orders' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('update_time')) {
+          context.currentStep = `update_time_${orderId}`;
+          return {
+            message: 'Select new preparation time:',
+            type: 'options',
+            options: [
+              { text: '5 minutes', value: `time_5_${orderId}` },
+              { text: '10 minutes', value: `time_10_${orderId}` },
+              { text: '15 minutes', value: `time_15_${orderId}` },
+              { text: '20 minutes', value: `time_20_${orderId}` },
+              { text: '30+ minutes', value: `time_30_${orderId}` }
+            ]
+          };
+        } else if (message.toLowerCase().includes('contact')) {
+          return {
+            message: `📱 Connecting you with the customer for Order #${orderId}. You can send a message below:`,
+            type: 'form',
+            formFields: [
+              {
+                name: 'message',
+                type: 'text',
+                label: 'Message to Customer',
+                required: true
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('report')) {
+          context.currentStep = `report_issue_${orderId}`;
+          return {
+            message: 'What issue are you experiencing with this order?',
+            type: 'options',
+            options: [
+              {
+                text: 'Missing ingredients',
+                value: `issue_ingredients_${orderId}`
+              },
+              {
+                text: 'Equipment problem',
+                value: `issue_equipment_${orderId}`
+              },
+              { text: 'Staff shortage', value: `issue_staff_${orderId}` },
+              { text: 'Other issue', value: `issue_other_${orderId}` }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back_to_pending')) {
+          context.currentStep = 'view_pending_orders';
+          return {
+            message: '📋 Here are your pending orders:',
+            type: 'options',
+            options: [
+              {
+                text: 'Order #1234 - Pizza Place - $45.99',
+                value: 'order_1234'
+              },
+              {
+                text: 'Order #5678 - Burger Joint - $32.50',
+                value: 'order_5678'
+              },
+              {
+                text: 'Order #9012 - Sushi Express - $67.25',
+                value: 'order_9012'
+              },
+              { text: 'Back to order management', value: 'back_to_orders' }
+            ]
+          };
+        }
+        break;
+
+      case 'update_time_1234':
+      case 'update_time_5678':
+      case 'update_time_9012':
+        const orderIdTime = context.currentStep.split('_').pop();
+        const timeMatch = message.match(/time_(\d+)/);
+
+        if (timeMatch) {
+          const minutes = timeMatch[1];
+          return {
+            message: `✅ Preparation time for Order #${orderIdTime} has been updated to ${minutes} minutes. The customer will be notified of the new estimate.`,
+            type: 'options',
+            options: [
+              {
+                text: 'Back to order details',
+                value: `back_to_order_${orderIdTime}`
+              },
+              { text: 'Back to pending orders', value: 'back_to_pending' },
+              { text: 'Back to order management', value: 'back_to_orders' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back_to_order')) {
+          context.currentStep = `order_details_${orderIdTime}`;
+          return this.handleRestaurantOrdersFlow(`order_${orderIdTime}`, {
+            ...context,
+            currentStep: 'view_pending_orders'
+          });
+        }
+        break;
+
+      case 'report_issue_1234':
+      case 'report_issue_5678':
+      case 'report_issue_9012':
+        const orderIdIssue = context.currentStep.split('_').pop();
+
+        if (message.toLowerCase().includes('issue_')) {
+          let issueType = 'other';
+          if (message.includes('ingredients'))
+            issueType = 'missing ingredients';
+          else if (message.includes('equipment'))
+            issueType = 'equipment problem';
+          else if (message.includes('staff')) issueType = 'staff shortage';
+
+          return {
+            message: `🚨 Your issue (${issueType}) with Order #${orderIdIssue} has been reported to management. Would you like to:`,
+            type: 'options',
+            options: [
+              {
+                text: 'Cancel the order',
+                value: `cancel_order_${orderIdIssue}`
+              },
+              {
+                text: 'Notify the customer of delay',
+                value: `notify_delay_${orderIdIssue}`
+              },
+              {
+                text: 'Request assistance',
+                value: `request_help_${orderIdIssue}`
+              },
+              {
+                text: 'Back to order details',
+                value: `back_to_order_${orderIdIssue}`
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back_to_order')) {
+          context.currentStep = `order_details_${orderIdIssue}`;
+          return this.handleRestaurantOrdersFlow(`order_${orderIdIssue}`, {
+            ...context,
+            currentStep: 'view_pending_orders'
+          });
+        }
+        break;
+
+      case 'update_preparation_time':
+        if (message.toLowerCase().includes('prep_')) {
+          const orderIdPrep = message.split('_').pop();
+          context.currentStep = `update_time_${orderIdPrep}`;
+          return {
+            message: `Select new preparation time for Order #${orderIdPrep}:`,
+            type: 'options',
+            options: [
+              { text: '5 minutes', value: `time_5_${orderIdPrep}` },
+              { text: '10 minutes', value: `time_10_${orderIdPrep}` },
+              { text: '15 minutes', value: `time_15_${orderIdPrep}` },
+              { text: '20 minutes', value: `time_20_${orderIdPrep}` },
+              { text: '30+ minutes', value: `time_30_${orderIdPrep}` }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back_to_orders')) {
+          context.currentStep = 'order_management';
+          return this.conversationFlows.get('restaurant_orders').steps[
+            'order_management'
+          ];
+        }
+        break;
+
+      case 'mark_items_unavailable':
+        if (message.toLowerCase().includes('cat_')) {
+          const category = message.replace('cat_', '');
+          context.currentStep = `items_${category}`;
+
+          let items = [];
+          switch (category) {
+            case 'appetizers':
+              items = [
+                {
+                  text: 'Garlic Bread - Currently Available',
+                  value: 'item_garlic_bread'
+                },
+                {
+                  text: 'Mozzarella Sticks - Currently Available',
+                  value: 'item_mozzarella'
+                },
+                {
+                  text: 'Chicken Wings - Currently Available',
+                  value: 'item_wings'
+                }
+              ];
+              break;
+            case 'main':
+              items = [
+                {
+                  text: 'Pepperoni Pizza - Currently Available',
+                  value: 'item_pepperoni'
+                },
+                {
+                  text: 'Margherita Pizza - Currently Available',
+                  value: 'item_margherita'
+                },
+                {
+                  text: 'Spaghetti Bolognese - Currently Available',
+                  value: 'item_spaghetti'
+                }
+              ];
+              break;
+            case 'desserts':
+              items = [
+                {
+                  text: 'Tiramisu - Currently Available',
+                  value: 'item_tiramisu'
+                },
+                {
+                  text: 'Cheesecake - Currently Available',
+                  value: 'item_cheesecake'
+                },
+                {
+                  text: 'Ice Cream - Currently Available',
+                  value: 'item_ice_cream'
+                }
+              ];
+              break;
+            case 'beverages':
+              items = [
+                { text: 'Soda - Currently Available', value: 'item_soda' },
+                { text: 'Beer - Currently Available', value: 'item_beer' },
+                { text: 'Wine - Currently Available', value: 'item_wine' }
+              ];
+              break;
+          }
+
+          return {
+            message: `Select items to mark as unavailable in ${category}:`,
+            type: 'options',
+            options: [
+              ...items,
+              { text: 'Back to categories', value: 'back_to_categories' },
+              { text: 'Back to order management', value: 'back_to_orders' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back_to_orders')) {
+          context.currentStep = 'order_management';
+          return this.conversationFlows.get('restaurant_orders').steps[
+            'order_management'
+          ];
+        }
+        break;
+
+      case 'items_appetizers':
+      case 'items_main':
+      case 'items_desserts':
+      case 'items_beverages':
+        if (message.toLowerCase().includes('item_')) {
+          const item = message.replace('item_', '').replace(/_/g, ' ');
+          return {
+            message: `✅ ${item} has been marked as unavailable. Customers will not be able to order this item until you mark it available again.`,
+            type: 'options',
+            options: [
+              {
+                text: 'Mark another item unavailable',
+                value: 'back_to_categories'
+              },
+              { text: 'Back to order management', value: 'back_to_orders' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back_to_categories')) {
+          context.currentStep = 'mark_items_unavailable';
+          return {
+            message: 'Select menu category to update availability:',
+            type: 'options',
+            options: [
+              { text: 'Appetizers', value: 'cat_appetizers' },
+              { text: 'Main Dishes', value: 'cat_main' },
+              { text: 'Desserts', value: 'cat_desserts' },
+              { text: 'Beverages', value: 'cat_beverages' },
+              { text: 'Back to order management', value: 'back_to_orders' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back_to_orders')) {
+          context.currentStep = 'order_management';
+          return this.conversationFlows.get('restaurant_orders').steps[
+            'order_management'
+          ];
+        }
+        break;
+
+      case 'handle_order_issue':
+        if (message.toLowerCase().includes('issue_')) {
+          const orderIdIssue = message.split('_').pop();
+          context.currentStep = `order_issue_${orderIdIssue}`;
+          return {
+            message: `What issue are you experiencing with Order #${orderIdIssue}?`,
+            type: 'options',
+            options: [
+              {
+                text: 'Missing ingredients',
+                value: `issue_ingredients_${orderIdIssue}`
+              },
+              {
+                text: 'Equipment problem',
+                value: `issue_equipment_${orderIdIssue}`
+              },
+              { text: 'Staff shortage', value: `issue_staff_${orderIdIssue}` },
+              {
+                text: 'Customer complaint',
+                value: `issue_customer_${orderIdIssue}`
+              },
+              { text: 'Other issue', value: `issue_other_${orderIdIssue}` },
+              {
+                text: 'Back to order selection',
+                value: 'back_to_issue_selection'
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back_to_orders')) {
+          context.currentStep = 'order_management';
+          return this.conversationFlows.get('restaurant_orders').steps[
+            'order_management'
+          ];
+        }
+        break;
+    }
+
+    // If we reach here, check for common navigation commands
+    if (
+      message.toLowerCase().includes('back_to_orders') ||
+      message.toLowerCase() === 'back'
+    ) {
+      context.currentStep = 'order_management';
+      return this.conversationFlows.get('restaurant_orders').steps[
+        'order_management'
+      ];
     }
 
     return this.completeFlow(
@@ -1417,5 +2440,330 @@ export class ChatbotService {
         cleanMessage.includes(cleanOptionText)
       );
     });
+  }
+
+  // Add a new method to handle order tracking flow
+  private handleOrderTrackingFlow(
+    message: string,
+    context: ConversationContext
+  ): ChatbotResponse {
+    switch (context.currentStep) {
+      case 'get_order_id':
+        // Simulate finding the order based on input
+        const orderInfo = {
+          id: 'ORD-12345',
+          status: 'In Transit',
+          estimatedDelivery: '7:45 PM',
+          restaurant: 'Burger Joint',
+          items: ['Double Cheeseburger', 'Fries', 'Soda'],
+          driver: 'Michael',
+          currentLocation: '3 blocks away'
+        };
+
+        context.currentStep = 'show_order_status';
+        context.collectedData = { ...context.collectedData, orderInfo };
+
+        return {
+          message: `📦 Order #${orderInfo.id} Status: ${orderInfo.status}\n\nRestaurant: ${orderInfo.restaurant}\nItems: ${orderInfo.items.join(', ')}\nDriver: ${orderInfo.driver}\nCurrent Location: ${orderInfo.currentLocation}\nEstimated Delivery: ${orderInfo.estimatedDelivery}`,
+          type: 'options',
+          options: [
+            { text: 'Get live location', value: 'live_location' },
+            { text: 'Contact driver', value: 'contact_driver' },
+            { text: 'Modify order', value: 'modify_order' },
+            { text: 'Report issue', value: 'report_issue' },
+            { text: 'Back to main menu', value: 'back_to_main' }
+          ]
+        };
+
+      case 'show_order_status':
+        if (message.toLowerCase().includes('live_location')) {
+          context.currentStep = 'show_live_location';
+          return {
+            message:
+              '🗺️ Live Location:\n\nYour driver is currently 3 blocks away on Main Street.\nEstimated arrival in 8 minutes.\n\nThe map link has been sent to your phone.',
+            type: 'options',
+            options: [
+              { text: 'Refresh location', value: 'refresh_location' },
+              { text: 'Contact driver', value: 'contact_driver' },
+              { text: 'Back to order status', value: 'back_to_status' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('contact_driver')) {
+          context.currentStep = 'contact_driver_options';
+          return {
+            message: '📱 Contact Driver Options:',
+            type: 'options',
+            options: [
+              { text: 'Call driver', value: 'call_driver' },
+              { text: 'Text driver', value: 'text_driver' },
+              {
+                text: 'Special delivery instructions',
+                value: 'delivery_instructions'
+              },
+              { text: 'Back to order status', value: 'back_to_status' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('modify_order')) {
+          context.currentStep = 'modify_order_options';
+          return {
+            message: '✏️ Modify Order Options:',
+            type: 'options',
+            options: [
+              { text: 'Change delivery address', value: 'change_address' },
+              { text: 'Add items', value: 'add_items' },
+              { text: 'Remove items', value: 'remove_items' },
+              { text: 'Cancel order', value: 'cancel_order' },
+              { text: 'Back to order status', value: 'back_to_status' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('report_issue')) {
+          context.currentStep = 'report_issue_options';
+          return {
+            message: '⚠️ Report Issue:',
+            type: 'options',
+            options: [
+              { text: 'Order taking too long', value: 'delay_issue' },
+              { text: 'Wrong address', value: 'address_issue' },
+              { text: 'Payment problem', value: 'payment_issue' },
+              { text: 'Other issue', value: 'other_issue' },
+              { text: 'Back to order status', value: 'back_to_status' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back_to_main')) {
+          // Return to main menu
+          context.currentFlow = undefined;
+          context.currentStep = undefined;
+          const userHandler = this.userTypeHandlers.get(context.userType);
+          return {
+            message: 'What else can I help you with today?',
+            type: 'options',
+            options: userHandler?.mainMenu || []
+          };
+        }
+        break;
+
+      case 'show_live_location':
+        if (message.toLowerCase().includes('refresh')) {
+          return {
+            message:
+              '🗺️ Updated Live Location:\n\nYour driver is currently 2 blocks away on Main Street.\nEstimated arrival in 5 minutes.\n\nThe map has been refreshed.',
+            type: 'options',
+            options: [
+              { text: 'Refresh location', value: 'refresh_location' },
+              { text: 'Contact driver', value: 'contact_driver' },
+              { text: 'Back to order status', value: 'back_to_status' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back_to_status')) {
+          context.currentStep = 'show_order_status';
+          const orderInfo = context.collectedData.orderInfo;
+          return {
+            message: `📦 Order #${orderInfo.id} Status: ${orderInfo.status}\n\nRestaurant: ${orderInfo.restaurant}\nItems: ${orderInfo.items.join(', ')}\nDriver: ${orderInfo.driver}\nCurrent Location: ${orderInfo.currentLocation}\nEstimated Delivery: ${orderInfo.estimatedDelivery}`,
+            type: 'options',
+            options: [
+              { text: 'Get live location', value: 'live_location' },
+              { text: 'Contact driver', value: 'contact_driver' },
+              { text: 'Modify order', value: 'modify_order' },
+              { text: 'Report issue', value: 'report_issue' },
+              { text: 'Back to main menu', value: 'back_to_main' }
+            ]
+          };
+        }
+        break;
+
+      case 'contact_driver_options':
+        if (message.toLowerCase().includes('call_driver')) {
+          return {
+            message:
+              '📞 Calling driver (Michael) at (555) 987-6543...\n\nPlease note that the driver may not answer if they are driving.',
+            type: 'options',
+            options: [
+              {
+                text: 'Back to contact options',
+                value: 'back_to_contact_options'
+              },
+              { text: 'Back to order status', value: 'back_to_status' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('text_driver')) {
+          return {
+            message: '✉️ Send a text message to driver:',
+            type: 'form',
+            formFields: [
+              {
+                name: 'message',
+                type: 'text',
+                label: 'Message to Driver',
+                required: true
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('delivery_instructions')) {
+          return {
+            message: '📝 Add special delivery instructions:',
+            type: 'form',
+            formFields: [
+              {
+                name: 'instructions',
+                type: 'text',
+                label: 'Delivery Instructions',
+                required: true
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back_to_status')) {
+          context.currentStep = 'show_order_status';
+          const orderInfo = context.collectedData.orderInfo;
+          return {
+            message: `📦 Order #${orderInfo.id} Status: ${orderInfo.status}\n\nRestaurant: ${orderInfo.restaurant}\nItems: ${orderInfo.items.join(', ')}\nDriver: ${orderInfo.driver}\nCurrent Location: ${orderInfo.currentLocation}\nEstimated Delivery: ${orderInfo.estimatedDelivery}`,
+            type: 'options',
+            options: [
+              { text: 'Get live location', value: 'live_location' },
+              { text: 'Contact driver', value: 'contact_driver' },
+              { text: 'Modify order', value: 'modify_order' },
+              { text: 'Report issue', value: 'report_issue' },
+              { text: 'Back to main menu', value: 'back_to_main' }
+            ]
+          };
+        }
+        break;
+
+      case 'modify_order_options':
+        if (message.toLowerCase().includes('change_address')) {
+          return {
+            message: '🏠 Enter new delivery address:',
+            type: 'form',
+            formFields: [
+              {
+                name: 'address',
+                type: 'text',
+                label: 'New Address',
+                required: true
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('cancel_order')) {
+          context.currentStep = 'confirm_cancel';
+          return {
+            message:
+              '⚠️ Are you sure you want to cancel your order? Cancellation fees may apply.',
+            type: 'options',
+            options: [
+              { text: 'Yes, cancel order', value: 'confirm_cancel' },
+              { text: 'No, keep my order', value: 'keep_order' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back_to_status')) {
+          context.currentStep = 'show_order_status';
+          const orderInfo = context.collectedData.orderInfo;
+          return {
+            message: `📦 Order #${orderInfo.id} Status: ${orderInfo.status}\n\nRestaurant: ${orderInfo.restaurant}\nItems: ${orderInfo.items.join(', ')}\nDriver: ${orderInfo.driver}\nCurrent Location: ${orderInfo.currentLocation}\nEstimated Delivery: ${orderInfo.estimatedDelivery}`,
+            type: 'options',
+            options: [
+              { text: 'Get live location', value: 'live_location' },
+              { text: 'Contact driver', value: 'contact_driver' },
+              { text: 'Modify order', value: 'modify_order' },
+              { text: 'Report issue', value: 'report_issue' },
+              { text: 'Back to main menu', value: 'back_to_main' }
+            ]
+          };
+        }
+        break;
+
+      case 'confirm_cancel':
+        if (message.toLowerCase().includes('confirm_cancel')) {
+          return {
+            message:
+              '✅ Your order has been cancelled. A confirmation email has been sent to your registered email address. Any applicable refund will be processed within 3-5 business days.',
+            type: 'options',
+            options: [
+              { text: 'Back to main menu', value: 'back_to_main' },
+              { text: 'Place new order', value: 'new_order' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('keep_order')) {
+          context.currentStep = 'modify_order_options';
+          return {
+            message: '✏️ Modify Order Options:',
+            type: 'options',
+            options: [
+              { text: 'Change delivery address', value: 'change_address' },
+              { text: 'Add items', value: 'add_items' },
+              { text: 'Remove items', value: 'remove_items' },
+              { text: 'Cancel order', value: 'cancel_order' },
+              { text: 'Back to order status', value: 'back_to_status' }
+            ]
+          };
+        }
+        break;
+
+      case 'report_issue_options':
+        // Handle various issue reports
+        if (
+          message.toLowerCase().includes('delay') ||
+          message.toLowerCase().includes('address') ||
+          message.toLowerCase().includes('payment') ||
+          message.toLowerCase().includes('other')
+        ) {
+          return {
+            message:
+              '🙏 Thank you for reporting this issue. Our customer support team has been notified and will address this immediately. Would you like to:',
+            type: 'options',
+            options: [
+              { text: 'Talk to customer support', value: 'talk_support' },
+              { text: 'Get compensation options', value: 'compensation' },
+              { text: 'Back to order status', value: 'back_to_status' }
+            ]
+          };
+        } else if (message.toLowerCase().includes('back_to_status')) {
+          context.currentStep = 'show_order_status';
+          const orderInfo = context.collectedData.orderInfo;
+          return {
+            message: `📦 Order #${orderInfo.id} Status: ${orderInfo.status}\n\nRestaurant: ${orderInfo.restaurant}\nItems: ${orderInfo.items.join(', ')}\nDriver: ${orderInfo.driver}\nCurrent Location: ${orderInfo.currentLocation}\nEstimated Delivery: ${orderInfo.estimatedDelivery}`,
+            type: 'options',
+            options: [
+              { text: 'Get live location', value: 'live_location' },
+              { text: 'Contact driver', value: 'contact_driver' },
+              { text: 'Modify order', value: 'modify_order' },
+              { text: 'Report issue', value: 'report_issue' },
+              { text: 'Back to main menu', value: 'back_to_main' }
+            ]
+          };
+        }
+        break;
+    }
+
+    // Handle common navigation commands
+    if (message.toLowerCase().includes('back_to_status')) {
+      context.currentStep = 'show_order_status';
+      const orderInfo = context.collectedData.orderInfo;
+      return {
+        message: `📦 Order #${orderInfo.id} Status: ${orderInfo.status}\n\nRestaurant: ${orderInfo.restaurant}\nItems: ${orderInfo.items.join(', ')}\nDriver: ${orderInfo.driver}\nCurrent Location: ${orderInfo.currentLocation}\nEstimated Delivery: ${orderInfo.estimatedDelivery}`,
+        type: 'options',
+        options: [
+          { text: 'Get live location', value: 'live_location' },
+          { text: 'Contact driver', value: 'contact_driver' },
+          { text: 'Modify order', value: 'modify_order' },
+          { text: 'Report issue', value: 'report_issue' },
+          { text: 'Back to main menu', value: 'back_to_main' }
+        ]
+      };
+    } else if (message.toLowerCase().includes('back_to_main')) {
+      // Return to main menu
+      context.currentFlow = undefined;
+      context.currentStep = undefined;
+      const userHandler = this.userTypeHandlers.get(context.userType);
+      return {
+        message: 'What else can I help you with today?',
+        type: 'options',
+        options: userHandler?.mainMenu || []
+      };
+    }
+
+    // Default response
+    return this.completeFlow(
+      context,
+      'Your order tracking request has been processed. Anything else I can help with?'
+    );
   }
 }
