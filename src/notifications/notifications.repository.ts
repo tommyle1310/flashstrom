@@ -11,10 +11,64 @@ export class NotificationsRepository {
   ) {}
 
   async findById(id: string): Promise<Notification> {
-    return await this.notificationEntityRepository.findOne({
-      where: { id },
-      relations: ['created_by']
-    });
+    const rawResults = await this.notificationEntityRepository.query(
+      `
+      SELECT
+        n.id,
+        n.avatar,
+        n.title,
+        n.desc,
+        n.image,
+        n.link,
+        n.target_user,
+        n.created_by_id,
+        n.is_read,
+        n.target_user_id,
+        n.created_at,
+        n.updated_at,
+        a.id as admin_id,
+        a.first_name as admin_first_name,
+        a.last_name as admin_last_name,
+        u.email as admin_email
+      FROM notifications n
+      LEFT JOIN admins a ON n.created_by_id = a.id
+      LEFT JOIN users u ON a.user_id = u.id
+      WHERE n.id = $1
+    `,
+      [id]
+    );
+
+    if (rawResults.length === 0) {
+      return null;
+    }
+
+    const row = rawResults[0];
+    const notification = {
+      id: row.id,
+      avatar: row.avatar,
+      title: row.title,
+      desc: row.desc,
+      image: row.image,
+      link: row.link,
+      target_user: row.target_user,
+      created_by_id: row.created_by_id,
+      is_read: row.is_read,
+      target_user_id: row.target_user_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      created_by: row.admin_id
+        ? {
+            id: row.admin_id,
+            first_name: row.admin_first_name,
+            last_name: row.admin_last_name,
+            user: {
+              email: row.admin_email
+            }
+          }
+        : null
+    } as Notification;
+
+    return notification;
   }
 
   async findAll(): Promise<Notification[]> {
@@ -82,7 +136,23 @@ export class NotificationsRepository {
   }
 
   async update(id: string, updateNotificationDto: any): Promise<Notification> {
-    await this.notificationEntityRepository.update(id, updateNotificationDto);
+    const { target_user, ...restOfDto } = updateNotificationDto;
+
+    const queryBuilder = this.notificationEntityRepository
+      .createQueryBuilder()
+      .update(Notification)
+      .where('id = :id', { id });
+
+    if (restOfDto && Object.keys(restOfDto).length > 0) {
+      queryBuilder.set(restOfDto);
+    }
+
+    if (target_user && Array.isArray(target_user)) {
+      queryBuilder.set({ target_user: target_user });
+    }
+
+    await queryBuilder.execute();
+
     return await this.findById(id);
   }
 

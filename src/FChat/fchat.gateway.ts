@@ -105,6 +105,94 @@ export class FchatGateway
     client.data.user = userData;
     this.userSockets.set(userData.id, client);
     await client.join(`user_${userData.id}`);
+
+    // Auto-reconnect to existing support sessions for eligible user types
+    if (
+      userData.logged_in_as === Enum_UserType.CUSTOMER ||
+      userData.logged_in_as === Enum_UserType.DRIVER ||
+      userData.logged_in_as === Enum_UserType.RESTAURANT_OWNER ||
+      userData.logged_in_as === Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE
+    ) {
+      await this.autoReconnectSupportSession(client, userData);
+    }
+  }
+
+  // Add method to auto-reconnect to existing support sessions
+  private async autoReconnectSupportSession(client: Socket, userData: any) {
+    try {
+      console.log(
+        `🔄 Checking for existing support session for user ${userData.id}`
+      );
+
+      // Check for active support session
+      const existingSession =
+        await this.supportChatService.getUserActiveSession(userData.id);
+
+      if (existingSession) {
+        console.log(
+          `✅ Found existing support session: ${existingSession.sessionId}`
+        );
+
+        // Join the support room
+        await client.join(`support_${existingSession.sessionId}`);
+
+        // Check if there's a corresponding database room for this support session
+        let dbRoom = await this.fchatService.getRoomByParticipantsAndType(
+          [userData.id],
+          RoomType.SUPPORT
+        );
+
+        // If no database room exists, create one for the support session
+        if (!dbRoom) {
+          dbRoom = await this.fchatService.createRoom({
+            type: RoomType.SUPPORT,
+            participants: [
+              { userId: userData.id, userType: userData.logged_in_as }
+            ],
+            relatedId: existingSession.sessionId,
+            createdAt: new Date(),
+            lastActivity: new Date(),
+            category: 'support_session',
+            tags: ['support']
+          });
+          console.log(
+            `📁 Created database room for existing support session: ${dbRoom.id}`
+          );
+        }
+
+        // Fetch support session messages from database
+        const messages = await this.fchatService.getRoomMessages(dbRoom.id);
+
+        // Emit reconnection events
+        client.emit('supportSessionReconnected', {
+          sessionId: existingSession.sessionId,
+          dbRoomId: dbRoom.id,
+          chatMode: existingSession.chatMode,
+          status: existingSession.status,
+          priority: existingSession.priority,
+          category: existingSession.category,
+          slaDeadline: existingSession.slaDeadline,
+          timestamp: new Date().toISOString()
+        });
+
+        // Emit message history
+        client.emit('supportChatHistory', {
+          sessionId: existingSession.sessionId,
+          dbRoomId: dbRoom.id,
+          messages: messages,
+          timestamp: new Date().toISOString()
+        });
+
+        console.log(
+          `🔄 Auto-reconnected user ${userData.id} to support session ${existingSession.sessionId}`
+        );
+      }
+    } catch (error) {
+      console.error(
+        `❌ Error auto-reconnecting support session for user ${userData.id}:`,
+        error
+      );
+    }
   }
 
   @SubscribeMessage('startChat')
@@ -1028,8 +1116,37 @@ export class FchatGateway
 
       if (existingSession) {
         console.log('✅ Found existing session:', existingSession.sessionId);
+
+        // Join the support room
+        await client.join(`support_${existingSession.sessionId}`);
+
+        // Check if there's a corresponding database room for this support session
+        let dbRoom = await this.fchatService.getRoomByParticipantsAndType(
+          [userData.id],
+          RoomType.SUPPORT
+        );
+
+        // If no database room exists, create one for the support session
+        if (!dbRoom) {
+          dbRoom = await this.fchatService.createRoom({
+            type: RoomType.SUPPORT,
+            participants: [
+              { userId: userData.id, userType: userData.logged_in_as }
+            ],
+            relatedId: existingSession.sessionId,
+            createdAt: new Date(),
+            lastActivity: new Date(),
+            category: 'support_session',
+            tags: ['support']
+          });
+          console.log(
+            `📁 Created database room for existing support session: ${dbRoom.id}`
+          );
+        }
+
         client.emit('supportChatStarted', {
           sessionId: existingSession.sessionId,
+          dbRoomId: dbRoom.id,
           chatMode: existingSession.chatMode,
           status: existingSession.status,
           priority: existingSession.priority,
@@ -1039,6 +1156,7 @@ export class FchatGateway
         client.emit('startSupportChatResponse', {
           success: true,
           sessionId: existingSession.sessionId,
+          dbRoomId: dbRoom.id,
           chatMode: existingSession.chatMode,
           status: existingSession.status,
           priority: existingSession.priority,
@@ -1059,6 +1177,22 @@ export class FchatGateway
         data?.metadata
       );
 
+      // Create database room for the support session
+      const dbRoom = await this.fchatService.createRoom({
+        type: RoomType.SUPPORT,
+        participants: [
+          { userId: userData.id, userType: userData.logged_in_as }
+        ],
+        relatedId: session.sessionId,
+        createdAt: new Date(),
+        lastActivity: new Date(),
+        category: 'support_session',
+        tags: ['support']
+      });
+      console.log(
+        `📁 Created database room for new support session: ${dbRoom.id}`
+      );
+
       // Join support room
       await client.join(`support_${session.sessionId}`);
 
@@ -1066,6 +1200,7 @@ export class FchatGateway
       const greeting = this.chatbotService.getGreeting(userData.logged_in_as);
       client.emit('chatbotMessage', {
         sessionId: session.sessionId,
+        dbRoomId: dbRoom.id,
         message: greeting.message,
         type: greeting.type,
         options: greeting.options,
@@ -1079,6 +1214,7 @@ export class FchatGateway
 
       client.emit('supportChatStarted', {
         sessionId: session.sessionId,
+        dbRoomId: dbRoom.id,
         chatMode: session.chatMode,
         status: session.status,
         priority: session.priority,
@@ -1090,6 +1226,7 @@ export class FchatGateway
       client.emit('startSupportChatResponse', {
         success: true,
         sessionId: session.sessionId,
+        dbRoomId: dbRoom.id,
         chatMode: session.chatMode,
         status: session.status,
         priority: session.priority,
@@ -1267,9 +1404,50 @@ export class FchatGateway
         `✅ Session validated: ${data.sessionId}, mode: ${session.chatMode}`
       );
 
+      // Find or create database room for this support session
+      let dbRoom = await this.fchatService.getRoomByParticipantsAndType(
+        [userData.id],
+        RoomType.SUPPORT
+      );
+
+      if (!dbRoom) {
+        dbRoom = await this.fchatService.createRoom({
+          type: RoomType.SUPPORT,
+          participants: [
+            { userId: userData.id, userType: userData.logged_in_as }
+          ],
+          relatedId: session.sessionId,
+          createdAt: new Date(),
+          lastActivity: new Date(),
+          category: 'support_session',
+          tags: ['support']
+        });
+        console.log(
+          `📁 Created database room for support session: ${dbRoom.id}`
+        );
+      }
+
+      // Store user message in database
+      const dbMessage = await this.fchatService.createMessage({
+        roomId: dbRoom.id,
+        senderId: userData.id,
+        senderType: userData.logged_in_as,
+        content: data.message,
+        messageType:
+          data.messageType === 'text' ? MessageType.TEXT : MessageType.TEXT,
+        readBy: [userData.id],
+        timestamp: new Date(),
+        taggedUsers: []
+      });
+
+      // Update room activity
+      await this.fchatService.updateRoomActivity(dbRoom.id);
+
       // Emit user message to room
       this.server.to(`support_${data.sessionId}`).emit('userMessage', {
         sessionId: data.sessionId,
+        dbRoomId: dbRoom.id,
+        messageId: dbMessage.id,
         message: data.message,
         messageType: data.messageType || 'text',
         timestamp: new Date().toISOString(),
@@ -1313,18 +1491,66 @@ export class FchatGateway
           );
 
           if (result.success) {
+            const transferMessage =
+              "✅ You've been connected to a customer care representative!";
+
+            // Store bot transfer message in database
+            await this.fchatService.createMessage({
+              roomId: dbRoom.id,
+              senderId: 'system_bot',
+              senderType: Enum_UserType.ADMIN,
+              content: transferMessage,
+              messageType: MessageType.SYSTEM_MESSAGE,
+              readBy: [userData.id],
+              timestamp: new Date(),
+              systemMessageData: {
+                type: 'USER_PROMOTED',
+                userId: userData.id,
+                userName:
+                  `${userData.first_name || ''} ${userData.last_name || ''}`.trim(),
+                additionalInfo: {
+                  chatMode: 'human',
+                  reason: response.requiresHuman
+                    ? 'Bot escalation'
+                    : 'User request'
+                }
+              }
+            });
+
             client.emit('chatbotMessage', {
               sessionId: data.sessionId,
-              message:
-                "✅ You've been connected to a customer care representative!",
+              dbRoomId: dbRoom.id,
+              message: transferMessage,
               type: 'text',
               timestamp: new Date().toISOString(),
               sender: 'FlashFood Assistant'
             });
           } else {
+            const queueMessage = `⏳ All our agents are currently busy. You're in position ${result.position} in the queue. Estimated wait time: ${result.estimatedWaitTime} minutes.\n\nI can continue helping you while you wait!`;
+
+            // Store bot queue message in database
+            await this.fchatService.createMessage({
+              roomId: dbRoom.id,
+              senderId: 'system_bot',
+              senderType: Enum_UserType.ADMIN,
+              content: queueMessage,
+              messageType: MessageType.SYSTEM_MESSAGE,
+              readBy: [userData.id],
+              timestamp: new Date(),
+              systemMessageData: {
+                type: 'USER_JOINED',
+                userId: userData.id,
+                additionalInfo: {
+                  queuePosition: result.position,
+                  estimatedWaitTime: result.estimatedWaitTime
+                }
+              }
+            });
+
             client.emit('chatbotMessage', {
               sessionId: data.sessionId,
-              message: `⏳ All our agents are currently busy. You're in position ${result.position} in the queue. Estimated wait time: ${result.estimatedWaitTime} minutes.\n\nI can continue helping you while you wait!`,
+              dbRoomId: dbRoom.id,
+              message: queueMessage,
               type: 'text',
               timestamp: new Date().toISOString(),
               sender: 'FlashFood Assistant',
@@ -1337,9 +1563,21 @@ export class FchatGateway
         } else {
           // Send enhanced chatbot response
           setTimeout(
-            () => {
+            async () => {
+              // Store bot response in database
+              await this.fchatService.createMessage({
+                roomId: dbRoom.id,
+                senderId: 'system_bot',
+                senderType: Enum_UserType.ADMIN,
+                content: response.message,
+                messageType: MessageType.TEXT,
+                readBy: [userData.id],
+                timestamp: new Date()
+              });
+
               client.emit('chatbotMessage', {
                 sessionId: data.sessionId,
+                dbRoomId: dbRoom.id,
                 message: response.message,
                 type: response.type,
                 options: response.options,
@@ -1362,6 +1600,8 @@ export class FchatGateway
         if (agentSocket) {
           agentSocket.emit('customerMessage', {
             sessionId: data.sessionId,
+            dbRoomId: dbRoom.id,
+            messageId: dbMessage.id,
             message: data.message,
             messageType: data.messageType || 'text',
             timestamp: new Date().toISOString(),
@@ -1373,10 +1613,29 @@ export class FchatGateway
         }
       } else {
         // Session is waiting for agent
+        const waitingMessage =
+          "Your message has been recorded. You'll be connected to an agent shortly.";
+
+        // Store system waiting message in database
+        await this.fchatService.createMessage({
+          roomId: dbRoom.id,
+          senderId: 'system',
+          senderType: Enum_UserType.ADMIN,
+          content: waitingMessage,
+          messageType: MessageType.SYSTEM_MESSAGE,
+          readBy: [userData.id],
+          timestamp: new Date(),
+          systemMessageData: {
+            type: 'USER_JOINED',
+            userId: userData.id,
+            additionalInfo: { status: 'waiting_for_agent' }
+          }
+        });
+
         client.emit('systemMessage', {
           sessionId: data.sessionId,
-          message:
-            "Your message has been recorded. You'll be connected to an agent shortly.",
+          dbRoomId: dbRoom.id,
+          message: waitingMessage,
           timestamp: new Date().toISOString(),
           type: 'info'
         });
@@ -2730,6 +2989,215 @@ export class FchatGateway
           userSocket.leave(room);
         }
       }
+    }
+  }
+
+  // ============ SUPPORT CHAT HISTORY RETRIEVAL ============
+
+  @SubscribeMessage('getSupportChatHistory')
+  async handleGetSupportChatHistory(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { sessionId: string; limit?: number; offset?: number }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      const session = await this.supportChatService.getSession(data.sessionId);
+      if (!session || session.userId !== userData.id) {
+        throw new WsException('Unauthorized or session not found');
+      }
+
+      // Find database room for this support session
+      const dbRoom = await this.fchatService.getRoomByParticipantsAndType(
+        [userData.id],
+        RoomType.SUPPORT
+      );
+
+      if (!dbRoom) {
+        client.emit('supportChatHistory', {
+          sessionId: data.sessionId,
+          messages: [],
+          totalCount: 0,
+          timestamp: new Date().toISOString()
+        });
+        return { sessionId: data.sessionId, messages: [], totalCount: 0 };
+      }
+
+      // Get messages with pagination
+      const messages = await this.fchatService.getRoomMessages(
+        dbRoom.id,
+        data.limit || 50,
+        data.offset || 0
+      );
+
+      client.emit('supportChatHistory', {
+        sessionId: data.sessionId,
+        dbRoomId: dbRoom.id,
+        messages: messages,
+        totalCount: messages.length,
+        timestamp: new Date().toISOString()
+      });
+
+      return {
+        sessionId: data.sessionId,
+        dbRoomId: dbRoom.id,
+        messages,
+        totalCount: messages.length
+      };
+    } catch (error: any) {
+      console.error('Error getting support chat history:', error);
+      client.emit('supportChatHistoryError', {
+        sessionId: data.sessionId,
+        error: error.message || 'Failed to get support chat history'
+      });
+      throw new WsException(
+        error.message || 'Failed to get support chat history'
+      );
+    }
+  }
+
+  @SubscribeMessage('getAllSupportSessions')
+  async handleGetAllSupportSessions(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data?: { includeEnded?: boolean; limit?: number; offset?: number }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      // Get all user's support sessions from database
+      const supportRooms = await this.fchatService.getUserSupportRooms(
+        userData.id,
+        data?.limit || 10,
+        data?.offset || 0
+      );
+
+      // Format sessions with last message and status
+      const formattedSessions = await Promise.all(
+        supportRooms.map(async room => {
+          // Get last message for each room
+          const lastMessage = await this.fchatService.getLastMessage(room.id);
+
+          // Try to get session info from Redis (for active sessions)
+          const sessionInfo = await this.supportChatService.getSession(
+            room.relatedId
+          );
+
+          return {
+            sessionId: room.relatedId,
+            dbRoomId: room.id,
+            type: room.type,
+            category: room.category,
+            tags: room.tags,
+            createdAt: room.createdAt.toISOString(),
+            lastActivity: room.lastActivity.toISOString(),
+            lastMessage: lastMessage
+              ? {
+                  id: lastMessage.id,
+                  content: lastMessage.content,
+                  messageType: lastMessage.messageType,
+                  timestamp: lastMessage.timestamp.toISOString(),
+                  senderType: lastMessage.senderType
+                }
+              : null,
+            sessionInfo: sessionInfo
+              ? {
+                  status: sessionInfo.status,
+                  chatMode: sessionInfo.chatMode,
+                  priority: sessionInfo.priority,
+                  agentId: sessionInfo.agentId
+                }
+              : {
+                  status: 'ended',
+                  chatMode: 'bot',
+                  priority: 'low',
+                  agentId: null
+                }
+          };
+        })
+      );
+
+      client.emit('allSupportSessions', {
+        sessions: formattedSessions,
+        totalCount: formattedSessions.length,
+        timestamp: new Date().toISOString()
+      });
+
+      return {
+        sessions: formattedSessions,
+        totalCount: formattedSessions.length
+      };
+    } catch (error: any) {
+      console.error('Error getting all support sessions:', error);
+      client.emit('allSupportSessionsError', {
+        error: error.message || 'Failed to get support sessions'
+      });
+      throw new WsException(error.message || 'Failed to get support sessions');
+    }
+  }
+
+  @SubscribeMessage('searchSupportMessages')
+  async handleSearchSupportMessages(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      query: string;
+      sessionId?: string;
+      messageType?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      limit?: number;
+      offset?: number;
+    }
+  ) {
+    try {
+      const userData = await this.validateToken(client);
+      if (!userData) {
+        throw new WsException('Unauthorized');
+      }
+
+      // Search messages in user's support rooms
+      const searchResults = await this.fchatService.searchUserMessages(
+        userData.id,
+        data.query,
+        {
+          roomType: RoomType.SUPPORT,
+          sessionId: data.sessionId,
+          messageType: data.messageType,
+          dateFrom: data.dateFrom ? new Date(data.dateFrom) : undefined,
+          dateTo: data.dateTo ? new Date(data.dateTo) : undefined,
+          limit: data.limit || 20,
+          offset: data.offset || 0
+        }
+      );
+
+      client.emit('supportMessageSearchResults', {
+        query: data.query,
+        results: searchResults,
+        totalCount: searchResults.length,
+        timestamp: new Date().toISOString()
+      });
+
+      return {
+        query: data.query,
+        results: searchResults,
+        totalCount: searchResults.length
+      };
+    } catch (error: any) {
+      console.error('Error searching support messages:', error);
+      client.emit('supportMessageSearchError', {
+        query: data.query,
+        error: error.message || 'Failed to search support messages'
+      });
+      throw new WsException(
+        error.message || 'Failed to search support messages'
+      );
     }
   }
 }

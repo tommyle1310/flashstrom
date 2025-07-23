@@ -288,8 +288,12 @@ export class FchatService {
     return this.roomRepository.save(room);
   }
 
-  async getRoomMessages(roomId: string): Promise<Message[]> {
-    const messages = await this.messageRepository
+  async getRoomMessages(
+    roomId: string,
+    limit?: number,
+    offset?: number
+  ): Promise<Message[]> {
+    let queryBuilder = this.messageRepository
       .createQueryBuilder('message')
       .select([
         'message.id',
@@ -363,8 +367,17 @@ export class FchatService {
         'customerCareSender.contact_phone'
       ])
       .where('message.roomId = :roomId', { roomId })
-      .orderBy('message.timestamp', 'ASC')
-      .getMany();
+      .orderBy('message.timestamp', 'ASC');
+
+    if (limit) {
+      queryBuilder = queryBuilder.limit(limit);
+    }
+
+    if (offset) {
+      queryBuilder = queryBuilder.offset(offset);
+    }
+
+    const messages = await queryBuilder.getMany();
 
     // Apply fallbacks to sender fields for all messages
     return messages.map(message => {
@@ -884,5 +897,102 @@ export class FchatService {
       otherParticipantDetails: participantDetailsByRoom.get(room.id) || null,
       userMessageCount: messageCountByRoom.get(room.id) || 0
     }));
+  }
+
+  // Support chat specific methods
+  async getUserSupportRooms(
+    userId: string,
+    limit: number = 10,
+    offset: number = 0
+  ): Promise<ChatRoom[]> {
+    return this.roomRepository
+      .createQueryBuilder('room')
+      .where('room.type = :type', { type: RoomType.SUPPORT })
+      .andWhere('room.participants @> :participant', {
+        participant: [{ userId }]
+      })
+      .orderBy('room.lastActivity', 'DESC')
+      .limit(limit)
+      .offset(offset)
+      .getMany();
+  }
+
+  async getLastMessage(roomId: string): Promise<Message | null> {
+    return this.messageRepository
+      .createQueryBuilder('message')
+      .leftJoinAndSelect('message.customerSender', 'customerSender')
+      .leftJoinAndSelect('message.driverSender', 'driverSender')
+      .leftJoinAndSelect('message.restaurantSender', 'restaurantSender')
+      .leftJoinAndSelect('message.customerCareSender', 'customerCareSender')
+      .leftJoinAndSelect('message.adminSender', 'adminSender')
+      .where('message.roomId = :roomId', { roomId })
+      .orderBy('message.timestamp', 'DESC')
+      .getOne();
+  }
+
+  async searchUserMessages(
+    userId: string,
+    query: string,
+    options: {
+      roomType?: RoomType;
+      sessionId?: string;
+      messageType?: string;
+      dateFrom?: Date;
+      dateTo?: Date;
+      limit?: number;
+      offset?: number;
+    }
+  ): Promise<Message[]> {
+    let queryBuilder = this.messageRepository
+      .createQueryBuilder('message')
+      .leftJoinAndSelect('message.chatRoom', 'chatRoom')
+      .leftJoinAndSelect('message.customerSender', 'customerSender')
+      .leftJoinAndSelect('message.driverSender', 'driverSender')
+      .leftJoinAndSelect('message.restaurantSender', 'restaurantSender')
+      .leftJoinAndSelect('message.customerCareSender', 'customerCareSender')
+      .leftJoinAndSelect('message.adminSender', 'adminSender')
+      .where('chatRoom.participants @> :participant', {
+        participant: [{ userId }]
+      })
+      .andWhere('message.content ILIKE :query', { query: `%${query}%` });
+
+    if (options.roomType) {
+      queryBuilder = queryBuilder.andWhere('chatRoom.type = :roomType', {
+        roomType: options.roomType
+      });
+    }
+
+    if (options.sessionId) {
+      queryBuilder = queryBuilder.andWhere('chatRoom.relatedId = :sessionId', {
+        sessionId: options.sessionId
+      });
+    }
+
+    if (options.messageType) {
+      queryBuilder = queryBuilder.andWhere(
+        'message.messageType = :messageType',
+        {
+          messageType: options.messageType
+        }
+      );
+    }
+
+    if (options.dateFrom) {
+      queryBuilder = queryBuilder.andWhere('message.timestamp >= :dateFrom', {
+        dateFrom: options.dateFrom
+      });
+    }
+
+    if (options.dateTo) {
+      queryBuilder = queryBuilder.andWhere('message.timestamp <= :dateTo', {
+        dateTo: options.dateTo
+      });
+    }
+
+    return queryBuilder
+      .orderBy('message.timestamp', 'DESC')
+      .limit(options.limit || 20)
+      .offset(options.offset || 0)
+      .getMany();
   }
 }
