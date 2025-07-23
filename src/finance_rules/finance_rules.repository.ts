@@ -14,9 +14,26 @@ export class FinanceRulesRepository {
 
   async findById(id: string): Promise<FinanceRule | null> {
     try {
-      return await this.financeRuleEntityRepository.findOne({
-        where: { id }
-      });
+      return await this.financeRuleEntityRepository
+        .createQueryBuilder('financeRule')
+        .leftJoinAndSelect('financeRule.created_by', 'created_by')
+        .select([
+          'financeRule.id',
+          'financeRule.driver_fixed_wage',
+          'financeRule.customer_care_hourly_wage',
+          'financeRule.app_service_fee',
+          'financeRule.restaurant_commission',
+          'financeRule.created_by_id',
+          'financeRule.description',
+          'financeRule.created_at',
+          'financeRule.updated_at',
+          'created_by.id',
+          'created_by.first_name',
+          'created_by.last_name',
+          'created_by.role'
+        ])
+        .where({ id })
+        .getOne();
     } catch (error) {
       this.logger.error(
         `Error finding finance rule by id: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -113,11 +130,28 @@ export class FinanceRulesRepository {
     limit: number
   ): Promise<[FinanceRule[], number]> {
     try {
-      return await this.financeRuleEntityRepository.findAndCount({
-        skip,
-        take: limit,
-        order: { created_at: 'DESC' }
-      });
+      return await this.financeRuleEntityRepository
+        .createQueryBuilder('financeRule')
+        .leftJoinAndSelect('financeRule.created_by', 'created_by')
+        .select([
+          'financeRule.id',
+          'financeRule.driver_fixed_wage',
+          'financeRule.customer_care_hourly_wage',
+          'financeRule.app_service_fee',
+          'financeRule.restaurant_commission',
+          'financeRule.created_by_id',
+          'financeRule.description',
+          'financeRule.created_at',
+          'financeRule.updated_at',
+          'created_by.id',
+          'created_by.first_name',
+          'created_by.last_name',
+          'created_by.role'
+        ])
+        .skip(skip)
+        .take(limit)
+        .orderBy('financeRule.created_at', 'DESC')
+        .getManyAndCount();
     } catch (error) {
       this.logger.error(
         `Error finding paginated finance rules: ${error instanceof Error ? error.message : 'Unknown error'}`

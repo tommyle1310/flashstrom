@@ -2001,6 +2001,7 @@ export class FchatGateway
     }
   ) {
     try {
+      console.log('Sending agent message:', data);
       const userData = await this.validateToken(client);
       if (!userData) {
         throw new WsException('Unauthorized');

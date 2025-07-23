@@ -188,7 +188,9 @@ export class AuthService {
     basePayload: BasePayload,
     isGenerated?: string
   ) {
-    const userWithRole = await this.driverRepository.findOne({ where: { user_id: user.id } });
+    const userWithRole = await this.driverRepository.findOne({
+      where: { user_id: user.id }
+    });
     if (!userWithRole) {
       return createResponse('NotFound', null, 'Driver not found');
     }
@@ -472,6 +474,21 @@ export class AuthService {
       return createResponse('NotFound', null, `${type} not found`);
     }
 
+    // Check if admin role matches the requested login type
+    const adminRoleToLoginTypeMap = {
+      [AdminRole.SUPER_ADMIN]: Enum_UserType.SUPER_ADMIN,
+      [AdminRole.COMPANION_ADMIN]: Enum_UserType.COMPANION_ADMIN,
+      [AdminRole.FINANCE_ADMIN]: Enum_UserType.FINANCE_ADMIN
+    };
+
+    if (adminRoleToLoginTypeMap[admin.data.role] !== type) {
+      return createResponse(
+        'Unauthorized',
+        null,
+        `Access denied: You don't have ${type} role`
+      );
+    }
+
     const adminPayload = {
       ...basePayload,
       id: admin.data.id,
@@ -598,7 +615,7 @@ export class AuthService {
         // Get complete driver data
         const createdDriver = await this.driverRepository.findOne({
           where: { id: newUserWithRole.id },
-          relations: ['current_orders'],
+          relations: ['current_orders']
         });
 
         if (!createdDriver) {

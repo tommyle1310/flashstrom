@@ -118,7 +118,15 @@ export class FinanceRulesService {
         .orderBy('financeRule.created_at', 'DESC') // Sắp xếp theo created_at giảm dần để lấy bản ghi mới nhất
         .getOne();
 
-      return this.handleFinanceRuleResponse(latestFinanceRule);
+      if (!latestFinanceRule) {
+        return createResponse('NotFound', null, 'Finance rule not found');
+      }
+
+      // Use findById to get the latest finance rule with created_by details
+      const financeRuleWithDetails = await this.financeRulesRepository.findById(
+        latestFinanceRule.id
+      );
+      return this.handleFinanceRuleResponse(financeRuleWithDetails);
     } catch (error: any) {
       return this.handleError('Error fetching latest finance rule:', error);
     }
